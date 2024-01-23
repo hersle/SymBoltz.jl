@@ -2,7 +2,7 @@ using ModelingToolkit
 using Symbolics
 using LinearAlgebra: diagm # TODO: avoid big dependency?
 #using Tensorial
-using Tullio: @einsum as @einsum # Einstein summation convention # TODO: use Tensorial.@einsum? # TODO: import as einsum
+using Tullio: @einsum # Einstein summation convention # TODO: use Tensorial.@einsum? # TODO: import as einsum
 using Base.Iterators
 using DifferentialEquations
 using Plots
@@ -18,6 +18,9 @@ const MAXORDER = 1
 # TODO: write parametrized Tensor type?
 # TODO: - index T[+1] for upper indices and T[-1] for lower indices?
 
+# TODO:  symmetries with Tensorial?
+# TODO: Spacetimspecifye.jl/Metric.jl file with different metrics in different gauges?
+
 function pertorder(expr, small::Num, order)
     if order > 0
         expr = expand_derivatives((Differential(small)^order)(expr)) // factorial(order)
@@ -27,6 +30,10 @@ end
 
 function pertseries(expr, small::Num, order)
     return sum(pertorder(expr, small, o) * small^o for o in 0:order)
+end
+
+function perttrunc(expr)
+    return pertseries(expr, ϵ, MAXORDER)
 end
 
 # cancel a factor if it multiplies a *whole* expression
@@ -51,36 +58,13 @@ end
 X = [t, x, y, z]
 ∂ = Differential.(X)
 
-# 1) metric tensor
-# TODO: specify symmetries with Tensorial?
-# TODO: Spacetime.jl/Metric.jl file with different metrics in different gauges?
-g = diagm([-1-ϵ*2*Ψ, a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ)]) # g_μν
-g = pertseries.(g, ϵ, MAXORDER)
-
-# 2) inverse metric
-ginv = inv(g) # g^μν
-ginv = pertseries.(ginv, ϵ, MAXORDER)
-
-# 3) Christoffel symbols
-@einsum Γ[σ,μ,ν] := ginv[σ,ρ]/2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) # Γ^σ_μν
-Γ = simplify.(pertseries.(expand_derivatives.(Γ), ϵ, MAXORDER))
-
-# 4) Riemann tensor # TODO: skip, can compute Ricci tensor directly to avoid float issues?
-@einsum Rie[ρ,σ,μ,ν] := ∂[μ](Γ[ρ,ν,σ]) - ∂[ν](Γ[ρ,μ,σ]) # Rie^ρ_σμν
-@einsum Rie[ρ,σ,μ,ν] += Γ[ρ,μ,λ]*Γ[λ,ν,σ] - Γ[ρ,ν,λ]*Γ[λ,μ,σ] # must be on a separate line, otherwise @einsum fucks up because of the extra λ index here # TODO: casues float issues???
-Rie = expand.(pertseries.(expand_derivatives.(Rie), ϵ, MAXORDER))
-
-# 5) Ricci tensor
-@einsum Ric[μ,ν] := Rie[ρ,μ,ρ,ν] # Ric_μν
-Ric = simplify.(expand.(pertseries.(Ric, ϵ, MAXORDER)))
-
-# 6) Ricci scalar
-@einsum R := ginv[μ,ν] * Ric[μ,ν] # TODO: why does one term have float?
-R = simplify(pertseries(R, ϵ, MAXORDER))
-
-# 7) Einstein tensor
-G = Ric .- g/2 * R # G_μν
-G = simplify.(expand.(pertseries.(G, ϵ, MAXORDER)))
+# calculate metric g_μν -> inverse metric g^μν -> connection Γ^σ_μν -> Ricci tensor Ric_μν -> Ricci scalar R -> Einstein tensor G_μν
+g = diagm([-1-ϵ*2*Ψ, a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ)]) .|> perttrunc # g_μν
+ginv = inv(g) .|> perttrunc # g^μν
+@einsum Γ[σ,μ,ν] := ginv[σ,ρ]/2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) |> expand_derivatives |> perttrunc |> simplify # Γ^σ_μν
+@einsum Ric[μ,ν] := (∂[ρ](Γ[ρ,ν,μ]) - ∂[ν](Γ[ρ,ρ,μ])) / 4 + Γ[ρ,ρ,λ]*Γ[λ,ν,μ] - Γ[ρ,ν,λ]*Γ[λ,ρ,μ] |> expand_derivatives |> perttrunc |> simplify # Ric_μν # /4 since @einsum overcounts first two terms due to λ-summation in last two terms
+R = (@einsum _ := ginv[μ,ν] * Ric[μ,ν]) |> perttrunc |> simplify # TODO: why does one term have float?
+G = Ric .- g/2 * R .|> perttrunc .|> simplify # G_μν
 
 # function ∇(T::Tensor{S, Num, R, N}) where {S, R, N} # TODO: specialize at compile time?
 function ∇(T) # assume T = T^α1...αr has only upper indices for now # TODO: generalize
