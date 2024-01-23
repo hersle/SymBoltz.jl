@@ -45,13 +45,13 @@ end
 @variables Φ(a,x,y,z), Ψ(a,x,y,z) # TODO: linear perturbations (O(ϵ¹))
 
 X = [t, x, y, z]
-∂ = Differential.(X)
+∂ = expand_derivatives .∘ Differential.(X)
 
 # calculate metric g_μν -> inverse metric g^μν -> connection Γ^σ_μν -> Ricci tensor Ric_μν -> Ricci scalar R -> Einstein tensor G_μν
 g = diagm([-1-ϵ*2*Ψ, a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ)]) .|> perttrunc # g_μν
 ginv = inv(g) .|> perttrunc # g^μν
-@einsum Γ[σ,μ,ν] := ginv[σ,ρ]/2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) |> expand_derivatives |> perttrunc |> simplify # Γ^σ_μν
-@einsum Ric[μ,ν] := (∂[ρ](Γ[ρ,ν,μ]) - ∂[ν](Γ[ρ,ρ,μ])) / 4 + Γ[ρ,ρ,λ]*Γ[λ,ν,μ] - Γ[ρ,ν,λ]*Γ[λ,ρ,μ] |> expand_derivatives |> perttrunc |> simplify # Ric_μν # /4 since @einsum overcounts first two terms due to λ-summation in last two terms
+@einsum Γ[σ,μ,ν] := ginv[σ,ρ]/2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) |> perttrunc |> simplify # Γ^σ_μν
+@einsum Ric[μ,ν] := (∂[ρ](Γ[ρ,ν,μ]) - ∂[ν](Γ[ρ,ρ,μ])) / 4 + Γ[ρ,ρ,λ]*Γ[λ,ν,μ] - Γ[ρ,ν,λ]*Γ[λ,ρ,μ] |> perttrunc |> simplify # Ric_μν # /4 since @einsum overcounts first two terms due to λ-summation in last two terms
 R = (@einsum _ := ginv[μ,ν] * Ric[μ,ν]) |> perttrunc |> simplify # TODO: why does one term have float?
 G = Ric .- g/2 * R .|> perttrunc .|> simplify # G_μν
 
@@ -107,8 +107,8 @@ T = Tr + Tm # T^μν
 @einsum Tlo[μ,ν] := g[μ,α] * g[ν,β] * T[α,β] # |> perttrunc # T_μν
 
 # ∇_μ T^μν = 0
-@einsum tr[ν] := expand_derivatives(∇(Tr)[μ,μ,ν]) |> perttrunc
-@einsum tm[ν] := expand_derivatives(∇(Tm)[μ,μ,ν]) |> perttrunc
+@einsum tr[ν] := ∇(Tr)[μ,μ,ν] |> perttrunc
+@einsum tm[ν] := ∇(Tm)[μ,μ,ν] |> perttrunc
 
 # TODO: ∇_μ (n u^μ) = 0?
 
@@ -142,12 +142,12 @@ end
 @parameters H0 # TODO: turn into normal variables? seems parameters aren't "handled" by differentiation
 H = H0 * E
 ρcrit = 3*H0^2/(8*Num(π))
-eoms = expand_derivatives.(substitute.(eoms, Ref(Dict(
+eoms = substitute.(eoms, Ref(Dict(
     pertorder(ρm, ϵ, 0) => Ωm * ρcrit, # TODO: would like ρm[0] => ... instead
     pertorder(ρr, ϵ, 0) => Ωr * ρcrit,
     Λ => ΩΛ * 3*H0^2,
     ∂[1](a) => H*a, # TODO: would need to apply one more time for acceleration equation
-)), fold=false))
+)), fold=false)
 
 # re-parametrize from t to a
 aindep = Symbolics.variable("a")
