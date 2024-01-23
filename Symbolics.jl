@@ -8,8 +8,6 @@ using DifferentialEquations
 using Plots
 # TODO: use Grassmann.jl?
 
-const MAXORDER = 1
-
 # Buckingham-π theorem/package: https://github.com/rmsrosa/UnitfulBuckinghamPi.jl
 
 # TODO: solve analytical differential equations symbolically (not possible for now: https://discourse.julialang.org/t/solve-differential-equation-algebraically/106352/6)
@@ -21,20 +19,12 @@ const MAXORDER = 1
 # TODO:  symmetries with Tensorial?
 # TODO: Spacetimspecifye.jl/Metric.jl file with different metrics in different gauges?
 
-function pertorder(expr, small::Num, order)
-    if order > 0
-        expr = expand_derivatives((Differential(small)^order)(expr)) // factorial(order)
-    end
-    return substitute(expr, Dict(small => 0//1))
-end
-
-function pertseries(expr, small::Num, order)
-    return sum(pertorder(expr, small, o) * small^o for o in 0:order)
-end
-
-function perttrunc(expr)
-    return pertseries(expr, ϵ, MAXORDER)
-end
+const MAXORDER = 1
+@variables ϵ # perturbation book-keeping parameter
+pertorder(expr, ϵ, n) = n == 0 ? substitute(expr, ϵ => 0) : expand_derivatives((Differential(ϵ^n))(expr))
+pertseries(expr, ϵ, n) = sum(pertorder.(expr, ϵ, 0:n) .* ϵ .^ (0:n))
+perttrunc(expr) = pertseries(expr, ϵ, MAXORDER)
+# TODO: make some kind of O(ϵ^0), O(ϵ^1), ... functions?
 
 # cancel a factor if it multiplies a *whole* expression
 # TODO: fix. sometimes it returns Num, sometimes BasicSymbolic, ...
@@ -50,7 +40,6 @@ function cancel_factors(expr, factors)
     return expr
 end
 
-@variables ϵ # perturbation book-keeping parameter
 @variables t, x, y, z # coordinates
 @variables a(t) # background (O(ϵ⁰))
 @variables Φ(a,x,y,z), Ψ(a,x,y,z) # TODO: linear perturbations (O(ϵ¹))
@@ -98,14 +87,15 @@ function construct_species(w, cs2, subscript)
     vy = Symbolics.variable("v$(subscript)y"; T=Symbolics.FnType)(a, x, y, z)
     vz = Symbolics.variable("v$(subscript)z"; T=Symbolics.FnType)(a, x, y, z)
     u = [Num(0), ϵ*vx/a, ϵ*vy/a, ϵ*vz/a]
-    @einsum u2 := g[μ,ν] * u[μ] * u[ν] # == g[i,j] * u[i] * u[j] because u[0] == 0
-    u = [√(-(1+u2)/g[1,1]), u[2], u[3], u[4]] # set u[1] from normalization u^2 == -1 of u[i] (u[0] = 0 )
-    u = pertseries.(u, ϵ, MAXORDER)
+    u2 = (@einsum _ := g[μ,ν] * u[μ] * u[ν]) |> perttrunc # == g[i,j] * u[i] * u[j] because u[0] == 0
+    u = [√(-(1+u2)/g[1,1]), u[2], u[3], u[4]] .|> perttrunc # set u[1] from normalization u^2 == -1 of u[i] (u[0] = 0 )
     u = substitute.(u, 1.0 => 1) # hack
+
+    print(u)
 
     # energy-momentum tensor T
     @einsum T[μ,ν] := (ρ+P)*u[μ]*u[ν] + P*ginv[μ,ν] # (with high indices)
-    T = simplify.(pertseries.(T, ϵ, MAXORDER))
+    T = simplify.(perttrunc.(T))
 
     ρ, δ, P, vx, vy, vz, T
 end
@@ -114,12 +104,11 @@ end
 ρm, δm, Pm, vmx, vmy, vmz, Tm = construct_species(0//1, 0//1, "m")
 # TODO: treat cosmological constant as species with ω = -1?
 T = Tr + Tm # T^μν
-@einsum Tlo[μ,ν] := g[μ,α] * g[ν,β] * T[α,β] # lower indices
-Tlo = pertseries.(Tlo, ϵ, MAXORDER)
+@einsum Tlo[μ,ν] := g[μ,α] * g[ν,β] * T[α,β] # |> perttrunc # T_μν
 
 # ∇_μ T^μν = 0
-@einsum tr[ν] := pertseries.(expand_derivatives(∇(Tr)[μ,μ,ν]), ϵ, MAXORDER)
-@einsum tm[ν] := pertseries.(expand_derivatives(∇(Tm)[μ,μ,ν]), ϵ, MAXORDER)
+@einsum tr[ν] := expand_derivatives(∇(Tr)[μ,μ,ν]) |> perttrunc
+@einsum tm[ν] := expand_derivatives(∇(Tm)[μ,μ,ν]) |> perttrunc
 
 # TODO: ∇_μ (n u^μ) = 0?
 
