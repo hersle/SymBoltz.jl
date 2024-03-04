@@ -1,29 +1,22 @@
 using ModelingToolkit
 using Symbolics
 using LinearAlgebra: diagm # TODO: avoid big dependency?
-#using Tensorial
 using Tullio: @einsum # Einstein summation convention # TODO: use Tensorial.@einsum? # TODO: import as einsum
 using Base.Iterators
 using DifferentialEquations
 using Plots
-# TODO: use Grassmann.jl?
 
-# Buckingham-π theorem/package: https://github.com/rmsrosa/UnitfulBuckinghamPi.jl
-
-# TODO: solve analytical differential equations symbolically (not possible for now: https://discourse.julialang.org/t/solve-differential-equation-algebraically/106352/6)
-# TODO: do it manually by proposing ansatz for e.g. ρs(t) ∝ a^n, solve for n?
-
-# TODO: write parametrized Tensor type?
-# TODO: - index T[+1] for upper indices and T[-1] for lower indices?
-
-# TODO:  symmetries with Tensorial?
-# TODO: Spacetimspecifye.jl/Metric.jl file with different metrics in different gauges?
+# TODO: use Grassmann.jl? Tensorial.jl? UnitfulBuckinghamPi.jl?
+# TODO: solve analytical differential equations symbolically (not possible for now: https://discourse.julialang.org/t/solve-differential-equation-algebraically/106352/6; instead e.g. propose ansatz a^n and solve for n?)
+# TODO: write parametrized Tensor type? index T[+1] for upper indices and T[-1] for lower indices?
+# TODO: specify tensor symmetries with Tensorial?
+# TODO: Spacetime.jl/Metric.jl file with different metrics in different gauges?
 
 const MAXORDER = 1
 @variables ϵ # perturbation book-keeping parameter
-pertorder(expr, ϵ, n) = n == 0 ? substitute(expr, ϵ => 0) : expand_derivatives((Differential(ϵ^n))(expr))
+pertorder(expr, ϵ, n) = substitute(n == 0 ? expr : expand_derivatives((Differential(ϵ^n))(expr)), ϵ => 0//1; fold=false) 
 pertseries(expr, ϵ, n) = sum(pertorder.(expr, ϵ, 0:n) .* ϵ .^ (0:n))
-perttrunc(expr) = pertseries(expr, ϵ, MAXORDER)
+perttrunc(expr) = pertseries(expr, ϵ, MAXORDER) # TODO: // 1 here to enforce rational/fractions?
 # TODO: make some kind of O(ϵ^0), O(ϵ^1), ... functions?
 
 # cancel a factor if it multiplies a *whole* expression
@@ -40,7 +33,7 @@ function cancel_factors(expr, factors)
     return expr
 end
 
-@variables t, x, y, z # coordinates
+@variables t, x, y, z # coordinates # TODO: what about parametrizing with b = ln(a)?
 @variables a(t) # background (O(ϵ⁰))
 @variables Φ(a,x,y,z), Ψ(a,x,y,z) # TODO: linear perturbations (O(ϵ¹))
 
@@ -48,12 +41,12 @@ X = [t, x, y, z]
 ∂ = expand_derivatives .∘ Differential.(X)
 
 # calculate metric g_μν -> inverse metric g^μν -> connection Γ^σ_μν -> Ricci tensor Ric_μν -> Ricci scalar R -> Einstein tensor G_μν
-g = diagm([-1-ϵ*2*Ψ, a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ), a^2*(1+ϵ*2*Φ)]) .|> perttrunc # g_μν
-ginv = inv(g) .|> perttrunc # g^μν
-@einsum Γ[σ,μ,ν] := ginv[σ,ρ]/2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) |> perttrunc |> simplify # Γ^σ_μν
+g = diagm([-1-2*ϵ*Ψ, a^2*(1+2*ϵ*Φ), a^2*(1+2*ϵ*Φ), a^2*(1+2*ϵ*Φ)]) .|> perttrunc # g_μν
+ginv = inv(g) .|> perttrunc # g^μν (give .|> here, but |> with @einsum below)
+@einsum Γ[σ,μ,ν] := ginv[σ,ρ] / 2 * (∂[μ](g[ν,ρ]) + ∂[ν](g[ρ,μ]) - ∂[ρ](g[μ,ν])) |> perttrunc |> simplify # Γ^σ_μν
 @einsum Ric[μ,ν] := (∂[ρ](Γ[ρ,ν,μ]) - ∂[ν](Γ[ρ,ρ,μ])) / 4 + Γ[ρ,ρ,λ]*Γ[λ,ν,μ] - Γ[ρ,ν,λ]*Γ[λ,ρ,μ] |> perttrunc |> simplify # Ric_μν # /4 since @einsum overcounts first two terms due to λ-summation in last two terms
 R = (@einsum _ := ginv[μ,ν] * Ric[μ,ν]) |> perttrunc |> simplify # TODO: why does one term have float?
-G = Ric .- g/2 * R .|> perttrunc .|> simplify # G_μν
+G = Ric .- g/2 * R .|> perttrunc .|> expand .|> simplify # G_μν # TODO: always do perttrunc > expand > simplify_fractions
 
 # function ∇(T::Tensor{S, Num, R, N}) where {S, R, N} # TODO: specialize at compile time?
 function ∇(T) # assume T = T^α1...αr has only upper indices for now # TODO: generalize
@@ -82,16 +75,14 @@ function construct_species(w, cs2, subscript)
     # pressure P
     P = w*ρ0 + ϵ*cs2*ρ1
 
-    # velocity v / u
+    # velocity v or u
     vx = Symbolics.variable("v$(subscript)x"; T=Symbolics.FnType)(a, x, y, z)
     vy = Symbolics.variable("v$(subscript)y"; T=Symbolics.FnType)(a, x, y, z)
     vz = Symbolics.variable("v$(subscript)z"; T=Symbolics.FnType)(a, x, y, z)
     u = [Num(0), ϵ*vx/a, ϵ*vy/a, ϵ*vz/a]
-    u2 = (@einsum _ := g[μ,ν] * u[μ] * u[ν]) |> perttrunc # == g[i,j] * u[i] * u[j] because u[0] == 0
-    u = [√(-(1+u2)/g[1,1]), u[2], u[3], u[4]] .|> perttrunc # set u[1] from normalization u^2 == -1 of u[i] (u[0] = 0 )
-    u = substitute.(u, 1.0 => 1) # hack
-
-    print(u)
+    u2 = (@einsum _ := g[μ,ν] * u[μ] * u[ν]) |> perttrunc |> simplify # == g[i,j] * u[i] * u[j] because u[0] == 0
+    u = [√(-(1+u2)/g[1,1]), u[2], u[3], u[4]] .|> perttrunc |> simplify # set u[1] from normalization u^2 == -1 of u[i] (u[0] = 0 )
+    #u = substitute.(u, 1.0 => 1) # hack
 
     # energy-momentum tensor T
     @einsum T[μ,ν] := (ρ+P)*u[μ]*u[ν] + P*ginv[μ,ν] # (with high indices)
@@ -120,34 +111,29 @@ eoms = [
     # background equations
     pertorder(tr[1], ϵ, 0), # radiation density evolution
     pertorder(tm[1], ϵ, 0), # matter density evolution
-    pertorder(G[1,1] + Λ*g[1,1] - 8*Num(π)*Tlo[1,1], ϵ, 0), # Friedmann equation
+    pertorder(G[1,1] + Λ*g[1,1] - Num(8)*Num(π)*Tlo[1,1], ϵ, 0), # Friedmann equation
 
     # TODO: perturbations
     pertorder(tr[1], ϵ, 1), # radiation density evolution
     pertorder(tm[1], ϵ, 1), # matter density evolution
     pertorder(tr[2], ϵ, 1), # radiation velocity evolution
     pertorder(tm[2], ϵ, 1), # matter velocity evolution
-    pertorder(G[1,1] + Λ*g[1,1] - 8*Num(π)*Tlo[1,1], ϵ, 1), # perturbed Friedmann equation
-    #pertorder(G[2,2] + Λ*g[2,2] - 8*Num(π)*Tlo[2,2], ϵ, 1), # perturbed acceleration equation
-    pertorder(G[2,3] + Λ*g[2,3] - 8*Num(π)*Tlo[2,3], ϵ, 1), # shear stress
+    pertorder(G[1,1] + Λ*g[1,1] - Num(8)*Num(π)*Tlo[1,1], ϵ, 1), # perturbed Friedmann equation
+    pertorder(G[2,3] + Λ*g[2,3] - Num(8)*Num(π)*Tlo[2,3], ϵ, 1), # shear stress
 ] .~ 0//1
-
-for (i, eom) in enumerate(eoms)
-    println(i, " -> ", eoms)
-end
 
 # introduce Hubble parameter H(a) = H0*E(a) and reduced density parameters
 @variables E(a) Ωr(a) Ωm(a)
 @parameters ΩΛ
 @parameters H0 # TODO: turn into normal variables? seems parameters aren't "handled" by differentiation
 H = H0 * E
-ρcrit = 3*H0^2/(8*Num(π))
-eoms = substitute.(eoms, Ref(Dict(
+ρcrit = 3//8 * H0^2 // (Num(π))
+eoms = substitute(eoms, Dict(
     pertorder(ρm, ϵ, 0) => Ωm * ρcrit, # TODO: would like ρm[0] => ... instead
     pertorder(ρr, ϵ, 0) => Ωr * ρcrit,
     Λ => ΩΛ * 3*H0^2,
     ∂[1](a) => H*a, # TODO: would need to apply one more time for acceleration equation
-)), fold=false)
+), fold=false)
 
 # re-parametrize from t to a
 aindep = Symbolics.variable("a")
@@ -157,7 +143,13 @@ a = aindep # forget old a(t)
 
 # manipulate background
 # take square of E^2 # TODO: improve
-eoms[3] = E ~ √(abs(Symbolics.solve_for(eoms[3], E^2))) # TODO: get rid of abs!!!
+eoms[3] = E ~ √(abs(expand(simplify_fractions(Symbolics.solve_for(eoms[3], E^2))))) # TODO: get rid of abs!!!
+
+# TODO: use simplify_fractions instead of simplify to avoid floats!
+# TODO: and make it work on equations and not only expressions!
+for (i, eom) in enumerate(eoms)
+    println(i, " -> ", eom)
+end
 
 # Fourier transform perturbations
 # TODO: write e.g. δr(a,r) instead of δr(a,x,y,z)?
@@ -165,7 +157,7 @@ eoms[3] = E ~ √(abs(Symbolics.solve_for(eoms[3], E^2))) # TODO: get rid of abs
 @parameters kx ky kz k K
 @variables Ψk(a) Φk(a) δrk(a) δmk(a) vrk(a) vmk(a)
 kdotx = kx*x + ky*y + kz*z
-eoms = simplify.(expand_derivatives.(substitute.(eoms, Ref(Dict(
+eoms = expand_derivatives.(substitute(eoms, Dict(
     Ψ => Ψk * exp(i*kdotx),
     Φ => Φk * exp(i*kdotx),
     δr => δrk * exp(i*kdotx),
@@ -179,40 +171,45 @@ eoms = simplify.(expand_derivatives.(substitute.(eoms, Ref(Dict(
     vmx => i * kx/k * vmk * exp(i*kdotx),
     vmy => i * ky/k * vmk * exp(i*kdotx),
     vmz => i * kz/k * vmk * exp(i*kdotx),
-)))))
+); fold=false))
 
 eoms = substitute.(eoms, Ref(Dict(
     i^2 => -1, # hacky √(-1)
     exp(i*kdotx) => 1, # TODO: avoid?
-)))
-eoms = substitute.(eoms, kx^2 => k^2 - ky^2 - kz^2)
-eoms = substitute.(eoms, k => K*H0)
-eoms = substitute.(eoms, Ref(Dict(kx => 1, ky => 1, kz => 1))) # TODO: avoid
-eoms = substitute.(eoms, i => 1) # TODO: avoid
-eoms = substitute.(eoms, H0 => 1) # TODO: avoid
-eoms[9] = Ψk ~ Symbolics.solve_for(eoms[9], Ψk) # TODO: avoid
+)); fold=false)
+eoms = substitute.(eoms, kx^2 => k^2 - ky^2 - kz^2; fold=false)
+eoms = substitute.(eoms, k => K*H0; fold=false)
+eoms = substitute.(eoms, Ref(Dict(kx => 1, ky => 1, kz => 1)); fold=false) # TODO: avoid
+eoms = substitute.(eoms, i => 1; fold=false) # TODO: avoid
+eoms = substitute.(eoms, H0 => 1; fold=false) # TODO: avoid
+eoms[9] = Φk ~ Symbolics.solve_for(eoms[9], Φk) # TODO: avoid
 eoms = simplify.(eoms)
 
+# eliminate Φ # TODO: avoid
+eoms = expand_derivatives.(substitute.(eoms, Φk => eoms[9].rhs))
+eoms = expand.(eoms[1:end-1])
+
 # solve
-#@named sys = ODESystem(eoms[1:3], a, [Ωr, Ωm], [ΩΛ])
-@named sys = ODESystem(eoms, a, [Ωr, Ωm, δrk, δmk, vrk, vmk, Ψk], [ΩΛ, K, H0])
-sys = structural_simplify(sys; simplify=true, allow_symbolic=true, allow_parameter=true, check_consistency=false)
+@named sys0 = ODESystem(eoms, a, [Ωr, Ωm, δrk, δmk, vrk, vmk, Ψk], [ΩΛ, K])
+sys = structural_simplify(sys0; simplify=true, allow_symbolic=true, allow_parameter=true, check_consistency=false)
 aini = 1e-7
 Ωr0 = 1e-4
 Ωm0 = 0.3
 ΩΛ0 = 1.0 - Ωr0 - Ωm0
-y0 = [sys.Ωr => Ωr0 / aini^4, sys.Ωm => Ωm0 / aini^3, sys.ΩΛ => ΩΛ0]
+Ψ0 = -1.0
+y0 = [sys.Ωr => Ωr0 / aini^4, sys.Ωm => Ωm0 / aini^3, sys.ΩΛ => ΩΛ0, sys.Ψk => Ψ0, sys.δmk => -3/2*Ψ0, sys.δrk => -3/2*Ψ0, sys.vmk => -K/(2*√(Ωr0))*Ψ0, sys.vrk => +K/(6*√(Ωr0))*Ψ0, K => 1e+0] # TODO: set ICs "automatically"
 prob = ODEProblem(sys, y0, (aini, 1.0))
 sol = solve(prob)
 
 p = plot()
 plot!(p, log10.(sol[a]), sol[Ωm] ./ sol[E] .^ 2) # TODO: add observed equations for these?
 plot!(p, log10.(sol[a]), sol[Ωr] ./ sol[E] .^ 2)
-plot!(p, log10.(sol[a]), y0[3][2] ./ sol[E] .^ 2)
+plot!(p, log10.(sol[a]), sol[Ψk])
 display(p)
 
 # TODO: set background ICs today?
 
+#=
 # 9) Boltzmann equations (see Baumann chapter 3)
 # TODO: integration: https://docs.sciml.ai/SymbolicNumericIntegration/stable/
 #@variables p
