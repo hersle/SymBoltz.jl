@@ -14,7 +14,7 @@ using Plots
 
 const MAXORDER = 1
 @variables ϵ # perturbation book-keeping parameter
-pertorder(expr, ϵ, n) = substitute(n == 0 ? expr : expand_derivatives((Differential(ϵ^n))(expr)), ϵ => 0//1; fold=false) 
+pertorder(expr, ϵ, n) = substitute(n == 0 ? expr : expand_derivatives((Differential(ϵ^n))(expr)), ϵ => 0; fold=false) 
 pertseries(expr, ϵ, n) = sum(pertorder.(expr, ϵ, 0:n) .* ϵ .^ (0:n))
 perttrunc(expr) = pertseries(expr, ϵ, MAXORDER) # TODO: // 1 here to enforce rational/fractions?
 # TODO: make some kind of O(ϵ^0), O(ϵ^1), ... functions?
@@ -79,7 +79,7 @@ function construct_species(w, cs2, subscript)
     vx = Symbolics.variable("v$(subscript)x"; T=Symbolics.FnType)(a, x, y, z)
     vy = Symbolics.variable("v$(subscript)y"; T=Symbolics.FnType)(a, x, y, z)
     vz = Symbolics.variable("v$(subscript)z"; T=Symbolics.FnType)(a, x, y, z)
-    u = [Num(0), ϵ*vx/a, ϵ*vy/a, ϵ*vz/a]
+    u = [0, ϵ*vx/a, ϵ*vy/a, ϵ*vz/a]
     u2 = (@einsum _ := g[μ,ν] * u[μ] * u[ν]) |> perttrunc |> simplify # == g[i,j] * u[i] * u[j] because u[0] == 0
     u = [√(-(1+u2)/g[1,1]), u[2], u[3], u[4]] .|> perttrunc |> simplify # set u[1] from normalization u^2 == -1 of u[i] (u[0] = 0 )
     #u = substitute.(u, 1.0 => 1) # hack
@@ -91,8 +91,8 @@ function construct_species(w, cs2, subscript)
     ρ, δ, P, vx, vy, vz, T
 end
 
-ρr, δr, Pr, vrx, vry, vrz, Tr = construct_species(1//3, 1//3, "r") # TODO: use symbol instead of string?
-ρm, δm, Pm, vmx, vmy, vmz, Tm = construct_species(0//1, 0//1, "m")
+ρr, δr, Pr, vrx, vry, vrz, Tr = construct_species(1/3, 1/3, "r") # TODO: use symbol instead of string?
+ρm, δm, Pm, vmx, vmy, vmz, Tm = construct_species(0/1, 0/1, "m")
 # TODO: treat cosmological constant as species with ω = -1?
 T = Tr + Tm # T^μν
 @einsum Tlo[μ,ν] := g[μ,α] * g[ν,β] * T[α,β] # |> perttrunc # T_μν
@@ -111,23 +111,23 @@ eoms = [
     # background equations
     pertorder(tr[1], ϵ, 0), # radiation density evolution
     pertorder(tm[1], ϵ, 0), # matter density evolution
-    pertorder(G[1,1] + Λ*g[1,1] - Num(8)*Num(π)*Tlo[1,1], ϵ, 0), # Friedmann equation
+    pertorder(G[1,1] + Λ*g[1,1] - 8*π*Tlo[1,1], ϵ, 0), # Friedmann equation
 
     # TODO: perturbations
     pertorder(tr[1], ϵ, 1), # radiation density evolution
     pertorder(tm[1], ϵ, 1), # matter density evolution
     pertorder(tr[2], ϵ, 1), # radiation velocity evolution
     pertorder(tm[2], ϵ, 1), # matter velocity evolution
-    pertorder(G[1,1] + Λ*g[1,1] - Num(8)*Num(π)*Tlo[1,1], ϵ, 1), # perturbed Friedmann equation
-    pertorder(G[2,3] + Λ*g[2,3] - Num(8)*Num(π)*Tlo[2,3], ϵ, 1), # shear stress
-] .~ 0//1
+    pertorder(G[1,1] + Λ*g[1,1] - 8*π*Tlo[1,1], ϵ, 1), # perturbed Friedmann equation
+    pertorder(G[2,3] + Λ*g[2,3] - 8*π*Tlo[2,3], ϵ, 1), # shear stress
+] .~ 0
 
 # introduce Hubble parameter H(a) = H0*E(a) and reduced density parameters
 @variables E(a) Ωr(a) Ωm(a)
 @parameters ΩΛ
 @parameters H0 # TODO: turn into normal variables? seems parameters aren't "handled" by differentiation
 H = H0 * E
-ρcrit = 3//8 * H0^2 // (Num(π))
+ρcrit = 3/8 * H0^2 / π
 eoms = substitute(eoms, Dict(
     pertorder(ρm, ϵ, 0) => Ωm * ρcrit, # TODO: would like ρm[0] => ... instead
     pertorder(ρr, ϵ, 0) => Ωr * ρcrit,
