@@ -190,22 +190,33 @@ eoms = expand_derivatives.(substitute.(eoms, Φk => eoms[9].rhs))
 eoms = expand.(eoms[1:end-1])
 
 # solve
-@named sys0 = ODESystem(eoms, a, [Ωr, Ωm, δrk, δmk, vrk, vmk, Ψk], [ΩΛ, K])
-sys = structural_simplify(sys0; simplify=true, allow_symbolic=true, allow_parameter=true, check_consistency=false)
-aini = 1e-7
-Ωr0 = 1e-4
-Ωm0 = 0.3
-ΩΛ0 = 1.0 - Ωr0 - Ωm0
-Ψ0 = -1.0
-y0 = [sys.Ωr => Ωr0 / aini^4, sys.Ωm => Ωm0 / aini^3, sys.ΩΛ => ΩΛ0, sys.Ψk => Ψ0, sys.δmk => -3/2*Ψ0, sys.δrk => -3/2*Ψ0, sys.vmk => -K/(2*√(Ωr0))*Ψ0, sys.vrk => +K/(6*√(Ωr0))*Ψ0, K => 1e+0] # TODO: set ICs "automatically"
-prob = ODEProblem(sys, y0, (aini, 1.0))
-sol = solve(prob)
+function solve_for_wavenumber(Kval)
+    @named sys0 = ODESystem(eoms, a, [Ωr, Ωm, δrk, δmk, vrk, vmk, Ψk], [ΩΛ, K])
+    sys = structural_simplify(sys0; simplify=true, allow_symbolic=true, allow_parameter=true, check_consistency=false)
+    aini = 1e-7
+    Ωr0 = 1e-4
+    Ωm0 = 0.3
+    ΩΛ0 = 1.0 - Ωr0 - Ωm0
+    Ψ0 = -1.0
+    y0 = [sys.Ωr => Ωr0 / aini^4, sys.Ωm => Ωm0 / aini^3, sys.ΩΛ => ΩΛ0, sys.Ψk => Ψ0, sys.δmk => -3/2*Ψ0, sys.δrk => -3/2*Ψ0, sys.vmk => -K/(2*√(Ωr0))*Ψ0, sys.vrk => +K/(6*√(Ωr0))*Ψ0, K => Kval] # TODO: set ICs "automatically"
+    prob = ODEProblem(sys, y0, (aini, 1.0))
+    return solve(prob)
+end
+
+sol = solve_for_wavenumber(1.0)
 
 p = plot()
 plot!(p, log10.(sol[a]), sol[Ωm] ./ sol[E] .^ 2) # TODO: add observed equations for these?
 plot!(p, log10.(sol[a]), sol[Ωr] ./ sol[E] .^ 2)
 plot!(p, log10.(sol[a]), sol[Ψk])
 display(p)
+
+Ks = 10 .^ range(-2, +2; length=20)
+sols = solve_for_wavenumber.(Ks)
+Ps = [sol[δmk][end]^2 for sol in sols]
+
+p = plot()
+plot!(p, log10.(Ks), log10.(Ps))
 
 # TODO: set background ICs today?
 
