@@ -3,6 +3,8 @@ using DifferentialEquations
 using Plots
 Plots.default(label=nothing, markershape=:pixel)
 
+# TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/
+
 # independent variable: scale factor
 @variables a
 Da = Differential(a)
@@ -66,17 +68,19 @@ pert_ics = [
 pert_prob = ODEProblem(pert, pert_ics, (aini, atoday), [k => 0])
 
 P0(k) = 1 / k^3 # primordial power spectrum
-ks = 10 .^ range(-3, +6, length=30)
+ks = 10 .^ range(-3, +6, length=50)
 pert_probs = EnsembleProblem(pert_prob; prob_func = (prob, i, _) -> remake(prob; p = [k => ks[i]]))
-pert_sols = solve(pert_probs, Rodas5P(), trajectories=length(ks), reltol=1e-3) # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
-Δms = map(sol -> sol(atoday; idxs=Δm), pert_sols)
+pert_sols = solve(pert_probs, KenCarp4(), trajectories=length(ks), reltol=1e-5) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
+Δms = pert_sols(atoday; idxs=Δm)
 Ps = @. P0(ks) * Δms^2 # present power spectrum
 
-p1 = plot(log10.(bg_sol[a]), [bg_sol[Ωr], bg_sol[Ωm], bg_sol[ΩΛ]]; xlabel="lg(a)", label=["Ωr" "Ωm" "ΩΛ"])
-p2 = plot(log10.(bg_sol[a]), log10.(bg_sol[H] / bg_sol(atoday; idxs=H)); xlabel="lg(a)", ylabel="H/H₀")
-p3 = plot() # TODO
-p4 = plot(map(sol -> (log10.(sol[a]), sol[Φ]), pert_sols); xlabel="lg(a)", ylabel="Φ")
-p5 = plot(map(sol -> (log10.(sol[a]), log10.(sol[δm])), pert_sols); xlabel="lg(a)", ylabel="δm")
+# TODO: add plot recipe!
+as = 10 .^ range(log10(aini), log10(atoday), length=200)
+p1 = plot(log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"])
+p2 = plot(log10.(as), log10.(bg_sol.(as; idxs=H) / bg_sol(atoday; idxs=H)); xlabel="lg(a)", ylabel="H/H₀")
+p3 = plot(; xlabel="???", ylabel="???") # TODO
+p4 = plot(log10.(as), reduce(vcat, pert_sols.(as; idxs=Φ)'); xlabel="lg(a)", ylabel="Φ")
+p5 = plot(log10.(as), log10.(reduce(vcat, pert_sols.(as; idxs=δm)')); xlabel="lg(a)", ylabel="δm")
 p6 = plot(log10.(ks), log10.(Ps); xlabel="k/H0", ylabel="lg(P)")
 p = plot(p1, p2, p3, p4, p5, p6, layout=(2,3), size=(1200, 600), margin=20*Plots.px)
 display(p)
