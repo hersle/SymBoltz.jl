@@ -3,7 +3,7 @@ using DifferentialEquations
 using Plots
 Plots.default(label=nothing, markershape=:pixel)
 
-# TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/
+# TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 
 # independent variable: scale factor
 @variables a
@@ -11,11 +11,7 @@ Da = Differential(a)
 aini, atoday = 1e-8, 1e0
 
 # background variables
-@variables ρr(a) ρm(a) ρΛ(a) ρ(a)
-@variables Pr(a) Pm(a) PΛ(a)
-@variables Ωr(a) Ωm(a) ΩΛ(a)
-@variables H(a)
-
+@variables H(a) ρ(a) ρr(a) ρm(a) ρΛ(a) Pr(a) Pm(a) PΛ(a) Ωr(a) Ωm(a) ΩΛ(a)
 bg_eqs = [
     # Friedmann equation
     ρ ~ ρr + ρm + ρΛ
@@ -41,12 +37,9 @@ bg_ics = [Ωr => 1e-5, Ωm => 0.3, ΩΛ => 1 - Ωr - Ωm] # TODO: enforce sum(Ω
 bg_prob = ODEProblem(bg, bg_ics, (atoday, aini), []; guesses = [ρr => 1, ρm => 1, ρΛ => 1, ρ => 1]) # TODO: integrate from aini; make a "shooting interface" for different parameters
 bg_sol = solve(bg_prob)
 
+# perturbation variables
 @parameters k
-@variables Φ(a) # TODO: Ψ ≠ Φ
-@variables Θr0(a) Θr1(a)
-@variables δm(a) um(a)
-@variables δρr(a) δρm(a) δρ(a) Δm(a) # TODO: δr and ur?
-
+@variables Φ(a) Θr0(a) Θr1(a) δm(a) um(a) Δm(a) # TODO: Ψ ≠ Φ
 pert_eqs = [
     Da(Θr0) + k/(a^2*H)*Θr1 ~ -Da(Φ) # Dodelson (8.10)
     Da(Θr1) - k/(3*a^2*H)*Θr0 ~ -k/(3*a^2*H)*Φ # Dodelson (8.11)
@@ -77,10 +70,10 @@ Ps = @. P0(ks) * Δms^2 # present power spectrum
 # TODO: add plot recipe!
 as = 10 .^ range(log10(aini), log10(atoday), length=200)
 p1 = plot(log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"])
-p2 = plot(log10.(as), log10.(bg_sol.(as; idxs=H) / bg_sol(atoday; idxs=H)); xlabel="lg(a)", ylabel="H/H₀")
+p2 = plot(log10.(as), log10.(bg_sol.(as; idxs=H) / bg_sol(atoday; idxs=H)); xlabel="lg(a)", ylabel="H/H0")
 p3 = plot(; xlabel="???", ylabel="???") # TODO
 p4 = plot(log10.(as), reduce(vcat, pert_sols.(as; idxs=Φ)'); xlabel="lg(a)", ylabel="Φ")
 p5 = plot(log10.(as), log10.(reduce(vcat, pert_sols.(as; idxs=δm)')); xlabel="lg(a)", ylabel="δm")
-p6 = plot(log10.(ks), log10.(Ps); xlabel="k/H0", ylabel="lg(P)")
+p6 = plot(log10.(ks), log10.(Ps); xlabel="lg(k/H0)", ylabel="lg(P)")
 p = plot(p1, p2, p3, p4, p5, p6, layout=(2,3), size=(1200, 600), margin=20*Plots.px)
 display(p)
