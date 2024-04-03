@@ -105,6 +105,11 @@ if true
     p6 = plot(; xlabel="lg(k/(h/Mpc))", legend=:bottomleft)
     plot!(p6, log10.(ks*k0), [log10.(Ps/k0^3), dlgP_dlgks_findiff, dlgP_dlgks_autodiff]; label=["lg(P/(Mpc/h)³)" "d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)"])
 
-    p = plot(p1, p2, p3, p4, p5, p6, layout=(2,3), size=(1200, 600), margin=20*Plots.px) 
+    # compute derivatives of output power spectrum with respect to input parameters
+    p7 = plot(log10.(ks*k0), ForwardDiff.derivative(lgρr0 -> log10.(P.(ks, 10^lgρr0, ρm0, As)), log10(ρr0)); xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)")
+    p8 = plot(log10.(ks*k0), ForwardDiff.derivative(lgρm0 -> log10.(P.(ks, ρr0, 10^lgρm0, As)), log10(ρm0)); xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)")
+    p9 = plot(log10.(ks*k0), ForwardDiff.derivative(lgAs  -> log10.(P.(ks, ρr0, ρm0, 10^lgAs)), log10(As)); xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", ylims=(0, 2))
+
+    p = plot(p1, p2, p3, p4, p5, p6, p7, p8, p9, layout=(3,3), size=(1200, 900), margin=20*Plots.px) 
     display(p)
 end
