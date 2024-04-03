@@ -6,6 +6,7 @@ using Plots
 Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
+# TODO: register thermodynamics functions: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
 
 # independent variable: scale factor
 @variables a
@@ -69,15 +70,20 @@ function solve_perturbations(kval, ρr0, ρm0)
     return solve(prob, KenCarp4(), reltol=1e-7) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
-function P(kval, ρr0, ρm0)
-    P0 = 1 / kval^3 # primordial power spectrum
+# primordial power spectrum
+function P0(kval, As)
+    return As / kval^3
+end
+
+function P(kval, ρr0, ρm0, As)
     pert_sol = solve_perturbations(kval, ρr0, ρm0)
-    return P0 * pert_sol(atoday; idxs=Δm)^2
+    return P0(kval, As) * pert_sol(atoday; idxs=Δm)^2
 end
 
 if true
     ρr0 = 1e-5
     ρm0 = 0.3
+    As = 2e-9
     as = 10 .^ range(log10(aini), log10(atoday), length=400)
     k0 = 1 / 2997.92458 # h/Mpc
     ks = 10 .^ range(-4, +2, length=50) / k0 # in code units of k0 = H0/c
@@ -92,12 +98,12 @@ if true
     p4 = plot(log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ")
     p5 = plot(log10.(as), [log10.(pert_sol.(as; idxs=δm)) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="lg(δm)")
     
-    lgP(lgk) = log10(P(10^lgk, ρr0, ρm0))
-    lgPs = lgP.(log10.(ks))
+    lgP(lgk) = log10(P(10^lgk, ρr0, ρm0, As))
+    Ps = 10 .^ lgP.(log10.(ks))
     dlgP_dlgks_autodiff = ForwardDiff.derivative.(lgP, log10.(ks))
     dlgP_dlgks_findiff = FiniteDiff.finite_difference_derivative.(lgP, log10.(ks))
-    p6 = plot(; xlabel="lg(k/(h/Mpc))", legend=:bottom)
-    plot!(p6, log10.(ks*k0), [lgPs, dlgP_dlgks_findiff, dlgP_dlgks_autodiff]; label=["lg(P)" "d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)"])
+    p6 = plot(; xlabel="lg(k/(h/Mpc))", legend=:bottomleft)
+    plot!(p6, log10.(ks*k0), [log10.(Ps/k0^3), dlgP_dlgks_findiff, dlgP_dlgks_autodiff]; label=["lg(P/(Mpc/h)³)" "d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)"])
 
     p = plot(p1, p2, p3, p4, p5, p6, layout=(2,3), size=(1200, 600), margin=20*Plots.px) 
     display(p)
