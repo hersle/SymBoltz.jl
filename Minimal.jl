@@ -7,6 +7,17 @@ Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 # TODO: register thermodynamics functions: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
+# TODO: make simpler Cosmology interface
+# TODO: compare runtime for finite vs. dlgP_dlgks_autodiff
+# TODO: compare accuracy with class
+# TODO: non-linear: higher-order perturbations vs halofit vs N-body?
+# TODO: CMB power spectrum
+# TODO: baryons, Recfast, ...
+# TODO: composable models, generate equations
+# TODO: fix remake/replace etc. with new ModelingToolkit version
+# TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
+# TODO: analytical solutions of e.g. background ρ evolution
+# TODO: GPU-parallellized EnsembleProblem
 
 # independent variable: scale factor
 @variables a
