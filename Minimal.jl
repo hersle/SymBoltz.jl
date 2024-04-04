@@ -18,6 +18,7 @@ Plots.default(label=nothing, markershape=:pixel)
 # TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
 # TODO: analytical solutions of e.g. background ρ evolution
 # TODO: GPU-parallellized EnsembleProblem
+# TODO: use b = ln(a) as independent variable?
 
 # independent variable: scale factor
 @variables a
@@ -57,14 +58,23 @@ end
 
 # perturbation variables
 @parameters k # really k*c/H0
-@variables Φ(a) Θr0(a) Θr1(a) δm(a) um(a) Δm(a) # TODO: Ψ ≠ Φ
+@variables Φ(a) Ψ(a) δρ(a) Θr0(a) Θr1(a) δm(a) um(a) Δm(a)
 pert_eqs = [
-    Da(Θr0) + k/(a^2*E)*Θr1 ~ -Da(Φ) # Dodelson (8.10)
-    Da(Θr1) - k/(3*a^2*E)*Θr0 ~ -k/(3*a^2*E)*Φ # Dodelson (8.11)
-    Da(δm) + k/(a^2*E)*um ~ -3*Da(Φ) # Dodelson (8.12) with i*uc -> um
-    Da(um) + um/a ~ -k/(a^2*E)*Φ # Dodelson (8.13) with i*uc -> um
-    Da(Φ) ~ (3/2*a^2*(ρm*δm + 4*ρr*Θr0) - k^2*Φ - 3*a^2*E^2*Φ) / (3*a^3*E^2) # Dodelson (8.14) # TODO: write in more natural form?
+    # radiation perturbations (density & velocity)
+    Da(Θr0) + k/(a^2*E)*Θr1 ~ -Da(Φ) # Dodelson (5.67) or (8.10)
+    Da(Θr1) - k/(3*a^2*E)*Θr0 ~ k/(3*a^2*E)*Ψ # Dodelson (5.67) or (8.11)
+
+    # matter perturbations (density & velocity)
+    Da(δm) + k/(a^2*E)*um ~ -3*Da(Φ) # Dodelson (5.69) or (8.12) with i*uc -> um
+    Da(um) + um/a ~ k/(a^2*E)*Ψ # Dodelson (5.70) or (8.13) with i*uc -> um
+
+    # gravity
+    δρ ~ ρm*δm + 4*ρr*Θr0 # total energy density perturbation
+    Da(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*a^2*E^2*Φ) / (3*a^3*E^2) # Dodelson (8.14) # TODO: write in more natural form?
     Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation)
+
+    # anisotropic stress
+    Ψ ~ -Φ # TODO: relax
 ]
 @mtkbuild pert = ODESystem([bg_eqs; pert_eqs], a, [ρr, ρm, ρΛ, Φ, Θr0, δm, Θr1, um], [k])
 pert_prob = ODEProblem(pert, [ρr, ρm, ρΛ, Φ, Θr0, δm, Θr1, um] .=> NaN, (aini, atoday), [k => NaN]; jac=true) # TODO: use remake
