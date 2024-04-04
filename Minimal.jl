@@ -12,7 +12,7 @@ Plots.default(label=nothing, markershape=:pixel)
 # TODO: compare accuracy with class
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
 # TODO: CMB power spectrum
-# TODO: baryons, Recfast, ...
+# TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
 # TODO: fix remake/replace etc. with new ModelingToolkit version
 # TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
@@ -81,15 +81,9 @@ function solve_perturbations(kval, ρr0, ρm0)
     return solve(prob, KenCarp4(), reltol=1e-7) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
-# primordial power spectrum
-function P0(kval, As)
-    return As / kval^3
-end
-
-function P(kval, ρr0, ρm0, As)
-    pert_sol = solve_perturbations(kval, ρr0, ρm0)
-    return P0(kval, As) * pert_sol(atoday; idxs=Δm)^2
-end
+# power spectra
+P0(k, As) = As / k^3
+P(k, ρr0, ρm0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0)(atoday; idxs=Δm)^2
 
 if true
     ρr0 = 1e-5
@@ -109,15 +103,9 @@ if true
     p4 = plot(log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ")
     p5 = plot(log10.(as), [log10.(pert_sol.(as; idxs=δm)) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="lg(δm)")
     
-    lgP(lgk) = log10(P(10^lgk, ρr0, ρm0, As))
-    Ps = 10 .^ lgP.(log10.(ks))
-    dlgP_dlgks_autodiff = ForwardDiff.derivative.(lgP, log10.(ks))
-    dlgP_dlgks_findiff = FiniteDiff.finite_difference_derivative.(lgP, log10.(ks))
-    p6 = plot(; xlabel="lg(k/(h/Mpc))", legend=:bottomleft)
-    plot!(p6, log10.(ks*k0), [log10.(Ps/k0^3), dlgP_dlgks_findiff, dlgP_dlgks_autodiff]; label=["lg(P/(Mpc/h)³)" "d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)"])
-
     # compute derivatives of output power spectrum with respect to input parameters
     derivatives = [FiniteDiff.finite_difference_derivative, ForwardDiff.derivative]
+    p6 = plot(log10.(ks*k0), [[derivative.(lgk -> log10(P(10^lgk, ρr0, ρm0, As)), log10.(ks)) for derivative in derivatives]..., log10.(P.(ks, ρr0, ρm0, As)/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (auto. diff.)" "d lg(P) / d lg(k) (fin. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft)
     p7 = plot(log10.(ks*k0), [derivative(lgρr0 -> log10.(P.(ks, 10^lgρr0, ρm0, As)), log10(ρr0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."])
     p8 = plot(log10.(ks*k0), [derivative(lgρm0 -> log10.(P.(ks, ρr0, 10^lgρm0, As)), log10(ρm0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."])
     p9 = plot(log10.(ks*k0), [derivative(lgAs  -> log10.(P.(ks, ρr0, ρm0, 10^lgAs)), log10(As)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2))
