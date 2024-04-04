@@ -1,10 +1,18 @@
 ---
-title: A symbolic Einstein-Boltzmann solver
+title: |
+    [![](components_baumann.pdf)](http://physics.bu.edu/~schmaltz/PY555/baumann_notes.pdf)  
+    \   
+    A modular and symbolic Einstein-Boltzmann solver
+#titlegraphic: components_baumann.pdf
 colorlinks: true
 header-includes:
    - \usepackage{emoji}
    - \usepackage{tikz}
 ---
+
+---
+
+
 
 # Why?
 
@@ -130,13 +138,25 @@ Relativistic fluid mechanics on a manifold?
 Handle interactions on symbolic level;
 then generate efficient numerical functions.
 
-# Challenges
+# Unanswered questions and challenges
 
 - How to handle initial conditions?
 
 - How to handle thermodynamics / reactions?
 
   - Can this be done with [MomentClosure.jl](https://docs.sciml.ai/MomentClosure/dev/)?
+
+- How easy to add the things I don't include?
+
+- How to limit its scope?
+
+- How to do equation-specific tweaks?
+
+- *Why* re-implement everything from scratch, instead of building upon existing works?
+
+- 2nd order code: [`song`](https://github.com/coccoinomane/song)
+
+- CAMB has a "[symbolic toolkit notebook](https://camb.readthedocs.io/en/latest/ScalEqs.html)"
 
 # References
 
