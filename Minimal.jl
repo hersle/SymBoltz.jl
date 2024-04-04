@@ -67,7 +67,7 @@ pert_eqs = [
     Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation)
 ]
 @mtkbuild pert = ODESystem([bg_eqs; pert_eqs], a, [ρr, ρm, ρΛ, Φ, Θr0, δm, Θr1, um], [k])
-pert_prob = ODEProblem(pert, [ρr, ρm, ρΛ, Φ, Θr0, δm, Θr1, um] .=> NaN, (aini, atoday), [k => NaN]) # TODO: use remake
+pert_prob = ODEProblem(pert, [ρr, ρm, ρΛ, Φ, Θr0, δm, Θr1, um] .=> NaN, (aini, atoday), [k => NaN]; jac=true) # TODO: use remake
 
 function solve_perturbations(kval, ρr0, ρm0)
     bg_sol = solve_background(ρr0, ρm0)
