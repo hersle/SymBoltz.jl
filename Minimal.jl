@@ -161,19 +161,18 @@ if true
     pert_sols = [solve_perturbations(kval, ρr0, ρm0) for kval in ks] # TODO: use EnsembleProblem again
 
     # TODO: add plot recipe!
-    p1 = plot(log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left)
-    p2 = plot(log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)")
-    p3 = plot(log10.(as), log10.(thermo_sol.(as, idxs=Xe)); xlabel="lg(a)", ylabel="lg(Xe)") # TODO
-    p4 = plot(log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ")
-    p5 = plot(log10.(as), [log10.(pert_sol.(as; idxs=δm)) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="lg(δm)")
+    p = plot(layout=(3,3), size=(1200, 900), margin=20*Plots.px); display(p)
+
+    plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
+    plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
+    plot!(p[3], log10.(as), log10.(thermo_sol.(as, idxs=Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
+    plot!(p[4], log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
+    plot!(p[5], log10.(as), [log10.(pert_sol.(as; idxs=δm)) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="lg(δm)"); display(p)
     
     # compute derivatives of output power spectrum with respect to input parameters
     derivatives = [FiniteDiff.finite_difference_derivative, ForwardDiff.derivative]
-    p6 = plot(log10.(ks*k0), [[derivative.(lgk -> log10(P(10^lgk, ρr0, ρm0, As)), log10.(ks)) for derivative in derivatives]..., log10.(P.(ks, ρr0, ρm0, As)/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (auto. diff.)" "d lg(P) / d lg(k) (fin. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft)
-    p7 = plot(log10.(ks*k0), [derivative(lgρr0 -> log10.(P.(ks, 10^lgρr0, ρm0, As)), log10(ρr0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."])
-    p8 = plot(log10.(ks*k0), [derivative(lgρm0 -> log10.(P.(ks, ρr0, 10^lgρm0, As)), log10(ρm0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."])
-    p9 = plot(log10.(ks*k0), [derivative(lgAs  -> log10.(P.(ks, ρr0, ρm0, 10^lgAs)), log10(As)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2))
-
-    p = plot(p1, p2, p3, p4, p5, p6, p7, p8, p9, layout=(3,3), size=(1200, 900), margin=20*Plots.px) 
-    display(p)
+    plot!(p[6], log10.(ks*k0), [[derivative.(lgk -> log10(P(10^lgk, ρr0, ρm0, As)), log10.(ks)) for derivative in derivatives]..., log10.(P.(ks, ρr0, ρm0, As)/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (auto. diff.)" "d lg(P) / d lg(k) (fin. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft); display(p)
+    plot!(p[7], log10.(ks*k0), [derivative(lgρr0 -> log10.(P.(ks, 10^lgρr0, ρm0, As)), log10(ρr0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."]); display(p)
+    plot!(p[8], log10.(ks*k0), [derivative(lgρm0 -> log10.(P.(ks, ρr0, 10^lgρm0, As)), log10(ρm0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."]); display(p)
+    plot!(p[9], log10.(ks*k0), [derivative(lgAs  -> log10.(P.(ks, ρr0, ρm0, 10^lgAs)), log10(As)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2)); display(p)
 end
