@@ -5,6 +5,23 @@ using FiniteDiff
 using Plots
 Plots.default(label=nothing, markershape=:pixel)
 
+# TODO: avoid this; make recombination work naturally with Unitful units
+using PhysicalConstants, Unitful, UnitfulAstro
+const c  = PhysicalConstants.CODATA2018.c_0 / u"m/s"
+const h  = PhysicalConstants.CODATA2018.h / u"J*s"
+const ħ  = PhysicalConstants.CODATA2018.ħ / u"J*s"
+const kB = PhysicalConstants.CODATA2018.k_B / u"J/K"
+const G  = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2"
+const α  = PhysicalConstants.CODATA2018.α # fine structure constant, ≈ 1/137
+const me = PhysicalConstants.CODATA2018.m_e / u"kg"
+const mp = PhysicalConstants.CODATA2018.m_p / u"kg"
+const mH = 1.6737236e-27 # kg
+const km  = 1u"km/m"  |> NoUnits
+const pc  = 1u"pc/m"  |> NoUnits
+const Mpc = 1u"Mpc/m" |> NoUnits
+const eV  = 1u"eV/J"  |> NoUnits
+const EHion = 13.59844 * eV
+
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 # TODO: register thermodynamics functions: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
 # TODO: make simpler Cosmology interface
@@ -56,6 +73,40 @@ function solve_background(ρr0, ρm0) # TODO: define parameter struct?
     return solve(prob)
 end
 
+# thermodynamics / recombination variables
+@parameters fb H0 T0
+@variables Xe(a) XH(a) Xp(a) α2(a) β(a) λe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a)
+thermo_eqs = [
+    H ~ E * H0
+    T ~ T0 / a # TODO: diff eq for temperature evolution?
+
+    # TODO: add Peebles' corrections & He? see Dodelson exercise 4.7
+    Da(Xe) ~ (XH*β - Xe*Xp*nb*α2) / (a*H) # same as ((1-Xe)*β - Xe^2*nb*α2) / (a*H); Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+    α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ)
+    β ~ α2 / λe^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
+    λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
+
+    ρb ~ fb * ρm # fb is baryon-to-matter fraction
+    nb ~ ρb * 3*H0^2 / (8π*G) / (Xe*mp + (1-Xe)*mH) # ≈ ρb/mp * 3*H0^2 / (8π*G), Dodelson above (4.41) (ρb = ρp+ρH, nb=ρp+ρH)
+    np ~ ne # charge neutrality
+    nH ~ nb - ne # nb = nH + ne = nH + np
+    ne ~ Xe * nb
+    XH ~ nH / nb
+    Xp ~ np / nb
+
+    # TODO: reionization?
+]
+@mtkbuild thermo = ODESystem([bg_eqs; thermo_eqs], a, [ρr, ρm, ρΛ, Xe], [H0, T0, fb])
+thermo_prob = ODEProblem(thermo, [ρr, ρm, ρΛ, Xe] .=> NaN, (aini, atoday), [H0, T0, fb] .=> NaN)
+function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
+    fb = ρb0 / ρm0; @assert fb <= 1
+    T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
+    bg_sol = solve_background(ρr0, ρm0)
+    ρrini, ρmini, ρΛini = bg_sol(aini; idxs = [ρr, ρm, ρΛ]) # integrate background from atoday back to aini
+    prob = remake(thermo_prob; u0=[ρrini, ρmini, ρΛini, 1], p=[H0, T0, fb]) # TODO: guarantee order!!
+    return solve(prob, KenCarp4(), reltol=1e-9)
+end
+
 # perturbation variables
 @parameters k # really k*c/H0
 @variables Φ(a) Ψ(a) δρ(a) Θr0(a) Θr1(a) δm(a) um(a) Δm(a)
@@ -88,7 +139,7 @@ function solve_perturbations(kval, ρr0, ρm0)
     Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
     umini = 3*Θr1ini # Dodelson (7.95)
     prob = remake(pert_prob; u0=[ρrini, ρmini, ρΛini, Φini, Θr0ini, Θr1ini, δmini, umini], p=[kval]) # TODO: guarantee order!!
-    return solve(prob, KenCarp4(), reltol=1e-7) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
+    return solve(prob, KenCarp4(), reltol=1e-5) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
 # power spectra
@@ -98,18 +149,21 @@ P(k, ρr0, ρm0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0)(atoday; id
 if true
     ρr0 = 1e-5
     ρm0 = 0.3
+    ρb0 = 0.02
+    H0 = 70 * km/Mpc # s^-1
     As = 2e-9
     as = 10 .^ range(log10(aini), log10(atoday), length=400)
     k0 = 1 / 2997.92458 # h/Mpc
     ks = 10 .^ range(-4, +2, length=50) / k0 # in code units of k0 = H0/c
 
     bg_sol = solve_background(ρr0, ρm0)
+    thermo_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     pert_sols = [solve_perturbations(kval, ρr0, ρm0) for kval in ks] # TODO: use EnsembleProblem again
 
     # TODO: add plot recipe!
     p1 = plot(log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left)
     p2 = plot(log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)")
-    p3 = plot(; xlabel="???", ylabel="???") # TODO
+    p3 = plot(log10.(as), log10.(thermo_sol.(as, idxs=Xe)); xlabel="lg(a)", ylabel="lg(Xe)") # TODO
     p4 = plot(log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ")
     p5 = plot(log10.(as), [log10.(pert_sol.(as; idxs=δm)) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="lg(δm)")
     
