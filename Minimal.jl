@@ -160,6 +160,7 @@ end
 # power spectra
 P0(k, As) = As / k^3
 P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=Δm)^2
+P(x) = P(10 ^ x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5], 10^x[6]) # x = log10.([k, ρr0, ρm0, ρb0, H0, As])
 
 if true
     ρr0 = 1e-5
@@ -185,9 +186,12 @@ if true
     plot!(p[5], log10.(as), [[log10.(abs.(pert_sol.(as; idxs=δ))) for pert_sol in pert_sols] for δ in [δb,δc]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
     # compute derivatives of output power spectrum with respect to input parameters
-    derivatives = [FiniteDiff.finite_difference_derivative, ForwardDiff.derivative]
-    plot!(p[6], log10.(ks*k0), [[derivative.(lgk -> log10(P(10^lgk, ρr0, ρm0, ρb0, H0, As)), log10.(ks)) for derivative in derivatives]..., log10.(P.(ks, ρr0, ρm0, ρb0, H0, As)/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (auto. diff.)" "d lg(P) / d lg(k) (fin. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft); display(p)
-    plot!(p[7], log10.(ks*k0), [derivative(lgρr0 -> log10.(P.(ks, 10^lgρr0, ρm0, ρb0, H0, As)), log10(ρr0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."]); display(p)
-    plot!(p[8], log10.(ks*k0), [derivative(lgρm0 -> log10.(P.(ks, ρr0, 10^lgρm0, ρb0, H0, As)), log10(ρm0)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."]); display(p)
-    plot!(p[9], log10.(ks*k0), [derivative(lgAs  -> log10.(P.(ks, ρr0, ρm0, ρb0, H0, 10^lgAs)), log10(As)) for derivative in derivatives]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2)); display(p)
+    x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
+    Ps = stack([P([log10(k), x0...]) for k in ks])
+    dlgP_dxs_ad = stack([ForwardDiff.gradient(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
+    dlgP_dxs_fd = stack([FiniteDiff.finite_difference_gradient(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
+    plot!(p[6], log10.(ks*k0), [dlgP_dxs_fd[1,:], dlgP_dxs_ad[1,:], log10.(Ps/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft); display(p)
+    plot!(p[7], log10.(ks*k0), [dlgP_dxs_fd[2,:], dlgP_dxs_ad[2,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."]); display(p)
+    plot!(p[8], log10.(ks*k0), [dlgP_dxs_fd[3,:], dlgP_dxs_ad[3,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."]); display(p)
+    plot!(p[9], log10.(ks*k0), [dlgP_dxs_fd[6,:], dlgP_dxs_ad[6,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2)); display(p)
 end
