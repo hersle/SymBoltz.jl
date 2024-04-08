@@ -86,7 +86,7 @@ thermo_eqs = [
     T ~ T0 / a # TODO: diff eq for temperature evolution?
 
     # TODO: add Peebles' corrections & He? see Dodelson exercise 4.7
-    Db(Xe) ~ (XH*β - Xe*Xp*nb*α2) / H # same as ((1-Xe)*β - Xe^2*nb*α2) / H; Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+    Db(Xe) ~ ((1-Xe)*β - Xe^2*nb*α2) / H # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
     α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ)
     β ~ α2 / λe^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
     λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
@@ -96,8 +96,6 @@ thermo_eqs = [
     np ~ ne # charge neutrality
     nH ~ nb - ne # nb = nH + ne = nH + np
     ne ~ Xe * nb
-    XH ~ nH / nb
-    Xp ~ np / nb
 
     # optical depth
     dτ ~ -ne * σT * c / H # dτ = dτ/db
