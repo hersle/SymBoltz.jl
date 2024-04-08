@@ -143,6 +143,7 @@ pert_eqs = [
 pert_prob = ODEProblem(pert, [ρr, ρm, ρΛ, Xe, Φ, Θr0, δc, δb, Θr1, uc, ub] .=> NaN, (aini, atoday), [H0, k, T0, fb] .=> NaN; jac=true) # TODO: use remake
 
 function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
+    println("k = $(kval*k0) Mpc/h")
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
@@ -165,33 +166,37 @@ P(x) = P(10 ^ x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5], 10^x[6]) # x = log10.([k
 if true
     ρr0 = 1e-5
     ρm0 = 0.3
-    ρb0 = 0.02
+    ρb0 = 0.1
     H0 = 70 * km/Mpc # s^-1
     As = 2e-9
     as = 10 .^ range(log10(aini), log10(atoday), length=400)
     k0 = 1 / 2997.92458 # h/Mpc
     ks = 10 .^ range(-4, +2, length=50) / k0 # in code units of k0 = H0/c
 
-    bg_sol = solve_background(ρr0, ρm0)
-    thermo_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
-    pert_sols = [solve_perturbations(kval, ρr0, ρm0, ρb0, H0) for kval in ks] # TODO: use EnsembleProblem again
-
     # TODO: add plot recipe!
     p = plot(layout=(3,3), size=(1200, 900), margin=20*Plots.px); display(p)
 
+    bg_sol = solve_background(ρr0, ρm0)
     plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[Ωr,Ωm,ΩΛ])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
     plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
+
+    thermo_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     plot!(p[3], log10.(as), log10.(thermo_sol.(as, idxs=Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
+
+    pert_sols = [solve_perturbations(kval, ρr0, ρm0, ρb0, H0) for kval in ks] # TODO: use EnsembleProblem again
     plot!(p[4], log10.(as), [pert_sol.(as; idxs=Φ) for pert_sol in pert_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
     plot!(p[5], log10.(as), [[log10.(abs.(pert_sol.(as; idxs=δ))) for pert_sol in pert_sols] for δ in [δb,δc]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
-    # compute derivatives of output power spectrum with respect to input parameters
     x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
-    Ps = stack([P([log10(k), x0...]) for k in ks])
-    dlgP_dxs_ad = stack([ForwardDiff.gradient(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
-    dlgP_dxs_fd = stack([FiniteDiff.finite_difference_gradient(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
-    plot!(p[6], log10.(ks*k0), [dlgP_dxs_fd[1,:], dlgP_dxs_ad[1,:], log10.(Ps/k0^3)]; xlabel="lg(k/(h/Mpc))", label=["d lg(P) / d lg(k) (fin. diff.)" "d lg(P) / d lg(k) (auto. diff.)" "lg(P/(Mpc/h)³)"], legend=:bottomleft); display(p)
-    plot!(p[7], log10.(ks*k0), [dlgP_dxs_fd[2,:], dlgP_dxs_ad[2,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", labels=["fin. diff." "auto. diff."]); display(p)
-    plot!(p[8], log10.(ks*k0), [dlgP_dxs_fd[3,:], dlgP_dxs_ad[3,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", labels=["fin. diff." "auto. diff."]); display(p)
-    plot!(p[9], log10.(ks*k0), [dlgP_dxs_fd[6,:], dlgP_dxs_ad[6,:]]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", labels=["fin. diff." "auto. diff."], ylims=(0, 2)); display(p)
+    Ps = stack([P([log10(k), x0...]) for k in ks]) # TODO: use pert_sols
+    plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
+
+    # compute derivatives of output power spectrum with respect to input parameters
+    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-3), "fin. diff.", 1), ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
+        dlgP_dxs = stack([derivative(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
+        plot!(p[6], log10.(ks*k0), dlgP_dxs[1,:]; xlabel="lg(k/(h/Mpc))", label="d lg(P) / d lg(k) ($name)", color=color, legend=:bottomleft); display(p)
+        plot!(p[7], log10.(ks*k0), dlgP_dxs[2,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
+        plot!(p[8], log10.(ks*k0), dlgP_dxs[3,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
+        plot!(p[9], log10.(ks*k0), dlgP_dxs[6,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
+    end
 end
