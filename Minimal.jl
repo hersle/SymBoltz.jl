@@ -93,9 +93,8 @@ end
 # TODO: just merge with background?
 function thermodynamics(; name)
     @parameters fb H0 T0
-    @variables a(b) E(b) ρr(b) ρm(b) Xe(b) XH(b) Xp(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
+    @variables a(b) ρr(b) ρm(b) Xe(b) XH(b) Xp(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
     return ODESystem([
-        H ~ E * H0
         T ~ T0 / a # TODO: diff eq for temperature evolution?
 
         # TODO: add Peebles' corrections & He? see Dodelson exercise 4.7
@@ -120,7 +119,7 @@ end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
     th.a ~ bg.st.a
-    th.E ~ bg.grav.E
+    th.H ~ bg.grav.E * th.H0
     th.ρr ~ bg.rad.ρ
     th.ρm ~ bg.mat.ρ
 ], b)
