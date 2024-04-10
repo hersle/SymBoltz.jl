@@ -37,6 +37,7 @@ const EHion = 13.59844 * eV
 # TODO: analytical solutions of e.g. background ρ evolution
 # TODO: GPU-parallellized EnsembleProblem
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
+# TODO: define components with @mtkmodel?
 
 # independent variable: scale factor
 @variables b
@@ -130,72 +131,115 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
-    ρrini, ρmini, ρΛini = bg_sol(bini; idxs = [rad.ρ, mat.ρ, de.ρ]) # integrate background from atoday back to aini
+    ρrini, ρmini, ρΛini = bg_sol(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini
     prob = remake(th_prob; u0=[1, ρrini, ρmini, ρΛini], p=[fb, H0, T0]) # TODO: guarantee order!!
     return solve(prob, KenCarp4(), reltol=1e-15) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
-function perturbations(; name)
-    # perturbation variables
-    @parameters k # really k*c/H0
-    @variables a(b) E(b) ρr(b) ρm(b) ρb(b) dτ(b) R(b) Φ(b) Ψ(b) δρ(b) Θr0(b) Θr1(b) δc(b) δb(b) uc(b) ub(b) ρc(b) Δm(b)
+@parameters k # perturbation wavenumber # TODO: associate like pt.k
+k = GlobalScope(k)
+
+function perturbations_spacetime(; name)
+    @variables Φ(b) Ψ(b)
+    return ODESystem(Equation[], b, [Φ, Ψ], []; name)
+end
+
+function perturbations_photons(; name)
+    # TODO: represent interactions better (using fewer variables)?
+    @variables Θ0(b) Θ1(b) E(b) a(b) dτ(b) ub(b) Φ(b) Ψ(b)
     return ODESystem([
-        # radiation perturbations (density & velocity)
-        Db(Θr0) + k/(a*E)*Θr1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
-        Db(Θr1) - k/(3*a*E)*Θr0 ~ k/(3*a*E)*Ψ + dτ * (Θr1 - ub/3) # Dodelson (5.67) or (8.11)
-
-        # matter perturbations (density & velocity)
-        ρc ~ ρm - ρb
-        Db(δc) + k/(a*E)*uc ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Db(uc) + uc ~ k/(a*E)*Ψ # Dodelson (5.70) or (8.13) with i*uc -> uc
-
-        # baryon perturbations (density & velocity)
-        Db(δb) + k/(a*E)*ub ~ -3*Db(Φ) # Dodelson (5.71) with i*ub -> ub
-        Db(ub) + ub ~ k/(a*E)*Ψ + dτ/R * (ub - 3*Θr1)# Dodelson (5.72) with i*ub -> ub
-
-        # gravity
-        δρ ~ 4*ρr*Θr0 + δc*ρc + δb*ρb # total energy density perturbation
-        Db(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*(a*E)^2) # Dodelson (8.14) # TODO: write in more natural form?
-        Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation)
-
-        # anisotropic stress
-        Ψ ~ -Φ # TODO: relax
+        Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
+        Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + dτ * (Θ1 - ub/3) # Dodelson (5.67) or (8.11)    
     ], b; name)
 end
-@named pt = perturbations()
+
+function perturbations_baryons(; name)
+    @variables δ(b) u(b) E(b) a(b) dτ(b) R(b) Θr1(b) Φ(b) Ψ(b)
+    return ODESystem([
+        Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.71) with i*ub -> ub
+        Db(u) + u ~ k/(a*E)*Ψ + dτ/R * (u - 3*Θr1)# Dodelson (5.72) with i*ub -> ub
+    ], b; name)
+end
+
+function perturbations_cold_dark_matter(; name)
+    @variables δ(b) u(b) E(b) a(b) Φ(b) Ψ(b)
+    return ODESystem([
+        Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
+        Db(u) + u ~ k/(a*E)*Ψ # Dodelson (5.70) or (8.13) with i*uc -> uc
+    ], b; name)
+end
+
+function perturbations_gravity(; name)
+    @variables δρ(b) Δm(b) E(b) a(b) ρm(b) Φ(b) Ψ(b)
+    return ODESystem([
+        Db(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*(a*E)^2) # Dodelson (8.14) # TODO: write in more natural form?
+        Ψ ~ -Φ # anisotropic stress # TODO: relax
+        Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
+    ], b; name)
+end
+
+@named st = perturbations_spacetime()
+@named rad = perturbations_photons()
+@named cdm = perturbations_cold_dark_matter()
+@named bar = perturbations_baryons()
+@named grav = perturbations_gravity()
+@variables ρc(b) # TODO: get rid of
 @named pt_th_bg_conn = ODESystem([
-    pt.a ~ bg.st.a
-    pt.E ~ bg.grav.E
-    pt.ρr ~ bg.rad.ρ
-    pt.ρm ~ bg.mat.ρ
-    pt.ρb ~ th.ρb
-    pt.dτ ~ th.dτ
-    pt.R ~ th.R
+    ρc ~ bg.mat.ρ - th.ρb
+    grav.δρ ~ 4*bg.rad.ρ*rad.Θ0 + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
+
+    # TODO: simplify this mess!
+    rad.a ~ bg.st.a
+    rad.E ~ bg.grav.E
+    rad.Φ ~ st.Φ
+    rad.Ψ ~ st.Ψ
+    rad.ub ~ bar.u
+    rad.dτ ~ th.dτ
+
+    bar.a ~ bg.st.a
+    bar.E ~ bg.grav.E
+    bar.Φ ~ st.Φ
+    bar.Ψ ~ st.Ψ
+    bar.dτ ~ th.dτ
+    bar.R ~ th.R
+    bar.Θr1 ~ rad.Θ1
+    
+    cdm.a ~ bg.st.a
+    cdm.E ~ bg.grav.E
+    cdm.Φ ~ st.Φ
+    cdm.Ψ ~ st.Ψ
+
+    grav.E ~ bg.grav.E
+    grav.a ~ bg.st.a
+    grav.Φ ~ st.Φ
+    grav.Ψ ~ st.Ψ
+    grav.ρm ~ bg.mat.ρ
 ], b)
-pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn) 
-@named pt_th_bg = compose(pt_th_bg_conn, pt, th, bg)
-pt_simple = structural_simplify(pt_th_bg)
-pt_prob = ODEProblem(pt_simple, [pt.Φ, pt.Θr0, pt.Θr1, pt.δc, pt.uc, pt.δb, pt.ub, th.Xe, bg.rad.ρ, bg.mat.ρ, bg.de.ρ] .=> NaN, (bini, btoday), [th.fb, th.H0, th.T0, pt.k] .=> NaN; jac=true) 
+pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
+
+@named pt = compose(pt_th_bg_conn, st, rad, bar, cdm, grav, th, bg) # TODO
+pt_simple = structural_simplify(pt)
+pt_prob = ODEProblem(pt_simple, [grav.Φ, rad.Θ0, rad.Θ1, bar.δ, bar.u, cdm.δ, cdm.u, th.Xe, bg.rad.ρ, bg.mat.ρ, bg.de.ρ] .=> NaN, (bini, btoday), [th.fb, k, th.H0, th.T0] .=> NaN; jac=true) 
 
 function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
     println("k = $(kval*k0) Mpc/h")
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
-    ρrini, ρmini, ρΛini, Eini = bg_sol(bini; idxs = [rad.ρ, mat.ρ, de.ρ, grav.E]) # integrate background from atoday back to aini
+    ρrini, ρmini, ρΛini, Eini = bg_sol(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, bg.grav.E]) # integrate background from atoday back to aini
     Xeini = 1.0 # TODO: avoid duplication thermo logic
     Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
     Θr0ini = Φini/2 # Dodelson (7.89)
     δcini = δbini = 3*Θr0ini # Dodelson (7.94)
     Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
     ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-    prob = remake(pt_prob; u0=[Φini, Θr0ini, Θr1ini, δcini, ucini, δbini, ubini, Xeini, ρrini, ρmini, ρΛini], p=[fb, H0, T0, kval]) # order checked with SymbolicIndexingInterface.parameter_index (on the ODEProblem!!!) TODO: guarantee order!!
+    prob = remake(pt_prob; u0=[Φini, Θr0ini, Θr1ini, δbini, ubini, δcini, ucini, Xeini, ρrini, ρmini, ρΛini], p=[fb, kval, H0, T0]) # order checked with SymbolicIndexingInterface.parameter_index (on the ODEProblem!!!) TODO: guarantee order!!
     return solve(prob, KenCarp4(), reltol=1e-10) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
 # power spectra
 P0(k, As) = As / k^3
-P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0, ρb0, H0)(btoday; idxs=pt.Δm)^2
+P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0, ρb0, H0)(btoday; idxs=pt.grav.Δm)^2
 P(x) = P(10 ^ x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5], 10^x[6]) # x = log10.([k, ρr0, ρm0, ρb0, H0, As])
 
 if true
@@ -220,8 +264,8 @@ if true
     plot!(p[3], log10.(as), log10.(th_sol.(bs, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
 
     pt_sols = [solve_perturbations(kval, ρr0, ρm0, ρb0, H0) for kval in ks] # TODO: use EnsembleProblem again
-    plot!(p[4], log10.(as), [pt_sol.(bs; idxs=pt.Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
-    plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(bs; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.δb,pt.δc]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
+    plot!(p[4], log10.(as), [pt_sol.(bs; idxs=pt.st.Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
+    plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(bs; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
     x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
     Ps = stack([P([log10(k), x0...]) for k in ks]) # TODO: use pert_sols
