@@ -63,7 +63,7 @@ function background_species_constant_eos(w; name)
     @variables ρ(b) P(b) Ω(b) ρcrit(b)
     return ODESystem([
         P ~ w*ρ
-        Db(ρ) ~ -3 * (ρ + P) # TODO: replace with analytical solutions
+        Db(ρ) ~ -3 * (ρ + P) # TODO: replace with analytical solutions and ρ0 parameter
         Ω ~ ρ / ρcrit
     ], b; name)
 end
@@ -82,11 +82,11 @@ end
 ], b)
 
 @named bg = compose(bg, st, rad, mat, de, grav) # TODO: extend?
-bg_simple = structural_simplify(bg)
-bg_prob = ODEProblem(bg_simple, [rad.ρ, mat.ρ, de.ρ] .=> NaN, (btoday, bini), [])
+bg_sim = structural_simplify(bg)
+bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (btoday, bini))
 function solve_background(ρr0, ρm0)
-    ρΛ0 = 1 - ρr0 - ρm0
-    prob = remake(bg_prob; u0=[ρr0, ρm0, ρΛ0]) # https://github.com/SciML/SymbolicIndexingInterface.jl/issues/59
+    ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
+    prob = remake(bg_prob; u0 = [ρr0, ρm0, ρΛ0]) # TODO: guarantee order # https://github.com/SciML/SymbolicIndexingInterface.jl/issues/59
     return solve(prob)
 end
 
@@ -125,14 +125,14 @@ end
     th.ρm ~ bg.mat.ρ
 ], b)
 @named th_bg = compose(th_bg_conn, th, bg)
-th_simple = structural_simplify(th_bg)
-th_prob = ODEProblem(th_simple, [th.Xe, bg.rad.ρ, bg.mat.ρ, bg.de.ρ] .=> NaN, (bini, btoday), [th.fb, th.H0, th.T0] .=> NaN; jac=true)
+th_sim = structural_simplify(th_bg)
+th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (bini, btoday); jac=true)
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1
-    T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
-    bg_sol = solve_background(ρr0, ρm0)
-    ρrini, ρmini, ρΛini = bg_sol(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini
-    prob = remake(th_prob; u0=[1, ρrini, ρmini, ρΛini], p=[fb, H0, T0]) # TODO: guarantee order!!
+    T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # TODO: relate to ρr0 once that is a parameter
+    Xeini = 1
+    ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
+    prob = remake(th_prob; u0 = [Xeini, ρrini, ρmini, ρΛini], p = [fb, H0, T0]) # TODO: guarantee order
     return solve(prob, KenCarp4(), reltol=1e-15) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
@@ -217,9 +217,9 @@ end
 ], b)
 pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
 
-@named pt = compose(pt_th_bg_conn, st, rad, bar, cdm, grav, th, bg) # TODO
-pt_simple = structural_simplify(pt)
-pt_prob = ODEProblem(pt_simple, [grav.Φ, rad.Θ0, rad.Θ1, bar.δ, bar.u, cdm.δ, cdm.u, th.Xe, bg.rad.ρ, bg.mat.ρ, bg.de.ρ] .=> NaN, (bini, btoday), [th.fb, k, th.H0, th.T0] .=> NaN; jac=true) 
+@named pt = compose(pt_th_bg_conn, st, rad, bar, cdm, grav, th, bg)
+pt_sim = structural_simplify(pt)
+pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (bini, btoday); jac=true) 
 
 function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
     println("k = $(kval*k0) Mpc/h")
@@ -233,7 +233,7 @@ function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
     δcini = δbini = 3*Θr0ini # Dodelson (7.94)
     Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
     ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-    prob = remake(pt_prob; u0=[Φini, Θr0ini, Θr1ini, δbini, ubini, δcini, ucini, Xeini, ρrini, ρmini, ρΛini], p=[fb, kval, H0, T0]) # order checked with SymbolicIndexingInterface.parameter_index (on the ODEProblem!!!) TODO: guarantee order!!
+    prob = remake(pt_prob; u0 = [Φini, Θr0ini, Θr1ini, δbini, ubini, δcini, ucini, Xeini, ρrini, ρmini, ρΛini], p = [fb, kval, H0, T0]) # TODO: guarantee order
     return solve(prob, KenCarp4(), reltol=1e-10) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
