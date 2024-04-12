@@ -89,7 +89,7 @@ end
 # TODO: just merge with background?
 function thermodynamics(; name)
     @parameters fb H0 T0
-    @variables ρr(b) ρm(b) Xe(b) XH(b) Xp(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
+    @variables ρr(b) ρm(b) Xe(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
     return ODESystem([
         T ~ T0 / a # TODO: diff eq for temperature evolution?
 
@@ -100,7 +100,7 @@ function thermodynamics(; name)
         λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
 
         ρb ~ fb * ρm # fb is baryon-to-matter fraction
-        nb ~ ρb * 3*H0^2 / (8π*G) / (Xe*mp + (1-Xe)*mH) # ≈ ρb/mp * 3*H0^2 / (8π*G), Dodelson above (4.41) (ρb = ρp+ρH, nb=ρp+ρH)
+        nb ~ ρb / (Xe*mp + (1-Xe)*mH) # ≈ ρb/mp * 3*H0^2 / (8π*G), Dodelson above (4.41) (ρb = ρp+ρH, nb=ρp+ρH)
         np ~ ne # charge neutrality
         nH ~ nb - ne # nb = nH + ne = nH + np
         ne ~ Xe * nb
@@ -110,13 +110,13 @@ function thermodynamics(; name)
         R ~ 3/4 * ρb/ρr # Dodelson (5.74)
 
         # TODO: reionization?
-    ], b; name)
+    ], b, [Xe, H, ρr, ρm, ρb, dτ, R], [fb, H0, T0]; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
-    th.H ~ E * th.H0
-    th.ρr ~ bg.rad.ρ
-    th.ρm ~ bg.mat.ρ
+    th.H ~ E * th.H0 # 1/s
+    th.ρr ~ bg.rad.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
+    th.ρm ~ bg.mat.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
 ], b)
 @named th_bg = compose(th_bg_conn, th, bg)
 th_sim = structural_simplify(th_bg)
@@ -164,10 +164,14 @@ end
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
-@variables ρc(b) # TODO: get rid of
+@variables ρc(b) ρb(b) δρr(b) δρc(b) δρb(b) # TODO: get rid of
 @named pt_th_bg_conn = ODESystem([
-    ρc ~ bg.mat.ρ - th.ρb
-    grav.δρ ~ bg.rad.ρ*rad.δ + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
+    ρb ~ th.fb * bg.mat.ρ
+    ρc ~ bg.mat.ρ - ρb
+    δρr ~ rad.δ * bg.rad.ρ
+    δρc ~ cdm.δ * ρc
+    δρb ~ bar.δ * ρb
+    grav.δρ ~ δρr + δρc + δρb # total energy density perturbation
     grav.ρm ~ bg.mat.ρ
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
@@ -202,9 +206,9 @@ P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0, 
 P(x) = P(10 ^ x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5], 10^x[6]) # x = log10.([k, ρr0, ρm0, ρb0, H0, As])
 
 if true
-    ρr0 = 1e-5
+    ρr0 = 5e-5
     ρm0 = 0.3
-    ρb0 = 0.1
+    ρb0 = 0.02
     H0 = 70 * km/Mpc # s^-1
     As = 2e-9
     bs = range(bini, btoday, length=400)
