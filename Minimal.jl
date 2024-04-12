@@ -40,17 +40,12 @@ const EHion = 13.59844 * eV
 # TODO: define components with @mtkmodel?
 
 # independent variable: scale factor
-@variables b
+# TODO: spacetime/geometry structure?
+@variables b a(b)
+a = GlobalScope(a)
 Db = Differential(b)
 aini, atoday = 1e-8, 1e0
 bini, btoday = log(aini), log(atoday)
-
-function background_spacetime(; name)
-    @variables a(b)
-    return ODESystem([
-        a ~ exp(b)
-    ], b; name)
-end
 
 function background_gravity_GR(; name)
     @variables E(b) ρ(b)
@@ -68,20 +63,20 @@ function background_species_constant_eos(w; name)
     ], b; name)
 end
 
-@named st = background_spacetime()
 @named rad = background_species_constant_eos(1//3)
 @named mat = background_species_constant_eos(0)
 @named de = background_species_constant_eos(-1)
 @named grav = background_gravity_GR()
 
 @named bg = ODESystem([
+    a ~ exp(b)
     grav.ρ ~ rad.ρ + mat.ρ + de.ρ
     rad.ρcrit ~ grav.ρ
     mat.ρcrit ~ grav.ρ
     de.ρcrit ~ grav.ρ
 ], b)
 
-@named bg = compose(bg, st, rad, mat, de, grav) # TODO: extend?
+@named bg = compose(bg, rad, mat, de, grav) # TODO: extend?
 bg_sim = structural_simplify(bg)
 bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (btoday, bini))
 function solve_background(ρr0, ρm0)
@@ -94,7 +89,7 @@ end
 # TODO: just merge with background?
 function thermodynamics(; name)
     @parameters fb H0 T0
-    @variables a(b) ρr(b) ρm(b) Xe(b) XH(b) Xp(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
+    @variables ρr(b) ρm(b) Xe(b) XH(b) Xp(b) α2(b) β(b) λe(b) ρb(b) nb(b) np(b) ne(b) nH(b) H(b) T(b) dτ(b) R(b)
     return ODESystem([
         T ~ T0 / a # TODO: diff eq for temperature evolution?
 
@@ -119,7 +114,6 @@ function thermodynamics(; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
-    th.a ~ bg.st.a
     th.H ~ bg.grav.E * th.H0
     th.ρr ~ bg.rad.ρ
     th.ρm ~ bg.mat.ρ
@@ -136,16 +130,12 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     return solve(prob, KenCarp4(), reltol=1e-15) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
+@variables Φ(b) Ψ(b)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
-k = GlobalScope(k)
-
-function perturbations_spacetime(; name)
-    @variables Φ(b) Ψ(b)
-    return ODESystem(Equation[], b, [Φ, Ψ], []; name)
-end
+k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
 
 function perturbations_radiation(interact=false; name)
-    @variables Θ0(b) Θ1(b) E(b) a(b) Φ(b) Ψ(b)
+    @variables Θ0(b) Θ1(b) E(b)
     interaction = interact ? only(@variables interaction(b)) : 0
     eq0 = Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
     eq1 = Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
@@ -153,7 +143,7 @@ function perturbations_radiation(interact=false; name)
 end
 
 function perturbations_matter(interact=false; name)
-    @variables δ(b) u(b) E(b) a(b) Φ(b) Ψ(b)
+    @variables δ(b) u(b) E(b)
     interaction = interact ? only(@variables interaction(b)) : 0
     eq0 = Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
     eq1 = Db(u) + u ~ k/(a*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
@@ -161,7 +151,7 @@ function perturbations_matter(interact=false; name)
 end
 
 function perturbations_gravity(; name)
-    @variables δρ(b) Δm(b) E(b) a(b) ρm(b) Φ(b) Ψ(b)
+    @variables δρ(b) Δm(b) E(b) ρm(b)
     return ODESystem([
         Db(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*(a*E)^2) # Dodelson (8.14) # TODO: write in more natural form?
         Ψ ~ -Φ # anisotropic stress # TODO: relax
@@ -184,30 +174,15 @@ end
     bar.interaction ~ +th.dτ/th.R * (bar.u - 3*rad.Θ1)
 
     # TODO: simplify this mess! (e.g. automatically create connections between variables with same name: https://docs.juliahub.com/General/WorldDynamics/stable/source/#WorldDynamics.variable_connections-Tuple{Vector{ModelingToolkit.ODESystem}})
-    rad.a ~ bg.st.a
     rad.E ~ bg.grav.E
-    rad.Φ ~ st.Φ
-    rad.Ψ ~ st.Ψ
-
-    bar.a ~ bg.st.a
     bar.E ~ bg.grav.E
-    bar.Φ ~ st.Φ
-    bar.Ψ ~ st.Ψ
-    
-    cdm.a ~ bg.st.a
     cdm.E ~ bg.grav.E
-    cdm.Φ ~ st.Φ
-    cdm.Ψ ~ st.Ψ
-
     grav.E ~ bg.grav.E
-    grav.a ~ bg.st.a
-    grav.Φ ~ st.Φ
-    grav.Ψ ~ st.Ψ
     grav.ρm ~ bg.mat.ρ
 ], b)
 pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
 
-@named pt = compose(pt_th_bg_conn, st, rad, bar, cdm, grav, th, bg)
+@named pt = compose(pt_th_bg_conn, rad, bar, cdm, grav, th, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (bini, btoday); jac=true) 
 
@@ -254,7 +229,7 @@ if true
     plot!(p[3], log10.(as), log10.(th_sol.(bs, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
 
     pt_sols = [solve_perturbations(kval, ρr0, ρm0, ρb0, H0) for kval in ks] # TODO: use EnsembleProblem again
-    plot!(p[4], log10.(as), [pt_sol.(bs; idxs=pt.st.Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
+    plot!(p[4], log10.(as), [pt_sol.(bs; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
     plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(bs; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
     x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
@@ -262,7 +237,7 @@ if true
     plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
 
     # compute derivatives of output power spectrum with respect to input parameters
-    for (derivative, name, color) in [#=((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-2), "fin. diff.", 1),=# ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
+    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
         dlgP_dxs = stack([derivative(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
         plot!(p[6], log10.(ks*k0), dlgP_dxs[1,:]; xlabel="lg(k/(h/Mpc))", label="d lg(P) / d lg(k) ($name)", color=color, legend=:bottomleft); display(p)
         plot!(p[7], log10.(ks*k0), dlgP_dxs[2,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
