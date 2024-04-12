@@ -41,14 +41,14 @@ const EHion = 13.59844 * eV
 
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
-@variables b a(b)
-a = GlobalScope(a)
+@variables b a(b) E(b)
+a, E = GlobalScope.([a, E])
 Db = Differential(b)
 aini, atoday = 1e-8, 1e0
 bini, btoday = log(aini), log(atoday)
 
 function background_gravity_GR(; name)
-    @variables E(b) ρ(b)
+    @variables ρ(b)
     return ODESystem([
         E ~ √(ρ) # H/H₀
     ], b; name)
@@ -114,7 +114,7 @@ function thermodynamics(; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
-    th.H ~ bg.grav.E * th.H0
+    th.H ~ E * th.H0
     th.ρr ~ bg.rad.ρ
     th.ρm ~ bg.mat.ρ
 ], b)
@@ -135,7 +135,7 @@ end
 k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
 
 function perturbations_radiation(interact=false; name)
-    @variables Θ0(b) Θ1(b) E(b) δ(b)
+    @variables Θ0(b) Θ1(b) δ(b)
     interaction = interact ? only(@variables interaction(b)) : 0
     eq0 = Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
     eq1 = Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
@@ -144,7 +144,7 @@ function perturbations_radiation(interact=false; name)
 end
 
 function perturbations_matter(interact=false; name)
-    @variables δ(b) u(b) E(b)
+    @variables δ(b) u(b)
     interaction = interact ? only(@variables interaction(b)) : 0
     eq0 = Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
     eq1 = Db(u) + u ~ k/(a*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
@@ -152,7 +152,7 @@ function perturbations_matter(interact=false; name)
 end
 
 function perturbations_gravity(; name)
-    @variables δρ(b) Δm(b) E(b) ρm(b)
+    @variables δρ(b) Δm(b) ρm(b)
     return ODESystem([
         Db(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*(a*E)^2) # Dodelson (8.14) # TODO: write in more natural form?
         Ψ ~ -Φ # anisotropic stress # TODO: relax
@@ -160,7 +160,6 @@ function perturbations_gravity(; name)
     ], b; name)
 end
 
-@named st = perturbations_spacetime()
 @named rad = perturbations_radiation(true)
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
@@ -169,17 +168,11 @@ end
 @named pt_th_bg_conn = ODESystem([
     ρc ~ bg.mat.ρ - th.ρb
     grav.δρ ~ bg.rad.ρ*rad.δ + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
+    grav.ρm ~ bg.mat.ρ
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
     rad.interaction ~ -th.dτ/3    * (bar.u - 3*rad.Θ1)
     bar.interaction ~ +th.dτ/th.R * (bar.u - 3*rad.Θ1)
-
-    # TODO: simplify this mess! (e.g. automatically create connections between variables with same name: https://docs.juliahub.com/General/WorldDynamics/stable/source/#WorldDynamics.variable_connections-Tuple{Vector{ModelingToolkit.ODESystem}})
-    rad.E ~ bg.grav.E
-    bar.E ~ bg.grav.E
-    cdm.E ~ bg.grav.E
-    grav.E ~ bg.grav.E
-    grav.ρm ~ bg.mat.ρ
 ], b)
 pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
 
@@ -192,7 +185,7 @@ function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
-    ρrini, ρmini, ρΛini, Eini = bg_sol(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, bg.grav.E]) # integrate background from atoday back to aini
+    ρrini, ρmini, ρΛini, Eini = bg_sol(bini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     Xeini = 1.0 # TODO: avoid duplication thermo logic
     Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
     Θr0ini = Φini/2 # Dodelson (7.89)
@@ -224,7 +217,7 @@ if true
 
     bg_sol = solve_background(ρr0, ρm0)
     plot!(p[1], log10.(as), reduce(vcat, bg_sol.(bs; idxs=[bg.rad.Ω,bg.mat.Ω,bg.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
-    plot!(p[2], log10.(as), log10.(bg_sol.(bs; idxs=bg.grav.E) / bg_sol(btoday; idxs=grav.E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
+    plot!(p[2], log10.(as), log10.(bg_sol.(bs; idxs=E) / bg_sol(btoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     plot!(p[3], log10.(as), log10.(th_sol.(bs, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
