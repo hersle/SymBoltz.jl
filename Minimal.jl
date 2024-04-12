@@ -135,11 +135,12 @@ end
 k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
 
 function perturbations_radiation(interact=false; name)
-    @variables Θ0(b) Θ1(b) E(b)
+    @variables Θ0(b) Θ1(b) E(b) δ(b)
     interaction = interact ? only(@variables interaction(b)) : 0
     eq0 = Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
     eq1 = Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
-    return ODESystem([eq0, eq1], b; name)    
+    eq2 = δ ~ 4*Θ0
+    return ODESystem([eq0, eq1, eq2], b; name)    
 end
 
 function perturbations_matter(interact=false; name)
@@ -167,7 +168,7 @@ end
 @variables ρc(b) # TODO: get rid of
 @named pt_th_bg_conn = ODESystem([
     ρc ~ bg.mat.ρ - th.ρb
-    grav.δρ ~ 4*bg.rad.ρ*rad.Θ0 + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
+    grav.δρ ~ bg.rad.ρ*rad.δ + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
     rad.interaction ~ -th.dτ/3    * (bar.u - 3*rad.Θ1)
