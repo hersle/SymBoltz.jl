@@ -1,5 +1,5 @@
 using ModelingToolkit
-using DifferentialEquations
+using DifferentialEquations # TODO: OrdinaryDiffEq?
 using ForwardDiff
 using FiniteDiff
 using Plots
@@ -59,6 +59,7 @@ function background_species_constant_eos(w; name)
     return ODESystem([
         P ~ w*ρ
         Db(ρ) ~ -3 * (ρ + P) # TODO: replace with analytical solutions and ρ0 parameter
+        #ρ ~ ρ0 / a^(3*(1+w)) # TODO: recombination doesn't trigger with this analytical solution, at least when parametrized by ln(a). maybe it works when parametrized by a?
         Ω ~ ρ / ρcrit
     ], b; name)
 end
@@ -137,18 +138,20 @@ k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
 function perturbations_radiation(interact=false; name)
     @variables Θ0(b) Θ1(b) δ(b)
     interaction = interact ? only(@variables interaction(b)) : 0
-    eq0 = Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
-    eq1 = Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
-    eq2 = δ ~ 4*Θ0
-    return ODESystem([eq0, eq1, eq2], b; name)    
+    return ODESystem([
+        Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
+        Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
+        δ ~ 4*Θ0
+    ], b; name)    
 end
 
 function perturbations_matter(interact=false; name)
     @variables δ(b) u(b)
     interaction = interact ? only(@variables interaction(b)) : 0
-    eq0 = Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-    eq1 = Db(u) + u ~ k/(a*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
-    return ODESystem([eq0, eq1], b; name)
+    return ODESystem([
+        Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
+        Db(u) + u ~ k/(a*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
+    ], b; name)
 end
 
 function perturbations_gravity(; name)
