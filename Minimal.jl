@@ -144,29 +144,20 @@ function perturbations_spacetime(; name)
     return ODESystem(Equation[], b, [Φ, Ψ], []; name)
 end
 
-function perturbations_photons(; name)
-    # TODO: represent interactions better (using fewer variables)?
-    @variables Θ0(b) Θ1(b) E(b) a(b) dτ(b) ub(b) Φ(b) Ψ(b)
-    return ODESystem([
-        Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
-        Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + dτ * (Θ1 - ub/3) # Dodelson (5.67) or (8.11)    
-    ], b; name)
+function perturbations_radiation(interact=false; name)
+    @variables Θ0(b) Θ1(b) E(b) a(b) Φ(b) Ψ(b)
+    interaction = interact ? only(@variables interaction(b)) : 0
+    eq0 = Db(Θ0) + k/(a*E)*Θ1 ~ -Db(Φ) # Dodelson (5.67) or (8.10)
+    eq1 = Db(Θ1) - k/(3*a*E)*Θ0 ~ k/(3*a*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
+    return ODESystem([eq0, eq1], b; name)    
 end
 
-function perturbations_baryons(; name)
-    @variables δ(b) u(b) E(b) a(b) dτ(b) R(b) Θr1(b) Φ(b) Ψ(b)
-    return ODESystem([
-        Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.71) with i*ub -> ub
-        Db(u) + u ~ k/(a*E)*Ψ + dτ/R * (u - 3*Θr1)# Dodelson (5.72) with i*ub -> ub
-    ], b; name)
-end
-
-function perturbations_cold_dark_matter(; name)
+function perturbations_matter(interact=false; name)
     @variables δ(b) u(b) E(b) a(b) Φ(b) Ψ(b)
-    return ODESystem([
-        Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Db(u) + u ~ k/(a*E)*Ψ # Dodelson (5.70) or (8.13) with i*uc -> uc
-    ], b; name)
+    interaction = interact ? only(@variables interaction(b)) : 0
+    eq0 = Db(δ) + k/(a*E)*u ~ -3*Db(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
+    eq1 = Db(u) + u ~ k/(a*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
+    return ODESystem([eq0, eq1], b; name)
 end
 
 function perturbations_gravity(; name)
@@ -179,30 +170,29 @@ function perturbations_gravity(; name)
 end
 
 @named st = perturbations_spacetime()
-@named rad = perturbations_photons()
-@named cdm = perturbations_cold_dark_matter()
-@named bar = perturbations_baryons()
+@named rad = perturbations_radiation(true)
+@named cdm = perturbations_matter(false)
+@named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
 @variables ρc(b) # TODO: get rid of
 @named pt_th_bg_conn = ODESystem([
     ρc ~ bg.mat.ρ - th.ρb
     grav.δρ ~ 4*bg.rad.ρ*rad.Θ0 + cdm.δ*ρc + bar.δ*th.ρb # total energy density perturbation
 
-    # TODO: simplify this mess!
+    # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
+    rad.interaction ~ -th.dτ/3    * (bar.u - 3*rad.Θ1)
+    bar.interaction ~ +th.dτ/th.R * (bar.u - 3*rad.Θ1)
+
+    # TODO: simplify this mess! (e.g. automatically create connections between variables with same name: https://docs.juliahub.com/General/WorldDynamics/stable/source/#WorldDynamics.variable_connections-Tuple{Vector{ModelingToolkit.ODESystem}})
     rad.a ~ bg.st.a
     rad.E ~ bg.grav.E
     rad.Φ ~ st.Φ
     rad.Ψ ~ st.Ψ
-    rad.ub ~ bar.u
-    rad.dτ ~ th.dτ
 
     bar.a ~ bg.st.a
     bar.E ~ bg.grav.E
     bar.Φ ~ st.Φ
     bar.Ψ ~ st.Ψ
-    bar.dτ ~ th.dτ
-    bar.R ~ th.R
-    bar.Θr1 ~ rad.Θ1
     
     cdm.a ~ bg.st.a
     cdm.E ~ bg.grav.E
@@ -272,7 +262,7 @@ if true
     plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
 
     # compute derivatives of output power spectrum with respect to input parameters
-    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
+    for (derivative, name, color) in [#=((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-2), "fin. diff.", 1),=# ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
         dlgP_dxs = stack([derivative(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
         plot!(p[6], log10.(ks*k0), dlgP_dxs[1,:]; xlabel="lg(k/(h/Mpc))", label="d lg(P) / d lg(k) ($name)", color=color, legend=:bottomleft); display(p)
         plot!(p[7], log10.(ks*k0), dlgP_dxs[2,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
