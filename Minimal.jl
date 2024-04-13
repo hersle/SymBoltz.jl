@@ -213,7 +213,7 @@ if true
     ρb0 = 0.02
     H0 = 70 * km/Mpc # s^-1
     As = 2e-9
-    as = 10 .^ range(log10(aini), 10log(atoday), length=400)
+    as = 10 .^ range(log10(aini), log10(atoday), length=400)
     k0 = 1 / 2997.92458 # h/Mpc
     ks = 10 .^ range(-4, +2, length=200) / k0 # in code units of k0 = H0/c
 
