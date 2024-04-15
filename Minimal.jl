@@ -24,7 +24,7 @@ const Mpc = 1u"Mpc/m" |> NoUnits
 const eV  = 1u"eV/J"  |> NoUnits
 const EHion = 13.59844 * eV
 
-const solver = KenCarp4()
+const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 # TODO: @register_symbolic from bg -> thermo -> pert instead of reintegrating: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
@@ -197,25 +197,30 @@ pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday); jac=true) 
 
-function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
-    println("k = $(kval*k0) Mpc/h")
+function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
-    Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
-    Θr0ini = Φini/2 # Dodelson (7.89)
-    δcini = δbini = 3*Θr0ini # Dodelson (7.94)
-    Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
-    ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-    prob = remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, k => kval, th.H0 => H0, th.T0 => T0])
-    return solve(prob, solver, reltol=1e-8) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
+    function prob_func(_, i, _)
+        kval = kvals[i]
+        println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
+        Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
+        Θr0ini = Φini/2 # Dodelson (7.89)
+        δcini = δbini = 3*Θr0ini # Dodelson (7.94)
+        Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
+        ucini = ubini = 3*Θr1ini # Dodelson (7.95)    
+        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, k => kval, th.H0 => H0, th.T0 => T0])
+    end
+    probs = EnsembleProblem(pt_prob, prob_func = prob_func)
+    sols = solve(probs, solver, EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # TODO: test GPU parallellization
+    return sols
 end
 
 # power spectra
-P0(k, As) = As / k^3
-P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) * solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=pt.grav.Δm)^2
-P(x) = P(10 ^ x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5], 10^x[6]) # x = log10.([k, ρr0, ρm0, ρb0, H0, As])
+P0(k, As) = As ./ k .^ 3
+P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=pt.grav.Δm) .^ 2
+P(k, x) = P(k, 10^x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5]) # unpack parameters x = log10.([ρr0, ρm0, ρb0, H0, As])
 
 if true
     ρr0 = 5e-5
@@ -237,20 +242,19 @@ if true
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     plot!(p[3], log10.(as), log10.(th_sol.(as, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
 
-    pt_sols = [solve_perturbations(kval, ρr0, ρm0, ρb0, H0) for kval in ks] # TODO: use EnsembleProblem again
+    pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0)
     plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
     plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
     x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
-    Ps = stack([P([log10(k), x0...]) for k in ks]) # TODO: use pert_sols
+    Ps = P(ks, x0) # TODO: use pert_sols
     plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
 
     # compute derivatives of output power spectrum with respect to input parameters
-    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_gradient(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.gradient(f, x), "auto. diff.", 2)]
-        dlgP_dxs = stack([derivative(x -> log10(P(x)), [log10(k), x0...]) for k in ks])
-        plot!(p[6], log10.(ks*k0), dlgP_dxs[1,:]; xlabel="lg(k/(h/Mpc))", label="d lg(P) / d lg(k) ($name)", color=color, legend=:bottomleft); display(p)
-        plot!(p[7], log10.(ks*k0), dlgP_dxs[2,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
-        plot!(p[8], log10.(ks*k0), dlgP_dxs[3,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
-        plot!(p[9], log10.(ks*k0), dlgP_dxs[6,:]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
+    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_jacobian(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.jacobian(f, x), "auto. diff.", 2)]
+        dlgP_dxs = stack(derivative(x -> log10.(P(ks, x)), x0))
+        plot!(p[7], log10.(ks*k0), dlgP_dxs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
+        plot!(p[8], log10.(ks*k0), dlgP_dxs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
+        plot!(p[9], log10.(ks*k0), dlgP_dxs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
     end
 end
