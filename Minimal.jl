@@ -1,6 +1,7 @@
 using ModelingToolkit
 using DifferentialEquations
 using SymbolicIndexingInterface
+using DataInterpolations
 using ForwardDiff
 using FiniteDiff
 using Plots
@@ -134,7 +135,6 @@ function thermodynamics(; name)
 
         # optical depth
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
-        R ~ 3/4 * ρb/ρr # Dodelson (5.74)
 
         # TODO: reionization?
     ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R], [fb, H0, T0]; name)
@@ -195,9 +195,13 @@ end
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
-@variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) # TODO: get rid of
-@named pt_th_bg_conn = ODESystem([
-    ρb ~ th.fb * bg.mat.ρ
+@variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) # TODO: get rid of
+dτspl = CubicSpline(th_sol[th.dτ], th_sol[a]) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step?
+dτfunc(a) = dτspl(a) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+@register_symbolic dτfunc(a)
+@parameters fb # TODO: get rid of
+@named pt_bg_conn = ODESystem([
+    ρb ~ fb * bg.mat.ρ
     ρc ~ bg.mat.ρ - ρb
     δρr ~ rad.δ * bg.rad.ρ
     δρc ~ cdm.δ * ρc
@@ -206,18 +210,19 @@ end
     grav.ρm ~ bg.mat.ρ
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
-    rad.interaction ~ -th.dτ/3    * (bar.u - 3*rad.Θ1)
-    bar.interaction ~ +th.dτ/th.R * (bar.u - 3*rad.Θ1)
+    R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
+    rad.interaction ~ -dτfunc(a)/3 * (bar.u - 3*rad.Θ1)
+    bar.interaction ~ +dτfunc(a)/R * (bar.u - 3*rad.Θ1)
 ], a)
-pt_th_bg_conn = extend(pt_th_bg_conn, th_bg_conn)
+pt_bg_conn = extend(pt_bg_conn, th_bg_conn)
 
-@named pt = compose(pt_th_bg_conn, rad, bar, cdm, grav, th, bg)
+@named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday); jac=true) 
 
 function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
+    # TODO: spline dτ here to autodifferentiate through recombination solver
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
-    T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB
     bg_sol = solve_background(ρr0, ρm0)
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
@@ -228,7 +233,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
         δcini = δbini = 3*Θr0ini # Dodelson (7.94)
         Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
         ucini = ubini = 3*Θr1ini # Dodelson (7.95)    
-        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, k => kval, th.H0 => H0, th.T0 => T0])
+        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval])
     end
     probs = EnsembleProblem(pt_prob, prob_func = prob_func)
     sols = solve(probs, solver, EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # TODO: test GPU parallellization
