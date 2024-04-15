@@ -147,7 +147,7 @@ end
 ], a)
 @named th_bg = compose(th_bg_conn, th, bg)
 th_sim = structural_simplify(th_bg)
-th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday); jac=true)
+th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # TODO: relate to ρr0 once that is a parameter
@@ -218,7 +218,7 @@ pt_bg_conn = extend(pt_bg_conn, th_bg_conn)
 
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
-pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday); jac=true) 
+pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
 
 function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     # TODO: spline dτ here to autodifferentiate through recombination solver
@@ -232,7 +232,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
         Θr0ini = Φini/2 # Dodelson (7.89)
         δcini = δbini = 3*Θr0ini # Dodelson (7.94)
         Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
-        ucini = ubini = 3*Θr1ini # Dodelson (7.95)    
+        ucini = ubini = 3*Θr1ini # Dodelson (7.95)
         return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval])
     end
     probs = EnsembleProblem(pt_prob, prob_func = prob_func)
