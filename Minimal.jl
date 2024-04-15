@@ -91,18 +91,28 @@ end
 # TODO: just merge with background?
 function thermodynamics(; name)
     @parameters fb H0 T0
-    @variables ρr(a) ρm(a) Xe(a) α2(a) β(a) λe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a)
+    @variables ρr(a) ρm(a) Xe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) SahaB(a)
     return ODESystem([
         T ~ T0 / a # TODO: diff eq for temperature evolution?
 
-        # TODO: add Peebles' corrections & He? see Dodelson exercise 4.7
-        Da(Xe) ~ ((1-Xe)*β - Xe^2*nb*α2) / (a*H) # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+        # Saha approximation # TODO: move to separate component
+        SahaB ~ exp(-EHion/(kB*T)) / (nb*λe^3)
+        SahaXe ~ ifelse(SahaB < 1e10, SahaB/2 * (-1 + √(1+4/SahaB)), 1 - 1/SahaB) # Taylor expansion valid when SB ≫ 1
+
         α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ)
         β ~ α2 / λe^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
         λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
 
+        # Peebles' correction factor (Dodelson exercise 4.7)
+        Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
+        Λ2γ ~ 8.227 # 1/s
+        β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*T)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
+        C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2)
+
+        Da(Xe) ~ ifelse(Xe > 0.99, Da(SahaXe), C * ((1-Xe)*β - Xe^2*nb*α2) / (a*H)) # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+
         ρb ~ fb * ρm # fb is baryon-to-matter fraction
-        nb ~ ρb / (Xe*mp + (1-Xe)*mH) # ≈ ρb/mp * 3*H0^2 / (8π*G), Dodelson above (4.41) (ρb = ρp+ρH, nb=ρp+ρH)
+        nb ~ ρb / mp
         np ~ ne # charge neutrality
         nH ~ nb - ne # nb = nH + ne = nH + np
         ne ~ Xe * nb
