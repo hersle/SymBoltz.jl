@@ -27,7 +27,7 @@ const EHion = 13.59844 * eV
 const solver = KenCarp4()
 
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
-# TODO: register thermodynamics functions: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
+# TODO: @register_symbolic from bg -> thermo -> pert instead of reintegrating: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
 # TODO: make simpler Cosmology interface
 # TODO: compare runtime for finite vs. dlgP_dlgks_autodiff
 # TODO: compare accuracy with class
@@ -93,7 +93,7 @@ function thermodynamics(; name)
     @parameters fb H0 T0
     @variables ρr(a) ρm(a) Xe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) SahaB(a)
     return ODESystem([
-        T ~ T0 / a # TODO: diff eq for temperature evolution?
+        Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
 
         # Saha approximation # TODO: move to separate component
         SahaB ~ exp(-EHion/(kB*T)) / (nb*λe^3)
@@ -122,7 +122,7 @@ function thermodynamics(; name)
         R ~ 3/4 * ρb/ρr # Dodelson (5.74)
 
         # TODO: reionization?
-    ], a, [Xe, H, ρr, ρm, ρb, dτ, R], [fb, H0, T0]; name)
+    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R], [fb, H0, T0]; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
@@ -137,7 +137,7 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1
     T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
-    prob = remake(th_prob; u0 = [th.Xe => 1, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.T0 => T0])
+    prob = remake(th_prob; u0 = [th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.T0 => T0])
     return solve(prob, solver, reltol=1e-8) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
@@ -208,7 +208,7 @@ function solve_perturbations(kval, ρr0, ρm0, ρb0, H0)
     δcini = δbini = 3*Θr0ini # Dodelson (7.94)
     Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
     ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-    prob = remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, th.Xe => 1, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, k => kval, th.H0 => H0, th.T0 => T0])
+    prob = remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, k => kval, th.H0 => H0, th.T0 => T0])
     return solve(prob, solver, reltol=1e-8) # KenCarp4 and Kvaerno5 works well # TODO: use different EnsembleAlgorithm https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/#Stiff-Problems
 end
 
