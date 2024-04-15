@@ -42,12 +42,23 @@ const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
 # TODO: define components with @mtkmodel?
 
+ρr0 = 5e-5
+ρm0 = 0.3
+ρb0 = 0.02
+H0 = 70 * km/Mpc # s^-1
+As = 2e-9
+aini, atoday = 1e-8, 1e0
+as = 10 .^ range(log10(aini), log10(atoday), length=400)
+k0 = 1 / 2997.92458 # h/Mpc
+ks = 10 .^ range(-4, +2, length=200) / k0 # in code units of k0 = H0/c
+
+p = plot(layout=(3,3), size=(1200, 900), margin=20*Plots.px); display(p) # TODO: add plot recipe!
+
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
 @variables a E(a)
 E = GlobalScope(E)
 Da = Differential(a)
-aini, atoday = 1e-8, 1e0
 
 function background_gravity_GR(; name)
     @variables ρ(a)
@@ -86,6 +97,10 @@ function solve_background(ρr0, ρm0)
     prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0]) # TODO: bg.rad.ρ => ρr0 etc. doesn't work. bug?
     return solve(prob, solver, reltol=1e-8)
 end
+
+bg_sol = solve_background(ρr0, ρm0)
+plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
+plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
 # thermodynamics / recombination variables
 # TODO: just merge with background?
@@ -140,6 +155,9 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     prob = remake(th_prob; u0 = [th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.T0 => T0])
     return solve(prob, solver, reltol=1e-8) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
+
+th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
+plot!(p[3], log10.(as), log10.(th_sol.(as, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
 
 @variables Φ(a) Ψ(a)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
@@ -217,44 +235,23 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     return sols
 end
 
+pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0)
+plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
+plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
+
 # power spectra
 P0(k, As) = As ./ k .^ 3
 P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=pt.grav.Δm) .^ 2
 P(k, x) = P(k, 10^x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5]) # unpack parameters x = log10.([ρr0, ρm0, ρb0, H0, As])
 
-if true
-    ρr0 = 5e-5
-    ρm0 = 0.3
-    ρb0 = 0.02
-    H0 = 70 * km/Mpc # s^-1
-    As = 2e-9
-    as = 10 .^ range(log10(aini), log10(atoday), length=400)
-    k0 = 1 / 2997.92458 # h/Mpc
-    ks = 10 .^ range(-4, +2, length=200) / k0 # in code units of k0 = H0/c
+x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
+Ps = P(ks, x0) # TODO: use pert_sols
+plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
 
-    # TODO: add plot recipe!
-    p = plot(layout=(3,3), size=(1200, 900), margin=20*Plots.px); display(p)
-
-    bg_sol = solve_background(ρr0, ρm0)
-    plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
-    plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
-
-    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
-    plot!(p[3], log10.(as), log10.(th_sol.(as, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)"); display(p)
-
-    pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0)
-    plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
-    plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
-
-    x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
-    Ps = P(ks, x0) # TODO: use pert_sols
-    plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
-
-    # compute derivatives of output power spectrum with respect to input parameters
-    for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_jacobian(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.jacobian(f, x), "auto. diff.", 2)]
-        dlgP_dxs = stack(derivative(x -> log10.(P(ks, x)), x0))
-        plot!(p[7], log10.(ks*k0), dlgP_dxs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
-        plot!(p[8], log10.(ks*k0), dlgP_dxs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
-        plot!(p[9], log10.(ks*k0), dlgP_dxs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
-    end
+# compute derivatives of output power spectrum with respect to input parameters
+for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_jacobian(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.jacobian(f, x), "auto. diff.", 2)]
+    dlgP_dxs = stack(derivative(x -> log10.(P(ks, x)), x0))
+    plot!(p[7], log10.(ks*k0), dlgP_dxs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
+    plot!(p[8], log10.(ks*k0), dlgP_dxs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
+    plot!(p[9], log10.(ks*k0), dlgP_dxs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
 end
