@@ -2,7 +2,7 @@ using ModelingToolkit
 using DifferentialEquations
 using SymbolicIndexingInterface
 using DataInterpolations
-using ForwardDiff
+using ForwardDiff, DiffResults
 using FiniteDiff
 using Plots
 Plots.default(label=nothing, markershape=:pixel)
@@ -245,18 +245,24 @@ plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
 # power spectra
-P0(k, As) = As ./ k .^ 3
+θ0 = [ρr0, ρm0, ρb0, H0, As]
+P0(k, As) = @. As / k ^ 3
 P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=pt.grav.Δm) .^ 2
-P(k, x) = P(k, 10^x[1], 10^x[2], 10^x[3], 10^x[4], 10^x[5]) # unpack parameters x = log10.([ρr0, ρm0, ρb0, H0, As])
+P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
-x0 = [log10(ρr0), log10(ρm0), log10(ρb0), log10(H0), log10(As)]
-Ps = P(ks, x0) # TODO: use pert_sols
-plot!(p[6], log10.(ks*k0), log10.(Ps/k0^3); xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
-
-# compute derivatives of output power spectrum with respect to input parameters
-for (derivative, name, color) in [((f, x) -> FiniteDiff.finite_difference_jacobian(f, x; relstep=1e-2), "fin. diff.", 1), ((f, x) -> ForwardDiff.jacobian(f, x), "auto. diff.", 2)]
-    dlgP_dxs = stack(derivative(x -> log10.(P(ks, x)), x0))
-    plot!(p[7], log10.(ks*k0), dlgP_dxs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
-    plot!(p[8], log10.(ks*k0), dlgP_dxs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
-    plot!(p[9], log10.(ks*k0), dlgP_dxs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
+function plot_dlgP_dθs(dlgP_dθs, name, color)
+    plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
+    plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
+    plot!(p[9], log10.(ks*k0), dlgP_dθs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
 end
+
+# computer power spectrum and derivatives wrt. input parameters using autodiff in one go
+Pres = DiffResults.JacobianResult(ks, θ0)
+ForwardDiff.jacobian!(Pres, θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0))
+lgPs, dlgP_dθs_ad = DiffResults.value(Pres), DiffResults.jacobian(Pres)
+plot!(p[6], log10.(ks*k0), lgPs; xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
+plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
+
+# compute derivatives of power spectrum using finite differences
+dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-2)
+plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)

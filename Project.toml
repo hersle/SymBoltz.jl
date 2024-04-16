@@ -1,4 +1,6 @@
 [deps]
+DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
