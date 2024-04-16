@@ -36,24 +36,23 @@ const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 # TODO: CMB power spectrum
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
-# TODO: fix remake/replace etc. with new ModelingToolkit version
 # TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
 # TODO: analytical solutions of e.g. background ρ evolution
 # TODO: GPU-parallellized EnsembleProblem
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
 # TODO: define components with @mtkmodel?
 
-ρr0 = 5e-5
-ρm0 = 0.3
-ρb0 = 0.02
+ρr0 = 5e-5 # Ωr0
+ρm0 = 0.3 # Ωm0
+ρb0 = 0.02 # Ωb0
 H0 = 70 * km/Mpc # s^-1
 As = 2e-9
 aini, atoday = 1e-8, 1e0
 as = 10 .^ range(log10(aini), log10(atoday), length=200)
 k0 = 1 / 2997.92458 # h/Mpc
-ks = 10 .^ range(-4, +2, length=200) / k0 # in code units of k0 = H0/c
+ks = 10 .^ range(-4, +2, length=400) / k0 # in code units of k0 = H0/c
 
-p = plot(layout=(3,3), size=(1200, 900), margin=20*Plots.px); display(p) # TODO: add plot recipe!
+p = plot(layout=(3,3), size=(1920, 1080), left_margin=bottom_margin=30*Plots.px); display(p) # TODO: add plot recipe!
 
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
@@ -241,7 +240,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
 end
 
 pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0)
-plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ"); display(p)
+plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
 # power spectra
