@@ -49,7 +49,7 @@ const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 H0 = 70 * km/Mpc # s^-1
 As = 2e-9
 aini, atoday = 1e-8, 1e0
-as = 10 .^ range(log10(aini), log10(atoday), length=400)
+as = 10 .^ range(log10(aini), log10(atoday), length=200)
 k0 = 1 / 2997.92458 # h/Mpc
 ks = 10 .^ range(-4, +2, length=200) / k0 # in code units of k0 = H0/c
 
@@ -106,7 +106,7 @@ plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xl
 # thermodynamics / recombination variables
 # TODO: just merge with background?
 function thermodynamics(; name)
-    @parameters fb H0 T0
+    @parameters fb H0
     @variables ρr(a) ρm(a) Xe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) SahaB(a)
     return ODESystem([
         Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
@@ -137,7 +137,7 @@ function thermodynamics(; name)
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
 
         # TODO: reionization?
-    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R], [fb, H0, T0]; name)
+    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R], [fb, H0]; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
@@ -150,9 +150,9 @@ th_sim = structural_simplify(th_bg)
 th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1
-    T0 = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # TODO: relate to ρr0 once that is a parameter
+    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
-    prob = remake(th_prob; u0 = [th.Xe => 1, th.T => T0 / aini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.T0 => T0])
+    prob = remake(th_prob; u0 = [th.Xe => 1, th.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0])
     return solve(prob, solver, reltol=1e-8) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
@@ -170,7 +170,7 @@ function perturbations_radiation(interact=false; name)
         Da(Θ0) + k/(a^2*E)*Θ1 ~ -Da(Φ) # Dodelson (5.67) or (8.10)
         Da(Θ1) - k/(3*a^2*E)*Θ0 ~ k/(3*a^2*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
         δ ~ 4*Θ0
-    ], a; name)    
+    ], a; name)
 end
 
 function perturbations_matter(interact=false; name)
