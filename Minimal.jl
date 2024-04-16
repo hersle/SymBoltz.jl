@@ -195,8 +195,8 @@ end
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
 @variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) # TODO: get rid of
-dτspl = CubicSpline(th_sol[th.dτ], th_sol[a]) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step?
-dτfunc(a) = dτspl(a) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+dτspl = nothing # to be set in solve_perturbations # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step? # TODO: define callable struct instead? like in https://discourse.julialang.org/t/registering-a-time-dependent-function-inside-a-function-in-modelingtoolkit-jl/100402/3
+dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
 @register_symbolic dτfunc(a)
 @parameters fb # TODO: get rid of
 @named pt_bg_conn = ODESystem([
@@ -223,6 +223,8 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     # TODO: spline dτ here to autodifferentiate through recombination solver
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
+    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
+    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step?
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
@@ -250,8 +252,8 @@ P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0,
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
 function plot_dlgP_dθs(dlgP_dθs, name, color)
-    plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name); display(p)
-    plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name); display(p)
+    plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name, ylims=(-2, 0)); display(p)
+    plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name, ylims=(-2, 3)); display(p)
     plot!(p[9], log10.(ks*k0), dlgP_dθs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
 end
 
@@ -263,5 +265,5 @@ plot!(p[6], log10.(ks*k0), lgPs; xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)"
 plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 
 # compute derivatives of power spectrum using finite differences
-dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-2)
+dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
