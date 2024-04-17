@@ -154,26 +154,12 @@ end
 th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[3], log10.(as), (th1_sol.(as, idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
 
-#=
-
-# thermodynamics / recombination variables
-# TODO: just merge with background?
-function thermodynamics(; name)
+# Peebles recombination (2/2)
+function thermodynamics_peebles(; name)
     @parameters fb H0 Yp
-    @variables ρr(a) ρm(a) Xe(a) [state_priority = 2] ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) XHe₊(a) XHe₊₊(a) XH₊(a) R1(a) R2(a) R3(a)
+    @variables Xe(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) dτ(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a)
     return ODESystem([
         Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
-
-        # Saha approximation (with Helium)
-        # TODO: move to separate component
-        # TODO: make separate SahaRecombination and PeeblesRecombination stages, then join into common Xe spline
-        R1 ~ 1 * exp(-EHion /(kB*T)) / (λe^3 * ne)
-        R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λe^3 * ne)
-        R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λe^3 * ne)
-        XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
-        XHe₊ ~ 1 / (1 + 1/R2 + R3)
-        XHe₊₊ ~ 1 / (1 + 1/R3 + 1/(R2*R3))
-        SahaXe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) # Saha
 
         α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ)
         β ~ α2 / λe^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
@@ -185,12 +171,9 @@ function thermodynamics(; name)
         β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*T)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2)
 
-        # TODO: connect to Peebles
-        Da(Xe) ~ Da(SahaXe) # ifelse(Xe > 0.99, Da(SahaXe), C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H)) # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+        Da(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H) # Dodelson (4.36)
 
-        ρb ~ fb * ρm # fb is baryon-to-matter fraction
         nb ~ ρb / mp
-        np ~ ne # charge neutrality
         nH ~ (1-Yp) * nb # TODO: correct?
         ne ~ Xe * nH
 
@@ -198,29 +181,29 @@ function thermodynamics(; name)
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
 
         # TODO: reionization?
-    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R, XH₊, XHe₊, XHe₊₊, SahaXe], [fb, H0, Yp]; name)
+    ], a, [Xe, T, H, ρb, dτ], [fb, H0, Yp]; name)
 end
-@named th = thermodynamics()
-@named th_bg_conn = ODESystem([
-    th.H ~ E * th.H0 # 1/s
-    th.ρr ~ bg.rad.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
-    th.ρm ~ bg.mat.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
+@named th2 = thermodynamics_peebles()
+@named th2_bg_conn = ODESystem([
+    th2.H ~ E * th2.H0 # 1/s
+    th2.ρb ~ th2.fb * bg.mat.ρ * 3*th2.H0^2 / (8*π*G) # kg/m³
 ], a)
-@named th_bg = compose(th_bg_conn, th, bg)
-th_sim = structural_simplify(th_bg)
-th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
-function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
+@named th2_bg = compose(th2_bg_conn, th2, bg)
+th2_sim = structural_simplify(th2_bg)
+th2_prob = ODEProblem(th2_sim, unknowns(th2_sim) .=> NaN, (NaN, NaN), parameters(th2_sim) .=> NaN; jac=true)
+
+function solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
-    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # TODO: relate to ρr0 once that is a parameter
+    aini, Xeini, Tini = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)[[a, th1.Xe, th1.T]][end]
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
-    Xeini = 1 + Yp / (4*(1-Yp)) * 2 # Saha
-    prob = remake(th_prob; u0 = [th.Xe => Xeini, Da(th.SahaXe) => 0.0, th.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
-    return solve(prob, Rodas5P(), reltol=1e-3) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
+    prob = remake(th2_prob; tspan = (aini, atoday), u0 = [th2.Xe => Xeini, th2.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th2.fb => fb, th2.H0 => H0, th2.Yp => Yp])
+    return solve(prob, solver, reltol=1e-5) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
-th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-plot!(p[3], log10.(as), (th_sol.(as, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
+th2_sol = solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
+plot!(p[3], log10.(as), (th2_sol.(as, idxs=th2.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
 
+#=
 @variables Φ(a) Ψ(a)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
 k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
