@@ -105,6 +105,57 @@ bg_sol = solve_background(ρr0, ρm0)
 plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
+# Saha recombination (1/2)
+function thermodynamics_saha(; name)
+    @parameters fb H0 Yp
+    @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) λe(a) R1(a) R2(a) R3(a)
+    return ODESystem([
+        Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
+
+        R1 ~ 1 * exp(-EHion /(kB*T)) / (λe^3 * ne)
+        R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λe^3 * ne)
+        R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λe^3 * ne)
+        XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
+        XHe₊ ~ 1 / (1 + 1/R2 + R3)
+        XHe₊₊ ~ 1 / (1 + 1/R3 + 1/(R2*R3)) # TODO: XHe₊₊ ~ R3 * XHe₊
+        Xe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) # Saha
+
+        nb ~ ρb / mp
+        nH ~ (1-Yp) * nb # TODO: correct?
+        ne ~ Xe * nH
+        λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
+    ], a, [Xe, T, H, ρb, XH₊, XHe₊, XHe₊₊], [fb, H0, Yp]; name)
+end
+
+@named th1 = thermodynamics_saha()
+@named th1_bg_conn = ODESystem([
+    th1.H ~ E * th1.H0 # 1/s
+    th1.ρb ~ th1.fb * bg.mat.ρ * 3*th1.H0^2 / (8*π*G) # kg/m³
+], a)
+@named th1_bg = compose(th1_bg_conn, th1, bg)
+th1_sim = structural_simplify(th1_bg)
+th1_prob = ODEProblem(th1_sim, unknowns(th1_sim) .=> NaN, (aini, atoday), parameters(th1_sim) .=> NaN; jac=true)
+
+function solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
+    fb = ρb0 / ρm0; @assert fb <= 1
+    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # TODO: relate to ρr0 once that is a parameter
+    ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
+    Xeini = 1 + Yp / (4*(1-Yp)) * 2
+    prob = remake(th1_prob; u0 = [th1.Xe => Xeini, th1.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th1.fb => fb, th1.H0 => H0, th1.Yp => Yp])
+
+    Xeidx = SymbolicIndexingInterface.variable_index(prob, th1.Xe) # TODO: avoid
+    condition(u, _, integrator) = u[Xeidx] > 0.99
+    affect!(integrator) = terminate!(integrator)
+    cb = ContinuousCallback(condition, affect!)
+
+    return solve(prob, Rodas5P(), reltol=1e-5, callback = cb) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this? # TODO: terminate early
+end
+
+th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
+plot!(p[3], log10.(as), (th1_sol.(as, idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
+
+#=
+
 # thermodynamics / recombination variables
 # TODO: just merge with background?
 function thermodynamics(; name)
@@ -236,7 +287,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
-    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step?
+    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
@@ -266,7 +317,7 @@ P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 function plot_dlgP_dθs(dlgP_dθs, name, color)
     plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name, ylims=(-2, 0)); display(p)
     plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name, ylims=(-2, 3)); display(p)
-    plot!(p[9], log10.(ks*k0), dlgP_dθs[:,5]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(As)", color=color, label=name, ylims=(0, 2)); display(p)
+    plot!(p[9], log10.(ks*k0), dlgP_dθs[:,4]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(H0)", color=color, label=name); display(p)
 end
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
@@ -279,3 +330,4 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
+=#
