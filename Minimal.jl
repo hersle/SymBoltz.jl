@@ -49,6 +49,7 @@ const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 ρb0 = 0.02 # Ωb0
 H0 = 70 * km/Mpc # s^-1
 As = 2e-9
+Yp = 0.25
 aini, atoday = 1e-8, 1e0
 as = 10 .^ range(log10(aini), log10(atoday), length=200)
 k0 = 1 / 2997.92458 # h/Mpc
@@ -108,15 +109,17 @@ plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xl
 # TODO: just merge with background?
 function thermodynamics(; name)
     @parameters fb H0 Yp
-    @variables ρr(a) ρm(a) Xe(a) ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) XHe₊(a) XHe₊₊(a) XH₊(a) R1(a) R2(a) R3(a)
+    @variables ρr(a) ρm(a) Xe(a) [state_priority = 2] ρb(a) nb(a) np(a) ne(a) nH(a) H(a) T(a) dτ(a) R(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) SahaXe(a) XHe₊(a) XHe₊₊(a) XH₊(a) R1(a) R2(a) R3(a)
     return ODESystem([
         Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
 
-        # Saha approximation (with Helium) # TODO: move to separate component
+        # Saha approximation (with Helium)
+        # TODO: move to separate component
+        # TODO: make separate SahaRecombination and PeeblesRecombination stages, then join into common Xe spline
         R1 ~ 1 * exp(-EHion /(kB*T)) / (λe^3 * ne)
         R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λe^3 * ne)
         R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λe^3 * ne)
-        XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion?
+        XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
         XHe₊ ~ 1 / (1 + 1/R2 + R3)
         XHe₊₊ ~ 1 / (1 + 1/R3 + 1/(R2*R3))
         SahaXe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) # Saha
@@ -132,9 +135,7 @@ function thermodynamics(; name)
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2)
 
         # TODO: connect to Peebles
-        Xe ~ SahaXe
-        #Da(Xe) ~ Da(SahaXe)
-        #Da(Xe) ~ ifelse(Xe > 0.99, Da(SahaXe), C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H)) # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
+        Da(Xe) ~ Da(SahaXe) # ifelse(Xe > 0.99, Da(SahaXe), C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H)) # Xe ~ ne/nb; Dodelson (4.36) # TODO: nb or nH?
 
         ρb ~ fb * ρm # fb is baryon-to-matter fraction
         nb ~ ρb / mp
@@ -146,7 +147,7 @@ function thermodynamics(; name)
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
 
         # TODO: reionization?
-    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R, XH₊, XHe₊, XHe₊₊], [fb, H0, Yp]; name)
+    ], a, [Xe, T, H, ρr, ρm, ρb, dτ, R, XH₊, XHe₊, XHe₊₊, SahaXe], [fb, H0, Yp]; name)
 end
 @named th = thermodynamics()
 @named th_bg_conn = ODESystem([
@@ -156,16 +157,17 @@ end
 ], a)
 @named th_bg = compose(th_bg_conn, th, bg)
 th_sim = structural_simplify(th_bg)
-th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, 1e-3), parameters(th_sim) .=> NaN; guesses = [th.XH₊ => 1.0, th.XHe₊₊ => 1.0, th.XHe₊ => 0.0], jac=false)
-function solve_thermodynamics(ρr0, ρm0, ρb0, H0)
+th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
+function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
-    prob = remake(th_prob; u0 = [th.Xe => 1.0, th.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => 0.25])
+    Xeini = 1 + Yp / (4*(1-Yp)) * 2 # Saha
+    prob = remake(th_prob; u0 = [th.Xe => Xeini, Da(th.SahaXe) => 0.0, th.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
     return solve(prob, Rodas5P(), reltol=1e-3) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
-th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
+th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[3], log10.(as), (th_sol.(as, idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
 
 @variables Φ(a) Ψ(a)
