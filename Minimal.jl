@@ -108,7 +108,7 @@ plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xl
 # Saha recombination (1/2)
 function thermodynamics_saha(; name)
     @parameters fb H0 Yp
-    @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) λe(a) R1(a) R2(a) R3(a)
+    @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) λe(a) R1(a) R2(a) R3(a) dτ(a)
     return ODESystem([
         Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
 
@@ -124,7 +124,9 @@ function thermodynamics_saha(; name)
         nH ~ (1-Yp) * nb # TODO: correct?
         ne ~ Xe * nH
         λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
-    ], a, [Xe, T, H, ρb, XH₊, XHe₊, XHe₊₊], [fb, H0, Yp]; name)
+
+        dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
+    ], a, [Xe, T, H, ρb, XH₊, XHe₊, XHe₊₊, dτ], [fb, H0, Yp]; name)
 end
 
 @named th1 = thermodynamics_saha()
@@ -157,7 +159,7 @@ plot!(p[3], log10.(as), (th1_sol.(as, idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(
 # Peebles recombination (2/2)
 function thermodynamics_peebles(; name)
     @parameters fb H0 Yp
-    @variables Xe(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) dτ(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a)
+    @variables Xe(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) dτ(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) dτ(a)
     return ODESystem([
         Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
 
@@ -203,7 +205,15 @@ end
 th2_sol = solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[3], log10.(as), (th2_sol.(as, idxs=th2.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
 
-#=
+function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
+    th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
+    th2_sol = solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
+    as = [th1_sol[a][1:end-2]; th2_sol[a][:]] # TODO: why must I skip last 2 (and not 1) to avoid duplicate?
+    dτs = [th1_sol[th1.dτ][1:end-2]; th2_sol[th2.dτ][:]]
+    spl = CubicSpline(log.(-dτs), log.(as)) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    return spl
+end
+
 @variables Φ(a) Ψ(a)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
 k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
@@ -259,18 +269,17 @@ dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e
     rad.interaction ~ -dτfunc(a)/3 * (bar.u - 3*rad.Θ1)
     bar.interaction ~ +dτfunc(a)/R * (bar.u - 3*rad.Θ1)
 ], a)
-pt_bg_conn = extend(pt_bg_conn, th_bg_conn)
+pt_bg_conn = extend(pt_bg_conn, th1_bg_conn)
 
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
 
-function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
-    # TODO: spline dτ here to autodifferentiate through recombination solver
+function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    # TODO: fix instability for a few k-modes after splining Saha+Peebles dτ
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
-    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0)
-    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    global dτspl = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
@@ -287,14 +296,14 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0)
     return sols
 end
 
-pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0)
+pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
 # power spectra
-θ0 = [ρr0, ρm0, ρb0, H0, As]
+θ0 = [ρr0, ρm0, ρb0, H0, As, Yp]
 P0(k, As) = @. As / k ^ 3
-P(k, ρr0, ρm0, ρb0, H0, As) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0)(atoday; idxs=pt.grav.Δm) .^ 2
+P(k, ρr0, ρm0, ρb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
 function plot_dlgP_dθs(dlgP_dθs, name, color)
@@ -313,4 +322,3 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
-=#
