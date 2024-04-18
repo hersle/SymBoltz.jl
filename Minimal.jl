@@ -111,10 +111,10 @@ function thermodynamics_saha(; name)
     @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ργ(a) ρb(a) nb(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) λe(a) R1(a) R2(a) R3(a) dτ(a)
     return ODESystem([
         Da(Tγ) ~ -Tγ / a # T = T0 / a
-        Da(Tb) ~ -Tb / a # TODO: use same DE as in Peebles (but doesn't work with Rodas5P)
+        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*(ργ/ρb)*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
 
         ne ~ Xe * nH
-        R1 ~ 1 * exp(-EHion /(kB*Tb)) / (λe^3 * ne)
+        R1 ~ 1 * exp(-EHion /(kB*Tb)) / (λe^3 * ne) # right side of XH₊ / (1-XH₊) == R1
         R2 ~ 2 * exp(-EHe1ion/(kB*Tb)) / (λe^3 * ne)
         R3 ~ 4 * exp(-EHe2ion/(kB*Tb)) / (λe^3 * ne)
         XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
@@ -152,11 +152,13 @@ function solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
     affect!(integrator) = terminate!(integrator)
     cb = ContinuousCallback(condition, affect!)
 
-    return solve(prob, Rodas5P(), reltol=1e-5, callback = cb) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this? # TODO: terminate early
+    return solve(prob, RadauIIA5(), reltol=1e-5, callback = cb) # RadauIIA5, QNDF and QBDF works well; CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
 th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[3], log10.(th1_sol[a]), @. log10(th1_sol(th1_sol[a], idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-4,1)); display(p)
+#plot!(p[4], log10.(th1_sol[a]), log10.(th1_sol[th1.Tγ])); display(p)
+#plot!(p[4], log10.(th1_sol[a]), log10.(th1_sol[th1.Tb])); display(p)
 
 # Peebles recombination (2/2)
 function thermodynamics_peebles(; name)
