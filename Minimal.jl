@@ -108,13 +108,15 @@ plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xl
 # Saha recombination (1/2)
 function thermodynamics_saha(; name)
     @parameters fb H0 Yp
-    @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) λe(a) R1(a) R2(a) R3(a) dτ(a)
+    @variables Xe(a) XHe₊(a) XHe₊₊(a) XH₊(a) ργ(a) ρb(a) nb(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) λe(a) R1(a) R2(a) R3(a) dτ(a)
     return ODESystem([
-        Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
+        Da(Tγ) ~ -Tγ / a # T = T0 / a
+        Da(Tb) ~ -Tb / a # TODO: use same DE as in Peebles (but doesn't work with Rodas5P)
 
-        R1 ~ 1 * exp(-EHion /(kB*T)) / (λe^3 * ne)
-        R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λe^3 * ne)
-        R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λe^3 * ne)
+        ne ~ Xe * nH
+        R1 ~ 1 * exp(-EHion /(kB*Tb)) / (λe^3 * ne)
+        R2 ~ 2 * exp(-EHe1ion/(kB*Tb)) / (λe^3 * ne)
+        R3 ~ 4 * exp(-EHe2ion/(kB*Tb)) / (λe^3 * ne)
         XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
         XHe₊ ~ 1 / (1 + 1/R2 + R3)
         XHe₊₊ ~ 1 / (1 + 1/R3 + 1/(R2*R3)) # TODO: XHe₊₊ ~ R3 * XHe₊
@@ -122,17 +124,17 @@ function thermodynamics_saha(; name)
 
         nb ~ ρb / mp
         nH ~ (1-Yp) * nb # TODO: correct?
-        ne ~ Xe * nH
-        λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
+        λe ~ h / √(2π*me*kB*Tb) # electron de-Broglie wavelength
 
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
-    ], a, [Xe, T, H, ρb, XH₊, XHe₊, XHe₊₊, dτ], [fb, H0, Yp]; name)
+    ], a, [Xe, Tγ, Tb, H, ργ, ρb, XH₊, XHe₊, XHe₊₊, dτ], [fb, H0, Yp]; name)
 end
 
 @named th1 = thermodynamics_saha()
 @named th1_bg_conn = ODESystem([
     th1.H ~ E * th1.H0 # 1/s
     th1.ρb ~ th1.fb * bg.mat.ρ * 3*th1.H0^2 / (8*π*G) # kg/m³
+    th1.ργ ~          bg.rad.ρ * 3*th1.H0^2 / (8*π*G) # kg/m³
 ], a)
 @named th1_bg = compose(th1_bg_conn, th1, bg)
 th1_sim = structural_simplify(th1_bg)
@@ -140,10 +142,10 @@ th1_prob = ODEProblem(th1_sim, unknowns(th1_sim) .=> NaN, (aini, atoday), parame
 
 function solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
-    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # TODO: relate to ρr0 once that is a parameter
+    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
     Xeini = 1 + Yp / (4*(1-Yp)) * 2
-    prob = remake(th1_prob; u0 = [th1.Xe => Xeini, th1.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th1.fb => fb, th1.H0 => H0, th1.Yp => Yp])
+    prob = remake(th1_prob; u0 = [th1.Xe => Xeini, th1.Tγ => Tini, th1.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th1.fb => fb, th1.H0 => H0, th1.Yp => Yp])
 
     Xeidx = SymbolicIndexingInterface.variable_index(prob, th1.Xe) # TODO: avoid
     condition(u, _, integrator) = u[Xeidx] > 0.99
@@ -159,18 +161,19 @@ plot!(p[3], log10.(th1_sol[a]), @. log10(th1_sol(th1_sol[a], idxs=th1.Xe)); xlab
 # Peebles recombination (2/2)
 function thermodynamics_peebles(; name)
     @parameters fb H0 Yp
-    @variables Xe(a) ρb(a) nb(a) ne(a) nH(a) H(a) T(a) dτ(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) dτ(a)
+    @variables Xe(a) ργ(a) ρb(a) nb(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) dτ(a) α2(a) β(a) λe(a) C(a) Λα(a) Λ2γ(a) β2(a) dτ(a)
     return ODESystem([
-        Da(T) ~ -T / a # T = T0 / a # TODO: more sophisticated DE for temperature evolution
+        Da(Tγ) ~ -Tγ / a # T = T0 / a
+        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*(ργ/ρb)*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
 
-        α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ)
-        β ~ α2 / λe^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
-        λe ~ h / √(2π*me*kB*T) # electron de-Broglie wavelength
+        α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*Tb)) * log(EHion/(kB*Tb)) # Dodelson (4.38) (e⁻ + p → H + γ)
+        β ~ α2 / λe^3 * exp(-EHion/(kB*Tb)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
+        λe ~ h / √(2π*me*kB*Tb) # electron de-Broglie wavelength
 
         # Peebles' correction factor (Dodelson exercise 4.7)
         Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
         Λ2γ ~ 8.227 # 1/s
-        β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*T)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
+        β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*Tb)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2)
 
         Da(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H) # Dodelson (4.36)
@@ -183,12 +186,13 @@ function thermodynamics_peebles(; name)
         dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
 
         # TODO: reionization?
-    ], a, [Xe, T, H, ρb, dτ], [fb, H0, Yp]; name)
+    ], a, [Xe, Tγ, Tb, H, ργ, ρb, dτ], [fb, H0, Yp]; name)
 end
 @named th2 = thermodynamics_peebles()
 @named th2_bg_conn = ODESystem([
     th2.H ~ E * th2.H0 # 1/s
     th2.ρb ~ th2.fb * bg.mat.ρ * 3*th2.H0^2 / (8*π*G) # kg/m³
+    th2.ργ ~          bg.rad.ρ * 3*th2.H0^2 / (8*π*G) # kg/m³
 ], a)
 @named th2_bg = compose(th2_bg_conn, th2, bg)
 th2_sim = structural_simplify(th2_bg)
@@ -196,14 +200,16 @@ th2_prob = ODEProblem(th2_sim, unknowns(th2_sim) .=> NaN, (NaN, NaN), parameters
 
 function solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
-    aini, Xeini, Tini = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)[[a, th1.Xe, th1.T]][end]
+    aini, Xeini, Tγini, Tbini = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)[[a, th1.Xe, th1.Tγ, th1.Tb]][end]
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
-    prob = remake(th2_prob; tspan = (aini, atoday), u0 = [th2.Xe => Xeini, th2.T => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th2.fb => fb, th2.H0 => H0, th2.Yp => Yp])
+    prob = remake(th2_prob; tspan = (aini, atoday), u0 = [th2.Xe => Xeini, th2.Tγ => Tγini, th2.Tb => Tbini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th2.fb => fb, th2.H0 => H0, th2.Yp => Yp])
     return solve(prob, solver, reltol=1e-5) # TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
 th2_sol = solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[3], log10.(th2_sol[a]), @. log10(th2_sol.(th2_sol[a], idxs=th2.Xe))); display(p)
+#plot!(p[4], log10.(th2_sol[a]), log10.(th2_sol[th2.Tγ])); display(p)
+#plot!(p[4], log10.(th2_sol[a]), log10.(th2_sol[th2.Tb])); display(p)
 
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
@@ -296,6 +302,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     return sols
 end
 
+#=
 pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
@@ -322,3 +329,4 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
+=#
