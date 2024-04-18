@@ -154,7 +154,7 @@ function solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
 end
 
 th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
-plot!(p[3], log10.(as), (th1_sol.(as, idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
+plot!(p[3], log10.(th1_sol[a]), @. log10(th1_sol(th1_sol[a], idxs=th1.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-4,1)); display(p)
 
 # Peebles recombination (2/2)
 function thermodynamics_peebles(; name)
@@ -203,7 +203,7 @@ function solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
 end
 
 th2_sol = solve_thermodynamics_peebles(ρr0, ρm0, ρb0, H0, Yp)
-plot!(p[3], log10.(as), (th2_sol.(as, idxs=th2.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(0,2)); display(p)
+plot!(p[3], log10.(th2_sol[a]), @. log10(th2_sol.(th2_sol[a], idxs=th2.Xe))); display(p)
 
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     th1_sol = solve_thermodynamics_saha(ρr0, ρm0, ρb0, H0, Yp)
