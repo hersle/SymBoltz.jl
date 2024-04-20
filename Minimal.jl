@@ -107,6 +107,8 @@ plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xl
 
 # recombination (Saha + Peebles)
 Xeswitch = 1.0
+Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition from v1 at x<0 to v2 at x>0
+H(x; k) = Hifelse(x, 0, 1; k=k) # approximate step function from 0 to 1
 function thermodynamics_saha(; name)
     @parameters fb H0 Yp
     @variables Xe(a) XeS(a) XeP(a) XHe₊(a) XHe₊₊(a) XH₊(a) ργ(a) ρb(a) nb(a) neS(a) neP(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) λe(a) R1(a) R2(a) R3(a) dτ(a) α2(a) β(a) C(a) Λα(a) Λ2γ(a) β2(a)
@@ -119,10 +121,10 @@ function thermodynamics_saha(; name)
         R1 ~ 1 * exp(-EHion /(kB*Tb)) / (λe^3 * neS) # right side of XH₊ / (1-XH₊) == R1
         R2 ~ 2 * exp(-EHe1ion/(kB*Tb)) / (λe^3 * neS) # right side of 
         R3 ~ 4 * exp(-EHe2ion/(kB*Tb)) / (λe^3 * neS)
-        XH₊ ~ 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
-        XHe₊ ~ 1 / (1 + 1/R2 + R3)
-        XHe₊₊ ~ 1 / (1 + 1/R3 + 1/(R2*R3)) # TODO: XHe₊₊ ~ R3 * XHe₊
-        XeS ~ ifelse(XeS > 1e-6, XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊), 1e-6) # flat XeS = Xeswitch after transition to keep solver well-behaved
+        XH₊ ~ R1 / (1 + R1) # 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
+        XHe₊ ~ R2 / (1 + R2 + R2*R3) # 1 / (1 + 1/R2 + R3)
+        XHe₊₊ ~ R3 * XHe₊ # R2*R3 / (1 + R2*R3 + R2)
+        XeS ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) + 1e-5 # add small constant Xe which is greater than integrator tolerance to avoid solver giving tiny negative values
 
         # Peebles equation # TODO: separate component
         neP ~ XeP * nH
@@ -132,11 +134,11 @@ function thermodynamics_saha(; name)
         Λ2γ ~ 8.227 # 1/s
         β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*Tb)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
-        Da(XeP) ~ ifelse(XeS > Xeswitch, 0.0, C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H)) # flat XeP = Xeswitch before transition to keep solver well-behaved
+        Da(XeP) ~ C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off # Hifelse(Xeswitch - XeS, 0.0, C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H)) # flat XeP = Xeswitch before transition to keep solver well-behaved
 
         # TODO: make into a connection
-        Xe ~ ifelse(XeS > Xeswitch, XeS, XeP)
-        ne ~ ifelse(XeS > Xeswitch, neS, neP)
+        Xe ~ Hifelse(1 - XeS, XeS, XeP; k=1e2)
+        ne ~ Hifelse(1 - XeS, neS, neP; k=1e2)
 
         nb ~ ρb / mp
         nH ~ (1-Yp) * nb # TODO: correct?
@@ -173,9 +175,7 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
 end
 
 th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-plot!(p[3], log10.(th_sol[a]), @. log10(th_sol(th_sol[a], idxs=th.XeS)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-4,1)); display(p)
-plot!(p[3], log10.(th_sol[a]), @. log10(th_sol(th_sol[a], idxs=th.XeP)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-4,1)); display(p)
-plot!(p[3], log10.(th_sol[a]), @. log10(th_sol(th_sol[a], idxs=th.Xe)); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-4,1)); display(p)
+plot!(p[3], log10.(th_sol[a]), log10.(stack(th_sol(th_sol[a], idxs=[th.XeS, th.XeP, th.Xe]))'); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-6,1), label=["XeS" "XeP" "Xe"]); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tγ])); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tb])); display(p)
 
@@ -262,7 +262,6 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     return sols
 end
 
-#=
 pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
@@ -289,4 +288,3 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
-=#
