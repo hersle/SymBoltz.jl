@@ -137,8 +137,8 @@ function thermodynamics_saha(; name)
         Da(XeP) ~ C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off # Hifelse(Xeswitch - XeS, 0.0, C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H)) # flat XeP = Xeswitch before transition to keep solver well-behaved
 
         # TODO: make into a connection
-        Xe ~ Hifelse(1 - XeS, XeS, XeP; k=1e2)
-        ne ~ Hifelse(1 - XeS, neS, neP; k=1e2)
+        Xe ~ Hifelse(1 - XeS, XeS, XeP; k=1e3)
+        ne ~ Hifelse(1 - XeS, neS, neP; k=1e3)
 
         nb ~ ρb / mp
         nH ~ (1-Yp) * nb # TODO: correct?
@@ -171,7 +171,7 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
     XePini = Xeswitch
     prob = remake(th_prob; u0 = [th.XeS => XeSini, th.XeP => XePini, th.Tγ => Tini, th.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
-    return solve(prob, QNDF(), reltol=1e-8) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
+    return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
 th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
@@ -245,7 +245,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: make a parameter
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
