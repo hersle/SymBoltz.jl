@@ -2,8 +2,7 @@ using ModelingToolkit
 using DifferentialEquations
 using SymbolicIndexingInterface
 using DataInterpolations
-using ForwardDiff, DiffResults
-using FiniteDiff
+using ForwardDiff, DiffResults, FiniteDiff
 using Plots
 Plots.default(label=nothing, markershape=:pixel)
 
@@ -17,17 +16,12 @@ const G  = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2"
 const α  = PhysicalConstants.CODATA2018.α # fine structure constant, ≈ 1/137
 const me = PhysicalConstants.CODATA2018.m_e / u"kg"
 const mp = PhysicalConstants.CODATA2018.m_p / u"kg"
-const mH = 1.6737236e-27 # kg
 const σT = PhysicalConstants.CODATA2018.σ_e / u"m^2"
 const km  = 1u"km/m"  |> NoUnits
-const pc  = 1u"pc/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
-const eV  = 1u"eV/J"  |> NoUnits
-const EHion = 13.59844 * eV
-const EHe1ion = 24.58738 * eV
-const EHe2ion = 54.41776 * eV
-
-const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
+const EHion = 13.59844u"eV/J" |> NoUnits
+const EHe1ion = 24.58738u"eV/J" |> NoUnits
+const EHe2ion = 54.41776u"eV/J" |> NoUnits
 
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 # TODO: @register_symbolic from bg -> thermo -> pert instead of reintegrating: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
@@ -39,7 +33,6 @@ const solver = KenCarp4() # KenCarp4 and Kvaerno5 seem to work well
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
 # TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
-# TODO: analytical solutions of e.g. background ρ evolution
 # TODO: GPU-parallellized EnsembleProblem
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
 # TODO: define components with @mtkmodel?
@@ -74,8 +67,7 @@ function background_species_constant_eos(w; name)
     @variables ρ(a) P(a) Ω(a) ρcrit(a)
     return ODESystem([
         P ~ w*ρ
-        Da(ρ) ~ -3/a * (ρ + P) # TODO: replace with analytical solutions and ρ0 parameter
-        #ρ ~ ρ0 / a^(3*(1+w)) # TODO: recombination doesn't trigger with this analytical solution, at least when parametrized by ln(a). maybe it works when parametrized by a?
+        Da(ρ) ~ -3/a * (ρ + P) # TODO: replace with analytical solution ρ ~ ρ0 / a^(3*(1+w)) and ρ0 parameter (didn't trigger recombination when I was not using the Saha approximation)
         Ω ~ ρ / ρcrit
     ], a; name)
 end
@@ -84,7 +76,6 @@ end
 @named mat = background_species_constant_eos(0)
 @named de = background_species_constant_eos(-1)
 @named grav = background_gravity_GR()
-
 @named bg = ODESystem([
     grav.ρ ~ rad.ρ + mat.ρ + de.ρ
     rad.ρcrit ~ grav.ρ
@@ -98,7 +89,7 @@ bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini))
 function solve_background(ρr0, ρm0)
     ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
     prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0]) # TODO: bg.rad.ρ => ρr0 etc. doesn't work. bug?
-    return solve(prob, solver, reltol=1e-8)
+    return solve(prob, Tsit5(), reltol=1e-8)
 end
 
 bg_sol = solve_background(ρr0, ρm0)
@@ -106,13 +97,12 @@ plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.
 plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
 # recombination (Saha + Peebles)
-Xeswitch = 1.0
-Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition from v1 at x<0 to v2 at x>0
-H(x; k) = Hifelse(x, 0, 1; k=k) # approximate step function from 0 to 1
+Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
 function thermodynamics_saha(; name)
     @parameters fb H0 Yp
     @variables Xe(a) XeS(a) XeP(a) XHe₊(a) XHe₊₊(a) XH₊(a) ργ(a) ρb(a) nb(a) neS(a) neP(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) λe(a) R1(a) R2(a) R3(a) dτ(a) α2(a) β(a) C(a) Λα(a) Λ2γ(a) β2(a)
     return ODESystem([
+        # Temperature evolution
         Da(Tγ) ~ -Tγ / a # T = T0 / a
         Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*(ργ/ρb)*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
 
@@ -136,7 +126,7 @@ function thermodynamics_saha(; name)
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
         Da(XeP) ~ C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off # Hifelse(Xeswitch - XeS, 0.0, C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H)) # flat XeP = Xeswitch before transition to keep solver well-behaved
 
-        # TODO: make into a connection
+        # switch smoothly from Saha to Peebles when XeS ≤ 1 # TODO: make into a connection
         Xe ~ Hifelse(1 - XeS, XeS, XeP; k=1e3)
         ne ~ Hifelse(1 - XeS, neS, neP; k=1e3)
 
@@ -162,15 +152,11 @@ th_sim = structural_simplify(th_bg)
 th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-    # TODO: fix with dual numbers
-    # Now, the nonlinear solving fails after the Saha equation becomes invalid
-    # I think this is because the non-linear solver does not converge
     fb = ρb0 / ρm0; @assert fb <= 1
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    XePini = Xeswitch
-    prob = remake(th_prob; u0 = [th.XeS => XeSini, th.XeP => XePini, th.Tγ => Tini, th.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
+    prob = remake(th_prob; u0 = [th.XeS => XeSini, th.XeP => 1, th.Tγ => Tini, th.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
@@ -235,7 +221,6 @@ dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e
     bar.interaction ~ +dτfunc(a)/R * (bar.u - 3*rad.Θ1)
 ], a)
 pt_bg_conn = extend(pt_bg_conn, th_bg_conn)
-
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
@@ -258,8 +243,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval])
     end
     probs = EnsembleProblem(pt_prob, prob_func = prob_func)
-    sols = solve(probs, solver, EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # TODO: test GPU parallellization
-    return sols
+    return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
 
 pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
@@ -280,7 +264,8 @@ end
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
 Pres = DiffResults.JacobianResult(ks, θ0)
-ForwardDiff.jacobian!(Pres, θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0))
+log10Ph3(log10θ) = log10.(P(ks, 10 .^ log10θ)/k0^3)
+ForwardDiff.jacobian!(Pres, log10Ph3, log10.(θ0))
 lgPs, dlgP_dθs_ad = DiffResults.value(Pres), DiffResults.jacobian(Pres)
 plot!(p[6], log10.(ks*k0), lgPs; xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)", color=3, legend=:bottomleft); display(p)
 plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
