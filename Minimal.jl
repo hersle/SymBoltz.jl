@@ -37,12 +37,15 @@ const EHe2ion = 54.41776u"eV/J" |> NoUnits
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
 # TODO: define components with @mtkmodel?
 
-ρr0 = 5e-5 # Ωr0
-ρm0 = 0.3 # Ωm0
-ρb0 = 0.02 # Ωb0
-H0 = 70 * km/Mpc # s^-1
-As = 2e-9
-Yp = 0.25
+@kwdef struct Parameters
+    ρr0 = 5e-5 # Ωr0
+    ρm0 = 0.3 # Ωm0
+    ρb0 = 0.02 # Ωb0
+    H0 = 70 * km/Mpc # s^-1
+    As = 2e-9
+    Yp = 0.25
+end
+par = Parameters()
 aini, atoday = 1e-8, 1e0
 as = 10 .^ range(log10(aini), log10(atoday), length=200)
 k0 = 1 / 2997.92458 # h/Mpc
@@ -89,66 +92,81 @@ bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini))
 function solve_background(ρr0, ρm0)
     ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
     prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0]) # TODO: bg.rad.ρ => ρr0 etc. doesn't work. bug?
-    return solve(prob, Tsit5(), reltol=1e-8)
+    return solve(prob, Tsit5(), reltol=1e-7) # using KenCarp4 here leads to difference in AD vs FD
 end
 
-bg_sol = solve_background(ρr0, ρm0)
+bg_sol = solve_background(par.ρr0, par.ρm0)
 plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
-# recombination (Saha + Peebles)
-Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
-function thermodynamics_saha(; name)
-    @parameters fb H0 Yp
-    @variables Xe(a) XeS(a) XeP(a) XHe₊(a) XHe₊₊(a) XH₊(a) ργ(a) ρb(a) nb(a) neS(a) neP(a) ne(a) nH(a) H(a) Tγ(a) Tb(a) λe(a) R1(a) R2(a) R3(a) dτ(a) α2(a) β(a) C(a) Λα(a) Λ2γ(a) β2(a)
+# background thermodynamcis / recombination
+function recombination_helium_saha(; name, Xeconst=1e-5)
+    @parameters Yp
+    @variables Xe(a) XH₊(a) XHe₊(a) XHe₊₊(a) ne(a) nH(a) T(a) λ(a) R1(a) R2(a) R3(a)
     return ODESystem([
-        # Temperature evolution
-        Da(Tγ) ~ -Tγ / a # T = T0 / a
-        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*(ργ/ρb)*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
-
-        # Saha equation # TODO: separate component # TODO: simplify equations?
-        neS ~ XeS * nH
-        R1 ~ 1 * exp(-EHion /(kB*Tb)) / (λe^3 * neS) # right side of XH₊ / (1-XH₊) == R1
-        R2 ~ 2 * exp(-EHe1ion/(kB*Tb)) / (λe^3 * neS) # right side of 
-        R3 ~ 4 * exp(-EHe2ion/(kB*Tb)) / (λe^3 * neS)
-        XH₊ ~ R1 / (1 + R1) # 1 / (1 + 1/R1) # is Taylor expansion? # TODO: is this wrong? should be XH₊^2 in numerator?
-        XHe₊ ~ R2 / (1 + R2 + R2*R3) # 1 / (1 + 1/R2 + R3)
-        XHe₊₊ ~ R3 * XHe₊ # R2*R3 / (1 + R2*R3 + R2)
-        XeS ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) + 1e-5 # add small constant Xe which is greater than integrator tolerance to avoid solver giving tiny negative values
-
-        # Peebles equation # TODO: separate component
-        neP ~ XeP * nH
-        α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*Tb)) * log(EHion/(kB*Tb)) # Dodelson (4.38) (e⁻ + p → H + γ)
-        β ~ α2 / λe^3 * exp(-EHion/(kB*Tb)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
-        Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
-        Λ2γ ~ 8.227 # 1/s
-        β2 ~ α2 / λe^3 * exp(-EHion/(4*kB*Tb)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
-        C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
-        Da(XeP) ~ C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off # Hifelse(Xeswitch - XeS, 0.0, C * ((1-XeP)*β - XeP^2*nH*α2) / (a*H)) # flat XeP = Xeswitch before transition to keep solver well-behaved
-
-        # switch smoothly from Saha to Peebles when XeS ≤ 1 # TODO: make into a connection
-        Xe ~ Hifelse(1 - XeS, XeS, XeP; k=1e3)
-        ne ~ Hifelse(1 - XeS, neS, neP; k=1e3)
-
-        nb ~ ρb / mp
-        nH ~ (1-Yp) * nb # TODO: correct?
-        λe ~ h / √(2π*me*kB*Tb) # electron de-Broglie wavelength
-
-        # optical depth
-        dτ ~ -ne * σT * c / (a*H) # dτ = dτ/da
-
-        # TODO: reionization?
-    ], a, [Xe, XeS, XeP, XHe₊₊, XHe₊, XH₊, Tγ, Tb, H, ργ, ρb, XH₊, XHe₊, XHe₊₊, dτ], [fb, H0, Yp]; name)
+        λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
+        ne ~ Xe * nH
+        R1 ~ 1 * exp(-EHion  /(kB*T)) / (λ^3 * ne) # TODO: simplify equations?
+        R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λ^3 * ne)
+        R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λ^3 * ne)
+        XH₊ ~ R1 / (1 + R1)
+        XHe₊ ~ R2 / (1 + R2 + R2*R3)
+        XHe₊₊ ~ R3 * XHe₊
+        Xe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) + Xeconst # add small constant Xe which is greater than integrator tolerance to avoid solver giving tiny negative values
+    ], a, [Xe, XH₊, XHe₊, XHe₊₊, T, nH, ne], [Yp]; name)
 end
 
-@named th = thermodynamics_saha()
+function recombination_hydrogen_peebles(; name)
+    @variables Xe(a) ne(a) nH(a) T(a) H(a) λ(a) α2(a) β(a) C(a) Λα(a) Λ2γ(a) β2(a)
+    return ODESystem([
+        ne ~ Xe * nH
+        λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
+        α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ) # TODO: add Recfast fudge factor?
+        β  ~ α2 / λ^3 * exp(-EHion/(  kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
+        β2 ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
+        Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
+        Λ2γ ~ 8.227 # 1/s
+        C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
+        Da(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off
+    ], a, [Xe, H, nH, ne, T], []; name)
+end
+
+function thermodynamics_temperature(; name)
+    @variables Tγ(a) Tb(a) ργ(a) ρb(a) dτ(a) fγb(a)
+    return ODESystem([
+        Da(Tγ) ~   -Tγ/a # Tγ = Tγ0 / a
+        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*fγb*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
+    ], a, [Tγ, Tb, dτ, fγb], []; name)
+end
+Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+
+@parameters fb H0 Yp # TODO: avoid Yp and H0 name clash
+@variables Xe(a) ne(a) dτ(a) H(a) ρb(a) nb(a) nH(a)
+@named temp = thermodynamics_temperature()
+@named saha = recombination_helium_saha()
+@named peebles = recombination_hydrogen_peebles()
 @named th_bg_conn = ODESystem([
-    th.H ~ E * th.H0 # 1/s
-    th.ρb ~ th.fb * bg.mat.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
-    th.ργ ~         bg.rad.ρ * 3*th.H0^2 / (8*π*G) # kg/m³
+    H ~ E * H0 # 1/s
+    ρb ~ fb * bg.mat.ρ * 3*H0^2 / (8*π*G) # kg/m³
+    nb ~ ρb / mp # 1/m³
+    nH ~ (1-Yp) * nb # TODO: correct?
+
+    temp.fγb ~ bg.rad.ρ / (fb*bg.mat.ρ) # ργ/ρb
+    temp.dτ ~ dτ
+    saha.T ~ temp.Tb
+    saha.nH ~ nH
+    peebles.T ~ temp.Tb
+    peebles.nH ~ nH
+    peebles.H ~ H
+    # TODO: reionization
+    
+    # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
+    Xe ~ Hifelse(1 - saha.Xe, saha.Xe, peebles.Xe; k=1e3)
+    ne ~ Hifelse(1 - saha.Xe, saha.ne, peebles.ne; k=1e3)
+    dτ ~ -ne * σT * c / (a*H) # common optical depth dτ = dτ/da # TODO: separate in Saha/Peebles?
 ], a)
-@named th_bg = compose(th_bg_conn, th, bg)
-th_sim = structural_simplify(th_bg)
+@named th = compose(th_bg_conn, saha, peebles, temp, bg)
+th_sim = structural_simplify(th)
 th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
@@ -156,12 +174,12 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th_prob; u0 = [th.XeS => XeSini, th.XeP => 1, th.Tγ => Tini, th.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th.fb => fb, th.H0 => H0, th.Yp => Yp])
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
-th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-plot!(p[3], log10.(th_sol[a]), log10.(stack(th_sol(th_sol[a], idxs=[th.XeS, th.XeP, th.Xe]))'); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-6,1), label=["XeS" "XeP" "Xe"]); display(p)
+th_sol = solve_thermodynamics(par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
+plot!(p[3], log10.(th_sol[a]), log10.(stack(th_sol(th_sol[a], idxs=[saha.Xe, peebles.Xe, th_sim.Xe]))'); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-6,1), label=["XeS" "XeP" "Xe"]); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tγ])); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tb])); display(p)
 
@@ -220,7 +238,6 @@ dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e
     rad.interaction ~ -dτfunc(a)/3 * (bar.u - 3*rad.Θ1)
     bar.interaction ~ +dτfunc(a)/R * (bar.u - 3*rad.Θ1)
 ], a)
-pt_bg_conn = extend(pt_bg_conn, th_bg_conn)
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
@@ -246,12 +263,12 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
 
-pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
+pt_sols = solve_perturbations(ks, par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
 
 # power spectra
-θ0 = [ρr0, ρm0, ρb0, H0, As, Yp]
+θ0 = [par.ρr0, par.ρm0, par.ρb0, par.H0, par.As, par.Yp]
 P0(k, As) = @. As / k ^ 3
 P(k, ρr0, ρm0, ρb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
