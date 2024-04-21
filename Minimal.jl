@@ -3,8 +3,7 @@ using DifferentialEquations
 using SymbolicIndexingInterface
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
-using Plots
-Plots.default(label=nothing, markershape=:pixel)
+using Plots; Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: avoid this; make recombination work naturally with Unitful units
 using PhysicalConstants, Unitful, UnitfulAstro
@@ -86,7 +85,7 @@ end
     de.ρcrit ~ grav.ρ
 ], a)
 
-@named bg = compose(bg, rad, mat, de, grav) # TODO: extend?
+@named bg = compose(bg, rad, mat, de, grav)
 bg_sim = structural_simplify(bg)
 bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini))
 function solve_background(ρr0, ρm0)
@@ -100,6 +99,7 @@ plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.
 plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
 
 # background thermodynamcis / recombination
+Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
 function recombination_helium_saha(; name, Xeconst=1e-5)
     @parameters Yp
     @variables Xe(a) XH₊(a) XHe₊(a) XHe₊₊(a) ne(a) nH(a) T(a) λ(a) R1(a) R2(a) R3(a)
@@ -138,13 +138,25 @@ function thermodynamics_temperature(; name)
         Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*fγb*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
     ], a, [Tγ, Tb, dτ, fγb], []; name)
 end
-Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+
+function reionization_smooth_step(; name)
+    y(z) = (1+z)^(3/2)
+    Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
+    @parameters z0 Δz0 Xe0
+    @variables z(a)
+    return ODESystem([
+        z ~ 1/a - 1
+        Xe ~ Hifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
+    ], a, [Xe], [z0, Δz0, Xe0]; name)
+end
 
 @parameters fb H0 Yp # TODO: avoid Yp and H0 name clash
 @variables Xe(a) ne(a) dτ(a) H(a) ρb(a) nb(a) nH(a)
 @named temp = thermodynamics_temperature()
 @named saha = recombination_helium_saha()
 @named peebles = recombination_hydrogen_peebles()
+@named reion1 = reionization_smooth_step() # TODO: separate reionH₊, reionHe₊, reionHe₊₊
+@named reion2 = reionization_smooth_step()
 @named th_bg_conn = ODESystem([
     H ~ E * H0 # 1/s
     ρb ~ fb * bg.mat.ρ * 3*H0^2 / (8*π*G) # kg/m³
@@ -158,14 +170,13 @@ Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transitio
     peebles.T ~ temp.Tb
     peebles.nH ~ nH
     peebles.H ~ H
-    # TODO: reionization
     
     # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
-    Xe ~ Hifelse(1 - saha.Xe, saha.Xe, peebles.Xe; k=1e3)
-    ne ~ Hifelse(1 - saha.Xe, saha.ne, peebles.ne; k=1e3)
+    Xe ~ Hifelse(1-saha.Xe, saha.Xe, peebles.Xe; k=1e3) + reion1.Xe + reion2.Xe
+    ne ~ Xe * nH
     dτ ~ -ne * σT * c / (a*H) # common optical depth dτ = dτ/da # TODO: separate in Saha/Peebles?
 ], a)
-@named th = compose(th_bg_conn, saha, peebles, temp, bg)
+@named th = compose(th_bg_conn, saha, peebles, temp, reion1, reion2, bg)
 th_sim = structural_simplify(th)
 th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 
@@ -174,12 +185,12 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp])
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
 th_sol = solve_thermodynamics(par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
-plot!(p[3], log10.(th_sol[a]), log10.(stack(th_sol(th_sol[a], idxs=[saha.Xe, peebles.Xe, th_sim.Xe]))'); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-6,1), label=["XeS" "XeP" "Xe"]); display(p)
+plot!(p[3], log10.(th_sol[a]), stack(th_sol(th_sol[a], idxs=[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]))'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tγ])); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tb])); display(p)
 
@@ -288,5 +299,5 @@ plot!(p[6], log10.(ks*k0), lgPs; xlabel="lg(k/(h/Mpc))", label="lg(P/(Mpc/h)³)"
 plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 
 # compute derivatives of power spectrum using finite differences
-dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(θ -> log10.(P(ks, 10 .^ θ)/k0^3), log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
+dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(log10Ph3, log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
