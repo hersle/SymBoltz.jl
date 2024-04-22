@@ -66,10 +66,11 @@ function background_gravity_GR(; name)
 end
 
 function background_species_constant_eos(w; name)
+    @parameters ρ0
     @variables ρ(a) P(a) Ω(a) ρcrit(a)
     return ODESystem([
         P ~ w*ρ
-        Da(ρ) ~ -3/a * (ρ + P) # TODO: replace with analytical solution ρ ~ ρ0 / a^(3*(1+w)) and ρ0 parameter (didn't trigger recombination when I was not using the Saha approximation)
+        ρ ~ ρ0 / a^(3*(1+w)) # alternative differential equation: Da(ρ) ~ -3/a * (ρ + P)
         Ω ~ ρ / ρcrit
     ], a; name)
 end
@@ -78,19 +79,21 @@ end
 @named mat = background_species_constant_eos(0)
 @named de = background_species_constant_eos(-1)
 @named grav = background_gravity_GR()
+@variables STUPID(a) # TODO: remove after fixed https://github.com/SciML/ModelingToolkit.jl/issues/2664
 @named bg = ODESystem([
     grav.ρ ~ rad.ρ + mat.ρ + de.ρ
     rad.ρcrit ~ grav.ρ
     mat.ρcrit ~ grav.ρ
     de.ρcrit ~ grav.ρ
+    Da(STUPID) ~ 0 # TODO: remove after fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2664
 ], a)
 
 @named bg = compose(bg, rad, mat, de, grav)
 bg_sim = structural_simplify(bg)
-bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini))
+bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini), parameters(bg_sim) .=> NaN)
 function solve_background(ρr0, ρm0)
     ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
-    prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0]) # TODO: bg.rad.ρ => ρr0 etc. doesn't work. bug?
+    prob = remake(bg_prob; u0 = [STUPID => 0.0], p = [bg_sim.rad.ρ0 => ρr0, bg_sim.mat.ρ0 => ρm0, bg_sim.de.ρ0 => ρΛ0]) # TODO: remove STUPID when fixed https://github.com/SciML/ModelingToolkit.jl/issues/2664 # TODO: bg.rad.ρ => ρr0 etc. doesn't work. bug?
     return solve(prob, Tsit5(), reltol=1e-7) # using KenCarp4 here leads to difference in AD vs FD
 end
 
@@ -181,11 +184,11 @@ th_sim = structural_simplify(th)
 th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
 
 function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
+    ρΛ0 = 1 - ρr0 - ρm0 # TODO: avoid duplicate logic
     fb = ρb0 / ρm0; @assert fb <= 1
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
-    ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # integrate background from atoday back to aini # TODO: avoid when ρr0 etc. are parameters
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.STUPID => 0.0], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp)), bg.rad.ρ0 => ρr0, bg.mat.ρ0 => ρm0, bg.de.ρ0 => ρΛ0]) # TODO: remove STUPID
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 
@@ -254,12 +257,12 @@ pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
 
 function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    # TODO: fix instability for a few k-modes after splining Saha+Peebles dτ
+    ρΛ0 = 1 - ρr0 - ρm0 # TODO: avoid duplicate logic
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: make a parameter
-    ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
+    Eini = bg_sol(aini; idxs = E) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
@@ -268,7 +271,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         δcini = δbini = 3*Θr0ini # Dodelson (7.94)
         Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
         ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval])
+        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.STUPID => 0.0], p = [pt_sim.fb => fb, k => kval, bg.rad.ρ0 => ρr0, bg.mat.ρ0 => ρm0, bg.de.ρ0 => ρΛ0]) # TODO: remove STUPID
     end
     probs = EnsembleProblem(pt_prob, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
