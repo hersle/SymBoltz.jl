@@ -229,11 +229,10 @@ end
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
+@parameters fb dτspline # TODO: get rid of
 @variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) # TODO: get rid of
-dτspl = nothing # to be set in solve_perturbations # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: does autodiff work through this step? # TODO: define callable struct instead? like in https://discourse.julialang.org/t/registering-a-time-dependent-function-inside-a-function-in-modelingtoolkit-jl/100402/3
-dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
-@register_symbolic dτfunc(a)
-@parameters fb # TODO: get rid of
+dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+@register_symbolic dτfunc(a, spl)
 @named pt_bg_conn = ODESystem([
     ρb ~ fb * bg.mat.ρ
     ρc ~ bg.mat.ρ - ρb
@@ -245,8 +244,8 @@ dτfunc(a) = -exp(dτspl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
     R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
-    rad.interaction ~ -dτfunc(a)/3 * (bar.u - 3*rad.Θ1)
-    bar.interaction ~ +dτfunc(a)/R * (bar.u - 3*rad.Θ1)
+    rad.interaction ~ -dτfunc(a, dτspline)/3 * (bar.u - 3*rad.Θ1)
+    bar.interaction ~ +dτfunc(a, dτspline)/R * (bar.u - 3*rad.Θ1)
 ], a)
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
@@ -257,7 +256,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     bg_sol = solve_background(ρr0, ρm0)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    global dτspl = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way? # TODO: make a parameter
+    dτspline = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
@@ -267,7 +266,7 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         δcini = δbini = 3*Θr0ini # Dodelson (7.94)
         Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
         ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval])
+        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
     end
     probs = EnsembleProblem(pt_prob, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
