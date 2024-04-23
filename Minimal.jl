@@ -252,12 +252,10 @@ pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
 
 function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    ρΛ0 = 1 - ρr0 - ρm0 # TODO: avoid duplicate logic
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
-    bg_sol = solve_background(ρr0, ρm0)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτspline = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    ρrini, ρmini, ρΛini, Eini = bg_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
+    ρrini, ρmini, ρΛini, Eini = th_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
