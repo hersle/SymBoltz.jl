@@ -92,6 +92,7 @@ function solve_background(ρr0, ρm0)
     prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0])
     return solve(prob, Tsit5(), reltol=1e-7) # using KenCarp4 here leads to difference in AD vs FD
 end
+solve_background(θ::Parameters) = solve_background(θ.ρr0, θ.ρm0)
 
 bg_sol = solve_background(par.ρr0, par.ρm0)
 plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
@@ -149,7 +150,7 @@ function reionization_smooth_step(; name)
     ], a, [Xe], [z0, Δz0, Xe0]; name)
 end
 
-@parameters fb H0 Yp # TODO: avoid Yp and H0 name clash
+@parameters fb H0 Yp
 @variables Xe(a) ne(a) dτ(a) H(a) ρb(a) nb(a) nH(a)
 @named temp = thermodynamics_temperature()
 @named saha = recombination_helium_saha()
@@ -184,9 +185,10 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
+solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
 
 th_sol = solve_thermodynamics(par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
 plot!(p[3], log10.(th_sol[a]), stack(th_sol(th_sol[a], idxs=[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]))'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
@@ -230,7 +232,7 @@ end
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
 @parameters fb dτspline # TODO: get rid of
-@variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) # TODO: get rid of
+@variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) dτ(a) # TODO: get rid of
 dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
 @register_symbolic dτfunc(a, spl)
 @named pt_bg_conn = ODESystem([
@@ -244,8 +246,9 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
     R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
-    rad.interaction ~ -dτfunc(a, dτspline)/3 * (bar.u - 3*rad.Θ1)
-    bar.interaction ~ +dτfunc(a, dτspline)/R * (bar.u - 3*rad.Θ1)
+    rad.interaction ~ -dτ/3 * (bar.u - 3*rad.Θ1)
+    bar.interaction ~ +dτ/R * (bar.u - 3*rad.Θ1)
+    dτ ~ dτfunc(a, dτspline)
 ], a)
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
@@ -266,9 +269,10 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         ucini = ubini = 3*Θr1ini # Dodelson (7.95)
         return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
     end
-    probs = EnsembleProblem(pt_prob, prob_func = prob_func)
-    return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals), reltol=1e-8) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
+    probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
+    return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
+solve_perturbations(kvals::AbstractArray, θ::Parameters) = solve_perturbations(kvals, θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
 
 pt_sols = solve_perturbations(ks, par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
