@@ -310,14 +310,14 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         Θrini[0] = Φini/2 # Dodelson (7.89)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
         Θrini[2] = -8/15*kval/(aini^2*Eini*dτini) # TODO: change with/without polarization
-        for l in 2:lmax-1
+        for l in 3:lmax-1
             Θrini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * Θrini[l-1]
         end
         ΘPini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
         ΘPini[0] = 5/4 * Θrini[2]
         ΘPini[1] = -kval/(4*aini^2*Eini*dτini) * Θrini[2]
         ΘPini[2] = 1/4 * Θrini[2]
-        for l in 2:lmax-1
+        for l in 3:lmax-1
             ΘPini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * ΘPini[l-1]
         end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
