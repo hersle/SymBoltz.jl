@@ -22,6 +22,8 @@ const EHion = 13.59844u"eV/J" |> NoUnits
 const EHe1ion = 24.58738u"eV/J" |> NoUnits
 const EHe2ion = 54.41776u"eV/J" |> NoUnits
 
+δkron(i, j) = (i == j ? 1 : 0)
+
 # TODO: shooting method https://docs.sciml.ai/DiffEqDocs/stable/tutorials/bvp_example/ (not supported by ModelingToolkit: https://github.com/SciML/ModelingToolkit.jl/issues/924, https://discourse.julialang.org/t/boundary-value-problem-with-modellingtoolkit-or-diffeqoperators/57656)
 # TODO: @register_symbolic from bg -> thermo -> pert instead of reintegrating: https://docs.sciml.ai/ModelingToolkit/stable/tutorials/ode_modeling/#Specifying-a-time-variable-forcing-function
 # TODO: make simpler Cosmology interface
@@ -225,6 +227,16 @@ function perturbations_photon_hierarchy(lmax=6, interact=false; name)
     return ODESystem(eqs, a; name)
 end
 
+function perturbations_polarization_hierarchy(lmax=6; name)
+    @variables Θ(a)[0:lmax] dτ(a) Π(a)
+    eqs = [
+        Da(Θ[0]) + k/(a^2*E)*Θ[1] ~ dτ * (Θ[0] - Π/2)
+        [Da(Θ[l]) - k/(a^2*E)/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+        Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
+    ]
+    return ODESystem(eqs, a; name)
+end
+
 function perturbations_matter(interact=false; name)
     @variables δ(a) u(a)
     interaction = interact ? only(@variables interaction(a)) : 0
@@ -245,6 +257,7 @@ end
 
 lmax = 6
 @named rad = perturbations_photon_hierarchy(lmax, true)
+@named pol = perturbations_polarization_hierarchy(lmax)
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
@@ -265,14 +278,17 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
     R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
     bar.interaction     ~ +dτ/R * (bar.u - 3*rad.Θ[1])
     rad.interactions[1] ~ -dτ/3 * (bar.u - 3*rad.Θ[1])
-    rad.interactions[2] ~  dτ*rad.Θ[2]*9/10 # TODO: add polarization
-    [rad.interactions[l] ~ dτ*rad.Θ[l] for l in 3:lastindex(rad.interactions)]...
+    [rad.interactions[l] ~ dτ * (rad.Θ[l] - pol.Π/10*δkron(l,2)) for l in 2:lastindex(rad.interactions)]...
     dτ ~ dτfunc(a, dτspline)
+
+    # polarization
+    pol.dτ ~ dτ
+    pol.Π ~ rad.Θ[2] + pol.Θ[2] + pol.Θ[0]
 
     # gravity shear stress
     grav.Π ~ -12*a^2 * bg.rad.ρ*rad.Θ[2] # TODO: add neutrinos
 ], a)
-@named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
+@named pt = compose(pt_bg_conn, rad, pol, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
 
@@ -290,13 +306,20 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         Θrini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1
         Θrini[0] = Φini/2 # Dodelson (7.89)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
-        Θrini[2] = -20/45*kval/(aini^2*Eini*dτini) # TODO: change with polarization
+        Θrini[2] = -8/15*kval/(aini^2*Eini*dτini) # TODO: change with/without polarization
         for l in 2:lmax-1
             Θrini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * Θrini[l-1]
         end
+        ΘPini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
+        ΘPini[0] = 5/4 * Θrini[2]
+        ΘPini[1] = -kval/(4*aini^2*Eini*dτini) * Θrini[2]
+        ΘPini[2] = 1/4 * Θrini[2]
+        for l in 2:lmax-1
+            ΘPini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * ΘPini[l-1]
+        end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
+        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
     end
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
