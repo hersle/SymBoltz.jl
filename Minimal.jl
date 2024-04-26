@@ -2,6 +2,7 @@ using ModelingToolkit
 using DifferentialEquations
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
+using OffsetArrays
 using Plots; Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: avoid this; make recombination work naturally with Unitful units
@@ -209,6 +210,21 @@ function perturbations_radiation(interact=false; name)
     ], a; name)
 end
 
+function perturbations_photon_hierarchy(lmax=6, interact=false; name)
+    @variables Θ(a)[0:lmax] δ(a) interactions(a)[1:lmax-1]
+    eqs = [
+        Da(Θ[0]) + k/(a^2*E)*Θ[1] ~ -Da(Φ)
+        Da(Θ[1]) - k/(3*a^2*E)*(Θ[0]-2*Θ[2]) ~ k/(3*a^2*E)*Ψ + interactions[1]
+        [Da(Θ[l]) ~ k/(a^2*E)/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
+        Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
+        δ ~ 4*Θ[0]
+    ]
+    if !interact
+        push!(eqs, collect(interactions .~ 0)...)
+    end
+    return ODESystem(eqs, a; name)
+end
+
 function perturbations_matter(interact=false; name)
     @variables δ(a) u(a)
     interaction = interact ? only(@variables interaction(a)) : 0
@@ -219,15 +235,16 @@ function perturbations_matter(interact=false; name)
 end
 
 function perturbations_gravity(; name)
-    @variables δρ(a) Δm(a) ρm(a)
+    @variables δρ(a) Δm(a) ρm(a) Π(a)
     return ODESystem([
         Da(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*a^3*E^2) # Dodelson (8.14) # TODO: write in more natural form?
-        Ψ ~ -Φ # anisotropic stress # TODO: relax
+        k^2 * (Ψ + Φ) ~ Π # anisotropic stress
         Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
     ], a; name)
 end
 
-@named rad = perturbations_radiation(true)
+lmax = 6
+@named rad = perturbations_photon_hierarchy(lmax, true)
 @named cdm = perturbations_matter(false)
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
@@ -246,9 +263,14 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
 
     # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
     R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
-    rad.interaction ~ -dτ/3 * (bar.u - 3*rad.Θ1)
-    bar.interaction ~ +dτ/R * (bar.u - 3*rad.Θ1)
+    bar.interaction     ~ +dτ/R * (bar.u - 3*rad.Θ[1])
+    rad.interactions[1] ~ -dτ/3 * (bar.u - 3*rad.Θ[1])
+    rad.interactions[2] ~  dτ*rad.Θ[2]*9/10 # TODO: add polarization
+    [rad.interactions[l] ~ dτ*rad.Θ[l] for l in 3:lastindex(rad.interactions)]...
     dτ ~ dτfunc(a, dτspline)
+
+    # gravity shear stress
+    grav.Π ~ -12*a^2 * bg.rad.ρ*rad.Θ[2] # TODO: add neutrinos
 ], a)
 @named pt = compose(pt_bg_conn, rad, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
@@ -259,15 +281,22 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτspline = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ρrini, ρmini, ρΛini, Eini = th_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
+    dτini = dτfunc(aini, dτspline)
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
         Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
-        Θr0ini = Φini/2 # Dodelson (7.89)
-        δcini = δbini = 3*Θr0ini # Dodelson (7.94)
-        Θr1ini = -kval*Φini/(6*aini*Eini) # Dodelson (7.95) # TODO: replace aini -> a when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/2543
-        ucini = ubini = 3*Θr1ini # Dodelson (7.95)
-        return remake(pt_prob; u0 = [Φ => Φini, pt_sim.rad.Θ0 => Θr0ini, pt_sim.rad.Θ1 => Θr1ini, pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
+        lmax = lastindex(pt_sim.rad.Θ)
+        Θrini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1
+        Θrini[0] = Φini/2 # Dodelson (7.89)
+        Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
+        Θrini[2] = -20/45*kval/(aini^2*Eini*dτini) # TODO: change with polarization
+        for l in 2:lmax-1
+            Θrini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * Θrini[l-1]
+        end
+        δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
+        ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
+        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
     end
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
