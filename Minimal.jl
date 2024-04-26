@@ -80,7 +80,9 @@ end
 @named mat = background_species_constant_eos(0)
 @named de = background_species_constant_eos(-1)
 @named grav = background_gravity_GR()
+@variables η(a) # really η / (1/H0) # TODO: integrate BG from aini and move there?
 @named bg = ODESystem([
+    Da(η) ~ 1 / (a^2 * E) # integrated backwards in background
     grav.ρ ~ rad.ρ + mat.ρ + de.ρ
     rad.ρcrit ~ grav.ρ
     mat.ρcrit ~ grav.ρ
@@ -92,14 +94,14 @@ bg_sim = structural_simplify(bg)
 bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini), parameters(bg_sim) .=> NaN)
 function solve_background(ρr0, ρm0)
     ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
-    prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0])
+    prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0, bg_sim.η => 0.0])
     return solve(prob, Tsit5(), reltol=1e-7) # using KenCarp4 here leads to difference in AD vs FD
 end
 solve_background(θ::Parameters) = solve_background(θ.ρr0, θ.ρm0)
 
 bg_sol = solve_background(par.ρr0, par.ρm0)
 plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
-plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=E) / bg_sol(atoday; idxs=E)); xlabel="lg(a)", ylabel="lg(H/H0)"); display(p)
+plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=bg.η) .- bg_sol(aini; idxs=bg.η)); xlabel="lg(a)", ylabel="lg(η H0)"); display(p)
 
 # background thermodynamcis / recombination
 Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
@@ -188,7 +190,8 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
+    ηini = 0.0 # TODO: more accurate
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
@@ -319,7 +322,8 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
+        ηini = 0.0 # TODO: more accurate
+        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
     end
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
