@@ -137,11 +137,11 @@ function recombination_hydrogen_peebles(; name)
 end
 
 function thermodynamics_temperature(; name)
-    @variables Tγ(a) Tb(a) ργ(a) ρb(a) dτ(a) fγb(a)
+    @variables Tγ(a) Tb(a) ργ(a) ρb(a) τ(a) fγb(a)
     return ODESystem([
         Da(Tγ) ~   -Tγ/a # Tγ = Tγ0 / a
-        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*fγb*a*dτ*(Tγ-Tb) # TODO: multiply last term by a or not?
-    ], a, [Tγ, Tb, dτ, fγb], []; name)
+        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*fγb*a*Da(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
+    ], a, [Tγ, Tb, τ, fγb], []; name)
 end
 
 function reionization_smooth_step(; name)
@@ -156,7 +156,7 @@ function reionization_smooth_step(; name)
 end
 
 @parameters fb H0 Yp
-@variables Xe(a) ne(a) dτ(a) H(a) ρb(a) nb(a) nH(a)
+@variables Xe(a) ne(a) τ(a) H(a) ρb(a) nb(a) nH(a)
 @named temp = thermodynamics_temperature()
 @named saha = recombination_helium_saha()
 @named peebles = recombination_hydrogen_peebles()
@@ -169,7 +169,7 @@ end
     nH ~ (1-Yp) * nb # TODO: correct?
 
     temp.fγb ~ bg.rad.ρ / (fb*bg.mat.ρ) # ργ/ρb
-    temp.dτ ~ dτ
+    temp.τ ~ τ
     saha.T ~ temp.Tb
     saha.nH ~ nH
     peebles.T ~ temp.Tb
@@ -179,7 +179,7 @@ end
     # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
     Xe ~ Hifelse(1-saha.Xe, saha.Xe, peebles.Xe; k=1e3) + reion1.Xe + reion2.Xe
     ne ~ Xe * nH
-    dτ ~ -ne * σT * c / (a*H) # common optical depth dτ = dτ/da # TODO: separate in Saha/Peebles?
+    Da(τ) ~ -ne * σT * c / (a*H) # common optical depth τ # TODO: separate in Saha/Peebles?
 ], a)
 @named th = compose(th_bg_conn, saha, peebles, temp, reion1, reion2, bg)
 th_sim = structural_simplify(th)
@@ -191,7 +191,7 @@ function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
     Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
     ηini = 0.0 # TODO: more accurate
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
+    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, th_sim.τ => 0.0, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
@@ -298,7 +298,7 @@ pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameter
 function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
     fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    dτspline = CubicSpline(log.(-th_sol[th.dτ]), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    dτspline = CubicSpline(log.(-th_sol.(th_sol[a], Val{1}; idxs=th.τ)), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ρrini, ρmini, ρΛini, Eini = th_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
     dτini = dτfunc(aini, dτspline)
     function prob_func(_, i, _)
