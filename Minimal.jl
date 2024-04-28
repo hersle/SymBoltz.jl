@@ -3,6 +3,8 @@ using DifferentialEquations
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
 using OffsetArrays
+using Bessels: sphericalbesselj
+using Trapz
 using Plots; Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: avoid this; make recombination work naturally with Unitful units
@@ -30,7 +32,6 @@ const EHe2ion = 54.41776u"eV/J" |> NoUnits
 # TODO: compare runtime for finite vs. dlgP_dlgks_autodiff
 # TODO: compare accuracy with class
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
-# TODO: CMB power spectrum
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
 # TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
@@ -290,7 +291,7 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
 
     # gravity shear stress
     grav.Π ~ -12*a^2 * bg.rad.ρ*rad.Θ[2] # TODO: add neutrinos
-], a)
+], a, [Ψ, Φ], [k, fb, dτspline])
 @named pt = compose(pt_bg_conn, rad, pol, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
 pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
@@ -323,16 +324,18 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
         ηini = 0.0 # TODO: more accurate
-        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini), p = [pt_sim.fb => fb, k => kval, pt_sim.dτspline => dτspline])
+        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
     end
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
 solve_perturbations(kvals::AbstractArray, θ::Parameters) = solve_perturbations(kvals, θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
 
+#=
 pt_sols = solve_perturbations(ks, par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
 plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
 plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
+=#
 
 # power spectra
 θ0 = [par.ρr0, par.ρm0, par.ρb0, par.H0, par.As, par.Yp]
@@ -340,6 +343,7 @@ P0(k, As) = @. As / k ^ 3
 P(k, ρr0, ρm0, ρb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
+#=
 function plot_dlgP_dθs(dlgP_dθs, name, color)
     plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name, ylims=(-2, 0)); display(p)
     plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name, ylims=(-2, 3)); display(p)
@@ -357,3 +361,74 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(log10Ph3, log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
+=#
+
+# TODO: CMB power spectrum
+ρr0, ρm0, ρb0, H0, Yp, As = par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp, par.As
+# TODO: only need as from a = 1e-4 till today
+# TODO: spline_first logic for each k!
+function S(as::AbstractArray, ks::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
+
+    E = th_sol(as; idxs=bg.E)
+    E′ = ForwardDiff.derivative.(a -> th_sol(a, idxs=bg.E), as) # TODO: bg_sol(as, Val{1}, idxs=bg.E) doesn't work because of √(negative number)
+    aE = as .* E
+    aE′ = E .+ as .* E′
+
+    τ = th_sol(as; idxs=th.τ) .- th_sol(atoday; idxs=th.τ)
+    τ′ = th_sol(as, Val{1}; idxs=th.τ)
+    τ′′ = th_sol(as, Val{2}; idxs=th.τ)
+    g = @. -τ′ * exp(-τ)
+    g′ = @. (-τ′′ + (τ′)^2) * exp(-τ)
+
+    pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
+    Θ0 = stack(pt_sols(as; idxs=pt.rad.Θ[0]))
+    Ψ = stack(pt_sols(as; idxs=pt.Ψ))
+    Π = stack(pt_sols(as; idxs=pt.grav.Π))
+    ub = stack(pt_sols(as; idxs=pt.bar.u))
+    Ψ′ = stack(pt_sols(as, Val{1}; idxs=pt.Ψ))
+    Φ′ = stack(pt_sols(as, Val{1}; idxs=pt.Φ))
+    ub′ = stack(pt_sols(as, Val{1}; idxs=pt.bar.u))
+
+    S_SW = @. g * (Θ0 + Ψ + Π/4)
+    S_ISW = @. exp(-τ) * (Ψ′ - Φ′)
+    S_Dop = @. -1/ks' * (aE′*g*ub + aE*g′*ub + as*g*ub′) # triple product rule
+    return S_SW + S_ISW + S_Dop # TODO: add Doppler and polarization term
+end
+
+function ΘT(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    Ss = S(as, ks, ρr0, ρm0, ρb0, H0, Yp)
+
+    bg_sol = solve_background(ρr0, ρm0)
+    Δηs = bg_sol(atoday; idxs=bg.η) .- bg_sol(as; idxs=bg.η)
+    ys = ks' .* Δηs # argument to Bessel function
+
+    # TODO: transform integral to log(a)
+    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+    ∂Θ_∂as = Ss .* stack(sphericalbesselj.(l, ys) for l in ls)
+    ∂Θ_∂lnas = ∂Θ_∂as .* as
+    lnas = log.(as)
+    println(size(∂Θ_∂as)) # (as, ks, ls)
+    return [trapz(lnas, ∂Θ_∂lnas[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
+end
+
+# TODO: integrate over log(a) instead of a!
+function Cl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
+    Θls = ΘT(ls, ks, as, ρr0, ρm0, ρb0, H0, Yp)
+    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+    return [2/π .* trapz(ks, @. ks^2 * P0(ks, As) * Θls[i_l,:]^2) for i_l in eachindex(ls)]
+end
+
+function Dl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
+    return Cl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp) .* ls .* (ls .+ 1) / (2*π)
+end
+
+lmax = 1000
+η0 = -bg_sol(aini, idxs=bg.η)
+kη0s = range(1, 2*lmax, step=2*π/8) # TODO: stop should be *higher* than lmax
+ks = kη0s / η0
+as = 10 .^ range(-4, 0, length=600)
+ls = range(1, lmax, step=10)
+
+Dls = Dl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp)
+plot(log10.(ls), Dls)
