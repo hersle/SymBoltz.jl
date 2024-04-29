@@ -5,6 +5,7 @@ using ForwardDiff, DiffResults, FiniteDiff
 using OffsetArrays
 using Bessels: sphericalbesselj
 using Trapz
+using Roots
 using Plots; Plots.default(label=nothing, markershape=:pixel)
 
 # TODO: avoid this; make recombination work naturally with Unitful units
@@ -40,9 +41,9 @@ const EHe2ion = 54.41776u"eV/J" |> NoUnits
 # TODO: define components with @mtkmodel?
 
 @kwdef struct Parameters
-    ρr0 = 5e-5 # Ωr0
-    ρm0 = 0.3 # Ωm0
-    ρb0 = 0.02 # Ωb0
+    Ωr0 = 5e-5 # Ωr0
+    Ωm0 = 0.3 # Ωm0
+    Ωb0 = 0.02 # Ωb0
     H0 = 70 * km/Mpc # s^-1
     As = 2e-9
     Yp = 0.25
@@ -57,52 +58,58 @@ p = plot(layout=(3,3), size=(1920, 1080), left_margin=bottom_margin=30*Plots.px)
 
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
-@variables a E(a)
-E = GlobalScope(E)
-Da = Differential(a)
+@variables η a(η) # η is really η in units of 1/H0
+a = GlobalScope(a)
+Dη = Differential(η)
 
 function background_gravity_GR(; name)
-    @variables ρ(a)
+    @variables ρ(η)
     return ODESystem([
-        E ~ √(ρ) # H/H₀
-    ], a; name)
+        Dη(a) ~ √(ρ * a^4) # TODO: 8π/3 factor?
+    ], η; name)
 end
 
 function background_species_constant_eos(w; name)
-    @variables ρ(a) P(a) Ω(a) ρcrit(a)
+    @variables ρ(η) P(η) Ω(η) ρcrit(η)
     return ODESystem([
         P ~ w*ρ
-        Da(ρ) ~ -3/a * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
+        Dη(ρ) ~ -3 * Dη(a)/a * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
         Ω ~ ρ / ρcrit
-    ], a; name)
+    ], η; name)
 end
 
 @named rad = background_species_constant_eos(1//3)
 @named mat = background_species_constant_eos(0)
 @named de = background_species_constant_eos(-1)
 @named grav = background_gravity_GR()
-@variables η(a) # really η / (1/H0) # TODO: integrate BG from aini and move there?
 @named bg = ODESystem([
-    Da(η) ~ 1 / (a^2 * E) # integrated backwards in background
     grav.ρ ~ rad.ρ + mat.ρ + de.ρ
     rad.ρcrit ~ grav.ρ
     mat.ρcrit ~ grav.ρ
     de.ρcrit ~ grav.ρ
-], a)
+], η, [a], [])
 
 @named bg = compose(bg, rad, mat, de, grav)
 bg_sim = structural_simplify(bg)
-bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (atoday, aini), parameters(bg_sim) .=> NaN)
-function solve_background(ρr0, ρm0)
-    ρΛ0 = 1 - ρr0 - ρm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
-    prob = remake(bg_prob; u0 = [bg_sim.rad.ρ => ρr0, bg_sim.mat.ρ => ρm0, bg_sim.de.ρ => ρΛ0, bg_sim.η => 0.0])
-    return solve(prob, Tsit5(), reltol=1e-7) # using KenCarp4 here leads to difference in AD vs FD
+bg_prob = ODEProblem(bg_sim, unknowns(bg_sim) .=> NaN, (0.0, 4.0), parameters(bg_sim) .=> NaN; jac=true)
+function solve_background(Ωr0, Ωm0)
+    ΩΛ0 = 1 - Ωr0 - Ωm0 # TODO: handle with equation between parameters once ρr0 etc. are parameters?
+    ηini = aini / √(Ωr0) # analytical radiation-dominated solution
+    Ωrini = Ωr0 / aini^4 # TODO: avoid!
+    Ωmini = Ωm0 / aini^3
+    ΩΛini = ΩΛ0
+    prob = remake(bg_prob; tspan=(ηini, 4.0), u0 = [bg_sim.a => aini, bg_sim.rad.ρ => Ωrini, bg_sim.mat.ρ => Ωmini, bg_sim.de.ρ => ΩΛini])
+    # TODO: stop when a == 1, see https://github.com/hersle/SymBoltz.jl/commit/7c4beb56eb13a1bb4dc5b30f8f808ca561989e4d
+    return solve(prob, KenCarp4(), reltol=1e-8) # using KenCarp4 here leads to difference in AD vs FD
 end
 solve_background(θ::Parameters) = solve_background(θ.ρr0, θ.ρm0)
+ηi(bg_sol::ODESolution) = bg_sol.prob.tspan[1]
+η0(bg_sol::ODESolution) = find_zero(η -> bg_sol(η, idxs=a) - 1.0, bg_sol.prob.tspan)
 
-bg_sol = solve_background(par.ρr0, par.ρm0)
-plot!(p[1], log10.(as), reduce(vcat, bg_sol.(as; idxs=[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω])'); xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
-plot!(p[2], log10.(as), log10.(bg_sol.(as; idxs=bg.η) .- bg_sol(aini; idxs=bg.η)); xlabel="lg(a)", ylabel="lg(η H0)"); display(p)
+bg_sol = solve_background(par.Ωr0, par.Ωm0)
+println("ηi = $(ηi(bg_sol)), η0 = $(η0(bg_sol))")
+plot!(p[1], bg_sol[η], bg_sol[a]; xlabel="η / (1/H0)", ylabel="a", ylims=(0, 1)); display(p)
+plot!(p[2], log10.(bg_sol[a]), stack(bg_sol[[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.de.Ω]])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 
 # background thermodynamcis / recombination
 Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
@@ -364,6 +371,7 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 =#
 
 # TODO: CMB power spectrum
+#=
 ρr0, ρm0, ρb0, H0, Yp, As = par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp, par.As
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
@@ -438,3 +446,4 @@ ls = range(1, lmax, step=10)
 
 Dls = Dl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp)
 plot(log10.(ls), Dls)
+=#
