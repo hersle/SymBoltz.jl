@@ -115,7 +115,7 @@ plot!(p[2], log10.(bg_sol[a]), stack(bg_sol[[bg_sim.rad.Ω,bg_sim.mat.Ω,bg_sim.
 Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
 function recombination_helium_saha(; name, Xeconst=1e-5)
     @parameters Yp
-    @variables Xe(a) XH₊(a) XHe₊(a) XHe₊₊(a) ne(a) nH(a) T(a) λ(a) R1(a) R2(a) R3(a)
+    @variables Xe(η) XH₊(η) XHe₊(η) XHe₊₊(η) ne(η) nH(η) T(η) λ(η) R1(η) R2(η) R3(η)
     return ODESystem([
         λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
         ne ~ Xe * nH
@@ -126,11 +126,12 @@ function recombination_helium_saha(; name, Xeconst=1e-5)
         XHe₊ ~ R2 / (1 + R2 + R2*R3)
         XHe₊₊ ~ R3 * XHe₊
         Xe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) + Xeconst # add small constant Xe which is greater than integrator tolerance to avoid solver giving tiny negative values
-    ], a, [Xe, XH₊, XHe₊, XHe₊₊, T, nH, ne], [Yp]; name)
+    ], η, [Xe, XH₊, XHe₊, XHe₊₊, T, nH, ne], [Yp]; name)
 end
 
 function recombination_hydrogen_peebles(; name)
-    @variables Xe(a) ne(a) nH(a) T(a) H(a) λ(a) α2(a) β(a) C(a) Λα(a) Λ2γ(a) β2(a)
+    @parameters H0
+    @variables Xe(η) ne(η) nH(η) T(η) H(η) λ(η) α2(η) β(η) C(η) Λα(η) Λ2γ(η) β2(η)
     return ODESystem([
         ne ~ Xe * nH
         λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
@@ -140,38 +141,38 @@ function recombination_hydrogen_peebles(; name)
         Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
         Λ2γ ~ 8.227 # 1/s
         C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
-        Da(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) / (a*H) # remains ≈ 0 during Saha recombinations, so no need to manually turn off
-    ], a, [Xe, H, nH, ne, T], []; name)
+        Dη(Xe) * H0 ~ C * ((1-Xe)*β - Xe^2*nH*α2) * a # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+    ], η, [Xe, H, nH, ne, T], [H0]; name)
 end
 
 function thermodynamics_temperature(; name)
-    @variables Tγ(a) Tb(a) ργ(a) ρb(a) τ(a) fγb(a)
+    @variables Tγ(η) Tb(η) ργ(η) ρb(η) τ(η) fγb(η)
     return ODESystem([
-        Da(Tγ) ~   -Tγ/a # Tγ = Tγ0 / a
-        Da(Tb) ~ -2*Tb/a - 8/3*(mp/me)*fγb*a*Da(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
-    ], a, [Tγ, Tb, τ, fγb], []; name)
+        Dη(Tγ) ~ -1*Tγ * Dη(a)/a # Tγ = Tγ0 / a # TODO: introduce ℋ = Dη(a) / a?
+        Dη(Tb) ~ -2*Tb * Dη(a)/a - 8/3*(mp/me)*fγb*a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
+    ], η, [Tγ, Tb, τ, fγb], []; name)
 end
 
 function reionization_smooth_step(; name)
     y(z) = (1+z)^(3/2)
     Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
     @parameters z0 Δz0 Xe0
-    @variables z(a)
+    @variables z(η)
     return ODESystem([
         z ~ 1/a - 1
         Xe ~ Hifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
-    ], a, [Xe], [z0, Δz0, Xe0]; name)
+    ], η, [Xe], [z0, Δz0, Xe0]; name)
 end
 
 @parameters fb H0 Yp
-@variables Xe(a) ne(a) τ(a) H(a) ρb(a) nb(a) nH(a)
+@variables Xe(η) ne(η) τ(η) H(η) ρb(η) nb(η) nH(η)
 @named temp = thermodynamics_temperature()
 @named saha = recombination_helium_saha()
 @named peebles = recombination_hydrogen_peebles()
 @named reion1 = reionization_smooth_step() # TODO: separate reionH₊, reionHe₊, reionHe₊₊
 @named reion2 = reionization_smooth_step()
 @named th_bg_conn = ODESystem([
-    H ~ E * H0 # 1/s
+    H ~ Dη(a) / a^2 * H0 # 1/s, H ~ ℋ / a
     ρb ~ fb * bg.mat.ρ * 3*H0^2 / (8*π*G) # kg/m³
     nb ~ ρb / mp # 1/m³
     nH ~ (1-Yp) * nb # TODO: correct?
@@ -187,27 +188,27 @@ end
     # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
     Xe ~ Hifelse(1-saha.Xe, saha.Xe, peebles.Xe; k=1e3) + reion1.Xe + reion2.Xe
     ne ~ Xe * nH
-    Da(τ) ~ -ne * σT * c / (a*H) # common optical depth τ # TODO: separate in Saha/Peebles?
-], a)
+    Dη(τ) * H0 ~ -ne * σT * c * a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
+], η)
 @named th = compose(th_bg_conn, saha, peebles, temp, reion1, reion2, bg)
 th_sim = structural_simplify(th)
-th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (aini, atoday), parameters(th_sim) .=> NaN; jac=true)
+th_prob = ODEProblem(th_sim, unknowns(th_sim) .=> NaN, (0.0, 4.0), parameters(th_sim) .=> NaN; jac=true)
 
-function solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-    ρrini, ρmini, ρΛini = solve_background(ρr0, ρm0)(aini; idxs=[bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # TODO: avoid duplicate logic
-    fb = ρb0 / ρm0; @assert fb <= 1
-    Tini = (ρr0 * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
+function solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
+    bg_sol = solve_background(Ωr0, Ωm0)
+    ηini, ηtoday = ηi(bg_sol), η0(bg_sol)
+    Ωrini, Ωmini, ΩΛini = bg_sol(ηini; idxs=[bg.rad.ρ, bg.mat.ρ, bg.de.ρ]) # TODO: avoid duplicate logic
+    fb = Ωb0 / Ωm0; @assert fb <= 1
+    Tini = (Ωrini * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    ηini = 0.0 # TODO: more accurate
-    prob = remake(th_prob; u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, th_sim.τ => 0.0, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
+    prob = remake(th_prob; tspan = (ηini, ηtoday), u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, th_sim.τ => 0.0, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.peebles.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
     return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
-solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
+solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.Ωr0, θ.Ωm0, θ.Ωb0, θ.H0, θ.Yp)
 
-th_sol = solve_thermodynamics(par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
-plot!(p[3], log10.(th_sol[a]), stack(th_sol(th_sol[a], idxs=[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]))'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
-#plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tγ])); display(p)
-#plot!(p[4], log10.(th_sol[a]), log10.(th_sol[th.Tb])); display(p)
+th_sol = solve_thermodynamics(par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp)
+plot!(p[3], log10.(th_sol[a]), stack(th_sol[[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]])'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
+plot!(p[4], log10.(th_sol[a]), log10.(stack(th_sol[[th.temp.Tγ, th.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 
 @variables Φ(a) Ψ(a)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
