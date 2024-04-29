@@ -368,32 +368,29 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
 function S(as::AbstractArray, ks::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    Ss = zeros(length(as), length(ks))
+    D = ForwardDiff.derivative
+
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-
-    E = th_sol(as; idxs=bg.E)
-    E′ = ForwardDiff.derivative.(a -> th_sol(a, idxs=bg.E), as) # TODO: bg_sol(as, Val{1}, idxs=bg.E) doesn't work because of √(negative number)
-    aE = as .* E
-    aE′ = E .+ as .* E′
-
-    τ = th_sol(as; idxs=th.τ) .- th_sol(atoday; idxs=th.τ)
-    τ′ = th_sol(as, Val{1}; idxs=th.τ)
-    τ′′ = th_sol(as, Val{2}; idxs=th.τ)
-    g = @. -τ′ * exp(-τ)
-    g′ = @. (-τ′′ + (τ′)^2) * exp(-τ)
+    E(a) = th_sol(a, idxs=bg.E)
+    τ(a) = th_sol(a, idxs=th.τ) .- th_sol(atoday, idxs=th.τ)
+    g(a) = D(a -> exp(-τ(a)), a)
 
     pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
-    Θ0 = stack(pt_sols(as; idxs=pt.rad.Θ[0]))
-    Ψ = stack(pt_sols(as; idxs=pt.Ψ))
-    Π = stack(pt_sols(as; idxs=pt.grav.Π))
-    ub = stack(pt_sols(as; idxs=pt.bar.u))
-    Ψ′ = stack(pt_sols(as, Val{1}; idxs=pt.Ψ))
-    Φ′ = stack(pt_sols(as, Val{1}; idxs=pt.Φ))
-    ub′ = stack(pt_sols(as, Val{1}; idxs=pt.bar.u))
+    for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
+        Θ0(a) = pt_sol(a, idxs=pt.rad.Θ[0])
+        Ψ(a) = pt_sol(a, idxs=pt.Ψ)
+        Φ(a) = pt_sol(a, idxs=pt.Φ)
+        Π(a) = pt_sol(a, idxs=pt.grav.Π)
+        ub(a) = pt_sol(a, idxs=pt.bar.u)
 
-    S_SW = @. g * (Θ0 + Ψ + Π/4)
-    S_ISW = @. exp(-τ) * (Ψ′ - Φ′)
-    S_Dop = @. -1/ks' * (aE′*g*ub + aE*g′*ub + as*g*ub′) # triple product rule
-    return S_SW + S_ISW + S_Dop # TODO: add Doppler and polarization term
+        S_SW = g.(as) .* (Θ0(as) + Ψ(as) + Π(as)/4) # TODO: avoid g elementwise .?
+        S_ISW = exp.(.-τ(as)) .* D.(a -> Ψ(a) - Φ(a), as) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
+        S_Doppler = -1/k * D.(a -> a * E(a) * g(a) * ub(a), as)
+        Ss[:,i_k] = S_SW + S_ISW + S_Doppler
+    end
+
+    return Ss
 end
 
 function ΘT(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
@@ -422,6 +419,15 @@ end
 function Dl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
     return Cl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp) .* ls .* (ls .+ 1) / (2*π)
 end
+
+#=
+ks = 10 .^ range(-4, +2, length=10) / k0 # in code units of k0 = H0/c
+as = 10 .^ range(-4, 0, length=1000)
+Ss = S(as, ks, ρr0, ρm0, ρb0, H0, Yp)
+plot()
+#plot!(log10.(as), Ss[:,1])
+plot!(log10.(as), Ss[:,9])
+=#
 
 lmax = 1000
 η0 = -bg_sol(aini, idxs=bg.η)
