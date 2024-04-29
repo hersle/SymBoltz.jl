@@ -367,51 +367,51 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 ρr0, ρm0, ρb0, H0, Yp, As = par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp, par.As
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
-function S(as::AbstractArray, ks::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    Ss = zeros(length(as), length(ks))
+function S(xs::AbstractArray, ks::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    Ss = zeros(length(xs), length(ks))
     D = ForwardDiff.derivative
 
     th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-    E(a) = th_sol(a, idxs=bg.E)
-    τ(a) = th_sol(a, idxs=th.τ) .- th_sol(atoday, idxs=th.τ)
-    g(a) = D(a -> exp(-τ(a)), a)
+    a(x) = exp.(x) # TODO: move dot to callers
+    E(x) = th_sol(a(x), idxs=bg.E)
+    τ(x) = th_sol(a(x), idxs=th.τ) .- th_sol(atoday, idxs=th.τ)
+    g(x) = D(x -> exp(-τ(x)), x)
 
     pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
-        Θ0(a) = pt_sol(a, idxs=pt.rad.Θ[0])
-        Ψ(a) = pt_sol(a, idxs=pt.Ψ)
-        Φ(a) = pt_sol(a, idxs=pt.Φ)
-        Π(a) = pt_sol(a, idxs=pt.grav.Π)
-        ub(a) = pt_sol(a, idxs=pt.bar.u)
+        Θ0(x) = pt_sol(a(x), idxs=pt.rad.Θ[0])
+        Ψ(x) = pt_sol(a(x), idxs=pt.Ψ)
+        Φ(x) = pt_sol(a(x), idxs=pt.Φ)
+        Π(x) = pt_sol(a(x), idxs=pt.grav.Π)
+        ub(x) = pt_sol(a(x), idxs=pt.bar.u)
 
-        S_SW = g.(as) .* (Θ0(as) + Ψ(as) + Π(as)/4) # TODO: avoid g elementwise .?
-        S_ISW = exp.(.-τ(as)) .* D.(a -> Ψ(a) - Φ(a), as) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
-        S_Doppler = -1/k * D.(a -> a * E(a) * g(a) * ub(a), as)
+        S_SW = g.(xs) .* (Θ0(xs) + Ψ(xs) + Π(xs)/4) # TODO: avoid g elementwise .?
+        S_ISW = exp.(.-τ(xs)) .* D.(x -> Ψ(x) - Φ(x), xs) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
+        S_Doppler = -1/k * D.(x -> a(x) * E(x) * g(x) * ub(x), xs)
         Ss[:,i_k] = S_SW + S_ISW + S_Doppler
     end
 
     return Ss
 end
 
-function ΘT(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    Ss = S(as, ks, ρr0, ρm0, ρb0, H0, Yp)
+function ΘT(ls::AbstractArray, ks::AbstractArray, xs::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
+    Ss = S(xs, ks, ρr0, ρm0, ρb0, H0, Yp)
 
     bg_sol = solve_background(ρr0, ρm0)
-    Δηs = bg_sol(atoday; idxs=bg.η) .- bg_sol(as; idxs=bg.η)
+    a(x) = exp(x)
+    Δηs = bg_sol(atoday; idxs=bg.η) .- bg_sol(a.(xs); idxs=bg.η)
     ys = ks' .* Δηs # argument to Bessel function
 
     # TODO: transform integral to log(a)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    ∂Θ_∂as = Ss .* stack(sphericalbesselj.(l, ys) for l in ls)
-    ∂Θ_∂lnas = ∂Θ_∂as .* as
-    lnas = log.(as)
-    println(size(∂Θ_∂as)) # (as, ks, ls)
-    return [trapz(lnas, ∂Θ_∂lnas[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
+    ∂Θ_∂xs = Ss .* stack(sphericalbesselj.(l, ys) for l in ls)
+    println(size(∂Θ_∂xs)) # (as, ks, ls)
+    return [trapz(xs, ∂Θ_∂xs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
 end
 
 # TODO: integrate over log(a) instead of a!
 function Cl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
-    Θls = ΘT(ls, ks, as, ρr0, ρm0, ρb0, H0, Yp)
+    Θls = ΘT(ls, ks, log.(as), ρr0, ρm0, ρb0, H0, Yp)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
     return [2/π .* trapz(ks, @. ks^2 * P0(ks, As) * Θls[i_l,:]^2) for i_l in eachindex(ls)]
 end
