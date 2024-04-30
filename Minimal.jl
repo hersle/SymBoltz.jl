@@ -344,6 +344,7 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
 end
 solve_perturbations(kvals::AbstractArray, θ::Parameters) = solve_perturbations(kvals, θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
 
+#=
 pt_sols = solve_perturbations(ks, par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp)
 for (i, pt_sol) in enumerate(pt_sols)
     plot!(p[4], log10.(pt_sol[a]), pt_sol[Φ]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
@@ -351,6 +352,7 @@ for (i, pt_sol) in enumerate(pt_sols)
     plot!(p[5], log10.(pt_sol[a]), log10.(abs.(pt_sol[pt.bar.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")
 end
 display(p)
+=#
 
 # power spectra
 θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.As, par.Yp]
@@ -368,6 +370,7 @@ function plot_dlgP_dθs(dlgP_dθs, name, color)
     display(p)
 end
 
+#=
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
 Pres = DiffResults.JacobianResult(ks, θ0)
 log10Ph3(log10θ) = log10.(P(ks, 10 .^ log10θ)/k0^3)
@@ -379,81 +382,83 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(log10Ph3, log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
+=#
 
 # TODO: CMB power spectrum
-#=
-ρr0, ρm0, ρb0, H0, Yp, As = par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp, par.As
+Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
+ηs = range(ηi(bg_sol), η0(bg_sol), length=800)
+#ks = 10 .^ range(-4, +2, length=300) / k0 # in code units of k0 = H0/c
+ls = 0:10:1000
+ks = range(1, 2000, step=2*π/8) ./ η0(bg_sol)
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
-function S(xs::AbstractArray, ks::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    Ss = zeros(length(xs), length(ks))
+function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
+    Ss = zeros(length(ηs), length(ks))
     D = ForwardDiff.derivative
 
-    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp)
-    a(x) = exp.(x) # TODO: move dot to callers
-    E(x) = th_sol(a(x), idxs=bg.E)
-    τ(x) = th_sol(a(x), idxs=th.τ) .- th_sol(atoday, idxs=th.τ)
-    g(x) = D(x -> exp(-τ(x)), x)
+    th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
+    η0 = th_sol.t[end]
+    τ(η) = th_sol(η, idxs=th.τ) .- th_sol(η0, idxs=th.τ)
+    g(η) = D(η -> exp(-τ(η)), η)
 
-    pt_sols = solve_perturbations(ks, ρr0, ρm0, ρb0, H0, Yp)
+    pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
-        Θ0(x) = pt_sol(a(x), idxs=pt.rad.Θ[0])
-        Ψ(x) = pt_sol(a(x), idxs=pt.Ψ)
-        Φ(x) = pt_sol(a(x), idxs=pt.Φ)
-        Π(x) = pt_sol(a(x), idxs=pt.grav.Π)
-        ub(x) = pt_sol(a(x), idxs=pt.bar.u)
+        # TODO: must be faster!!
+        println(i_k)
+        Θ0(η) = pt_sol(η, idxs=pt.rad.Θ[0])
+        Ψ(η) = pt_sol(η, idxs=pt.Ψ)
+        Φ(η) = pt_sol(η, idxs=pt.Φ)
+        Π(η) = pt_sol(η, idxs=pt.grav.Π)
+        ub(η) = pt_sol(η, idxs=pt.bar.u)
+        Ψ′(η) = D(Ψ, η) # TODO: use pt_sol(.. Val{1})?
+        Φ′(η) = D(Φ, η)
 
-        S_SW = g.(xs) .* (Θ0(xs) + Ψ(xs) + Π(xs)/4) # TODO: avoid g elementwise .?
-        S_ISW = exp.(.-τ(xs)) .* D.(x -> Ψ(x) - Φ(x), xs) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
-        S_Doppler = -1/k * D.(x -> a(x) * E(x) * g(x) * ub(x), xs)
-        Ss[:,i_k] = S_SW + S_ISW + S_Doppler
+        S_SW = g.(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # TODO: avoid g elementwise .?
+        S_Doppler = D.(η -> g(η) * ub(η), ηs) / k
+        S_ISW = exp.(.-τ(ηs)) .* (Ψ′.(ηs) - Φ′.(ηs)) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
+        # TODO: add polarization
+        Ss[:,i_k] = S_SW + S_Doppler + S_ISW
     end
 
     return Ss
 end
 
-function ΘT(ls::AbstractArray, ks::AbstractArray, xs::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    Ss = S(xs, ks, ρr0, ρm0, ρb0, H0, Yp)
+#Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
+#plot(ηs, asinh.(Ss[:,[1,9]]))
 
-    bg_sol = solve_background(ρr0, ρm0)
-    a(x) = exp(x)
-    Δηs = bg_sol(atoday; idxs=bg.η) .- bg_sol(a.(xs); idxs=bg.η)
-    ys = ks' .* Δηs # argument to Bessel function
+function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
+    Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
+    η0 = ηs[end] # TODO: assume!!
+    ∂Θ_∂ηs = Ss .* stack(sphericalbesselj.(l, ks' .* (η0.-ηs)) for l in ls)
+    return ∂Θ_∂ηs
+end
 
-    # TODO: transform integral to log(a)
+#∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+
+function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    ∂Θ_∂xs = Ss .* stack(sphericalbesselj.(l, ys) for l in ls)
-    println(size(∂Θ_∂xs)) # (as, ks, ls)
-    return [trapz(xs, ∂Θ_∂xs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
+    ∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+    return [trapz(ηs, ∂Θ_∂ηs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
+end
+
+#Θs = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+
+function dCl_dk(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+    Θls = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+    return stack([@. 2/π * ks^2 * P0(ks, As) * Θls[i_l,:]^2 for i_l in eachindex(ls)])
 end
 
 # TODO: integrate over log(a) instead of a!
-function Cl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
-    Θls = ΘT(ls, ks, log.(as), ρr0, ρm0, ρb0, H0, Yp)
+function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+    dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    return [2/π .* trapz(ks, @. ks^2 * P0(ks, As) * Θls[i_l,:]^2) for i_l in eachindex(ls)]
+    return trapz(ks, dCl_dks, Val(1)) # integrate over k
 end
 
-function Dl(ls::AbstractArray, ks::AbstractArray, as::AbstractArray, ρr0, ρm0, ρb0, H0, As, Yp)
-    return Cl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp) .* ls .* (ls .+ 1) / (2*π)
+function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+    return Cl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp) .* ls .* (ls .+ 1) / (2*π)
 end
 
-#=
-ks = 10 .^ range(-4, +2, length=10) / k0 # in code units of k0 = H0/c
-as = 10 .^ range(-4, 0, length=1000)
-Ss = S(as, ks, ρr0, ρm0, ρb0, H0, Yp)
-plot()
-#plot!(log10.(as), Ss[:,1])
-plot!(log10.(as), Ss[:,9])
-=#
-
-lmax = 1000
-η0 = -bg_sol(aini, idxs=bg.η)
-kη0s = range(1, 2*lmax, step=2*π/8) # TODO: stop should be *higher* than lmax
-ks = kη0s / η0
-as = 10 .^ range(-4, 0, length=600)
-ls = range(1, lmax, step=10)
-
-Dls = Dl(ls, ks, as, ρr0, ρm0, ρb0, H0, As, Yp)
+Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp)
 plot(log10.(ls), Dls)
-=#
