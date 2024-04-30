@@ -65,7 +65,7 @@ Dη = Differential(η)
 function background_gravity_GR(; name)
     @variables ρ(η)
     return ODESystem([
-        Dη(a) ~ √(ρ * a^4) # TODO: 8π/3 factor?
+        Dη(a) ~ √(ρ)* a^2 # TODO: 8π/3 factor?
     ], η; name)
 end
 
@@ -203,7 +203,7 @@ function solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
     Tini = (Ωrini * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
     prob = remake(th_prob; tspan = (ηini, ηtoday), u0 = [saha.Xe => XeSini, peebles.Xe => 1.0, temp.Tγ => Tini, temp.Tb => Tini, th_sim.τ => 0.0, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini], p = [th_sim.fb => fb, th_sim.H0 => H0, th_sim.peebles.H0 => H0, th_sim.Yp => Yp, saha.Yp => Yp, reion1.z0 => 8, reion1.Δz0 => 0.5, reion1.Xe0 => 1+Yp/(4*(1-Yp)), reion2.z0 => 3.5, reion2.Δz0 => 0.5, reion2.Xe0 => Yp/(4*(1-Yp))])
-    return solve(prob, RadauIIA5(), reltol=1e-7) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
+    return solve(prob, RadauIIA5(), reltol=1e-8) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
 solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.Ωr0, θ.Ωm0, θ.Ωb0, θ.H0, θ.Yp)
 
@@ -355,14 +355,17 @@ display(p)
 # power spectra
 θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.As, par.Yp]
 P0(k, As) = @. As / k ^ 3
-P(k, Ωr0, Ωm0, Ωb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, Ωr0, Ωm0, Ωb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
+function P(k, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+    bg_sol = solve_background(Ωr0, Ωm0)
+    return P0(k, As) .* solve_perturbations(k, Ωr0, Ωm0, Ωb0, H0, Yp)(η0(bg_sol); idxs=pt.grav.Δm) .^ 2
+end
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
-#=
 function plot_dlgP_dθs(dlgP_dθs, name, color)
-    plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name, ylims=(-2, 0)); display(p)
-    plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name, ylims=(-2, 3)); display(p)
-    plot!(p[9], log10.(ks*k0), dlgP_dθs[:,4]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(H0)", color=color, label=name); display(p)
+    plot!(p[7], log10.(ks*k0), dlgP_dθs[:,1]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωr0)", color=color, label=name)
+    plot!(p[8], log10.(ks*k0), dlgP_dθs[:,2]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(Ωm0)", color=color, label=name)
+    plot!(p[9], log10.(ks*k0), dlgP_dθs[:,4]; xlabel="lg(k/(h/Mpc))", ylabel="d lg(P) / d lg(H0)", color=color, label=name)
+    display(p)
 end
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
@@ -376,7 +379,6 @@ plot_dlgP_dθs(dlgP_dθs_ad, "auto. diff.", 1)
 # compute derivatives of power spectrum using finite differences
 dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(log10Ph3, log10.(θ0); relstep=1e-4) # relstep is important for finite difference accuracy!
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
-=#
 
 # TODO: CMB power spectrum
 #=
