@@ -226,12 +226,12 @@ function perturbations_radiation(interact=false; name)
 end
 
 function perturbations_photon_hierarchy(lmax=6, interact=false; name)
-    @variables Θ(η)[0:lmax] δ(η) interactions(η)[1:lmax-1]
+    @variables Θ(η)[0:lmax] δ(η) interactions(η)[1:lmax]
     eqs = [
         Dη(Θ[0]) + k*Θ[1] ~ -Dη(Φ)
         Dη(Θ[1]) - k/3*(Θ[0]-2*Θ[2]) ~ k/3*Ψ + interactions[1]
         [Dη(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
-        Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
+        Dη(Θ[lmax]) ~ Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
         δ ~ 4*Θ[0]
     ]
     if !interact
@@ -245,7 +245,7 @@ function perturbations_polarization_hierarchy(lmax=6; name)
     eqs = [
         Dη(Θ[0]) + k*Θ[1] ~ dτ * (Θ[0] - Π/2)
         [Dη(Θ[l]) - k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
-        Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
+        Dη(Θ[lmax]) ~ Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
     ]
     return ODESystem(eqs, η; name)
 end
@@ -320,23 +320,23 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
         Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
         lmax = lastindex(pt_sim.rad.Θ)
-        Θrini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1
+        Θrini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1
         Θrini[0] = Φini/2 # Dodelson (7.89)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
         Θrini[2] = -8/15*kval/(aini^2*Eini*dτini) # TODO: change with/without polarization
-        for l in 3:lmax-1
+        for l in 3:lmax
             Θrini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * Θrini[l-1]
         end
-        ΘPini = OffsetVector(Vector{Any}(undef, lmax), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
+        ΘPini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
         ΘPini[0] = 5/4 * Θrini[2]
         ΘPini[1] = -kval/(4*aini^2*Eini*dτini) * Θrini[2]
         ΘPini[2] = 1/4 * Θrini[2]
-        for l in 3:lmax-1
+        for l in 3:lmax
             ΘPini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * ΘPini[l-1]
         end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt_prob; tspan = (ηini, ηtoday), u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
+        return remake(pt_prob; tspan = (ηini, ηtoday), u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
     end
 
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
