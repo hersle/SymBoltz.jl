@@ -58,7 +58,7 @@ p = plot(layout=(3,3), size=(1920, 1080), left_margin=bottom_margin=30*Plots.px)
 
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
-@variables η a(η) # η is really η in units of 1/H0
+@variables η a(η) E(η) # η is really η in units of 1/H0
 a = GlobalScope(a)
 Dη = Differential(η)
 
@@ -87,7 +87,8 @@ end
     rad.ρcrit ~ grav.ρ
     mat.ρcrit ~ grav.ρ
     de.ρcrit ~ grav.ρ
-], η, [a], [])
+    E ~ Dη(a) / a^2
+], η, [a, E], [])
 
 @named bg = compose(bg, rad, mat, de, grav)
 bg_sim = structural_simplify(bg)
@@ -208,63 +209,63 @@ solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.Ωr0, θ.Ωm0, θ
 
 th_sol = solve_thermodynamics(par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp)
 plot!(p[3], log10.(th_sol[a]), stack(th_sol[[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]])'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
-plot!(p[4], log10.(th_sol[a]), log10.(stack(th_sol[[th.temp.Tγ, th.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
+#plot!(p[4], log10.(th_sol[a]), log10.(stack(th_sol[[th.temp.Tγ, th.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 
-@variables Φ(a) Ψ(a)
+@variables Φ(η) Ψ(η)
 @parameters k # perturbation wavenumber # TODO: associate like pt.k
 k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
 
 function perturbations_radiation(interact=false; name)
-    @variables Θ0(a) Θ1(a) δ(a)
-    interaction = interact ? only(@variables interaction(a)) : 0
+    @variables Θ0(η) Θ1(η) δ(η)
+    interaction = interact ? only(@variables interaction(η)) : 0
     return ODESystem([
-        Da(Θ0) + k/(a^2*E)*Θ1 ~ -Da(Φ) # Dodelson (5.67) or (8.10)
-        Da(Θ1) - k/(3*a^2*E)*Θ0 ~ k/(3*a^2*E)*Ψ + interaction # Dodelson (5.67) or (8.11)
+        Dη(Θ0) + k*Θ1 ~ -Dη(Φ) # Dodelson (5.67) or (8.10)
+        Dη(Θ1) - k/3*Θ0 ~ k/3*Ψ + interaction # Dodelson (5.67) or (8.11)
         δ ~ 4*Θ0
-    ], a; name)
+    ], η; name)
 end
 
 function perturbations_photon_hierarchy(lmax=6, interact=false; name)
-    @variables Θ(a)[0:lmax] δ(a) interactions(a)[1:lmax-1]
+    @variables Θ(η)[0:lmax] δ(η) interactions(η)[1:lmax-1]
     eqs = [
-        Da(Θ[0]) + k/(a^2*E)*Θ[1] ~ -Da(Φ)
-        Da(Θ[1]) - k/(3*a^2*E)*(Θ[0]-2*Θ[2]) ~ k/(3*a^2*E)*Ψ + interactions[1]
-        [Da(Θ[l]) ~ k/(a^2*E)/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
+        Dη(Θ[0]) + k*Θ[1] ~ -Dη(Φ)
+        Dη(Θ[1]) - k/3*(Θ[0]-2*Θ[2]) ~ k/3*Ψ + interactions[1]
+        [Dη(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
         Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
         δ ~ 4*Θ[0]
     ]
     if !interact
         push!(eqs, collect(interactions .~ 0)...)
     end
-    return ODESystem(eqs, a; name)
+    return ODESystem(eqs, η; name)
 end
 
 function perturbations_polarization_hierarchy(lmax=6; name)
-    @variables Θ(a)[0:lmax] dτ(a) Π(a)
+    @variables Θ(η)[0:lmax] dτ(η) Π(η)
     eqs = [
-        Da(Θ[0]) + k/(a^2*E)*Θ[1] ~ dτ * (Θ[0] - Π/2)
-        [Da(Θ[l]) - k/(a^2*E)/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+        Dη(Θ[0]) + k*Θ[1] ~ dτ * (Θ[0] - Π/2)
+        [Dη(Θ[l]) - k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
         Θ[lmax] ~ 0 # TODO: integrate η(a) and use better cutoff
     ]
-    return ODESystem(eqs, a; name)
+    return ODESystem(eqs, η; name)
 end
 
 function perturbations_matter(interact=false; name)
-    @variables δ(a) u(a)
-    interaction = interact ? only(@variables interaction(a)) : 0
+    @variables δ(η) u(η)
+    interaction = interact ? only(@variables interaction(η)) : 0
     return ODESystem([
-        Da(δ) + k/(a^2*E)*u ~ -3*Da(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Da(u) + u/a ~ k/(a^2*E)*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
-    ], a; name)
+        Dη(δ) + k*u ~ -3*Dη(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
+        Dη(u) + u*Dη(a)/a ~ k*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
+    ], η; name)
 end
 
 function perturbations_gravity(; name)
-    @variables δρ(a) Δm(a) ρm(a) Π(a)
+    @variables δρ(η) Δm(η) ρm(η) Π(η)
     return ODESystem([
-        Da(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(a*E)^2*Φ) / (3*a^3*E^2) # Dodelson (8.14) # TODO: write in more natural form?
+        Dη(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(Dη(a)/a)^2*Φ) / (3*Dη(a)/a) # Dodelson (8.14) # TODO: write in more natural form?
         k^2 * (Ψ + Φ) ~ Π # anisotropic stress
         Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
-    ], a; name)
+    ], η; name)
 end
 
 lmax = 6
@@ -274,8 +275,8 @@ lmax = 6
 @named bar = perturbations_matter(true)
 @named grav = perturbations_gravity()
 @parameters fb dτspline # TODO: get rid of
-@variables ρc(a) ρb(a) δρr(a) δρc(a) δρb(a) R(a) dτ(a) # TODO: get rid of
-dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+@variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) # TODO: get rid of
+dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
 @register_symbolic dτfunc(a, spl)
 @named pt_bg_conn = ODESystem([
     ρb ~ fb * bg.mat.ρ
@@ -291,7 +292,7 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
     bar.interaction     ~ +dτ/R * (bar.u - 3*rad.Θ[1])
     rad.interactions[1] ~ -dτ/3 * (bar.u - 3*rad.Θ[1])
     [rad.interactions[l] ~ dτ * (rad.Θ[l] - pol.Π/10*δkron(l,2)) for l in 2:lastindex(rad.interactions)]...
-    dτ ~ dτfunc(a, dτspline)
+    dτ ~ dτfunc(η, dτspline) # TODO: spline over η
 
     # polarization
     pol.dτ ~ dτ
@@ -299,17 +300,21 @@ dτfunc(a, spl) = -exp(spl(log(a))) # TODO: type-stable? @code_warntype dτfunc(
 
     # gravity shear stress
     grav.Π ~ -12*a^2 * bg.rad.ρ*rad.Θ[2] # TODO: add neutrinos
-], a, [Ψ, Φ], [k, fb, dτspline])
+], η, [Ψ, Φ], [k, fb, dτspline])
 @named pt = compose(pt_bg_conn, rad, pol, bar, cdm, grav, bg)
 pt_sim = structural_simplify(pt)
-pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (aini, atoday), parameters(pt_sim) .=> NaN; jac=true) 
+pt_prob = ODEProblem(pt_sim, unknowns(pt_sim) .=> NaN, (ηi(bg_sol), 4.0), parameters(pt_sim) .=> NaN; jac=true) 
 
-function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
-    fb = ρb0 / ρm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
-    th_sol = solve_thermodynamics(ρr0, ρm0, ρb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    dτspline = CubicSpline(log.(-th_sol.(th_sol[a], Val{1}; idxs=th.τ)), log.(th_sol[a])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    ρrini, ρmini, ρΛini, Eini = th_sol(aini; idxs = [bg.rad.ρ, bg.mat.ρ, bg.de.ρ, E]) # integrate background from atoday back to aini
-    dτini = dτfunc(aini, dτspline)
+function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
+    bg_sol = solve_background(Ωr0, Ωm0)
+    ηini, ηtoday = ηi(bg_sol), η0(bg_sol)
+    Ωrini, Ωmini, ΩΛini, Eini = bg_sol(ηini; idxs=[bg.rad.ρ, bg.mat.ρ, bg.de.ρ, bg.E]) # TODO: avoid duplicate logic
+
+    fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
+    th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.τ)), log.(th_sol[η])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    dτini = dτfunc(ηini, dτspline)
+
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
@@ -331,24 +336,26 @@ function solve_perturbations(kvals::AbstractArray, ρr0, ρm0, ρb0, H0, Yp)
         end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        ηini = 0.0 # TODO: more accurate
-        return remake(pt_prob; u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => ρrini, bg.mat.ρ => ρmini, bg.de.ρ => ρΛini, bg.η => ηini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
+        return remake(pt_prob; tspan = (ηini, ηtoday), u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax-1]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax-1]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
     end
+
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), reltol=1e-8, trajectories = length(kvals)) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
 solve_perturbations(kvals::AbstractArray, θ::Parameters) = solve_perturbations(kvals, θ.ρr0, θ.ρm0, θ.ρb0, θ.H0, θ.Yp)
 
-#=
-pt_sols = solve_perturbations(ks, par.ρr0, par.ρm0, par.ρb0, par.H0, par.Yp)
-plot!(p[4], log10.(as), [pt_sol.(as; idxs=Φ) for pt_sol in pt_sols]; xlabel="lg(a)", ylabel="Φ/Φᵢ"); display(p)
-plot!(p[5], log10.(as), [[log10.(abs.(pt_sol.(as; idxs=δ))) for pt_sol in pt_sols] for δ in [pt.bar.δ,pt.cdm.δ]]; color=[(1:length(ks))' (1:length(ks))'], xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)"); display(p)
-=#
+pt_sols = solve_perturbations(ks, par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp)
+for (i, pt_sol) in enumerate(pt_sols)
+    plot!(p[4], log10.(pt_sol[a]), pt_sol[Φ]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
+    plot!(p[5], log10.(pt_sol[a]), log10.(abs.(pt_sol[pt.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")
+    plot!(p[5], log10.(pt_sol[a]), log10.(abs.(pt_sol[pt.bar.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")
+end
+display(p)
 
 # power spectra
-θ0 = [par.ρr0, par.ρm0, par.ρb0, par.H0, par.As, par.Yp]
+θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.As, par.Yp]
 P0(k, As) = @. As / k ^ 3
-P(k, ρr0, ρm0, ρb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, ρr0, ρm0, ρb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
+P(k, Ωr0, Ωm0, Ωb0, H0, As, Yp) = P0(k, As) .* solve_perturbations(k, Ωr0, Ωm0, Ωb0, H0, Yp)(atoday; idxs=pt.grav.Δm) .^ 2
 P(k, θ) = P(k, θ...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
 #=
