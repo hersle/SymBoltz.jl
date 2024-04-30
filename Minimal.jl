@@ -41,12 +41,12 @@ const EHe2ion = 54.41776u"eV/J" |> NoUnits
 # TODO: define components with @mtkmodel?
 
 @kwdef struct Parameters
-    Ωr0 = 5e-5 # Ωr0
-    Ωm0 = 0.3 # Ωm0
-    Ωb0 = 0.02 # Ωb0
-    H0 = 70 * km/Mpc # s^-1
-    As = 2e-9
-    Yp = 0.25
+    Ωr0 = 5.5e-5 # Ωr0
+    Ωm0 = 0.317 # Ωm0
+    Ωb0 = 0.05 # Ωb0
+    H0 = 67 * km/Mpc # s^-1
+    As = 2.1e-9
+    Yp = 0.245
 end
 par = Parameters()
 aini, atoday = 1e-8, 1e0
