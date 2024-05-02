@@ -103,7 +103,7 @@ function solve_background(Ωr0, Ωm0)
     # TODO: stop when a == 1, see https://github.com/hersle/SymBoltz.jl/commit/7c4beb56eb13a1bb4dc5b30f8f808ca561989e4d
     return solve(prob, KenCarp4(), reltol=1e-8) # using KenCarp4 here leads to difference in AD vs FD
 end
-solve_background(θ::Parameters) = solve_background(θ.ρr0, θ.ρm0)
+solve_background(θ::Parameters) = solve_background(θ.Ωr0, θ.Ωm0)
 ηi(bg_sol::ODESolution) = bg_sol.prob.tspan[1]
 η0(bg_sol::ODESolution) = find_zero(η -> bg_sol(η, idxs=a) - 1.0, bg_sol.prob.tspan)
 
