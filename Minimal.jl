@@ -231,7 +231,7 @@ function perturbations_photon_hierarchy(lmax=6, interact=false; name)
         Dη(Θ[0]) + k*Θ[1] ~ -Dη(Φ)
         Dη(Θ[1]) - k/3*(Θ[0]-2*Θ[2]) ~ k/3*Ψ + interactions[1]
         [Dη(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
-        Dη(Θ[lmax]) ~ Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
+        Dη(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
         δ ~ 4*Θ[0]
     ]
     if !interact
@@ -245,7 +245,7 @@ function perturbations_polarization_hierarchy(lmax=6; name)
     eqs = [
         Dη(Θ[0]) + k*Θ[1] ~ dτ * (Θ[0] - Π/2)
         [Dη(Θ[l]) - k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
-        Dη(Θ[lmax]) ~ Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
+        Dη(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
     ]
     return ODESystem(eqs, η; name)
 end
