@@ -132,18 +132,16 @@ end
 
 function recombination_hydrogen_peebles(; name)
     @parameters H0
-    @variables Xe(η) ne(η) nH(η) T(η) H(η) λ(η) α2(η) β(η) C(η) Λα(η) Λ2γ(η) β2(η)
+    @variables Xe(η) nH(η) T(η) H(η) λ(η) α2(η) β(η) C(η) Λ2γ_Λα(η) β2_Λα(η) actiweight(η)
     return ODESystem([
-        ne ~ Xe * nH
         λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
         α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ) # TODO: add Recfast fudge factor?
-        β  ~ α2 / λ^3 * exp(-EHion/(  kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
-        β2 ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) # 1/s (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
-        Λα ~ H * (3*EHion/(ħ*c))^3 / ((8*π)^2 * nH) # 1/s
-        Λ2γ ~ 8.227 # 1/s
-        C ~ (Λ2γ + Λα) / (Λ2γ + Λα + β2) # Peebles' correction factor (Dodelson exercise 4.7)
+        β  ~ α2 / λ^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
+        β2_Λα ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # β2/Λα (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
+        Λ2γ_Λα ~ 8.227 * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # Λ2γ/Λα
+        C ~ Hifelse(actiweight, 1, (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα); k=1e3) # Peebles' correction factor (Dodelson exercise 4.7), manually activated to avoid numerical issues at early times # TODO: activate using internal quantities only! # TODO: why doesnt it work to activate from 0? activating from 1 is really unnatural
         Dη(Xe) * H0 ~ C * ((1-Xe)*β - Xe^2*nH*α2) * a # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
-    ], η, [Xe, H, nH, ne, T], [H0]; name)
+    ], η, [Xe, H, nH, T, actiweight], [H0]; name)
 end
 
 function thermodynamics_temperature(; name)
@@ -185,9 +183,10 @@ end
     peebles.T ~ temp.Tb
     peebles.nH ~ nH
     peebles.H ~ H
+    peebles.actiweight ~ 1 - saha.Xe
     
     # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
-    Xe ~ Hifelse(1-saha.Xe, saha.Xe, peebles.Xe; k=1e3) + reion1.Xe + reion2.Xe
+    Xe ~ Hifelse(peebles.actiweight, saha.Xe, peebles.Xe; k=1e3) + reion1.Xe + reion2.Xe
     ne ~ Xe * nH
     Dη(τ) * H0 ~ -ne * σT * c * a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
 ], η)
@@ -208,7 +207,7 @@ end
 solve_thermodynamics(θ::Parameters) = solve_thermodynamics(θ.Ωr0, θ.Ωm0, θ.Ωb0, θ.H0, θ.Yp)
 
 th_sol = solve_thermodynamics(par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp)
-plot!(p[3], log10.(th_sol[a]), stack(th_sol[[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]])'; xlabel="lg(a)", ylabel="Xe", ylims=(0, 1.5), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
+plot!(p[3], log10.(th_sol[a]), log10.(abs.(stack(th_sol[[saha.Xe, peebles.Xe, reion1.Xe, reion2.Xe, th_sim.Xe]])')); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-5, +1), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
 #plot!(p[4], log10.(th_sol[a]), log10.(stack(th_sol[[th.temp.Tγ, th.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 
 @variables Φ(η) Ψ(η)
