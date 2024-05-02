@@ -239,6 +239,7 @@ function perturbations_photon_hierarchy(lmax=6, interact=false; name)
     return ODESystem(eqs, η; name)
 end
 
+# TODO: merge with photon_hierarchy and have polarization flag
 function perturbations_polarization_hierarchy(lmax=6; name)
     @variables Θ(η)[0:lmax] dτ(η) Π(η)
     eqs = [
@@ -254,7 +255,7 @@ function perturbations_matter(interact=false; name)
     interaction = interact ? only(@variables interaction(η)) : 0
     return ODESystem([
         Dη(δ) + k*u ~ -3*Dη(Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Dη(u) + u*Dη(a)/a ~ k*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc
+        Dη(u) + u*Dη(a)/a ~ k*Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website)
     ], η; name)
 end
 
@@ -290,7 +291,7 @@ dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfun
     R ~ 3/4 * ρb / bg.rad.ρ # Dodelson (5.74)
     bar.interaction     ~ +dτ/R * (bar.u - 3*rad.Θ[1])
     rad.interactions[1] ~ -dτ/3 * (bar.u - 3*rad.Θ[1])
-    [rad.interactions[l] ~ dτ * (rad.Θ[l] - pol.Π/10*δkron(l,2)) for l in 2:lastindex(rad.interactions)]...
+    [rad.interactions[l] ~ dτ * (rad.Θ[l] - rad.Θ[2]/10*δkron(l,2)) for l in 2:lastindex(rad.interactions)]...
     dτ ~ dτfunc(η, dτspline) # TODO: spline over η
 
     # polarization
@@ -317,21 +318,21 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
-        Φini = 1.0 # arbitrary normalization (from primordial curvature power spectrum?)
+        Φini = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
         lmax = lastindex(pt_sim.rad.Θ)
         Θrini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1
         Θrini[0] = Φini/2 # Dodelson (7.89)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
-        Θrini[2] = -8/15*kval/(aini^2*Eini*dτini) # TODO: change with/without polarization
+        Θrini[2] = -8/15#=-20/45=#*kval/dτini # TODO: change with/without polarization; another argument for merging photons+polarization
         for l in 3:lmax
-            Θrini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * Θrini[l-1]
+            Θrini[l] = -l/(2*l+1) * kval/dτini * Θrini[l-1]
         end
         ΘPini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
         ΘPini[0] = 5/4 * Θrini[2]
-        ΘPini[1] = -kval/(4*aini^2*Eini*dτini) * Θrini[2]
+        ΘPini[1] = -kval/(4*dτini) * Θrini[2]
         ΘPini[2] = 1/4 * Θrini[2]
         for l in 3:lmax
-            ΘPini[l] = -l/(2*l+1) * kval/(aini^2*Eini*dτini) * ΘPini[l-1]
+            ΘPini[l] = -l/(2*l+1) * kval/dτini * ΘPini[l-1]
         end
         δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
@@ -402,18 +403,18 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
 
     pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
-        # TODO: must be faster!!
+        # TODO: must be faster!! use saveat for ηs in ODESolution?
         println(i_k)
         Θ0(η) = pt_sol(η, idxs=pt.rad.Θ[0])
         Ψ(η) = pt_sol(η, idxs=pt.Ψ)
         Φ(η) = pt_sol(η, idxs=pt.Φ)
-        Π(η) = pt_sol(η, idxs=pt.grav.Π)
+        Π(η) = pt_sol(η, idxs=pt.pol.Π)
         ub(η) = pt_sol(η, idxs=pt.bar.u)
         Ψ′(η) = D(Ψ, η) # TODO: use pt_sol(.. Val{1})?
         Φ′(η) = D(Φ, η)
 
         S_SW = g.(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # TODO: avoid g elementwise .?
-        S_Doppler = D.(η -> g(η) * ub(η), ηs) / k
+        S_Doppler = D.(η -> g(η) * ub(η), ηs) / k # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)?
         S_ISW = exp.(.-τ(ηs)) .* (Ψ′.(ηs) - Φ′.(ηs)) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
         # TODO: add polarization
         Ss[:,i_k] = S_SW + S_Doppler + S_ISW
