@@ -323,7 +323,7 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
         Θrini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1
         Θrini[0] = Φini/2 # Dodelson (7.89)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
-        Θrini[2] = -8/15#=-20/45=#*kval/dτini # TODO: change with/without polarization; another argument for merging photons+polarization
+        Θrini[2] = -8/15#=-20/45=#*kval/dτini * Θrini[1]# TODO: change with/without polarization; another argument for merging photons+polarization
         for l in 3:lmax
             Θrini[l] = -l/(2*l+1) * kval/dτini * Θrini[l-1]
         end
