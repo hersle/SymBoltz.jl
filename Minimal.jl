@@ -2,7 +2,6 @@ using ModelingToolkit
 using DifferentialEquations
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
-using OffsetArrays
 using Bessels: sphericalbesselj
 using Trapz
 using Roots
@@ -225,13 +224,13 @@ function perturbations_radiation(interact=false; name)
 end
 
 function perturbations_photon_hierarchy(lmax=6, interact=false; name)
-    @variables Θ(η)[0:lmax] δ(η) interactions(η)[1:lmax]
+    @variables Θ0(η) Θ(η)[1:lmax] δ(η) interactions(η)[1:lmax]
     eqs = [
-        Dη(Θ[0]) + k*Θ[1] ~ -Dη(Φ)
-        Dη(Θ[1]) - k/3*(Θ[0]-2*Θ[2]) ~ k/3*Ψ + interactions[1]
+        Dη(Θ0) + k*Θ[1] ~ -Dη(Φ)
+        Dη(Θ[1]) - k/3*(Θ0-2*Θ[2]) ~ k/3*Ψ + interactions[1]
         [Dη(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
         Dη(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
-        δ ~ 4*Θ[0]
+        δ ~ 4*Θ0
     ]
     if !interact
         push!(eqs, collect(interactions .~ 0)...)
@@ -241,10 +240,11 @@ end
 
 # TODO: merge with photon_hierarchy and have polarization flag
 function perturbations_polarization_hierarchy(lmax=6; name)
-    @variables Θ(η)[0:lmax] dτ(η) Π(η)
+    @variables Θ0(η) Θ(η)[1:lmax] dτ(η) Π(η) # TODO: index Θ[l=0] when fixed: https://github.com/SciML/ModelingToolkit.jl/pull/2671
     eqs = [
-        Dη(Θ[0]) + k*Θ[1] ~ dτ * (Θ[0] - Π/2)
-        [Dη(Θ[l]) - k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+        Dη(Θ0) + k*Θ[1] ~ dτ * (Θ0 - Π/2)
+        Dη(Θ[1]) - k/(2*1+1) * (1*Θ0 - (1+1)*Θ[1+1]) ~ dτ * (Θ[1] - Π/10*δkron(1,2))
+        [Dη(Θ[l]) - k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
         Dη(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
     ]
     return ODESystem(eqs, η; name)
@@ -296,7 +296,7 @@ dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfun
 
     # polarization
     pol.dτ ~ dτ
-    pol.Π ~ rad.Θ[2] + pol.Θ[2] + pol.Θ[0]
+    pol.Π ~ rad.Θ[2] + pol.Θ[2] + pol.Θ0
 
     # gravity shear stress
     grav.Π ~ -12*a^2 * bg.rad.ρ*rad.Θ[2] # TODO: add neutrinos
@@ -320,23 +320,23 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
         Φini = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
         lmax = lastindex(pt_sim.rad.Θ)
-        Θrini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1
-        Θrini[0] = Φini/2 # Dodelson (7.89)
+        Θrini0 = Φini/2 # Dodelson (7.89)
+        Θrini = Vector{Any}(undef, lmax)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
         Θrini[2] = -8/15#=-20/45=#*kval/dτini * Θrini[1]# TODO: change with/without polarization; another argument for merging photons+polarization
         for l in 3:lmax
             Θrini[l] = -l/(2*l+1) * kval/dτini * Θrini[l-1]
         end
-        ΘPini = OffsetVector(Vector{Any}(undef, lmax+1), -1) # index from l=0 to l=lmax-1 # TODO: allow lrmax ≠ lPmax
-        ΘPini[0] = 5/4 * Θrini[2]
+        ΘPini0 = 5/4 * Θrini[2]
+        ΘPini = Vector{Any}(undef, lmax) # TODO: allow lrmax ≠ lPmax
         ΘPini[1] = -kval/(4*dτini) * Θrini[2]
         ΘPini[2] = 1/4 * Θrini[2]
         for l in 3:lmax
             ΘPini[l] = -l/(2*l+1) * kval/dτini * ΘPini[l-1]
         end
-        δcini = δbini = 3*Θrini[0] # Dodelson (7.94)
+        δcini = δbini = 3*Θrini0 # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt_prob; tspan = (ηini, ηtoday), u0 = Dict(Φ => Φini, [pt_sim.rad.Θ[l] => Θrini[l] for l in 0:lmax]..., [pt_sim.pol.Θ[l] => ΘPini[l] for l in 0:lmax]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
+        return remake(pt_prob; tspan = (ηini, ηtoday), u0 = Dict(Φ => Φini, pt_sim.rad.Θ0 => Θrini0, [pt_sim.rad.Θ[l] => Θrini[l] for l in 1:lmax]..., pt_sim.pol.Θ0 => ΘPini0, [pt_sim.pol.Θ[l] => ΘPini[l] for l in 1:lmax]..., pt_sim.bar.δ => δbini, pt_sim.bar.u => ubini, pt_sim.cdm.δ => δcini, pt_sim.cdm.u => ucini, bg.rad.ρ => Ωrini, bg.mat.ρ => Ωmini, bg.de.ρ => ΩΛini, bg.a => aini), p = [pt_sim.fb => fb, pt_sim.k => kval, pt_sim.dτspline => dτspline])
     end
 
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
@@ -405,7 +405,7 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         # TODO: must be faster!! use saveat for ηs in ODESolution?
         println(i_k)
-        Θ0(η) = pt_sol(η, idxs=pt.rad.Θ[0])
+        Θ0(η) = pt_sol(η, idxs=pt.rad.Θ0)
         Ψ(η) = pt_sol(η, idxs=pt.Ψ)
         Φ(η) = pt_sol(η, idxs=pt.Φ)
         Π(η) = pt_sol(η, idxs=pt.pol.Π)
