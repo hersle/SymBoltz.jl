@@ -386,7 +386,7 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 
 # TODO: CMB power spectrum
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
-ηs = range(ηi(bg_sol), η0(bg_sol), length=800)
+ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
 #ks = 10 .^ range(-4, +2, length=300) / k0 # in code units of k0 = H0/c
 ls = 0:10:1000
 ks = range(1, 2000, step=2*π/8) ./ η0(bg_sol)
@@ -398,9 +398,12 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
 
     th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
     η0 = th_sol.t[end]
-    τ(η) = th_sol(η, idxs=th.τ) .- th_sol(η0, idxs=th.τ)
-    g(η) = D(η -> exp(-τ(η)), η)
-
+    τ(η) = th_sol(η, idxs=th.τ).u .- th_sol(η0, idxs=th.τ)
+    τ′(η) = th_sol(η, Val{1}, idxs=th.τ).u
+    τ′′(η) = th_sol(η, Val{2}, idxs=th.τ).u
+    g(η) = .-τ′(η) .* exp.(.-τ(η))
+    g′(η) = (τ′(η) .^ 2 - τ′′(η)) .* exp.(.-τ(η))
+    
     pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         # TODO: must be faster!! use saveat for ηs in ODESolution?
@@ -410,12 +413,20 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
         Φ(η) = pt_sol(η, idxs=pt.Φ)
         Π(η) = pt_sol(η, idxs=pt.pol.Π)
         ub(η) = pt_sol(η, idxs=pt.bar.u)
-        Ψ′(η) = D(Ψ, η) # TODO: use pt_sol(.. Val{1})?
-        Φ′(η) = D(Φ, η)
+        function Ψ′(η)
+            # TODO: use pt_sol(...) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
+            #return pt_sol(η, Val{1}, idxs=pt.Ψ).u
+            # workaround: spline and take derivative
+            Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true)
+            return DataInterpolations.derivative.(Ref(Ψspl), η)
+        end
+        Φ′(η) = pt_sol(η, Val{1}, idxs=pt.Φ).u
+        ub′(η) = pt_sol(η, Val{1}, idxs=pt.bar.u).u
 
-        S_SW = g.(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # TODO: avoid g elementwise .?
-        S_Doppler = D.(η -> g(η) * ub(η), ηs) / k # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)?
-        S_ISW = exp.(.-τ(ηs)) .* (Ψ′.(ηs) - Φ′.(ηs)) # TODO: oscillates unless low tolerance in ODE solver? but removed after adding Doppler?
+        # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
+        S_SW = g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4)
+        S_Doppler = (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k
+        S_ISW = exp.(.-τ(ηs)) .* (Ψ′(ηs) - Φ′(ηs))
         # TODO: add polarization
         Ss[:,i_k] = S_SW + S_Doppler + S_ISW
     end
