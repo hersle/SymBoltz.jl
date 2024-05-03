@@ -104,7 +104,7 @@ function solve_background(Ωr0, Ωm0)
 end
 solve_background(θ::Parameters) = solve_background(θ.Ωr0, θ.Ωm0)
 ηi(bg_sol::ODESolution) = bg_sol.prob.tspan[1]
-η0(bg_sol::ODESolution) = find_zero(η -> bg_sol(η, idxs=a) - 1.0, bg_sol.prob.tspan)
+η0(bg_sol::ODESolution) = find_zero(η -> bg_sol(η, idxs=bg.a) - 1.0, bg_sol.prob.tspan)
 
 bg_sol = solve_background(par.Ωr0, par.Ωm0)
 println("ηi = $(ηi(bg_sol)), η0 = $(η0(bg_sol))")
@@ -388,7 +388,7 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
 #ks = 10 .^ range(-4, +2, length=300) / k0 # in code units of k0 = H0/c
-ls = 0:10:1000
+ls = 0:10:1000 # TODO: fix l=0
 ks = range(1, 2000, step=2*π/8) ./ η0(bg_sol)
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
