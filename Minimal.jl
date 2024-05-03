@@ -262,7 +262,7 @@ end
 function perturbations_gravity(; name)
     @variables δρ(η) Δm(η) ρm(η) Π(η)
     return ODESystem([
-        Dη(Φ) ~ (3/2*a^2*δρ - k^2*Φ - 3*(Dη(a)/a)^2*Φ) / (3*Dη(a)/a) # Dodelson (8.14) # TODO: write in more natural form?
+        Dη(Φ) ~ (3/2*a^2*δρ - k^2*Φ + 3*(Dη(a)/a)^2*Ψ) / (3*Dη(a)/a) # Dodelson (6.41) # TODO: write in more natural form?
         k^2 * (Ψ + Φ) ~ Π # anisotropic stress
         Δm ~ k^2*Φ / (3/2*a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
     ], η; name)
