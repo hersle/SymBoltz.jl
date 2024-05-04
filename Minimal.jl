@@ -384,17 +384,21 @@ dlgP_dθs_fd = FiniteDiff.finite_difference_jacobian(log10Ph3, log10.(θ0); rels
 plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 =#
 
-# TODO: CMB power spectrum
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
-#ks = 10 .^ range(-4, +2, length=300) / k0 # in code units of k0 = H0/c
 ls = 0:10:1000 # TODO: fix l=0
 ks = range(1, 2000, step=2*π/8) ./ η0(bg_sol)
+Sspline_ks = range(1, 2000, step=25/η0(bg_sol)) # Δk = 10/η0
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
-function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
+function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)
+    if !isnothing(Sspline_ks)
+        Ss = S(ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, H0, Yp)
+        Ssplines = [CubicSpline(Ss[i_η,:], Sspline_ks) for i_η in eachindex(ηs)] # spline over k for each η
+        return stack([Sspline(ks) for Sspline in Ssplines])'
+    end
+
     Ss = zeros(length(ηs), length(ks))
-    D = ForwardDiff.derivative
 
     th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
     η0 = th_sol.t[end]
@@ -407,7 +411,6 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
     pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         # TODO: must be faster!! use saveat for ηs in ODESolution?
-        println(i_k)
         Θ0(η) = pt_sol(η, idxs=pt.rad.Θ0)
         Ψ(η) = pt_sol(η, idxs=pt.Ψ)
         Φ(η) = pt_sol(η, idxs=pt.Φ)
@@ -437,8 +440,8 @@ end
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
-function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
-    Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
+function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
+    Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     η0 = ηs[end] # TODO: assume!!
     ∂Θ_∂ηs = Ss .* stack(sphericalbesselj.(l, ks' .* (η0.-ηs)) for l in ls)
     return ∂Θ_∂ηs
@@ -446,30 +449,30 @@ end
 
 #∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
 
-function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
+function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    ∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+    ∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     return [trapz(ηs, ∂Θ_∂ηs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
 end
 
 #Θs = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
 
-function dCl_dk(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
-    Θls = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+function dCl_dk(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+    Θls = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
     return stack([@. 2/π * ks^2 * P0(ks, As) * Θls[i_l,:]^2 for i_l in eachindex(ls)])
 end
 
 # TODO: integrate over log(a) instead of a!
-function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
-    dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+    dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
     return trapz(ks, dCl_dks, Val(1)) # integrate over k
 end
 
-function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp)
-    return Cl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp) .* ls .* (ls .+ 1) / (2*π)
+function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+    return Cl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...) .* ls .* (ls .+ 1) / (2*π)
 end
 
-Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp)
+Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
 plot(log10.(ls), Dls)
