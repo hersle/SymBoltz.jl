@@ -386,11 +386,12 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
-ls = 0:10:1000 # TODO: fix l=0
-ks = range(1, 2000, step=2*π/8) ./ η0(bg_sol)
-Sspline_ks = range(1, 2000, step=25/η0(bg_sol)) # Δk = 10/η0
+ls = unique([2:2:10; 10:8:2010])
+ks = range(1, 1.5*maximum(ls), step=2*π/6) ./ η0(bg_sol)
+Sspline_ks = range(1, 1.5*maximum(ls), step=25) ./ η0(bg_sol) # Δk = 10/η0
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
+# TODO: write to be more memory-efficient! only need to hold ∂Θ/∂ηs(η,k) for each l!
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)
     if !isnothing(Sspline_ks)
         Ss = S(ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, H0, Yp)
@@ -467,7 +468,7 @@ end
 function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    return trapz(ks, dCl_dks, Val(1)) # integrate over k
+    return trapz(ks, dCl_dks, Val(1)) .+ (ks[1] .- 0) .* (0.0 .+ dCl_dks[1,:]) # integrate over k, and add extra point at (k,dCl_dk) = (0,0)
 end
 
 function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
@@ -475,4 +476,4 @@ function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0
 end
 
 Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
-plot(log10.(ls), Dls)
+plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
