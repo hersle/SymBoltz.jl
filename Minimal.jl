@@ -139,7 +139,7 @@ function recombination_hydrogen_peebles(; name)
         β2_Λα ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # β2/Λα (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
         Λ2γ_Λα ~ 8.227 * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # Λ2γ/Λα
         C ~ Hifelse(actiweight, 1, (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα); k=1e3) # Peebles' correction factor (Dodelson exercise 4.7), manually activated to avoid numerical issues at early times # TODO: activate using internal quantities only! # TODO: why doesnt it work to activate from 0? activating from 1 is really unnatural
-        Dη(Xe) * H0 ~ C * ((1-Xe)*β - Xe^2*nH*α2) * a # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Dη(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) * a / H0 # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
     ], η, [Xe, H, nH, T, actiweight], [H0]; name)
 end
 
@@ -390,7 +390,6 @@ ls = unique([2:2:10; 10:16:2010])
 ks = range(1, 1.5*maximum(ls), step=2*π/4) ./ η0(bg_sol)
 Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 10/η0
 # TODO: only need as from a = 1e-4 till today
-# TODO: spline_first logic for each k!
 # TODO: write to be more memory-efficient! only need to hold ∂Θ/∂ηs(η,k) for each l!
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
     Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks)))
@@ -480,7 +479,7 @@ function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0
     dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
     Cls = trapz(ks, dCl_dks, Val(1)) # integrate over k
-    Cls .+= @. (ks[1] - 0) * (0.0 + dCl_dks[1,:]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
+    Cls .+= @. (ks[1] - 0.0) * (0.0 + dCl_dks[1,:]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
     return Cls
 end
 
