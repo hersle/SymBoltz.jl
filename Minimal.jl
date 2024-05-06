@@ -312,7 +312,7 @@ function solve_perturbations(kvals::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp)
 
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.τ)), log.(th_sol[η])) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.τ)), log.(th_sol[η]); extrapolate=true) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) # TODO: verify that extrapolate=true is ok (it is needed for autodiff CMB computation) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτini = dτfunc(ηini, dτspline)
 
     function prob_func(_, i, _)
@@ -393,7 +393,7 @@ Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 10/η0
 # TODO: spline_first logic for each k!
 # TODO: write to be more memory-efficient! only need to hold ∂Θ/∂ηs(η,k) for each l!
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
-    Ss = zeros(length(ηs), length(ks))
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks)))
 
     if !isnothing(Sspline_ks)
         Ssplinedata = S(ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, H0, Yp)
@@ -445,7 +445,7 @@ end
 
 function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     # TODO: can move into ΘT() to avoid allocating for third l-dimension!
-    ∂Θ_∂ηs = zeros(length(ηs), length(ks), length(ls))
+    ∂Θ_∂ηs = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks), length(ls)))
     Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     η0 = ηs[end] # TODO: assume!!
     for (i_l, l) in enumerate(ls)
@@ -491,3 +491,13 @@ Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ; kwargs...) = Dl
 
 #Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
+
+# differentiated CMB power spectrum
+lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
+lgDl(lgθ) = log10.(Dl(ls, ks, ηs, 10 .^ lgθ; Sspline_ks))
+ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
+lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
+
+p = plot(layout=(2,1), size=(800, 1000), left_margin=bottom_margin=30*Plots.px); display(p)
+plot!(p[1], ls, 10 .^ lgDls / 1e-12; xlabel = "l", ylabel = "Dₗ=l (l+1) Cₗ / 2π / 10⁻¹²", title = "CMB power spectrum"); display(p)
+plot!(p[2], ls, dlgDl_dθs_ad; xlabel = "l", ylabel = "d lg(Dₗ) / d lg(θᵢ)", labels = "θᵢ=" .* ["Ωr0" "Ωm0" "Ωb0" "H0" "As" "Yp"]); display(p)
