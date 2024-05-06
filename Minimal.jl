@@ -386,20 +386,23 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
-ls = unique([2:2:10; 10:8:2010])
-ks = range(1, 1.5*maximum(ls), step=2*π/6) ./ η0(bg_sol)
-Sspline_ks = range(1, 1.5*maximum(ls), step=25) ./ η0(bg_sol) # Δk = 10/η0
+ls = unique([2:2:10; 10:16:2010])
+ks = range(1, 1.5*maximum(ls), step=2*π/4) ./ η0(bg_sol)
+Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 10/η0
 # TODO: only need as from a = 1e-4 till today
 # TODO: spline_first logic for each k!
 # TODO: write to be more memory-efficient! only need to hold ∂Θ/∂ηs(η,k) for each l!
-function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)
-    if !isnothing(Sspline_ks)
-        Ss = S(ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, H0, Yp)
-        Ssplines = [CubicSpline(Ss[i_η,:], Sspline_ks) for i_η in eachindex(ηs)] # spline over k for each η
-        return stack([Sspline(ks) for Sspline in Ssplines])'
-    end
-
+function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
     Ss = zeros(length(ηs), length(ks))
+
+    if !isnothing(Sspline_ks)
+        Ssplinedata = S(ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, H0, Yp)
+        for i_η in eachindex(ηs)
+            Sspline = CubicSpline(Ssplinedata[i_η,:], Sspline_ks)
+            Ss[i_η,:] .= Sspline(ks)
+        end
+        return Ss
+    end
 
     th_sol = solve_thermodynamics(Ωr0, Ωm0, Ωb0, H0, Yp)
     η0 = th_sol.t[end]
@@ -412,6 +415,7 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspl
     pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         # TODO: must be faster!! use saveat for ηs in ODESolution?
+        # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
         Θ0(η) = pt_sol(η, idxs=pt.rad.Θ0)
         Ψ(η) = pt_sol(η, idxs=pt.Ψ)
         Φ(η) = pt_sol(η, idxs=pt.Φ)
@@ -427,12 +431,10 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspl
         Φ′(η) = pt_sol(η, Val{1}, idxs=pt.Φ).u
         ub′(η) = pt_sol(η, Val{1}, idxs=pt.bar.u).u
 
-        # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-        S_SW = g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4)
-        S_Doppler = (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k
-        S_ISW = exp.(.-τ(ηs)) .* (Ψ′(ηs) - Φ′(ηs))
+        Ss[:,i_k] .+= g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # SW
+        Ss[:,i_k] .+= (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k # Doppler
+        Ss[:,i_k] .+= exp.(.-τ(ηs)) .* (Ψ′(ηs) - Φ′(ηs)) # ISW
         # TODO: add polarization
-        Ss[:,i_k] = S_SW + S_Doppler + S_ISW
     end
 
     return Ss
@@ -442,13 +444,22 @@ end
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
 function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
+    # TODO: can move into ΘT() to avoid allocating for third l-dimension!
+    ∂Θ_∂ηs = zeros(length(ηs), length(ks), length(ls))
     Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     η0 = ηs[end] # TODO: assume!!
-    ∂Θ_∂ηs = Ss .* stack(sphericalbesselj.(l, ks' .* (η0.-ηs)) for l in ls)
+    for (i_l, l) in enumerate(ls)
+        for (i_k, k) in enumerate(ks)
+            for (i_η, η) in enumerate(ηs)
+                # TODO: faster to calculate with a range for l? but only for besselj, not for sphericalbesselj. https://github.com/JuliaMath/Bessels.jl?tab=readme-ov-file#support-for-sequence-of-orders
+                ∂Θ_∂ηs[i_η,i_k,i_l] = Ss[i_η,i_k] * sphericalbesselj(l, k * (η0-η))
+            end
+        end
+    end
     return ∂Θ_∂ηs
 end
 
-#∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
+#∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks)
 
 function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -468,12 +479,15 @@ end
 function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    return trapz(ks, dCl_dks, Val(1)) .+ (ks[1] .- 0) .* (0.0 .+ dCl_dks[1,:]) # integrate over k, and add extra point at (k,dCl_dk) = (0,0)
+    Cls = trapz(ks, dCl_dks, Val(1)) # integrate over k
+    Cls .+= @. (ks[1] - 0) * (0.0 + dCl_dks[1,:]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
+    return Cls
 end
 
 function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     return Cl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...) .* ls .* (ls .+ 1) / (2*π)
 end
+Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ; kwargs...) = Dl(ls, ks, ηs, θ...; kwargs...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
 
-Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
-plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
+#Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
+#plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
