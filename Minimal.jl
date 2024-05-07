@@ -423,6 +423,7 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspl
             # TODO: use pt_sol(...) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
             #return pt_sol(η, Val{1}, idxs=pt.Ψ).u
             # workaround: spline and take derivative
+            # TODO: differentiate Ψ = ... expression and calculate rhs from actual states?
             Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true)
             return DataInterpolations.derivative.(Ref(Ψspl), η)
         end
@@ -441,8 +442,7 @@ end
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
-# TODO: integrate over log(a) instead of a!
-# TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+# TODO: integrate CubicSplines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...) # TODO: reduce memory allocation!
     η0 = ηs[end] # TODO: assume!!
@@ -456,7 +456,7 @@ function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0
     for (i_l, l) in enumerate(ls)
         for (i_k, k) in enumerate(ks)
             ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs))
-            Θls[i_k] = trapz(ηs, ∂Θ_∂η) # integrate over η
+            Θls[i_k] = trapz(ηs, ∂Θ_∂η) # integrate over η # TODO: add starting Θl(ηini)
         end
         dCl_dks .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
         Cls[i_l] = trapz(ks, dCl_dks) # integrate over k
