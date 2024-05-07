@@ -386,11 +386,10 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
-ls = unique([2:2:10; 10:16:2010])
-ks = range(1, 1.5*maximum(ls), step=2*π/4) ./ η0(bg_sol)
-Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 10/η0
+ls = unique([1:1:10; 12:2:18; 20:10:2000])
+ks = range(1, 1.5*maximum(ls), step=2*π/6) ./ η0(bg_sol)
+Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 50/η0
 # TODO: only need as from a = 1e-4 till today
-# TODO: write to be more memory-efficient! only need to hold ∂Θ/∂ηs(η,k) for each l!
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
     Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks)))
 
@@ -442,56 +441,32 @@ end
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
-function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    #∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    #return [trapz(ηs, ∂Θ_∂ηs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
-
-    Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
+# TODO: integrate over log(a) instead of a!
+# TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+    Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...) # TODO: reduce memory allocation!
     η0 = ηs[end] # TODO: assume!!
 
-    T = eltype([Ωr0, Ωm0, Ωb0, H0, Yp])
+    T = eltype([Ωr0, Ωm0, Ωb0, H0, As, Yp]) # TODO: handle with/without As differently?
     ∂Θ_∂η = zeros(T, length(ηs))
-    ΘTs = zeros(T, (length(ls), length(ks)))
+    Θls = zeros(T, length(ks))
+    dCl_dks = zeros(T, length(ks))
+    Cls = zeros(T, length(ls))
+
     for (i_l, l) in enumerate(ls)
         for (i_k, k) in enumerate(ks)
             ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs))
-            ΘTs[i_l, i_k] = trapz(ηs, ∂Θ_∂η)
+            Θls[i_k] = trapz(ηs, ∂Θ_∂η) # integrate over η
         end
+        dCl_dks .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
+        Cls[i_l] = trapz(ks, dCl_dks) # integrate over k
+        Cls[i_l] += (ks[1] - 0.0) * (0.0 + dCl_dks[1]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
     end
-    end
-    return ∂Θ_∂ηs
-end
 
-#∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks)
-
-function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    ∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    return [trapz(ηs, ∂Θ_∂ηs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
-end
-
-#Θs = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp)
-
-function dCl_dk(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
-    Θls = ΘT(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    return stack([@. 2/π * ks^2 * P0(ks, As) * Θls[i_l,:]^2 for i_l in eachindex(ls)])
-end
-
-# TODO: integrate over log(a) instead of a!
-function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
-    dCl_dks = dCl_dk(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
-    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-    Cls = trapz(ks, dCl_dks, Val(1)) # integrate over k
-    Cls .+= @. (ks[1] - 0.0) * (0.0 + dCl_dks[1,:]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
     return Cls
 end
 
-function Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
-    return Cl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...) .* ls .* (ls .+ 1) / (2*π)
-end
-Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ; kwargs...) = Dl(ls, ks, ηs, θ...; kwargs...) # unpack parameters θ = [ρr0, ρm0, ρb0, H0, As]
+Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ...; kwargs...) = Cl(ls, ks, ηs, θ...; kwargs...) .* ls .* (ls .+ 1) / (2*π)
 
 #Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
