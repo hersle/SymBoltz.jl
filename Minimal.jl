@@ -442,18 +442,23 @@ end
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
-function ∂Θ_∂η(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
-    # TODO: can move into ΘT() to avoid allocating for third l-dimension!
-    ∂Θ_∂ηs = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks), length(ls)))
+function ΘT(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
+    # TODO: just integrate the spline! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+    #∂Θ_∂ηs = ∂Θ_∂η(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
+    #return [trapz(ηs, ∂Θ_∂ηs[:,i_k,i_l]) for i_l in eachindex(ls), i_k in eachindex(ks)] # TODO: return all Θls in shape (size(ls), size(ks))
+
     Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...)
     η0 = ηs[end] # TODO: assume!!
+
+    T = eltype([Ωr0, Ωm0, Ωb0, H0, Yp])
+    ∂Θ_∂η = zeros(T, length(ηs))
+    ΘTs = zeros(T, (length(ls), length(ks)))
     for (i_l, l) in enumerate(ls)
         for (i_k, k) in enumerate(ks)
-            for (i_η, η) in enumerate(ηs)
-                # TODO: faster to calculate with a range for l? but only for besselj, not for sphericalbesselj. https://github.com/JuliaMath/Bessels.jl?tab=readme-ov-file#support-for-sequence-of-orders
-                ∂Θ_∂ηs[i_η,i_k,i_l] = Ss[i_η,i_k] * sphericalbesselj(l, k * (η0-η))
-            end
+            ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs))
+            ΘTs[i_l, i_k] = trapz(ηs, ∂Θ_∂η)
         end
+    end
     end
     return ∂Θ_∂ηs
 end
