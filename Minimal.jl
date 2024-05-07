@@ -385,7 +385,7 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 =#
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
-ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=800)) # logarithmic spread to capture early-time oscillations
+ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=400)) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 ls = unique([1:1:10; 12:2:18; 20:10:2000])
 ks = range(1, 1.5*maximum(ls), step=2*π/6) ./ η0(bg_sol)
 Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 50/η0
@@ -479,4 +479,4 @@ lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
 
 p = plot(layout=(2,1), size=(800, 1000), left_margin=bottom_margin=30*Plots.px); display(p)
 plot!(p[1], ls, 10 .^ lgDls / 1e-12; xlabel = "l", ylabel = "Dₗ=l (l+1) Cₗ / 2π / 10⁻¹²", title = "CMB power spectrum"); display(p)
-plot!(p[2], ls, dlgDl_dθs_ad; xlabel = "l", ylabel = "d lg(Dₗ) / d lg(θᵢ)", labels = "θᵢ=" .* ["Ωr0" "Ωm0" "Ωb0" "H0" "As" "Yp"]); display(p)
+plot!(p[2], ls, dlgDl_dθs_ad; xlabel = "l", ylabel = "∂ lg(Dₗ) / ∂ lg(θᵢ)", labels = "θᵢ=" .* ["Ωr0" "Ωm0" "Ωb0" "H0" "As" "Yp"]); display(p)
