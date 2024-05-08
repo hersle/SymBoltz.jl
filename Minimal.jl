@@ -2,7 +2,7 @@ using ModelingToolkit
 using DifferentialEquations
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
-using Bessels: sphericalbesselj
+using Bessels: besselj, sphericalbesselj
 using NumericalIntegration
 using Roots
 using Plots; Plots.default(label=nothing, markershape=:pixel)
@@ -386,8 +386,8 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 lnηs = range(log(ηi(bg_sol)), log(η0(bg_sol)), length=400) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
-ls = [2:1:8; 10; 12; 16; 22; 30:10:2000]
-kmax = 1.5 * ls[end]
+ls = [2:1:8; 10; 12; 16; 22; 30:10:2500]
+kmax = 2.0 * ls[end]
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
 ks = range_until(0, kmax, 2π/4; skip_start=true) ./ η0(bg_sol)
 Sspline_ks = range_until(0, kmax, 50; skip_start=true) ./ η0(bg_sol) # Δk = 50/η0
@@ -412,6 +412,7 @@ function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspl
     g(η) = .-τ′(η) .* exp.(.-τ(η))
     g′(η) = (τ′(η) .^ 2 - τ′′(η)) .* exp.(.-τ(η))
     
+    # TODO: use saveat for ηs
     pt_sols = solve_perturbations(ks, Ωr0, Ωm0, Ωb0, H0, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         # TODO: must be faster!! use saveat for ηs in ODESolution?
@@ -444,6 +445,10 @@ end
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
+# TODO: contribute back to Bessels.jl
+sphericalbesseljslow(ls::AbstractRange, x) = sphericalbesselj.(ls, x)
+sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
+
 # TODO: integrate CubicSplines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
     ηs = exp.(lnηs)
@@ -451,20 +456,30 @@ function Cl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ω
     η0 = ηs[end] # TODO: assume!!
 
     T = eltype([Ωr0, Ωm0, Ωb0, H0, As, Yp]) # TODO: handle with/without As differently?
-    ∂Θ_∂lnη = zeros(T, length(ηs))
-    Θls = zeros(T, length(ks))
+    ∂Θ_∂lnη = zeros(T, (length(ls), length(ηs)))
+    Θls = zeros(T, (length(ls), length(ks)))
     ks_with0 = [0.0; ks]
     dCl_dks_with0 = zeros(T, length(ks_with0))
     Cls = zeros(T, length(ls))
 
-    for (i_l, l) in enumerate(ls)
-        for (i_k, k) in enumerate(ks)
-            for (i_η, η) in enumerate(ηs)
-                ∂Θ_∂lnη[i_η] = Ss[i_η, i_k] * sphericalbesselj(l, k*(η0-η)) * η # TODO: sphericalbesselj takes a lot of time!
-            end
-            Θls[i_k] = integrate(lnηs, ∂Θ_∂lnη, SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+    ls_all = minimum(ls):1:maximum(ls) # range with step 1
+    ls_indices = 1 .+ ls .- ls_all[1] # indices such that ls = ls_all[ls_indices]
+    Jls = zeros(length(ls))
+
+    for (i_k, k) in enumerate(ks)
+        for (i_η, η) in enumerate(ηs)
+            # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
+            Jls .= sphericalbesseljfast(ls_all, k*(η0-η))[ls_indices] # @btime reference (~1000 ls): 5.4 s
+            #Jls .= sphericalbesselj.(ls, k*(η0-η)) # @btime reference (~1000 ls): 32 s
+            ∂Θ_∂lnη[:, i_η] .= Ss[i_η, i_k] * Jls * η # TODO: sphericalbesselj takes a lot of time!
         end
-        dCl_dks_with0[2:end] .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
+        for (i_l, l) in enumerate(ls)
+            Θls[i_l, i_k] = integrate(lnηs, ∂Θ_∂lnη[i_l, :], SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+        end
+    end
+
+    for (i_l, l) in enumerate(ls)
+        dCl_dks_with0[2:end] .= @. 2/π * ks^2 * P0(ks, As) * Θls[i_l, :]^2
         Cls[i_l] = integrate(ks_with0, dCl_dks_with0, SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
