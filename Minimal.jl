@@ -385,12 +385,12 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 =#
 
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
-ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=400)) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
-ls = unique([1:1:10; 12:2:18; 20:10:2000])
+lnηs = range(log(ηi(bg_sol)), log(η0(bg_sol)), length=400) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
+ls = [2:1:8; 10; 12; 16; 22; 30:10:2000]
 kmax = 1.5 * ls[end]
-range_until(start, stop, step) = range(start, step=step, length=Int(ceil((stop-start)/step+1)))
-ks = range_until(1, kmax, 2π/6) ./ η0(bg_sol)
-Sspline_ks = range_until(1, kmax, 50) ./ η0(bg_sol) # Δk = 50/η0
+range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
+ks = range_until(0, kmax, 2π/4; skip_start=true) ./ η0(bg_sol)
+Sspline_ks = range_until(0, kmax, 50; skip_start=true) ./ η0(bg_sol) # Δk = 50/η0
 # TODO: only need as from a = 1e-4 till today
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
     Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks)))
@@ -445,40 +445,44 @@ end
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
 # TODO: integrate CubicSplines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+function Cl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, H0, As, Yp; kwargs...)
+    ηs = exp.(lnηs)
     Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, H0, Yp; kwargs...) # TODO: reduce memory allocation!
     η0 = ηs[end] # TODO: assume!!
 
     T = eltype([Ωr0, Ωm0, Ωb0, H0, As, Yp]) # TODO: handle with/without As differently?
-    ∂Θ_∂η = zeros(T, length(ηs))
+    ∂Θ_∂lnη = zeros(T, length(ηs))
     Θls = zeros(T, length(ks))
-    dCl_dks = zeros(T, length(ks))
+    ks_with0 = [0.0; ks]
+    dCl_dks_with0 = zeros(T, length(ks_with0))
     Cls = zeros(T, length(ls))
 
     for (i_l, l) in enumerate(ls)
         for (i_k, k) in enumerate(ks)
-            ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs)) # TODO: sphericalbesselj takes a lot of time!
-            Θls[i_k] = integrate(ηs, ∂Θ_∂η, Trapezoidal()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            for (i_η, η) in enumerate(ηs)
+                ∂Θ_∂lnη[i_η] = Ss[i_η, i_k] * sphericalbesselj(l, k*(η0-η)) * η # TODO: sphericalbesselj takes a lot of time!
+            end
+            Θls[i_k] = integrate(lnηs, ∂Θ_∂lnη, SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
-        dCl_dks .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
-        Cls[i_l] = integrate(ks, dCl_dks, TrapezoidalEven()) # integrate over k
-        Cls[i_l] += (ks[1] - 0.0) * (0.0 + dCl_dks[1]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
+        dCl_dks_with0[2:end] .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
+        Cls[i_l] = integrate(ks_with0, dCl_dks_with0, SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     return Cls
 end
 
-Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ; kwargs...) = Cl(ls, ks, ηs, θ...; kwargs...) .* ls .* (ls .+ 1) / (2*π)
+Dl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, θ; kwargs...) = Cl(ls, ks, lnηs, θ...; kwargs...) .* ls .* (ls .+ 1) / (2*π)
 
 #Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
 
 # differentiated CMB power spectrum
-lgDl(lgθ) = log10.(Dl(ls, ks, ηs, 10 .^ lgθ; Sspline_ks))
+lgDl(lgθ) = log10.(Dl(ls, ks, lnηs, 10 .^ lgθ; Sspline_ks))
 lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
 lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
+Dls = 10 .^ lgDls
 
 p = plot(layout=(2,1), size=(800, 1000), left_margin=bottom_margin=30*Plots.px); display(p)
-plot!(p[1], ls, 10 .^ lgDls / 1e-12; xlabel = "l", ylabel = "Dₗ=l (l+1) Cₗ / 2π / 10⁻¹²", title = "CMB power spectrum"); display(p)
+plot!(p[1], ls, Dls / 1e-12; xlabel = "l", ylabel = "Dₗ=l (l+1) Cₗ / 2π / 10⁻¹²", title = "CMB power spectrum"); display(p)
 plot!(p[2], ls, dlgDl_dθs_ad; xlabel = "l", ylabel = "∂ lg(Dₗ) / ∂ lg(θᵢ)", labels = "θᵢ=" .* ["Ωr0" "Ωm0" "Ωb0" "H0" "As" "Yp"]); display(p)
