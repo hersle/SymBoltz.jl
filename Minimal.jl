@@ -3,7 +3,7 @@ using DifferentialEquations
 using DataInterpolations
 using ForwardDiff, DiffResults, FiniteDiff
 using Bessels: sphericalbesselj
-using Trapz
+using NumericalIntegration
 using Roots
 using Plots; Plots.default(label=nothing, markershape=:pixel)
 
@@ -53,7 +53,7 @@ as = 10 .^ range(log10(aini), log10(atoday), length=200)
 k0 = 1 / 2997.92458 # h/Mpc
 ks = 10 .^ range(-4, +2, length=400) / k0 # in code units of k0 = H0/c
 
-p = plot(layout=(3,3), size=(1920, 1080), left_margin=bottom_margin=30*Plots.px); display(p) # TODO: add plot recipe!
+p = plot(layout=(3,3), size=(1900, 1000), left_margin=bottom_margin=30*Plots.px); display(p) # TODO: add plot recipe!
 
 # independent variable: scale factor
 # TODO: spacetime/geometry structure?
@@ -387,8 +387,10 @@ plot_dlgP_dθs(dlgP_dθs_fd, "fin. diff.", 2)
 Ωr0, Ωm0, Ωb0, H0, Yp, As = par.Ωr0, par.Ωm0, par.Ωb0, par.H0, par.Yp, par.As
 ηs = exp.(range(log(ηi(bg_sol)), log(η0(bg_sol)), length=400)) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 ls = unique([1:1:10; 12:2:18; 20:10:2000])
-ks = range(1, 1.5*maximum(ls), step=2*π/6) ./ η0(bg_sol)
-Sspline_ks = range(1, 1.5*maximum(ls), step=50) ./ η0(bg_sol) # Δk = 50/η0
+kmax = 1.5 * ls[end]
+range_until(start, stop, step) = range(start, step=step, length=Int(ceil((stop-start)/step+1)))
+ks = range_until(1, kmax, 2π/6) ./ η0(bg_sol)
+Sspline_ks = range_until(1, kmax, 50) ./ η0(bg_sol) # Δk = 50/η0
 # TODO: only need as from a = 1e-4 till today
 function S(ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, H0, Yp; Sspline_ks=nothing)    
     Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, H0, Yp]), (length(ηs), length(ks)))
@@ -455,25 +457,25 @@ function Cl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, Ωr0, Ωm0
 
     for (i_l, l) in enumerate(ls)
         for (i_k, k) in enumerate(ks)
-            ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs))
-            Θls[i_k] = trapz(ηs, ∂Θ_∂η) # integrate over η # TODO: add starting Θl(ηini)
+            ∂Θ_∂η .= Ss[:, i_k] .* sphericalbesselj.(l, k * (η0.-ηs)) # TODO: sphericalbesselj takes a lot of time!
+            Θls[i_k] = integrate(ηs, ∂Θ_∂η, Trapezoidal()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
         dCl_dks .= @. 2/π * ks^2 * P0(ks, As) * Θls^2
-        Cls[i_l] = trapz(ks, dCl_dks) # integrate over k
+        Cls[i_l] = integrate(ks, dCl_dks, TrapezoidalEven()) # integrate over k
         Cls[i_l] += (ks[1] - 0.0) * (0.0 + dCl_dks[1]) # add extra trapz point at (k, dCl_dk) = (0.0, 0.0)
     end
 
     return Cls
 end
 
-Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ...; kwargs...) = Cl(ls, ks, ηs, θ...; kwargs...) .* ls .* (ls .+ 1) / (2*π)
+Dl(ls::AbstractArray, ks::AbstractArray, ηs::AbstractArray, θ; kwargs...) = Cl(ls, ks, ηs, θ...; kwargs...) .* ls .* (ls .+ 1) / (2*π)
 
 #Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, H0, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
 
 # differentiated CMB power spectrum
-lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 lgDl(lgθ) = log10.(Dl(ls, ks, ηs, 10 .^ lgθ; Sspline_ks))
+lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
 lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
 
