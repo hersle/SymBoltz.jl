@@ -5,18 +5,18 @@ struct BackgroundSystem
 end
 
 function background_metric(; name)
-    @variables a(η) ℋ(η) H(η)
-    a, ℋ, H = GlobalScope.((a, ℋ, H)) # spacetime underlies all components # TODO: more natural way to connect them?
+    @variables a(η) ℰ(η) E(η)
+    a, ℰ, E = GlobalScope.((a, ℰ, E)) # spacetime underlies all components # TODO: more natural way to connect them?
     eqs = [
-        ℋ ~ ∂η(a) / a # in units of H0
-        H ~ ℋ / a # in units of H0
+        ℰ ~ ∂η(a) / a # in units of H0
+        E ~ ℰ / a # in units of H0
     ]
-    return ODESystem(eqs, η, [a, ℋ, H], []; name)
+    return ODESystem(eqs, η, [a, ℰ, E], []; name)
 end
 
 function background_gravity_GR(g; name)
     @variables ρ(η)
-    eqs = [∂η(g.a) ~ √(ρ)* g.a^2] # TODO: 8π/3 factor?
+    eqs = [∂η(g.a) ~ √(ρ)* g.a^2] # TODO: 8π/3 factor? # TODO: write E?
     return ODESystem(eqs, η; name)
 end
 
@@ -25,7 +25,7 @@ function background_species_constant_eos(g, w; name)
     @variables ρ(η) P(η) Ω(η) ρcrit(η)
     eqs = [
         P ~ w*ρ
-        ∂η(ρ) ~ -3 * g.ℋ * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
+        ∂η(ρ) ~ -3 * g.ℰ * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
         Ω ~ ρ / ρcrit
     ]
     return ODESystem(eqs, η; name)
