@@ -31,6 +31,7 @@ include("Spectra.jl")
 
 export BackgroundSystem
 export ThermodynamicsSystem
+export PerturbationsSystem
 export solve
 
 end
