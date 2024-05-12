@@ -63,9 +63,9 @@ end
 function perturbations_gravity(gbg, gpt; name)
     @variables δρ(η) Δm(η) ρm(η) Π(η)
     return ODESystem([
-        ∂η(gpt.Φ) ~ (3/2*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
+        ∂η(gpt.Φ) ~ (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
         gpt.k^2 * (gpt.Ψ + gpt.Φ) ~ Π # anisotropic stress
-        Δm ~ gpt.k^2 * gpt.Φ / (3/2*gbg.a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
+        Δm ~ gpt.k^2 * gpt.Φ / (4π*gbg.a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
     ], η; name)
 end
 
@@ -96,7 +96,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         pol.Π ~ ph.Θ[2] + pol.Θ[2] + pol.Θ0
     
         # gravity shear stress
-        grav.Π ~ -12*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
+        grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
     ], η, [], [fb, dτspline]; name)
     sys = compose(connections, g, grav, ph, pol, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
@@ -108,7 +108,7 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
     bg = pt.bg
     bg_sol = solve(bg, Ωr0, Ωm0; aini) # TODO: just use th_sol instead
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    Ωrini, Ωmini, ΩΛini, Eini = bg_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
+    ρrini, ρmini, ρΛini, Eini = bg_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
 
     th = pt.th
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
@@ -137,7 +137,7 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
         end
         δcini = δbini = 3*Θrini0 # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt.prob; tspan = (ηini, ηtoday), u0 = Dict(pt.ssys.gpt.Φ => Φini, pt.ssys.ph.Θ0 => Θrini0, [pt.ssys.ph.Θ[l] => Θrini[l] for l in 1:lmax]..., pt.ssys.pol.Θ0 => ΘPini0, [pt.ssys.pol.Θ[l] => ΘPini[l] for l in 1:lmax]..., pt.ssys.bar.δ => δbini, pt.ssys.bar.u => ubini, pt.ssys.cdm.δ => δcini, pt.ssys.cdm.u => ucini, bg.sys.rad.ρ => Ωrini, bg.sys.mat.ρ => Ωmini, bg.sys.de.ρ => ΩΛini, bg.sys.g.a => aini), p = [pt.ssys.fb => fb, pt.ssys.gpt.k => kval, pt.ssys.dτspline => dτspline])
+        return remake(pt.prob; tspan = (ηini, ηtoday), u0 = Dict(pt.ssys.gpt.Φ => Φini, pt.ssys.ph.Θ0 => Θrini0, [pt.ssys.ph.Θ[l] => Θrini[l] for l in 1:lmax]..., pt.ssys.pol.Θ0 => ΘPini0, [pt.ssys.pol.Θ[l] => ΘPini[l] for l in 1:lmax]..., pt.ssys.bar.δ => δbini, pt.ssys.bar.u => ubini, pt.ssys.cdm.δ => δcini, pt.ssys.cdm.u => ucini, bg.sys.rad.ρ => ρrini, bg.sys.mat.ρ => ρmini, bg.sys.de.ρ => ρΛini, bg.sys.g.a => aini), p = [pt.ssys.fb => fb, pt.ssys.gpt.k => kval, pt.ssys.dτspline => dτspline])
     end
 
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)

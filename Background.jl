@@ -16,7 +16,7 @@ end
 
 function background_gravity_GR(g; name)
     @variables ρ(η)
-    eqs = [∂η(g.a) ~ √(ρ)* g.a^2] # TODO: 8π/3 factor? # TODO: write E?
+    eqs = [∂η(g.a) ~ √(8π/3*ρ) * g.a^2] # TODO: 8π/3 factor? # TODO: write E?
     return ODESystem(eqs, η; name)
 end
 
@@ -38,7 +38,7 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
     components = [g; grav; species]
     connections = ODESystem([
         grav.ρ ~ sum(s.ρ for s in species);
-        [s.ρcrit ~ grav.ρ for s in species]
+        [s.ρcrit ~ grav.ρ for s in species] # TODO: 8π/(3E^2) or similar?
     ], η; name)
     sys = compose(connections, components...)
     ssys = structural_simplify(sys) # simplified system
@@ -51,11 +51,11 @@ function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Ken
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     ΩΛ0 = 1 - Ωr0 - Ωm0
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution
-    Ωrini = Ωr0 / aini^4
-    Ωmini = Ωm0 / aini^3
-    ΩΛini = ΩΛ0
+    ρrini = 3/(8π) * Ωr0 / aini^4
+    ρmini = 3/(8π) * Ωm0 / aini^3
+    ρΛini = 3/(8π) * ΩΛ0
     
-    prob = remake(bg.prob; tspan=(ηini, 4.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => Ωrini, bg.ssys.mat.ρ => Ωmini, bg.ssys.de.ρ => ΩΛini])
+    prob = remake(bg.prob; tspan=(ηini, 4.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
 
     # stop when a == aend
     aindex = variable_index(bg.ssys, bg.ssys.g.a)

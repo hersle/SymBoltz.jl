@@ -63,7 +63,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODES
     @variables Xe(η) ne(η) τ(η) H(η) ρb(η) nb(η) nH(η)
     connections = ODESystem([
         H ~ bg.sys.g.E * H0 # 1/s # TODO: avoid duplicate name with background H
-        ρb ~ fb * bg.sys.mat.ρ * 3*H0^2 / (8*π*G) # kg/m³
+        ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
         nH ~ (1-Herec.Yp) * nb # TODO: correct?
 
@@ -91,10 +91,10 @@ function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aen
     H0 = h * 100 * km/Mpc
     bg_sol = solve(th.bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    Ωrini, Ωmini, ΩΛini = bg_sol(ηini; idxs=[th.bg.sys.rad.ρ, th.bg.sys.mat.ρ, th.bg.sys.de.ρ]) # TODO: avoid duplicate logic
+    ρrini, ρmini, ρΛini = bg_sol(ηini; idxs=[th.bg.sys.rad.ρ, th.bg.sys.mat.ρ, th.bg.sys.de.ρ]) # TODO: avoid duplicate logic
     fb = Ωb0 / Ωm0; @assert fb <= 1
-    Tini = (Ωrini * 15/π^2 * 3*H0^2/(8*π*G) * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
+    Tini = (ρrini * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th.prob; tspan = (ηini, ηtoday), u0 = [th.ssys.Herec.Xe => XeSini, th.ssys.Hrec.Xe => 1.0, th.ssys.temp.Tγ => Tini, th.ssys.temp.Tb => Tini, th.ssys.τ => 0.0, th.bg.sys.rad.ρ => Ωrini, th.bg.sys.mat.ρ => Ωmini, th.bg.sys.de.ρ => ΩΛini, th.bg.ssys.g.a => aini], p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.Hrec.H0 => H0, th.ssys.Herec.Yp => Yp, th.ssys.reion1.Herec₊Yp => Yp, th.ssys.reion2.Herec₊Yp => Yp]) # TODO: avoid 2xH0, 2xYp, ...
+    prob = remake(th.prob; tspan = (ηini, ηtoday), u0 = [th.ssys.Herec.Xe => XeSini, th.ssys.Hrec.Xe => 1.0, th.ssys.temp.Tγ => Tini, th.ssys.temp.Tb => Tini, th.ssys.τ => 0.0, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini], p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.Hrec.H0 => H0, th.ssys.Herec.Yp => Yp, th.ssys.reion1.Herec₊Yp => Yp, th.ssys.reion2.Herec₊Yp => Yp]) # TODO: avoid 2xH0, 2xYp, ...
     return solve(prob, solver; reltol, kwargs...) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
