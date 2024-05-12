@@ -1,6 +1,7 @@
 struct BackgroundSystem
-    sys::ODESystem
-    ssys::ODESystem
+    # TODO: add fields like metric, gravity, species, ...?
+    sys::ODESystem # unsimplified
+    ssys::ODESystem # simplified
     prob::ODEProblem
 end
 
@@ -8,52 +9,52 @@ function background_metric(; name)
     @variables a(η) ℰ(η) E(η)
     a, ℰ, E = GlobalScope.((a, ℰ, E)) # spacetime underlies all components # TODO: more natural way to connect them?
     eqs = [
-        ℰ ~ ∂η(a) / a # in units of H0
-        E ~ ℰ / a # in units of H0
+        ℰ ~ Dη(a) / a # ℰ = ℋ/ℋ0
+        E ~ ℰ / a # E = H/H0
     ]
     return ODESystem(eqs, η, [a, ℰ, E], []; name)
 end
 
 function background_gravity_GR(g; name)
-    @variables ρ(η)
-    eqs = [∂η(g.a) ~ √(8π/3*ρ) * g.a^2] # TODO: 8π/3 factor? # TODO: write E?
-    return ODESystem(eqs, η; name)
+    @variables ρ(η) ρcrit(η)
+    eqs = [
+        g.E ~ √(8π/3 * ρ) # Friedmann equation
+        ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
+    ]
+    return ODESystem(eqs, η, [ρ, ρcrit], []; name)
 end
 
-# TODO: have species "class", sum automatically sum species.ρ in BackgroundSystem
-function background_species_constant_eos(g, w; name)
-    @variables ρ(η) P(η) Ω(η) ρcrit(η)
+function background_species(g, eos; name)
+    @variables ρ(η) P(η)
     eqs = [
-        P ~ w*ρ
-        ∂η(ρ) ~ -3 * g.ℰ * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
-        Ω ~ ρ / ρcrit
+        P ~ eos(ρ) # equation of state
+        Dη(ρ) ~ -3 * g.ℰ * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
     ]
     return ODESystem(eqs, η; name)
 end
-background_radiation(g; kwargs...) = background_species_constant_eos(g, 1//3; kwargs...)
-background_matter(g; kwargs...) = background_species_constant_eos(g, 0; kwargs...)
-background_cosmological_constant(g; kwargs...) = background_species_constant_eos(g, -1; kwargs...)
+background_radiation(g; kwargs...) = background_species(g, ρ -> ρ/3; kwargs...)
+background_matter(g; kwargs...) = background_species(g, ρ -> 0; kwargs...)
+background_cosmological_constant(g; kwargs...) = background_species(g, ρ -> -ρ; kwargs...)
 
-function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; name)
+function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; name, jac=true)
     components = [g; grav; species]
     connections = ODESystem([
         grav.ρ ~ sum(s.ρ for s in species);
-        [s.ρcrit ~ grav.ρ for s in species] # TODO: 8π/(3E^2) or similar?
     ], η; name)
     sys = compose(connections, components...)
-    ssys = structural_simplify(sys) # simplified system
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true)
+    ssys = structural_simplify(sys; simplify=true, allow_symbolic=true) # simplified system
+    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN; jac)
     return BackgroundSystem(sys, ssys, prob)
 end
 
-# TODO: take symbolic IC map
 function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=KenCarp4(), reltol=1e-8, kwargs...)
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
+    # TODO: take symbolic IC map
     ΩΛ0 = 1 - Ωr0 - Ωm0
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution
-    ρrini = 3/(8π) * Ωr0 / aini^4
-    ρmini = 3/(8π) * Ωm0 / aini^3
-    ρΛini = 3/(8π) * ΩΛ0
+    ρrini = 3/8π * Ωr0 / aini^4
+    ρmini = 3/8π * Ωm0 / aini^3
+    ρΛini = 3/8π * ΩΛ0
     
     prob = remake(bg.prob; tspan=(ηini, 4.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
 
@@ -61,5 +62,5 @@ function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Ken
     aindex = variable_index(bg.ssys, bg.ssys.g.a)
     callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!)
 
-    return solve(prob, solver; callback, reltol, kwargs...) # using KenCarp4 here leads to difference in AD vs FD
+    return solve(prob, solver; callback, reltol, kwargs...)
 end

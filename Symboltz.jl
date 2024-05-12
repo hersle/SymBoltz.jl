@@ -22,7 +22,9 @@ using DataInterpolations
 include("Constants.jl")
 
 @variables η # in units of 1/H0
-∂η = Differential(η) # ∂/∂η
+Dη = Differential(η) # d/d
+
+# TODO: define global spacetime structure here?
 
 include("Background.jl")
 include("Thermodynamics.jl")

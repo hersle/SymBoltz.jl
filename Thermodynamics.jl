@@ -36,15 +36,15 @@ function recombination_hydrogen_peebles(g; name)
         β2_Λα ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # β2/Λα (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
         Λ2γ_Λα ~ 8.227 * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # Λ2γ/Λα
         C ~ Hifelse(actiweight, 1, (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα); k=1e3) # Peebles' correction factor (Dodelson exercise 4.7), manually activated to avoid numerical issues at early times # TODO: activate using internal quantities only! # TODO: why doesnt it work to activate from 0? activating from 1 is really unnatural
-        ∂η(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) * g.a / H0 # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Dη(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) * g.a / H0 # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
     ], η, [Xe, H, nH, T, actiweight], [H0]; name)
 end
 
 function thermodynamics_temperature(g; name)
     @variables Tγ(η) Tb(η) ργ(η) ρb(η) τ(η) fγb(η)
     return ODESystem([
-        ∂η(Tγ) ~ -1*Tγ * g.ℰ # Tγ = Tγ0 / a # TODO: introduce ℋ = Dη(a) / a?
-        ∂η(Tb) ~ -2*Tb * g.ℰ - 8/3*(mp/me)*fγb*g.a*∂η(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
+        Dη(Tγ) ~ -1*Tγ * g.ℰ # Tγ = Tγ0 / a # TODO: introduce ℋ = Dη(a) / a?
+        Dη(Tb) ~ -2*Tb * g.ℰ - 8/3*(mp/me)*fγb*g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
     ], η, [Tγ, Tb, τ, fγb], []; name)
 end
 
@@ -79,7 +79,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODES
         # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
         Xe ~ Hifelse(Hrec.actiweight, Herec.Xe, Hrec.Xe; k=1e3) + sum(reion.Xe for reion in reions)
         ne ~ Xe * nH
-        ∂η(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
+        Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
     ], η; name)
     sys = compose(connections, [Herec; Hrec; temp; reions; bg.sys])
     ssys = structural_simplify(sys)

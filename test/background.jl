@@ -1,5 +1,4 @@
-using .Symboltz
-using .Symboltz: η
+import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 
@@ -18,16 +17,15 @@ par = Parameters()
 @named rad = Symboltz.background_radiation(g)
 @named mat = Symboltz.background_matter(g)
 @named de = Symboltz.background_cosmological_constant(g)
-@named bg = BackgroundSystem(g, grav, [rad, mat, de])
+@named bg = Symboltz.BackgroundSystem(g, grav, [rad, mat, de])
 
-if false
-    bg_sol = solve(bg, par.Ωr0, par.Ωm0)
-    println("ηi = $(bg_sol[η][begin]), η0 = $(bg_sol[η][end])")
+if true
+    bg_sol = Symboltz.solve(bg, par.Ωr0, par.Ωm0)
 
     # TODO: define plot() on BackgroundSolution
     p = plot(layout=(1,2), size=(1000, 400), margin=5*Plots.mm); display(p) # TODO: add plot recipe!
-    plot!(p[1], bg_sol[η], bg_sol[bg.ssys.g.a]; xlabel="η / (1/H0)", ylabel="a", ylims=(0, 1)); display(p)
-    plot!(p[2], log10.(bg_sol[bg.ssys.g.a]), stack(bg_sol[[bg.ssys.rad.Ω, bg.ssys.mat.Ω, bg.ssys.de.Ω]])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
+    plot!(p[1], bg_sol[Symboltz.η], bg_sol[bg.ssys.g.a]; xlabel="η / (1/H0)", ylabel="a", ylims=(0, 1)); display(p)
+    plot!(p[2], log10.(bg_sol[bg.ssys.g.a]), stack(bg_sol[[bg.ssys.rad.ρ, bg.ssys.mat.ρ, bg.ssys.de.ρ]] ./ bg_sol[bg.sys.grav.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 end
 
 @named temp = Symboltz.thermodynamics_temperature(g)
@@ -35,10 +33,10 @@ end
 @named Hrec = Symboltz.recombination_hydrogen_peebles(g)
 @named reion1 = Symboltz.reionization_smooth_step(g, 8.0, 0.5, 1 + Herec.Yp/(4*(1-Herec.Yp))) # TODO: separate reionH₊, reionHe₊, reionHe₊₊
 @named reion2 = Symboltz.reionization_smooth_step(g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
-@named th = ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
+@named th = Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
 
 if false
-    th_sol = solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
+    th_sol = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
 
     # TODO: thermodynamics plot recipe
     p = plot(layout=(1,2), size=(1000, 400), margin=5*Plots.mm); display(p) # TODO: add plot recipe!
@@ -52,12 +50,12 @@ lmax = 6
 @named pol = Symboltz.perturbations_polarization_hierarchy(gpt, lmax)
 @named cdm = Symboltz.perturbations_matter(g, gpt, false)
 @named bar = Symboltz.perturbations_matter(g, gpt, true)
-@named gravpt = Symboltz.perturbations_gravity(g, gpt, )
-@named pt = PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
+@named gravpt = Symboltz.perturbations_gravity(g, gpt)
+@named pt = Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
 
-if true
+if false
     ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c
-    pt_sols = solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
+    pt_sols = Symboltz.solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
 
     p = plot(layout=(1,2), size=(1000, 400), margin=5*Plots.mm); display(p) # TODO: add plot recipe!
     for (i, pt_sol) in enumerate(pt_sols)

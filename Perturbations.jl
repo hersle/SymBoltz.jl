@@ -18,8 +18,8 @@ function perturbations_radiation(g, interact=false; name)
     @variables Θ0(η) Θ1(η) δ(η)
     interaction = interact ? only(@variables interaction(η)) : 0
     return ODESystem([
-        ∂η(Θ0) + k*Θ1 ~ -∂η(g.Φ) # Dodelson (5.67) or (8.10)
-        ∂η(Θ1) - k/3*Θ0 ~ k/3*g.Ψ + interaction # Dodelson (5.67) or (8.11)
+        Dη(Θ0) + k*Θ1 ~ -Dη(g.Φ) # Dodelson (5.67) or (8.10)
+        Dη(Θ1) - k/3*Θ0 ~ k/3*g.Ψ + interaction # Dodelson (5.67) or (8.11)
         δ ~ 4*Θ0
     ], η; name)
 end
@@ -27,10 +27,10 @@ end
 function perturbations_photon_hierarchy(g, lmax=6, interact=false; name)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η) interactions(η)[1:lmax]
     eqs = [
-        ∂η(Θ0) + g.k*Θ[1] ~ -∂η(g.Φ)
-        ∂η(Θ[1]) - g.k/3*(Θ0-2*Θ[2]) ~ g.k/3*g.Ψ + interactions[1]
-        [∂η(Θ[l]) ~ g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
-        ∂η(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
+        Dη(Θ0) + g.k*Θ[1] ~ -Dη(g.Φ)
+        Dη(Θ[1]) - g.k/3*(Θ0-2*Θ[2]) ~ g.k/3*g.Ψ + interactions[1]
+        [Dη(Θ[l]) ~ g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
+        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
         δ ~ 4*Θ0
     ]
     if !interact
@@ -43,10 +43,10 @@ end
 function perturbations_polarization_hierarchy(g, lmax=6; name)
     @variables Θ0(η) Θ(η)[1:lmax] dτ(η) Π(η) # TODO: index Θ[l=0] when fixed: https://github.com/SciML/ModelingToolkit.jl/pull/2671
     eqs = [
-        ∂η(Θ0) + g.k*Θ[1] ~ dτ * (Θ0 - Π/2)
-        ∂η(Θ[1]) - g.k/(2*1+1) * (1*Θ0 - (1+1)*Θ[1+1]) ~ dτ * (Θ[1] - Π/10*δkron(1,2))
-        [∂η(Θ[l]) - g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
-        ∂η(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
+        Dη(Θ0) + g.k*Θ[1] ~ dτ * (Θ0 - Π/2)
+        Dη(Θ[1]) - g.k/(2*1+1) * (1*Θ0 - (1+1)*Θ[1+1]) ~ dτ * (Θ[1] - Π/10*δkron(1,2))
+        [Dη(Θ[l]) - g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
+        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
     ]
     return ODESystem(eqs, η; name)
 end
@@ -55,15 +55,15 @@ function perturbations_matter(gbg, gpt, interact=false; name)
     @variables δ(η) u(η)
     interaction = interact ? only(@variables interaction(η)) : 0
     return ODESystem([
-        ∂η(δ) + gpt.k*u ~ -3*∂η(gpt.Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        ∂η(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website)
+        Dη(δ) + gpt.k*u ~ -3*Dη(gpt.Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
+        Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website)
     ], η; name)
 end
 
 function perturbations_gravity(gbg, gpt; name)
     @variables δρ(η) Δm(η) ρm(η) Π(η)
     return ODESystem([
-        ∂η(gpt.Φ) ~ (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
+        Dη(gpt.Φ) ~ (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
         gpt.k^2 * (gpt.Ψ + gpt.Φ) ~ Π # anisotropic stress
         Δm ~ gpt.k^2 * gpt.Φ / (4π*gbg.a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
     ], η; name)
