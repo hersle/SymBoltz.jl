@@ -36,6 +36,15 @@ background_radiation(g; kwargs...) = background_species(g, ρ -> ρ/3; kwargs...
 background_matter(g; kwargs...) = background_species(g, ρ -> 0; kwargs...)
 background_cosmological_constant(g; kwargs...) = background_species(g, ρ -> -ρ; kwargs...)
 
+function background_ΛCDM(; name)
+    @named g = background_metric()
+    @named grav = background_gravity_GR(g)
+    @named rad = background_radiation(g)
+    @named mat = background_matter(g)
+    @named de = background_cosmological_constant(g)
+    return BackgroundSystem(g, grav, [rad, mat, de]; name)
+end
+
 function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; name, jac=true)
     components = [g; grav; species]
     connections = ODESystem([

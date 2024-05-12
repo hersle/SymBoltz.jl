@@ -12,12 +12,7 @@ using Plots; Plots.default(label=nothing)
 end
 par = Parameters()
 
-@named g = Symboltz.background_metric()
-@named grav = Symboltz.background_gravity_GR(g)
-@named rad = Symboltz.background_radiation(g)
-@named mat = Symboltz.background_matter(g)
-@named de = Symboltz.background_cosmological_constant(g)
-@named bg = Symboltz.BackgroundSystem(g, grav, [rad, mat, de])
+@named bg = Symboltz.background_ΛCDM()
 
 if true
     bg_sol = Symboltz.solve(bg, par.Ωr0, par.Ωm0)
@@ -28,12 +23,7 @@ if true
     plot!(p[2], log10.(bg_sol[bg.ssys.g.a]), stack(bg_sol[[bg.ssys.rad.ρ, bg.ssys.mat.ρ, bg.ssys.de.ρ]] ./ bg_sol[bg.sys.grav.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 end
 
-@named temp = Symboltz.thermodynamics_temperature(g)
-@named Herec = Symboltz.recombination_helium_saha()
-@named Hrec = Symboltz.recombination_hydrogen_peebles(g)
-@named reion1 = Symboltz.reionization_smooth_step(g, 8.0, 0.5, 1 + Herec.Yp/(4*(1-Herec.Yp))) # TODO: separate reionH₊, reionHe₊, reionHe₊₊
-@named reion2 = Symboltz.reionization_smooth_step(g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
-@named th = Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
+@named th = Symboltz.thermodynamics_ΛCDM(bg)
 
 if true
     th_sol = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
@@ -44,14 +34,7 @@ if true
     plot!(p[2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.ssys.temp.Tγ, th.ssys.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 end
 
-lmax = 6
-@named gpt = Symboltz.perturbations_metric()
-@named ph = Symboltz.perturbations_photon_hierarchy(gpt, lmax, true)
-@named pol = Symboltz.perturbations_polarization_hierarchy(gpt, lmax)
-@named cdm = Symboltz.perturbations_matter(g, gpt, false)
-@named bar = Symboltz.perturbations_matter(g, gpt, true)
-@named gravpt = Symboltz.perturbations_gravity(g, gpt)
-@named pt = Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
+@named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
 if true
     ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c

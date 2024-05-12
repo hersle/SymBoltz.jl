@@ -69,6 +69,17 @@ function perturbations_gravity(gbg, gpt; name)
     ], η; name)
 end
 
+function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
+    bg = th.bg
+    @named gpt = Symboltz.perturbations_metric()
+    @named ph = Symboltz.perturbations_photon_hierarchy(gpt, lmax, true)
+    @named pol = Symboltz.perturbations_polarization_hierarchy(gpt, lmax)
+    @named cdm = Symboltz.perturbations_matter(bg.sys.g, gpt, false)
+    @named bar = Symboltz.perturbations_matter(bg.sys.g, gpt, true)
+    @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, gpt)
+    return Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar; name)
+end
+
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 @register_symbolic dτfunc(η, spl) # TODO: improve somehow
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
@@ -109,14 +120,12 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
     bg_sol = solve(bg, Ωr0, Ωm0; aini) # TODO: just use th_sol instead
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ρrini, ρmini, ρΛini, Eini = bg_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
-    println("Integrated BG")
 
     th = pt.th
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp; reltol=1e-12) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.sys.τ)), log.(th_sol[η]); extrapolate=true) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) # TODO: verify that extrapolate=true is ok (it is needed for autodiff CMB computation) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτini = dτfunc(ηini, dτspline)
-    println("Integrated TH")
 
     function prob_func(_, i, _)
         kval = kvals[i]

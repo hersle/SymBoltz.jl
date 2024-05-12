@@ -59,6 +59,15 @@ function reionization_smooth_step(g, z0, Δz0, Xe0; name)
     ], η; name)
 end
 
+function thermodynamics_ΛCDM(bg::BackgroundSystem; name)
+    @named temp = Symboltz.thermodynamics_temperature(bg.sys.g)
+    @named Herec = Symboltz.recombination_helium_saha()
+    @named Hrec = Symboltz.recombination_hydrogen_peebles(bg.sys.g)
+    @named reion1 = Symboltz.reionization_smooth_step(bg.sys.g, 8.0, 0.5, 1 + Herec.Yp/(4*(1-Herec.Yp))) # TODO: separate reionH₊, reionHe₊, reionHe₊₊
+    @named reion2 = Symboltz.reionization_smooth_step(bg.sys.g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
+    return Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2]; name)
+end
+
 function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODESystem, temp::ODESystem, reions::AbstractArray{ODESystem}; name)
     @parameters fb H0
     H0 = GlobalScope(H0)
