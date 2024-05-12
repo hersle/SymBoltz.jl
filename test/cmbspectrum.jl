@@ -1,5 +1,4 @@
-using .Symboltz
-using .Symboltz: η
+import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
