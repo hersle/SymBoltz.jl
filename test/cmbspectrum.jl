@@ -20,14 +20,14 @@ par = Parameters()
 @named rad = Symboltz.background_radiation(g)
 @named mat = Symboltz.background_matter(g)
 @named de = Symboltz.background_cosmological_constant(g)
-@named bg = BackgroundSystem(g, grav, [rad, mat, de])
+@named bg = Symboltz.BackgroundSystem(g, grav, [rad, mat, de])
 
 @named temp = Symboltz.thermodynamics_temperature(g)
 @named Herec = Symboltz.recombination_helium_saha()
 @named Hrec = Symboltz.recombination_hydrogen_peebles(g)
 @named reion1 = Symboltz.reionization_smooth_step(g, 8.0, 0.5, 1 + Herec.Yp/(4*(1-Herec.Yp))) # TODO: separate reionH₊, reionHe₊, reionHe₊₊
 @named reion2 = Symboltz.reionization_smooth_step(g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
-@named th = ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
+@named th = Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
 
 lmax = 6
 @named gpt = Symboltz.perturbations_metric()
@@ -35,8 +35,8 @@ lmax = 6
 @named pol = Symboltz.perturbations_polarization_hierarchy(gpt, lmax)
 @named cdm = Symboltz.perturbations_matter(g, gpt, false)
 @named bar = Symboltz.perturbations_matter(g, gpt, true)
-@named gravpt = Symboltz.perturbations_gravity(g, gpt, )
-@named pt = PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
+@named gravpt = Symboltz.perturbations_gravity(g, gpt)
+@named pt = Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
 
 ls = [2:1:8; 10; 12; 16; 22; 30:10:2500]
 θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.As, par.Yp]

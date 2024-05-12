@@ -35,7 +35,7 @@ end
 @named reion2 = Symboltz.reionization_smooth_step(g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
 @named th = Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2])
 
-if false
+if true
     th_sol = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
 
     # TODO: thermodynamics plot recipe
@@ -53,7 +53,7 @@ lmax = 6
 @named gravpt = Symboltz.perturbations_gravity(g, gpt)
 @named pt = Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar)
 
-if false
+if true
     ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c
     pt_sols = Symboltz.solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
 

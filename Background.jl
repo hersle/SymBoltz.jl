@@ -18,7 +18,7 @@ end
 function background_gravity_GR(g; name)
     @variables ρ(η) ρcrit(η)
     eqs = [
-        g.E ~ √(8π/3 * ρ) # Friedmann equation
+        Dη(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
         ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
     ]
     return ODESystem(eqs, η, [ρ, ρcrit], []; name)
@@ -42,7 +42,7 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
         grav.ρ ~ sum(s.ρ for s in species);
     ], η; name)
     sys = compose(connections, components...)
-    ssys = structural_simplify(sys; simplify=true, allow_symbolic=true) # simplified system
+    ssys = structural_simplify(sys) # simplified system
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN; jac)
     return BackgroundSystem(sys, ssys, prob)
 end

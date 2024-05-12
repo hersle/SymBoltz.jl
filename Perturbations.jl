@@ -99,7 +99,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
     ], η, [], [fb, dτspline]; name)
     sys = compose(connections, g, grav, ph, pol, bar, cdm, bg.sys) # TODO: add background stuff?
-    ssys = structural_simplify(sys)
+    ssys = structural_simplify(sys; simplify=true, allow_symbolic=true)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
     return PerturbationsSystem(sys, ssys, prob, bg, th)
 end
@@ -109,12 +109,14 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
     bg_sol = solve(bg, Ωr0, Ωm0; aini) # TODO: just use th_sol instead
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ρrini, ρmini, ρΛini, Eini = bg_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
+    println("Integrated BG")
 
     th = pt.th
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
-    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp; reltol=1e-12) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.sys.τ)), log.(th_sol[η]); extrapolate=true) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) # TODO: verify that extrapolate=true is ok (it is needed for autodiff CMB computation) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     dτini = dτfunc(ηini, dτspline)
+    println("Integrated TH")
 
     function prob_func(_, i, _)
         kval = kvals[i]

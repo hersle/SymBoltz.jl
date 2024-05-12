@@ -12,6 +12,7 @@ end
 Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
 function recombination_helium_saha(; name, Xeconst=1e-5)
     @parameters Yp
+    Yp = GlobalScope(Yp)
     @variables Xe(η) XH₊(η) XHe₊(η) XHe₊₊(η) ne(η) nH(η) T(η) λ(η) R1(η) R2(η) R3(η)
     return ODESystem([
         λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
@@ -27,7 +28,7 @@ function recombination_helium_saha(; name, Xeconst=1e-5)
 end
 
 function recombination_hydrogen_peebles(g; name)
-    @parameters H0
+    @parameters H0 # TODO: use global one!
     @variables Xe(η) nH(η) T(η) H(η) λ(η) α2(η) β(η) C(η) Λ2γ_Λα(η) β2_Λα(η) actiweight(η)
     return ODESystem([
         λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
@@ -60,6 +61,7 @@ end
 
 function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODESystem, temp::ODESystem, reions::AbstractArray{ODESystem}; name)
     @parameters fb H0
+    H0 = GlobalScope(H0)
     @variables Xe(η) ne(η) τ(η) H(η) ρb(η) nb(η) nH(η)
     connections = ODESystem([
         H ~ bg.sys.g.E * H0 # 1/s # TODO: avoid duplicate name with background H
@@ -80,9 +82,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODES
         Xe ~ Hifelse(Hrec.actiweight, Herec.Xe, Hrec.Xe; k=1e3) + sum(reion.Xe for reion in reions)
         ne ~ Xe * nH
         Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
-    ], η; name)
+    ], η; name, defaults = [Hrec.H0 => H0])
     sys = compose(connections, [Herec; Hrec; temp; reions; bg.sys])
-    ssys = structural_simplify(sys)
+    ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true)
     return ThermodynamicsSystem(sys, ssys, prob, bg)
 end
@@ -94,7 +96,7 @@ function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aen
     ρrini, ρmini, ρΛini = bg_sol(ηini; idxs=[th.bg.sys.rad.ρ, th.bg.sys.mat.ρ, th.bg.sys.de.ρ]) # TODO: avoid duplicate logic
     fb = Ωb0 / Ωm0; @assert fb <= 1
     Tini = (ρrini * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
-    XeSini = 1 + Yp / (4*(1-Yp)) * 2 # TODO: avoid?
-    prob = remake(th.prob; tspan = (ηini, ηtoday), u0 = [th.ssys.Herec.Xe => XeSini, th.ssys.Hrec.Xe => 1.0, th.ssys.temp.Tγ => Tini, th.ssys.temp.Tb => Tini, th.ssys.τ => 0.0, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini], p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.Hrec.H0 => H0, th.ssys.Herec.Yp => Yp, th.ssys.reion1.Herec₊Yp => Yp, th.ssys.reion2.Herec₊Yp => Yp]) # TODO: avoid 2xH0, 2xYp, ...
+    XeSini = 1 + Yp / (4*(1-Yp)) * 2
+    prob = remake(th.prob; tspan = (ηini, ηtoday), u0 = [th.ssys.Herec.Xe => XeSini, th.ssys.Hrec.Xe => 1.0, th.ssys.temp.Tγ => Tini, th.ssys.temp.Tb => Tini, th.ssys.τ => 0.0, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini], p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.Herec.Yp => Yp])
     return solve(prob, solver; reltol, kwargs...) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
 end
