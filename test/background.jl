@@ -1,8 +1,7 @@
 using .Symboltz
 using .Symboltz: η
 using ModelingToolkit
-using Plots; Plots.default(label=nothing, markershape=:pixel)
-using ForwardDiff, DiffResults, FiniteDiff
+using Plots; Plots.default(label=nothing)
 
 @kwdef struct Parameters
     Ωr0 = 5.5e-5
