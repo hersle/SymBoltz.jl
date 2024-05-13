@@ -30,8 +30,8 @@ if true
 
     # TODO: thermodynamics plot recipe
     p = plot(layout=(1,2), size=(1000, 400), margin=5*Plots.mm); display(p) # TODO: add plot recipe!
-    plot!(p[1], log10.(th_sol[bg.ssys.g.a]), log10.(abs.(stack(th_sol[[Herec.Xe, Hrec.Xe, reion1.Xe, reion2.Xe, th.ssys.Xe]])')); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-5, +1), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
-    plot!(p[2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.ssys.temp.Tγ, th.ssys.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
+    plot!(p[1], log10.(th_sol[bg.ssys.g.a]), log10.(abs.(stack(th_sol[[th.sys.Herec.Xe, th.sys.Hrec.Xe, th.sys.reion1.Xe, th.sys.reion2.Xe, th.ssys.Xe]])')); xlabel="lg(a)", ylabel="lg(Xe)", ylims=(-5, +1), label=["XeS" "XeP" "XeRE1" "XeRE2" "Xe"], legend=:bottomleft); display(p)
+    plot!(p[2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.sys.temp.Tγ, th.sys.temp.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 end
 
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
