@@ -6,13 +6,16 @@ struct BackgroundSystem
 end
 
 function background_metric(; name)
-    @variables a(η) ℰ(η) E(η)
-    a, ℰ, E = GlobalScope.((a, ℰ, E)) # spacetime underlies all components # TODO: more natural way to connect them?
+    @variables a(η) ℰ(η) E(η) H(η) ℋ(η)
+    @parameters H0
+    a, ℰ, E, H, H0 = GlobalScope.((a, ℰ, E, H, H0)) # spacetime underlies all components # TODO: more natural way to connect them?
     eqs = [
         ℰ ~ Dη(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
+        ℋ ~ ℰ * H0
+        H ~ E * H0
     ]
-    return ODESystem(eqs, η, [a, ℰ, E], []; name)
+    return ODESystem(eqs, η, [a, ℰ, E, ℋ, H], [H0]; name)
 end
 
 function background_gravity_GR(g; name)
@@ -52,7 +55,7 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
     ], η; name)
     sys = compose(connections, components...)
     ssys = structural_simplify(sys) # simplified system
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN; jac)
+    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (NaN, NaN), parameters(ssys) .=> NaN; jac)
     return BackgroundSystem(sys, ssys, prob)
 end
 
@@ -65,11 +68,11 @@ function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Ken
     ρmini = 3/8π * Ωm0 / aini^3
     ρΛini = 3/8π * ΩΛ0
     
-    prob = remake(bg.prob; tspan=(ηini, 4.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
+    prob = remake(bg.prob; tspan=(ηini, 3.1), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
 
-    # stop when a == aend
+    # TODO: stop when a == aend
     aindex = variable_index(bg.ssys, bg.ssys.g.a)
     callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!)
 
-    return solve(prob, solver; callback, reltol, kwargs...)
+    return solve(prob, solver; #=callback,=# reltol, kwargs...)
 end

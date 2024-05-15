@@ -1,3 +1,5 @@
+import SpecialFunctions: zeta as ζ
+
 struct ThermodynamicsSystem
     sys::ODESystem
     ssys::ODESystem
@@ -5,107 +7,163 @@ struct ThermodynamicsSystem
     bg::BackgroundSystem
 end
 
-# TODO: separate components more meaningfully
-# TODO: Hydrogen, Helium, baryons, photons, ...
+function thermodynamics_hydrogen_recombination_saha(Eion = NoUnits(13.59844u"eV/J"); kwargs...)
+    @parameters Y
+    @variables X(η) Xe(η) T(η) λ(η) R(η) ne(η) n(η) nb(η) nγ(η) n(η)
+    return ODESystem([
+        n ~ Y * nb
+        λ ~ h / √(2π*me*kB*T)
+        R ~ exp(-Eion/(kB*T)) / (λ^3 * ne)
+        X ~ R / (1 + R) # = nH₊/nH
+        Xe ~ Y * X
+    ], η, [Xe, n, ne, T, nb, nγ], [Y]; defaults = [X => 1.0, Xe => Y], kwargs...)
+end
+
+function thermodynamics_helium_recombination_saha(; Eion1 = NoUnits(24.58738u"eV/J"), Eion2 = NoUnits(54.41776u"eV/J"), kwargs...)
+    @parameters Y
+    @variables Xe(η) X1(η) X2(η) T(η) λ(η) R1(η) R2(η) ne(η) n(η) nb(η) nγ(η)
+    return ODESystem([
+        λ ~ h / √(2π*me*kB*T)
+        R1 ~ 2 * exp(-Eion1/(kB*T)) / (λ^3 * ne)
+        R2 ~ 4 * exp(-Eion2/(kB*T)) / (λ^3 * ne)
+        X1 ~ R1 / (1 + R1 + R1*R2)
+        X2 ~ R2 * X1
+        Xe ~ Y/4 * (X1 + 2*X2)
+    ], η, [Xe, n, ne, T, nb, nγ], [Y]; defaults = [X2 => 1.0, X1 => 0.0, Xe => Y/2], kwargs...)
+end
 
 # background thermodynamics / recombination
-Hifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
-function recombination_helium_saha(; name, Xeconst=1e-5)
-    @parameters Yp
-    Yp = GlobalScope(Yp)
-    @variables Xe(η) XH₊(η) XHe₊(η) XHe₊₊(η) ne(η) nH(η) T(η) λ(η) R1(η) R2(η) R3(η)
+smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+smoothmin(v1, v2; kwargs...) = smoothifelse(v1 - v2, v1, v2; kwargs...)
+smoothmax(v1, v2; kwargs...) = smoothifelse(v1 - v2, v2, v1; kwargs...)
+
+function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844u"eV/J"), kwargs...)
+    @parameters Y
+    @variables X(η) Xe(η) T(η) λe(η) H(η) ne(η) n(η) n1s(η) λ(η) λα(η) α2(η) β(η) C(η) Λα⁻¹(η) Λ2γ_Λα(η) β2_Λα(η) nb(η) nγ(η)
+    Eion = -E1
+    E(n) = E1 / n^2
     return ODESystem([
-        λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
-        ne ~ Xe * nH
-        R1 ~ 1 * exp(-EHion  /(kB*T)) / (λ^3 * ne) # TODO: simplify equations?
-        R2 ~ 2 * exp(-EHe1ion/(kB*T)) / (λ^3 * ne)
-        R3 ~ 4 * exp(-EHe2ion/(kB*T)) / (λ^3 * ne)
-        XH₊ ~ R1 / (1 + R1)
-        XHe₊ ~ R2 / (1 + R2 + R2*R3)
-        XHe₊₊ ~ R3 * XHe₊
-        Xe ~ XH₊ + Yp / (4*(1-Yp)) * (XHe₊ + 2*XHe₊₊) + Xeconst # add small constant Xe which is greater than integrator tolerance to avoid solver giving tiny negative values
-    ], η, [Xe, XH₊, XHe₊, XHe₊₊, T, nH, ne], [Yp]; name)
+        n ~ Y * nb
+        λe ~ h / √(2π*me*kB*T) # h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
+        α2 ~ 9.78 * (α*ħ/me)^2/c * √(Eion/kB/T) * log(Eion/kB/T) # Dodelson (4.38) (e⁻ + p → H + γ) # TODO: add Recfast fudge factor?
+        β ~ α2 * exp(E(1)/kB/T) / λe^3 # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
+
+        # TODO: fix Peebles' correction factor! it is unstable
+        #n1s ~ smoothifelse(0.8 - X, 0, 1-X; k=1e2) * n # (1-X) * n # TODO: n1s sometimes goes negative!
+        #λα ~ 8π*ħ*c / (3*Eion)
+        #Λα⁻¹ ~ λα^3 * n1s / (8π * g.H) # TODO: this becomes negative, but should always be positive
+        #β2_Λα ~ α2 / λe^3 * exp(E(2)/kB/T) * Λα⁻¹ # β2/Λα (compute this instead of β2 = β * exp(3*Eion/(4*kB*T)) to avoid exp overflow)
+        #Λ2γ_Λα ~ 8.227 * Λα⁻¹ # Λ2γ/Λα
+        C ~ 1 # (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα) # Peebles' correction factor (Dodelson exercise 4.7)
+
+        Dη(X) * g.H0 ~ g.a * C * ((1-X) * β - α2*X^2*n) # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Xe ~ X * Y
+    ], η, [X, Xe, n, T, ne, C, β2_Λα, Λ2γ_Λα, Λα⁻¹, n1s, nb, nγ], [Y]; defaults = [X => 1.0, Xe => Y], kwargs...)
+end
+# testing:
+# plot(log.(th_sol.t), th_sol[th.sys.H.Λα⁻¹])
+
+# TODO: does this work correctly together with He?
+function thermodynamics_hydrogen_recombination_baumann(g; Eion = NoUnits(13.59844u"eV/J"), ϵ=1e-20, kwargs...)
+    @parameters Y λ
+    @variables X(η) Xeq(η) T(η) ne(η) n(η) R⁻¹(η) x(η) nb(η) nγ(η) H(η)
+    return ODESystem([
+        # Baumann (3.3.108) (ϵ ≪ 1 maintains numerical stability)
+        R⁻¹ ~ exp(-Eion/kB/T) / (2*ζ(3)/π^2 * nγ/nb * (2π*kB*T/(me*c^2))^(3/2))
+        Xeq ~ -R⁻¹/2 + √(R⁻¹ + R⁻¹^2/4 + ϵ)
+
+        # Baumann (3.3.123) (λ = λ(x=1) set as parameter)
+        x ~ Eion / (kB*T)
+        Dη(X) ~ -Dη(x) * λ/x^2 * (X^2 - Xeq^2)
+    ], η, [X, Xeq, T, ne, n, R⁻¹, nb, nγ], [Y, λ]; defaults = [X => 1.0], kwargs...)
 end
 
-function recombination_hydrogen_peebles(g; name)
-    @parameters H0 # TODO: use global one!
-    @variables Xe(η) nH(η) T(η) H(η) λ(η) α2(η) β(η) C(η) Λ2γ_Λα(η) β2_Λα(η) actiweight(η)
-    return ODESystem([
-        λ ~ h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
-        α2 ~ 9.78 * (α*ħ/me)^2/c * √(EHion/(kB*T)) * log(EHion/(kB*T)) # Dodelson (4.38) (e⁻ + p → H + γ) # TODO: add Recfast fudge factor?
-        β  ~ α2 / λ^3 * exp(-EHion/(kB*T)) # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
-        β2_Λα ~ α2 / λ^3 * exp(-EHion/(4*kB*T)) * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # β2/Λα (compute this instead of β2 = β * exp(3*EHion/(4*kB*T)) to avoid exp overflow)
-        Λ2γ_Λα ~ 8.227 * ((8*π)^2 * (1-Xe) * nH) / (H * (3*EHion/(ħ*c))^3) # Λ2γ/Λα
-        C ~ Hifelse(actiweight, 1, (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα); k=1e3) # Peebles' correction factor (Dodelson exercise 4.7), manually activated to avoid numerical issues at early times # TODO: activate using internal quantities only! # TODO: why doesnt it work to activate from 0? activating from 1 is really unnatural
-        Dη(Xe) ~ C * ((1-Xe)*β - Xe^2*nH*α2) * g.a / H0 # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
-    ], η, [Xe, H, nH, T, actiweight], [H0]; name)
-end
-
-function thermodynamics_temperature(g; name)
-    @variables Tγ(η) Tb(η) ργ(η) ρb(η) τ(η) fγb(η)
-    return ODESystem([
-        Dη(Tγ) ~ -1*Tγ * g.ℰ # Tγ = Tγ0 / a # TODO: introduce ℋ = Dη(a) / a?
-        Dη(Tb) ~ -2*Tb * g.ℰ - 8/3*(mp/me)*fγb*g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
-    ], η, [Tγ, Tb, τ, fγb], []; name)
-end
-
-function reionization_smooth_step(g, z0, Δz0, Xe0; name)
+function reionization_tanh(g, z0, Δz0, Xe0; name, kwargs...)
     y(z) = (1+z)^(3/2)
     Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
-    @variables Xe(η) z(η)
-    return ODESystem([
+    @variables Xe(η) z(η) T(η) ne(η) nb(η) nγ(η)
+    @parameters Y
+    base = ODESystem(Equation[], η, [T, ne, nb, nγ], [Y]; name=:base)
+    return extend(ODESystem([
         z ~ 1/g.a - 1
-        Xe ~ Hifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
-    ], η; name)
+        Xe ~ smoothifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
+    ], η; name, kwargs...), base)
 end
 
 function thermodynamics_ΛCDM(bg::BackgroundSystem; name)
-    @named temp = Symboltz.thermodynamics_temperature(bg.sys.g)
-    @named Herec = Symboltz.recombination_helium_saha()
-    @named Hrec = Symboltz.recombination_hydrogen_peebles(bg.sys.g)
-    @named reion1 = Symboltz.reionization_smooth_step(bg.sys.g, 8.0, 0.5, 1 + Herec.Yp/(4*(1-Herec.Yp))) # TODO: separate reionH₊, reionHe₊, reionHe₊₊
-    @named reion2 = Symboltz.reionization_smooth_step(bg.sys.g, 3.5, 0.5, Herec.Yp/(4*(1-Herec.Yp)))
-    return Symboltz.ThermodynamicsSystem(bg, Herec, Hrec, temp, [reion1, reion2]; name)
+    defaults = Dict()
+    #@named H = thermodynamics_hydrogen_recombination_saha()
+    @named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
+    #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
+    @named He = thermodynamics_helium_recombination_saha()
+    @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y)
+    @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
+    @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
+    return ThermodynamicsSystem(bg, [H, He, Hre, Here1, Here2]; name, defaults)
 end
 
-function ThermodynamicsSystem(bg::BackgroundSystem, Herec::ODESystem, Hrec::ODESystem, temp::ODESystem, reions::AbstractArray{ODESystem}; name)
+# TODO: make BaryonSystem or something, then merge into a background_baryon component?
+# TODO: integrate using E/kB*T as independent variable?
+# TODO: make e⁻ and γ species
+function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
     @parameters fb H0
     H0 = GlobalScope(H0)
-    @variables Xe(η) ne(η) τ(η) H(η) ρb(η) nb(η) nH(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η)
+    # defaults[Xe] = sum(atom.Xe for atom in atoms) + Xeϵ # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
-        H ~ bg.sys.g.E * H0 # 1/s # TODO: avoid duplicate name with background H
         ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
-        nH ~ (1-Herec.Yp) * nb # TODO: correct?
 
-        temp.fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
-        temp.τ ~ τ
-        Herec.T ~ temp.Tb
-        Herec.nH ~ nH
-        Hrec.T ~ temp.Tb
-        Hrec.nH ~ nH
-        Hrec.H ~ H
-        Hrec.actiweight ~ 1 - Herec.Xe
-        
-        # switch *smoothly* from Saha to Peebles when XeS ≤ 1 (see e.g. https://discourse.julialang.org/t/handling-instability-when-solving-ode-problems/9019/5) # TODO: make into a connection
-        Xe ~ Hifelse(Hrec.actiweight, Herec.Xe, Hrec.Xe; k=1e3) + sum(reion.Xe for reion in reions)
-        ne ~ Xe * nH
-        Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0)) # TODO: separate in Saha/Peebles?
-    ], η; name, defaults = [Hrec.H0 => H0])
-    sys = compose(connections, [Herec; Hrec; temp; reions; bg.sys])
+        fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
+        Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ # Tγ = Tγ0 / a
+        Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
+
+        [atom.T ~ Tb for atom in atoms];
+        [atom.ne ~ ne for atom in atoms];
+        [atom.nb ~ nb for atom in atoms];
+        [atom.nγ ~ nb for atom in atoms];
+
+        Xe ~ sum(atom.Xe for atom in atoms) + Xeϵ # TODO: makes more sense to sum ne instead?
+        ne ~ Xe * nb # my convention
+        Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+    ], η; defaults, kwargs...)
+    sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true)
     return ThermodynamicsSystem(sys, ssys, prob, bg)
 end
 
 function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
-    H0 = h * 100 * km/Mpc
+    H0 = H100 * h
     bg_sol = solve(th.bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ρrini, ρmini, ρΛini = bg_sol(ηini; idxs=[th.bg.sys.rad.ρ, th.bg.sys.mat.ρ, th.bg.sys.de.ρ]) # TODO: avoid duplicate logic
     fb = Ωb0 / Ωm0; @assert fb <= 1
     Tini = (ρrini * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
-    XeSini = 1 + Yp / (4*(1-Yp)) * 2
-    prob = remake(th.prob; tspan = (ηini, ηtoday), u0 = [th.ssys.Herec.Xe => XeSini, th.ssys.Hrec.Xe => 1.0, th.ssys.temp.Tγ => Tini, th.ssys.temp.Tb => Tini, th.ssys.τ => 0.0, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini], p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.Herec.Yp => Yp])
-    return solve(prob, solver; reltol, kwargs...) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf) TODO: after switching ivar from a to b=ln(a), the integrator needs more steps. fix this?
+    YHe = Yp
+    YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
+
+    #= 
+    # TODO: fails with dual numbers, wait for fix https://github.com/SciML/ModelingToolkit.jl/pull/2686
+    prob = ODEProblem(
+        th.ssys,
+        [th.ssys.Tγ => Tini, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini],
+        (ηini, ηtoday),
+        [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#], # TODO: locallize Bauman λ parameter to its system definition (once Ωb0 etc. are accessible?)
+    )
+    =#
+
+    #TODO: use defaults for th.ssys.Xe => 1 + Yp/2 when fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2715
+    prob = remake(th.prob;
+        tspan = (ηini, ηtoday),
+        u0 = [th.ssys.Xe => 1 + YHe/2, th.ssys.Tγ => Tini, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini],
+        p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
+        use_defaults = true
+    )
+
+    # make solver take smaller steps when some quantity goes out of bounds: https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#My-ODE-goes-negative-but-should-stay-positive,-what-tools-can-help?
+    #XHindex = variable_index(th.ssys, th.ssys.H.X)
+    #isoutofdomain = (u, p, t) -> (XH = u[XHindex]; XH > 1.0)
+
+    return solve(prob, solver; reltol, #=isoutofdomain,=# kwargs...) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf)
 end

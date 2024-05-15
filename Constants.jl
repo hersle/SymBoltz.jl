@@ -11,9 +11,7 @@ const mp = PhysicalConstants.CODATA2018.m_p / u"kg"
 const σT = PhysicalConstants.CODATA2018.σ_e / u"m^2"
 const km  = 1u"km/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
-const EHion = 13.59844u"eV/J" |> NoUnits
-const EHe1ion = 24.58738u"eV/J" |> NoUnits
-const EHe2ion = 54.41776u"eV/J" |> NoUnits
-k0 = 1 / 2997.92458 # h/Mpc
+const H100 = 100 * km/Mpc
+const k0 = H100 * Mpc / c # h/Mpc # TODO: use H100
 
 δkron(i, j) = (i == j ? 1 : 0)

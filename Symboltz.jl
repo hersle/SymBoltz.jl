@@ -14,7 +14,7 @@ using DataInterpolations
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
-# TODO: modified gravity: (coupled) quintessence, Brans-Dicke, DGP, parametrized framework, EFT of LSS, ...
+# TODO: modified gravity: quintessence -> Brans-Dicke -> coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
 # TODO: GPU-parallellized EnsembleProblem
 # TODO: relate parameters through parameter expressions: https://docs.sciml.ai/ModelingToolkit/stable/basics/Composition/#Variable-scope-and-parameter-expressions
 # TODO: define components with @mtkmodel?
@@ -22,7 +22,7 @@ using DataInterpolations
 include("Constants.jl")
 
 @variables η # in units of 1/H0
-Dη = Differential(η) # d/d
+Dη = Differential(η) # d/dη
 
 # TODO: define global spacetime structure here?
 

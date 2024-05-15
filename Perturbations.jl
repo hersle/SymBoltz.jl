@@ -124,7 +124,11 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
     th = pt.th
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    dτspline = CubicSpline(log.(-th_sol.(th_sol[η], Val{1}, idxs=th.sys.τ)), log.(th_sol[η]); extrapolate=true) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) # TODO: verify that extrapolate=true is ok (it is needed for autodiff CMB computation) # TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    ηs = th_sol[η]
+    τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
+    τspline = CubicSpline(τs, ηs)
+    dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
+    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
     dτini = dτfunc(ηini, dτspline)
 
     function prob_func(_, i, _)
