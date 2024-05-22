@@ -116,15 +116,13 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
 end
 
 function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; aini = 1e-8, reltol=1e-8)
-    bg = pt.bg
-    bg_sol = solve(bg, Ωr0, Ωm0; aini) # TODO: just use th_sol instead
-    ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    ρrini, ρmini, ρΛini, Eini = bg_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
-
     th = pt.th
+    bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ηs = th_sol[η]
+    ηini, ηtoday = ηs[begin], ηs[end]
+    ρrini, ρmini, ρΛini, Eini = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
     τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
     τspline = CubicSpline(τs, ηs)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
