@@ -3,7 +3,7 @@ using Bessels: besselj, sphericalbesselj
 using ForwardDiff
 
 # matter power spectrum
-P0(k, As) = @. As / k ^ 3
+P0(k, As) = @. 2*π^2 / k ^ 3 * As # TODO: add kpivot and ns
 function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
     pt_sols = solve(pt, k, Ωr0, Ωm0, Ωb0, h, Yp)
     ηtoday = pt_sols[1].prob.tspan[end] # TODO: something more robust?
