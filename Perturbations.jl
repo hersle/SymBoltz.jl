@@ -133,20 +133,24 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
     dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
     dτini = dτfunc(ηini, dτspline)
 
+    lmax = lastindex(pt.sys.ph.Θ)
+    T = eltype([Ωr0, Ωm0, Ωb0, h, Yp])
+
     function prob_func(_, i, _)
         kval = kvals[i]
         println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
+    
+        Θrini = Vector{T}(undef, lmax) # TODO: avoid Any, use eltype logic? # TODO: allocate outside, but beware of race condition?
+        ΘPini = Vector{T}(undef, lmax) # TODO: allow lrmax ≠ lPmax # TODO: avoid Any, use eltype logic?
+
         Φini = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
-        lmax = lastindex(pt.sys.ph.Θ)
         Θrini0 = Φini/2 # Dodelson (7.89)
-        Θrini = Vector{Any}(undef, lmax)
         Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
-        Θrini[2] = -8/15#=-20/45=#*kval/dτini * Θrini[1]# TODO: change with/without polarization; another argument for merging photons+polarization
+        Θrini[2] = -8/15#=-20/45=#*kval/dτini * Θrini[1] # TODO: change with/without polarization; another argument for merging photons+polarization
         for l in 3:lmax
             Θrini[l] = -l/(2*l+1) * kval/dτini * Θrini[l-1]
         end
         ΘPini0 = 5/4 * Θrini[2]
-        ΘPini = Vector{Any}(undef, lmax) # TODO: allow lrmax ≠ lPmax
         ΘPini[1] = -kval/(4*dτini) * Θrini[2]
         ΘPini[2] = 1/4 * Θrini[2]
         for l in 3:lmax
