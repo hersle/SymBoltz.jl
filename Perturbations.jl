@@ -24,30 +24,25 @@ function perturbations_radiation(g, interact=false; name)
     ], η; name)
 end
 
-function perturbations_photon_hierarchy(g, lmax=6, interact=false; name)
-    @variables Θ0(η) Θ(η)[1:lmax] δ(η) interactions(η)[1:lmax]
+function perturbations_photon_hierarchy(g, lmax=6, polarization=true; name)
+    @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η)
     eqs = [
         Dη(Θ0) + g.k*Θ[1] ~ -Dη(g.Φ)
-        Dη(Θ[1]) - g.k/3*(Θ0-2*Θ[2]) ~ g.k/3*g.Ψ + interactions[1]
-        [Dη(Θ[l]) ~ g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + interactions[l] for l in 2:lmax-1]...
-        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + interactions[lmax]
+        Dη(Θ[1]) - g.k/3*(Θ0-2*Θ[2]) ~ g.k/3*g.Ψ - dτ/3 * (ub - 3*Θ[1])
+        [Dη(Θ[l]) ~ g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Θ[2]/10*δkron(l,2)) for l in 2:lmax-1]...
+        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Θ[2]/10*δkron(lmax,2))
         δ ~ 4*Θ0
     ]
-    if !interact
-        push!(eqs, collect(interactions .~ 0)...)
+    if polarization
+        @variables ΘP0(η) ΘP(η)[1:lmax] Π(η)
+        push!(eqs,
+            Dη(ΘP0) + g.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
+            Dη(ΘP[1]) - g.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
+            [Dη(ΘP[l]) - g.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...,
+            Dη(ΘP[lmax]) ~ g.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax],
+            Π ~ Θ[2] + ΘP[2] + ΘP0
+        )
     end
-    return ODESystem(eqs, η; name)
-end
-
-# TODO: merge with photon_hierarchy and have polarization flag
-function perturbations_polarization_hierarchy(g, lmax=6; name)
-    @variables Θ0(η) Θ(η)[1:lmax] dτ(η) Π(η) # TODO: index Θ[l=0] when fixed: https://github.com/SciML/ModelingToolkit.jl/pull/2671
-    eqs = [
-        Dη(Θ0) + g.k*Θ[1] ~ dτ * (Θ0 - Π/2)
-        Dη(Θ[1]) - g.k/(2*1+1) * (1*Θ0 - (1+1)*Θ[1+1]) ~ dτ * (Θ[1] - Π/10*δkron(1,2))
-        [Dη(Θ[l]) - g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) ~ dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
-        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * Θ[lmax]
-    ]
     return ODESystem(eqs, η; name)
 end
 
@@ -55,7 +50,7 @@ function perturbations_matter(gbg, gpt, interact=false; name)
     @variables δ(η) u(η) Δ(η) interaction(η)
     eqs = [
         Dη(δ) + gpt.k*u ~ -3*Dη(gpt.Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website)
+        Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website) # TODO: treat interaction explicitly
         Δ ~ δ + 3 * gbg.ℰ/gpt.k * u # TODO: correct??? gauge-invariant density perturbation (https://arxiv.org/pdf/1307.1459#equation.2.12)
     ]
     if !interact
@@ -76,17 +71,16 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
     bg = th.bg
     @named gpt = Symboltz.perturbations_metric()
     @named ph = Symboltz.perturbations_photon_hierarchy(gpt, lmax, true)
-    @named pol = Symboltz.perturbations_polarization_hierarchy(gpt, lmax)
     @named cdm = Symboltz.perturbations_matter(bg.sys.g, gpt, false)
     @named bar = Symboltz.perturbations_matter(bg.sys.g, gpt, true)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, gpt)
-    return Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, pol, cdm, bar; name)
+    return Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, cdm, bar; name)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 @register_symbolic dτfunc(η, spl) # TODO: improve somehow
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
-function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, pol::ODESystem, cdm::ODESystem, bar::ODESystem; name)
+function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
     @parameters fb dτspline # TODO: get rid of
     @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
     connections = ODESystem([
@@ -101,19 +95,15 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
-        bar.interaction     ~ +dτ/R * (bar.u - 3*ph.Θ[1])
-        ph.interactions[1] ~ -dτ/3 * (bar.u - 3*ph.Θ[1])
-        [ph.interactions[l] ~ dτ * (ph.Θ[l] - ph.Θ[2]/10*δkron(l,2)) for l in 2:lastindex(ph.interactions)]...
+        bar.interaction ~ +dτ/R * (bar.u - 3*ph.Θ[1])
+        ph.ub ~ bar.u
+        ph.dτ ~ dτ
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
-    
-        # polarization
-        pol.dτ ~ dτ
-        pol.Π ~ ph.Θ[2] + pol.Θ[2] + pol.Θ0
     
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
     ], η, [Δm], [fb, dτspline]; name)
-    sys = compose(connections, g, grav, ph, pol, bar, cdm, bg.sys) # TODO: add background stuff?
+    sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys; simplify=true, allow_symbolic=true)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
     return PerturbationsSystem(sys, ssys, prob, bg, th)
@@ -158,7 +148,7 @@ function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, 
         end
         δcini = δbini = 3*Θrini0 # Dodelson (7.94)
         ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt.prob; tspan = (ηini, ηtoday), u0 = Dict(pt.ssys.gpt.Φ => Φini, pt.ssys.ph.Θ0 => Θrini0, [pt.ssys.ph.Θ[l] => Θrini[l] for l in 1:lmax]..., pt.ssys.pol.Θ0 => ΘPini0, [pt.ssys.pol.Θ[l] => ΘPini[l] for l in 1:lmax]..., pt.ssys.bar.δ => δbini, pt.ssys.bar.u => ubini, pt.ssys.cdm.δ => δcini, pt.ssys.cdm.u => ucini, bg.sys.rad.ρ => ρrini, bg.sys.mat.ρ => ρmini, bg.sys.de.ρ => ρΛini, bg.sys.g.a => aini), p = [pt.ssys.fb => fb, pt.ssys.gpt.k => kval, pt.ssys.dτspline => dτspline])
+        return remake(pt.prob; tspan = (ηini, ηtoday), u0 = Dict(pt.ssys.gpt.Φ => Φini, pt.ssys.ph.Θ0 => Θrini0, [pt.ssys.ph.Θ[l] => Θrini[l] for l in 1:lmax]..., pt.ssys.ph.ΘP0 => ΘPini0, [pt.ssys.ph.ΘP[l] => ΘPini[l] for l in 1:lmax]..., pt.ssys.bar.δ => δbini, pt.ssys.bar.u => ubini, pt.ssys.cdm.δ => δcini, pt.ssys.cdm.u => ucini, bg.sys.rad.ρ => ρrini, bg.sys.mat.ρ => ρmini, bg.sys.de.ρ => ρΛini, bg.sys.g.a => aini), p = [pt.ssys.fb => fb, pt.ssys.gpt.k => kval, pt.ssys.dτspline => dτspline])
     end
 
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
