@@ -68,11 +68,11 @@ function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Ken
     ρmini = 3/8π * Ωm0 / aini^3
     ρΛini = 3/8π * ΩΛ0
     
-    prob = remake(bg.prob; tspan=(ηini, 3.1), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
+    prob = remake(bg.prob; tspan=(ηini, 10.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
 
-    # TODO: stop when a == aend
+    # integrate until a == aend
     aindex = variable_index(bg.ssys, bg.ssys.g.a)
     callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!)
 
-    return solve(prob, solver; #=callback,=# reltol, kwargs...)
+    return solve(prob, solver; callback, reltol, kwargs...)
 end
