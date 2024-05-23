@@ -104,53 +104,58 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
     ], η, [Δm], [fb, dτspline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
-    ssys = structural_simplify(sys; simplify=true, allow_symbolic=true)
+    ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
     return PerturbationsSystem(sys, ssys, prob, bg, th)
 end
 
-function solve(pt::PerturbationsSystem, kvals::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; aini = 1e-8, reltol=1e-8)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; aini = 1e-8, reltol=1e-8)
     th = pt.th
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
-    ρrini, ρmini, ρΛini, Eini = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.E]) # TODO: avoid duplicate logic
+    ρr, ρm, ρΛ, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
     τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
     τspline = CubicSpline(τs, ηs)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
     dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
-    dτini = dτfunc(ηini, dτspline)
 
     lmax = lastindex(pt.sys.ph.Θ)
     T = eltype([Ωr0, Ωm0, Ωb0, h, Yp])
 
     function prob_func(_, i, _)
-        kval = kvals[i]
-        println("$i/$(length(kvals)) k = $(kval*k0) Mpc/h")
+        k = ks[i]
+        a = aini
+        dτ = τs[begin]
+        println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
     
-        Θrini = Vector{T}(undef, lmax) # TODO: avoid Any, use eltype logic? # TODO: allocate outside, but beware of race condition?
-        ΘPini = Vector{T}(undef, lmax) # TODO: allow lrmax ≠ lPmax # TODO: avoid Any, use eltype logic?
+        Θ = Vector{T}(undef, lmax) # TODO: avoid Any, use eltype logic? # TODO: allocate outside, but beware of race condition?
+        ΘP = Vector{T}(undef, lmax) # TODO: allow lrmax ≠ lPmax # TODO: avoid Any, use eltype logic?
 
-        Φini = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
-        Θrini0 = Φini/2 # Dodelson (7.89)
-        Θrini[1] = -kval*Φini/(6*aini*Eini) # Dodelson (7.95)
-        Θrini[2] = -8/15#=-20/45=#*kval/dτini * Θrini[1] # TODO: change with/without polarization; another argument for merging photons+polarization
+        Φ = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
+        Θ0 = 1/2 * Φ # Dodelson (7.89)
+        Θ[1] = -1/6 * k/ℰ * Φ # Dodelson (7.95)
+        Θ[2] = -8/15#=-20/45=#*k/dτ * Θ[1] # TODO: change with/without polarization; another argument for merging photons+polarization
         for l in 3:lmax
-            Θrini[l] = -l/(2*l+1) * kval/dτini * Θrini[l-1]
+        Θ[l] = -l/(2*l+1) * k/dτ * Θ[l-1]
         end
-        ΘPini0 = 5/4 * Θrini[2]
-        ΘPini[1] = -kval/(4*dτini) * Θrini[2]
-        ΘPini[2] = 1/4 * Θrini[2]
+        ΘP0 = 5/4 * Θ[2]
+        ΘP[1] = -1/4 * k/dτ * Θ[2]
+        ΘP[2] = 1/4 * Θ[2]
         for l in 3:lmax
-            ΘPini[l] = -l/(2*l+1) * kval/dτini * ΘPini[l-1]
+        ΘP[l] = -l/(2*l+1) * k/dτ * ΘP[l-1]
         end
-        δcini = δbini = 3*Θrini0 # Dodelson (7.94)
-        ucini = ubini = 3*Θrini[1] # Dodelson (7.95)
-        return remake(pt.prob; tspan = (ηini, ηtoday), u0 = Dict(pt.ssys.gpt.Φ => Φini, pt.ssys.ph.Θ0 => Θrini0, [pt.ssys.ph.Θ[l] => Θrini[l] for l in 1:lmax]..., pt.ssys.ph.ΘP0 => ΘPini0, [pt.ssys.ph.ΘP[l] => ΘPini[l] for l in 1:lmax]..., pt.ssys.bar.δ => δbini, pt.ssys.bar.u => ubini, pt.ssys.cdm.δ => δcini, pt.ssys.cdm.u => ucini, bg.sys.rad.ρ => ρrini, bg.sys.mat.ρ => ρmini, bg.sys.de.ρ => ρΛini, bg.sys.g.a => aini), p = [pt.ssys.fb => fb, pt.ssys.gpt.k => kval, pt.ssys.dτspline => dτspline])
+        δc = δb = 3 * Θ0 # Dodelson (7.94)
+        uc = ub = 3 * Θ[1] # Dodelson (7.95)
+        return remake(pt.prob;
+            tspan = (ηini, ηtoday),
+            u0 = [pt.ssys.gpt.Φ => Φ, pt.ssys.ph.Θ0 => Θ0, [pt.ssys.ph.Θ[l] => Θ[l] for l in 1:lmax]..., pt.ssys.ph.ΘP0 => ΘP0, [pt.ssys.ph.ΘP[l] => ΘP[l] for l in 1:lmax]..., pt.ssys.bar.δ => δb, pt.ssys.bar.u => ub, pt.ssys.cdm.δ => δc, pt.ssys.cdm.u => uc, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a],
+            p = [pt.ssys.fb => fb, pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline]
+        )
     end
 
     probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
-    return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(kvals); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
+    return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
