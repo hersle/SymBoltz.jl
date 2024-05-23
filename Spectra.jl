@@ -7,7 +7,7 @@ P0(k, As) = @. 2*π^2 / k ^ 3 * As # TODO: add kpivot and ns
 function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
     pt_sols = solve(pt, k, Ωr0, Ωm0, Ωb0, h, Yp)
     ηtoday = pt_sols[1].prob.tspan[end] # TODO: something more robust?
-    return P0(k, As) .* pt_sols(ηtoday, idxs=pt.sys.gravpt.Δm) .^ 2
+    return P0(k, As) .* pt_sols(ηtoday, idxs=pt.sys.Δm) .^ 2
 end
 
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))

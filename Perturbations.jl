@@ -52,20 +52,23 @@ function perturbations_polarization_hierarchy(g, lmax=6; name)
 end
 
 function perturbations_matter(gbg, gpt, interact=false; name)
-    @variables δ(η) u(η)
-    interaction = interact ? only(@variables interaction(η)) : 0
-    return ODESystem([
+    @variables δ(η) u(η) Δ(η) interaction(η)
+    eqs = [
         Dη(δ) + gpt.k*u ~ -3*Dη(gpt.Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
         Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website)
-    ], η; name)
+        Δ ~ δ + 3 * gbg.ℰ/gpt.k * u # TODO: correct??? gauge-invariant density perturbation (https://arxiv.org/pdf/1307.1459#equation.2.12)
+    ]
+    if !interact
+        push!(eqs, interaction ~ 0)
+    end
+    return ODESystem(eqs, η, [δ, u, Δ, interaction], []; name)
 end
 
 function perturbations_gravity(gbg, gpt; name)
-    @variables δρ(η) Δm(η) ρm(η) Π(η)
+    @variables δρ(η) Π(η)
     return ODESystem([
         Dη(gpt.Φ) ~ (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
         gpt.k^2 * (gpt.Ψ + gpt.Φ) ~ Π # anisotropic stress
-        Δm ~ gpt.k^2 * gpt.Φ / (4π*gbg.a^2*ρm) # gauge-invariant overdensity (from Poisson equation) # TODO: move outside or change?
     ], η; name)
 end
 
@@ -85,7 +88,7 @@ end
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, pol::ODESystem, cdm::ODESystem, bar::ODESystem; name)
     @parameters fb dτspline # TODO: get rid of
-    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) # TODO: get rid of
+    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
         ρc ~ bg.sys.mat.ρ - ρb
@@ -93,7 +96,8 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         δρc ~ cdm.δ * ρc
         δρb ~ bar.δ * ρb
         grav.δρ ~ δρr + δρc + δρb # total energy density perturbation
-        grav.ρm ~ bg.sys.mat.ρ
+
+        Δm ~ (ρc * cdm.Δ + ρb * bar.Δ) / bg.sys.mat.ρ # total gauge-invariant matter overdensity
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
@@ -108,7 +112,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [], [fb, dτspline]; name)
+    ], η, [Δm], [fb, dτspline]; name)
     sys = compose(connections, g, grav, ph, pol, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys; simplify=true, allow_symbolic=true)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
