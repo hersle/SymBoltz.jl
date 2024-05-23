@@ -59,7 +59,7 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
     return BackgroundSystem(sys, ssys, prob)
 end
 
-function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=KenCarp4(), reltol=1e-8, kwargs...)
+function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Vern8(), reltol=1e-8, kwargs...)
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     # TODO: take symbolic IC map
     ΩΛ0 = 1 - Ωr0 - Ωm0
