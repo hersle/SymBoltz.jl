@@ -1,6 +1,7 @@
 using NumericalIntegration
 using Bessels: besselj, sphericalbesselj
 using ForwardDiff
+using Base.Threads
 
 # matter power spectrum
 P0(k, As) = @. 2*π^2 / k ^ 3 * As # TODO: add kpivot and ns
@@ -37,7 +38,7 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     
     # TODO: use saveat for ηs
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp)
-    for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
+    for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols)) # TODO: parallellize over threads?
         # TODO: must be faster!! use saveat for ηs in ODESolution?
         # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
         Θ0(η) = pt_sol(η, idxs=pt.sys.ph.Θ0)
@@ -76,30 +77,30 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     T = eltype([Ωr0, Ωm0, Ωb0, h, As, Yp]) # TODO: handle with/without As differently?
     ∂Θ_∂lnη = zeros(T, (length(ls), length(ηs)))
     Θls = zeros(T, (length(ls), length(ks)))
-    ks_with0 = [0.0; ks]
-    dCl_dks_with0 = zeros(T, length(ks_with0))
-    Cls = zeros(T, length(ls))
-
     ls_all = minimum(ls):1:maximum(ls) # range with step 1
     ls_indices = 1 .+ ls .- ls_all[1] # indices such that ls = ls_all[ls_indices]
-    Jls = zeros(length(ls))
+    Jls = zeros((length(ls)))
 
     # TODO: parallellize some of this over threads
     for (i_k, k) in enumerate(ks)
         for (i_η, η) in enumerate(ηs)
             # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
-            Jls .= sphericalbesseljfast(ls_all, k*(η0-η))[ls_indices] # @btime reference (~1000 ls): 5.4 s
+            Jls[:] .= sphericalbesseljfast(ls_all, k*(η0-η))[ls_indices] # @btime reference (~1000 ls): 5.4 s # TODO: use a grid of constant k*(η0-η)=y; use η with logarithmic spacing; use resulting k = y/(η0-η)
             #Jls .= sphericalbesselj.(ls, k*(η0-η)) # @btime reference (~1000 ls): 32 s
-            ∂Θ_∂lnη[:, i_η] .= Ss[i_η, i_k] * Jls * η # TODO: sphericalbesselj takes a lot of time!
+            ∂Θ_∂lnη[:, i_η] .= Ss[i_η, i_k] * Jls[:] * η # TODO: sphericalbesselj takes a lot of time!
         end
-        for (i_l, l) in enumerate(ls)
+        @threads for i_l in eachindex(ls)
             Θls[i_l, i_k] = integrate(lnηs, ∂Θ_∂lnη[i_l, :], SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
-    for (i_l, l) in enumerate(ls)
-        dCl_dks_with0[2:end] .= @. 2/π * ks^2 * P0(ks, As) * Θls[i_l, :]^2
-        Cls[i_l] = integrate(ks_with0, dCl_dks_with0, SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
+    ks_with0 = [0.0; ks]
+    dCl_dks_with0 = zeros(T, (length(ks_with0), nthreads()))
+    Cls = zeros(T, length(ls))
+
+    @threads for i_l in eachindex(ls)
+        dCl_dks_with0[2:end, threadid()] .= @. 2/π * ks^2 * P0(ks, As) * Θls[i_l, :]^2
+        Cls[i_l] = integrate(ks_with0, dCl_dks_with0[:, threadid()], SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     return Cls
