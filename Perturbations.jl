@@ -83,6 +83,22 @@ dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfun
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
     @parameters fb dτspline # TODO: get rid of
     @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
+    lmax = lastindex(ph.Θ)
+    defaults = [
+        g.Φ => 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
+        ph.Θ0 => 1/2 * g.Φ # Dodelson (7.89)
+        ph.Θ[1] => -1/6 * g.k/bg.sys.g.ℰ * g.Φ # Dodelson (7.95)
+        ph.Θ[2] => -8/15#=-20/45=#*g.k/dτ * ph.Θ[1] # TODO: change with/without polarization; another argument for merging photons+polarization
+        [ph.Θ[l] => -l/(2*l+1) * g.k/dτ * ph.Θ[l-1] for l in 3:lmax]...
+        ph.ΘP0 => 5/4 * ph.Θ[2]
+        ph.ΘP[1] => -1/4 * g.k/dτ * ph.Θ[2]
+        ph.ΘP[2] => 1/4 * ph.Θ[2]
+        [ph.ΘP[l] => -l/(2*l+1) * g.k/dτ * ph.ΘP[l-1] for l in 3:lmax]...
+        cdm.δ => 3 * ph.Θ0 # Dodelson (7.94)
+        bar.δ => 3 * ph.Θ0
+        cdm.u => 3 * ph.Θ[1] # Dodelson (7.95)
+        bar.u => 3 * ph.Θ[1]
+    ]
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
         ρc ~ bg.sys.mat.ρ - ρb
@@ -102,7 +118,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [Δm], [fb, dτspline]; name)
+    ], η, [Δm, dτ], [fb, dτspline]; name, defaults)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
@@ -116,46 +132,21 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
-    ρr, ρm, ρΛ, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
+    ρr, ρm, ρΛ, a, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.a, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
     τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
     τspline = CubicSpline(τs, ηs)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
     dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
+    dτ = dτs[begin]
 
-    lmax = lastindex(pt.sys.ph.Θ)
-    T = eltype([Ωr0, Ωm0, Ωb0, h, Yp])
-
-    function prob_func(_, i, _)
+    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN)
+    u0 = Dict(bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ) # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))    
+    prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true)
+    probs = EnsembleProblem(; prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
-        a = aini
-        dτ = τs[begin]
         println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-    
-        Θ = Vector{T}(undef, lmax) # TODO: avoid Any, use eltype logic? # TODO: allocate outside, but beware of race condition?
-        ΘP = Vector{T}(undef, lmax) # TODO: allow lrmax ≠ lPmax # TODO: avoid Any, use eltype logic?
+        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline])
+    end)
 
-        Φ = 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
-        Θ0 = 1/2 * Φ # Dodelson (7.89)
-        Θ[1] = -1/6 * k/ℰ * Φ # Dodelson (7.95)
-        Θ[2] = -8/15#=-20/45=#*k/dτ * Θ[1] # TODO: change with/without polarization; another argument for merging photons+polarization
-        for l in 3:lmax
-        Θ[l] = -l/(2*l+1) * k/dτ * Θ[l-1]
-        end
-        ΘP0 = 5/4 * Θ[2]
-        ΘP[1] = -1/4 * k/dτ * Θ[2]
-        ΘP[2] = 1/4 * Θ[2]
-        for l in 3:lmax
-        ΘP[l] = -l/(2*l+1) * k/dτ * ΘP[l-1]
-        end
-        δc = δb = 3 * Θ0 # Dodelson (7.94)
-        uc = ub = 3 * Θ[1] # Dodelson (7.95)
-        return remake(pt.prob;
-            tspan = (ηini, ηtoday),
-            u0 = [pt.ssys.gpt.Φ => Φ, pt.ssys.ph.Θ0 => Θ0, [pt.ssys.ph.Θ[l] => Θ[l] for l in 1:lmax]..., pt.ssys.ph.ΘP0 => ΘP0, [pt.ssys.ph.ΘP[l] => ΘP[l] for l in 1:lmax]..., pt.ssys.bar.δ => δb, pt.ssys.bar.u => ub, pt.ssys.cdm.δ => δc, pt.ssys.cdm.u => uc, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a],
-            p = [pt.ssys.fb => fb, pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline]
-        )
-    end
-
-    probs = EnsembleProblem(prob = nothing, prob_func = prob_func)
     return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
