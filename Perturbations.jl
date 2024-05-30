@@ -11,7 +11,8 @@ function perturbations_metric(; name)
     @variables Φ(η) Ψ(η)
     @parameters k # perturbation wavenumber
     k, Φ, Ψ = GlobalScope.([k, Φ, Ψ])
-    return ODESystem(Equation[], η, [Φ, Ψ], [k]; name)
+    defaults = [Φ => 2/3] # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
+    return ODESystem(Equation[], η, [Φ, Ψ], [k]; defaults, name)
 end
 
 function perturbations_radiation(g, interact=false; name)
@@ -24,26 +25,39 @@ function perturbations_radiation(g, interact=false; name)
     ], η; name)
 end
 
-function perturbations_photon_hierarchy(g, lmax=6, polarization=true; name)
+function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; name)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η)
     eqs = [
-        Dη(Θ0) + g.k*Θ[1] ~ -Dη(g.Φ)
-        Dη(Θ[1]) - g.k/3*(Θ0-2*Θ[2]) ~ g.k/3*g.Ψ - dτ/3 * (ub - 3*Θ[1])
-        [Dη(Θ[l]) ~ g.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Θ[2]/10*δkron(l,2)) for l in 2:lmax-1]...
-        Dη(Θ[lmax]) ~ g.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Θ[2]/10*δkron(lmax,2))
+        Dη(Θ0) + gpt.k*Θ[1] ~ -Dη(gpt.Φ)
+        Dη(Θ[1]) - gpt.k/3*(Θ0-2*Θ[2]) ~ gpt.k/3*gpt.Ψ - dτ/3 * (ub - 3*Θ[1])
+        [Dη(Θ[l]) ~ gpt.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Θ[2]/10*δkron(l,2)) for l in 2:lmax-1]...
+        Dη(Θ[lmax]) ~ gpt.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Θ[2]/10*δkron(lmax,2))
         δ ~ 4*Θ0
     ]
+    defaults = Dict(
+        Θ0 => 1/2 * gpt.Φ, # Dodelson (7.89)
+        Θ[1] => -1/6 * gpt.k/gbg.ℰ * gpt.Φ, # Dodelson (7.95)
+        Θ[2] => -20/45 * gpt.k/dτ * Θ[1], # without polarization, may be overwritten below
+        [Θ[l] => -l/(2*l+1) * gpt.k/dτ * Θ[l-1] for l in 3:lmax]...
+    )
     if polarization
         @variables ΘP0(η) ΘP(η)[1:lmax] Π(η)
         push!(eqs,
-            Dη(ΘP0) + g.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
-            Dη(ΘP[1]) - g.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
-            [Dη(ΘP[l]) - g.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...,
-            Dη(ΘP[lmax]) ~ g.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax],
+            Dη(ΘP0) + gpt.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
+            Dη(ΘP[1]) - gpt.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
+            [Dη(ΘP[l]) - gpt.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...,
+            Dη(ΘP[lmax]) ~ gpt.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax],
             Π ~ Θ[2] + ΘP[2] + ΘP0
         )
+        push!(defaults,
+            Θ[2] => -8/15 * gpt.k/dτ * Θ[1], # with polarization, overwrite from above
+            ΘP0 => 5/4 * Θ[2],
+            ΘP[1] => -1/4 * gpt.k/dτ * Θ[2],
+            ΘP[2] => 1/4 * Θ[2],
+            [ΘP[l] => -l/(2*l+1) * gpt.k/dτ * ΘP[l-1] for l in 3:lmax]...
+        )
     end
-    return ODESystem(eqs, η; name)
+    return ODESystem(eqs, η; defaults, name)
 end
 
 function perturbations_matter(gbg, gpt, interact=false; name)
@@ -53,10 +67,14 @@ function perturbations_matter(gbg, gpt, interact=false; name)
         Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website) # TODO: treat interaction explicitly
         Δ ~ δ + 3 * gbg.ℰ/gpt.k * u # TODO: correct??? gauge-invariant density perturbation (https://arxiv.org/pdf/1307.1459#equation.2.12)
     ]
+    defaults = [
+        δ => 3/2 * gpt.Φ # Dodelson (7.94)
+        u => -1/2 * gpt.k/gbg.ℰ * gpt.Φ # Dodelson (7.95)
+    ]
     if !interact
         push!(eqs, interaction ~ 0)
     end
-    return ODESystem(eqs, η, [δ, u, Δ, interaction], []; name)
+    return ODESystem(eqs, η, [δ, u, Δ, interaction], []; defaults, name)
 end
 
 function perturbations_gravity(gbg, gpt; name)
@@ -70,7 +88,7 @@ end
 function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
     bg = th.bg
     @named gpt = Symboltz.perturbations_metric()
-    @named ph = Symboltz.perturbations_photon_hierarchy(gpt, lmax, true)
+    @named ph = Symboltz.perturbations_photon_hierarchy(bg.sys.g, gpt, lmax, true)
     @named cdm = Symboltz.perturbations_matter(bg.sys.g, gpt, false)
     @named bar = Symboltz.perturbations_matter(bg.sys.g, gpt, true)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, gpt)
@@ -83,22 +101,7 @@ dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfun
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
     @parameters fb dτspline # TODO: get rid of
     @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
-    lmax = lastindex(ph.Θ)
-    defaults = [
-        g.Φ => 2/3 # TODO: why 2/3? # arbitrary normalization (from primordial curvature power spectrum?)
-        ph.Θ0 => 1/2 * g.Φ # Dodelson (7.89)
-        ph.Θ[1] => -1/6 * g.k/bg.sys.g.ℰ * g.Φ # Dodelson (7.95)
-        ph.Θ[2] => -8/15#=-20/45=#*g.k/dτ * ph.Θ[1] # TODO: change with/without polarization; another argument for merging photons+polarization
-        [ph.Θ[l] => -l/(2*l+1) * g.k/dτ * ph.Θ[l-1] for l in 3:lmax]...
-        ph.ΘP0 => 5/4 * ph.Θ[2]
-        ph.ΘP[1] => -1/4 * g.k/dτ * ph.Θ[2]
-        ph.ΘP[2] => 1/4 * ph.Θ[2]
-        [ph.ΘP[l] => -l/(2*l+1) * g.k/dτ * ph.ΘP[l-1] for l in 3:lmax]...
-        cdm.δ => 3 * ph.Θ0 # Dodelson (7.94)
-        bar.δ => 3 * ph.Θ0
-        cdm.u => 3 * ph.Θ[1] # Dodelson (7.95)
-        bar.u => 3 * ph.Θ[1]
-    ]
+    # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
         ρc ~ bg.sys.mat.ρ - ρb
@@ -118,7 +121,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [Δm, dτ], [fb, dτspline]; name, defaults)
+    ], η, [Δm, dτ], [fb, dτspline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
