@@ -9,7 +9,7 @@ using ForwardDiff, DiffResults, FiniteDiff
     Ωb0 = 0.05
     h = 0.67
     As = 2.1e-9
-    Yp = 0.245
+    Yp = 0.245 # TODO: fix, make work with 0.245
 end
 
 par = Parameters()

@@ -27,9 +27,11 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     th = pt.th
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
     η0 = th_sol.t[end]
-    τ(η) = th_sol(η, idxs=th.sys.τ).u .- th_sol(η0, idxs=th.sys.τ)
-    τ′(η) = th_sol(η, Val{1}, idxs=th.sys.τ).u
-    τ′′(η) = th_sol(η, Val{2}, idxs=th.sys.τ).u
+    # TODO: restore th_sol(..., Val{1}, idxs=th.sys.τ) when derivatives of observed variables work
+    τs = th_sol(ηs, idxs=th.sys.τ).u .- th_sol[th.sys.τ][end]
+    τ = CubicSpline(τs, ηs)
+    τ′ = CubicSpline(DataInterpolations.derivative.(Ref(τ), ηs), ηs)
+    τ′′ = CubicSpline(DataInterpolations.derivative.(Ref(τ′), ηs), ηs)
     g(η) = .-τ′(η) .* exp.(.-τ(η))
     g′(η) = (τ′(η) .^ 2 - τ′′(η)) .* exp.(.-τ(η))
     
@@ -41,18 +43,13 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
         Θ0(η) = pt_sol(η, idxs=pt.sys.ph.Θ0)
         Ψ(η) = pt_sol(η, idxs=pt.sys.gravpt.Ψ)
         Φ(η) = pt_sol(η, idxs=pt.sys.gravpt.Φ)
-        Π(η) = pt_sol(η, idxs=pt.sys.pol.Π)
+        Π(η) = pt_sol(η, idxs=pt.sys.ph.Π)
         ub(η) = pt_sol(η, idxs=pt.sys.bar.u)
-        function Ψ′(η)
-            # TODO: use pt_sol(...) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
-            #return pt_sol(η, Val{1}, idxs=pt.Ψ).u
-            # workaround: spline and take derivative
-            # TODO: differentiate Ψ = ... expression and calculate rhs from actual states?
-            Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true)
-            return DataInterpolations.derivative.(Ref(Ψspl), η)
-        end
-        Φ′(η) = pt_sol(η, Val{1}, idxs=pt.sys.gravpt.Φ).u
-        ub′(η) = pt_sol(η, Val{1}, idxs=pt.sys.bar.u).u
+        
+        # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
+        Ψ′(η) = (Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Ψspl), η))
+        Φ′(η) = (Φspl = CubicSpline(Φ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Φspl), η))
+        ub′(η) = (ubspl = CubicSpline(ub(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(ubspl), η))
 
         Ss[:,i_k] .+= g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # SW
         Ss[:,i_k] .+= (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k # Doppler
@@ -87,6 +84,7 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     ls_indices = 1 .+ ls .- ls_all[1] # indices such that ls = ls_all[ls_indices]
     Jls = zeros(length(ls))
 
+    # TODO: parallellize some of this over threads
     for (i_k, k) in enumerate(ks)
         for (i_η, η) in enumerate(ηs)
             # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
