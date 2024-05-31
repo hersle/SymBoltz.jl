@@ -96,11 +96,15 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
+@register_symbolic τfunc(η, spl)
 @register_symbolic dτfunc(η, spl) # TODO: improve somehow
+@register_symbolic ddτfunc(η, spl) # TODO: improve somehow
+τfunc(η, spl) = spl(η) # +exp(spl(log(η)))
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+ddτfunc(η, spl) = spl(η)
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
-    @parameters fb dτspline # TODO: get rid of
-    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
+    @parameters fb τspline dτspline ddτspline # TODO: get rid of
+    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) τ(η) dτ(η) ddτ(η) v(η) dv(η) Δm(η) SSW(η) SD(η) SISW(η) S(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
@@ -117,11 +121,21 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         bar.interaction ~ +dτ/R * (bar.u - 3*ph.Θ[1])
         ph.ub ~ bar.u
         ph.dτ ~ dτ
+        τ ~ τfunc(η, τspline)
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
-    
+        ddτ ~ ddτfunc(η, ddτspline)
+        v ~ -dτ * exp(-τ) # visibility function
+        dv ~ (dτ^2 - ddτ) * exp(-τ)
+        
+        SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # SW
+        SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
+        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # ISW # TODO: unstable, gives wiggly CMB peaks
+        # TODO: add polarization
+        S ~ SSW + SD + SISW
+
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [Δm, dτ], [fb, dτspline]; name)
+    ], η, [Δm, τ, dτ, ddτ, v, dv, SSW, SD, SISW, S], [fb, τspline, dτspline, ddτspline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
@@ -137,19 +151,22 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     ηini, ηtoday = ηs[begin], ηs[end]
     ρr, ρm, ρΛ, a, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.a, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
     τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
-    τspline = CubicSpline(τs, ηs)
+    τspline = CubicSpline(τs, ηs; extrapolate=true)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
-    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
+    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # spline this logarithmically for accurayc during integration # TODO: extrapolate valid?
     dτ = dτs[begin]
+    ddτs = DataInterpolations.derivative.(Ref(τspline), ηs, 2) # spline normally (just observed anyway)
+    ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
 
-    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN)
+    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => NaN, pt.ssys.dτspline => NaN, pt.ssys.ddτspline => NaN)
     u0 = Dict(bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ) # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))    
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true)
-    probs = EnsembleProblem(; prob, prob_func = (prob, i, _) -> begin
+    function prob_func(prob, i, _)
         k = ks[i]
         println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline])
-    end)
+        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline])
+    end
+    probs = EnsembleProblem(; prob, prob_func)
 
     return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end

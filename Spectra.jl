@@ -25,37 +25,10 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
         return Ss
     end
 
-    th = pt.th
-    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
-    η0 = th_sol.t[end]
-    # TODO: restore th_sol(..., Val{1}, idxs=th.sys.τ) when derivatives of observed variables work
-    τs = th_sol(ηs, idxs=th.sys.τ).u .- th_sol[th.sys.τ][end]
-    τ = CubicSpline(τs, ηs)
-    τ′ = CubicSpline(DataInterpolations.derivative.(Ref(τ), ηs), ηs)
-    τ′′ = CubicSpline(DataInterpolations.derivative.(Ref(τ′), ηs), ηs)
-    g(η) = .-τ′(η) .* exp.(.-τ(η))
-    g′(η) = (τ′(η) .^ 2 - τ′′(η)) .* exp.(.-τ(η))
-    
     # TODO: use saveat for ηs
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp)
-    for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols)) # TODO: parallellize over threads?
-        # TODO: must be faster!! use saveat for ηs in ODESolution?
-        # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-        Θ0(η) = pt_sol(η, idxs=pt.sys.ph.Θ0)
-        Ψ(η) = pt_sol(η, idxs=pt.sys.gravpt.Ψ)
-        Φ(η) = pt_sol(η, idxs=pt.sys.gravpt.Φ)
-        Π(η) = pt_sol(η, idxs=pt.sys.ph.Π)
-        ub(η) = pt_sol(η, idxs=pt.sys.bar.u)
-        
-        # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
-        Ψ′(η) = (Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Ψspl), η))
-        Φ′(η) = (Φspl = CubicSpline(Φ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Φspl), η))
-        ub′(η) = (ubspl = CubicSpline(ub(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(ubspl), η))
-
-        Ss[:,i_k] .+= g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # SW
-        Ss[:,i_k] .+= (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k # Doppler
-        Ss[:,i_k] .+= exp.(.-τ(ηs)) .* (Ψ′(ηs) - Φ′(ηs)) # ISW
-        # TODO: add polarization
+    for (i_k, pt_sol) in enumerate(pt_sols) # TODO: parallellize over threads?
+        Ss[:,i_k] .= pt_sol(ηs, idxs=pt.ssys.S) # SW
     end
 
     return Ss
