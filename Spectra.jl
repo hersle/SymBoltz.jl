@@ -28,7 +28,18 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     # TODO: use saveat for ηs
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp)
     for (i_k, pt_sol) in enumerate(pt_sols) # TODO: parallellize over threads?
-        Ss[:,i_k] .= pt_sol(ηs, idxs=pt.ssys.S) # SW
+        # observe Sachs-Wolfe and Doppler contributions from perturbations
+        Ss[:,i_k] .+= pt_sol(ηs, idxs=pt.ssys.SSW)
+        Ss[:,i_k] .+= pt_sol(ηs, idxs=pt.ssys.SD)
+        
+        # spline ISW contribution from perturbations (gives wiggles when observed)
+        # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
+        τs = pt_sol(ηs, idxs=pt.sys.τ).u
+        Ψs = pt_sol(ηs, idxs=pt.sys.gravpt.Ψ).u
+        Φs = pt_sol(ηs, idxs=pt.sys.gravpt.Φ).u
+        Ψ′s = (Ψspl = CubicSpline(Ψs, ηs; extrapolate=true); DataInterpolations.derivative.(Ref(Ψspl), ηs))
+        Φ′s = (Φspl = CubicSpline(Φs, ηs; extrapolate=true); DataInterpolations.derivative.(Ref(Φspl), ηs))
+        Ss[:,i_k] .+= exp.(.-τs) .* (Ψ′s - Φ′s) # ISW
     end
 
     return Ss
