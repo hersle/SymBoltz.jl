@@ -106,15 +106,15 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     return Cls
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; splineS = true)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; splineS = true, Δlnη = 0.03, Δk = 2π/4)
     bg_sol = solve(pt.bg, Ωr0, Ωm0)
 
-    ηi, η0 = bg_sol[η][begin], bg_sol[η][end]
+    ηi, η0 = max(bg_sol[η][begin], 1e-4), bg_sol[η][end]
     ηi, η0 = ForwardDiff.value.([ηi, η0]) # TODO: do I lose some gradient information here?!
-    lnηs = range(log(ηi), log(η0), length=400) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
+    lnηs = range(log(ηi), log(η0), step=Δlnη) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
     kmax = 2.0 * ls[end]
-    ks = range_until(0, kmax, 2π/4; skip_start=true) ./ η0
+    ks = range_until(0, kmax, Δk; skip_start=true) ./ η0
     if splineS
         Sspline_ks = range_until(0, kmax, 50; skip_start=true) ./ η0 # Δk = 50/η0
     else
