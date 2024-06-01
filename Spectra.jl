@@ -1,5 +1,5 @@
 using NumericalIntegration
-using Bessels: besselj, sphericalbesselj
+using Bessels: besselj!, sphericalbesselj
 using ForwardDiff
 using Base.Threads
 
@@ -64,32 +64,45 @@ end
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
 # TODO: contribute back to Bessels.jl
-sphericalbesseljslow(ls::AbstractRange, x) = sphericalbesselj.(ls, x)
-sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
+#sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
+#sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
+#sphericalbesseljslow!(out, ls::AbstractArray, x) = sphericalbesselj.(ls, x)
+function sphericalbesseljfast!(out, ls::AbstractRange, x)
+    besselj!(out, ls .+ 0.5, x)
+    if x != 0.0
+        @. out *= √(π/(2*x))
+    end
+    return out
+end
 
 # TODO: integrate CubicSplines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp; kwargs...)
     ηs = exp.(lnηs)
-    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp; kwargs...) # TODO: reduce memory allocation!
     η0 = ηs[end]
+    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp; kwargs...) # TODO: reduce memory allocation!
 
     T = eltype([Ωr0, Ωm0, Ωb0, h, As, Yp]) # TODO: handle with/without As differently?
     ∂Θ_∂lnη = zeros(T, (length(ls), length(ηs)))
     Θls = zeros(T, (length(ls), length(ks)))
-    ls_all = minimum(ls):1:maximum(ls) # range with step 1
-    ls_indices = 1 .+ ls .- ls_all[1] # indices such that ls = ls_all[ls_indices]
-    Jls = zeros((length(ls)))
+    lmin, lmax = extrema(ls)
+    ls_all = lmin:1:lmax # range with step 1
+    Jls_all = zeros((length(ls_all)))
 
+    # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
+    # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
     # TODO: parallellize some of this over threads
-    for (i_k, k) in enumerate(ks)
-        for (i_η, η) in enumerate(ηs)
-            # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
-            Jls[:] .= sphericalbesseljfast(ls_all, k*(η0-η))[ls_indices] # @btime reference (~1000 ls): 5.4 s # TODO: use a grid of constant k*(η0-η)=y; use η with logarithmic spacing; use resulting k = y/(η0-η)
-            #Jls .= sphericalbesselj.(ls, k*(η0-η)) # @btime reference (~1000 ls): 32 s
-            ∂Θ_∂lnη[:, i_η] .= Ss[i_η, i_k] * Jls[:] * η # TODO: sphericalbesselj takes a lot of time!
+    for (ik, k) in enumerate(ks)
+        for (iη, η) in enumerate(ηs)
+            Sη = Ss[iη,ik] * η
+            kΔη = k * (η0-η)
+            sphericalbesseljfast!(Jls_all, ls_all, kΔη)
+            for (il, l) in enumerate(ls)
+                Jl = Jls_all[1+l-lmin]
+                ∂Θ_∂lnη[il,iη] = Sη * Jl
+            end
         end
-        @threads for i_l in eachindex(ls)
-            Θls[i_l, i_k] = integrate(lnηs, ∂Θ_∂lnη[i_l, :], SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+        @threads for il in eachindex(ls)
+            Θls[il, ik] = integrate(lnηs, ∂Θ_∂lnη[il, :], SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
@@ -97,9 +110,9 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     dCl_dks_with0 = zeros(T, (length(ks_with0), nthreads()))
     Cls = zeros(T, length(ls))
 
-    @threads for i_l in eachindex(ls)
-        dCl_dks_with0[2:end, threadid()] .= @. 2/π * ks^2 * P0(ks, As) * Θls[i_l, :]^2
-        Cls[i_l] = integrate(ks_with0, dCl_dks_with0[:, threadid()], SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
+    @threads for il in eachindex(ls)
+        dCl_dks_with0[2:end, threadid()] .= @. 2/π * ks^2 * P0(ks, As) * Θls[il, :]^2
+        Cls[il] = integrate(ks_with0, dCl_dks_with0[:, threadid()], SimpsonEven()) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     return Cls
