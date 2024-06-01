@@ -11,6 +11,12 @@ function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
     return P0(k, As) .* pt_sols(ηtoday, idxs=pt.sys.Δm) .^ 2
 end
 
+function D_spline(y, x; Spline = CubicSpline, order = 1)
+    y_spline = Spline(y, x; extrapolate=true)
+    y′ = DataInterpolations.derivative.(Ref(y_spline), x, order)
+    return y′
+end
+
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
 # TODO: only need as from a = 1e-4 till today
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; Sspline_ks=nothing)    
@@ -27,35 +33,28 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
 
     th = pt.th
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
-    η0 = th_sol.t[end]
-    # TODO: restore th_sol(..., Val{1}, idxs=th.sys.τ) when derivatives of observed variables work
-    τs = th_sol(ηs, idxs=th.sys.τ).u .- th_sol[th.sys.τ][end]
-    τ = CubicSpline(τs, ηs)
-    τ′ = CubicSpline(DataInterpolations.derivative.(Ref(τ), ηs), ηs)
-    τ′′ = CubicSpline(DataInterpolations.derivative.(Ref(τ′), ηs), ηs)
-    g(η) = .-τ′(η) .* exp.(.-τ(η))
-    g′(η) = (τ′(η) .^ 2 - τ′′(η)) .* exp.(.-τ(η))
+
+    τ = th_sol(ηs, idxs=th.sys.τ).u
+    τ .-= τ[end] # make τ = 0 today # TODO: assume ηs[end] is today
+    τ′ = D_spline(τ, ηs)
+    τ″ = D_spline(τ′, ηs)
+    g = @. -τ′ * exp(-τ)
+    g′ = @. (τ′^2 - τ″) * exp(-τ)
     
     # TODO: use saveat for ηs
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp)
     for (i_k, (k, pt_sol)) in enumerate(zip(ks, pt_sols)) # TODO: parallellize over threads?
         # TODO: must be faster!! use saveat for ηs in ODESolution?
         # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-        Θ0(η) = pt_sol(η, idxs=pt.sys.ph.Θ0)
-        Ψ(η) = pt_sol(η, idxs=pt.sys.gravpt.Ψ)
-        Φ(η) = pt_sol(η, idxs=pt.sys.gravpt.Φ)
-        Π(η) = pt_sol(η, idxs=pt.sys.ph.Π)
-        ub(η) = pt_sol(η, idxs=pt.sys.bar.u)
-        
-        # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
-        Ψ′(η) = (Ψspl = CubicSpline(Ψ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Ψspl), η))
-        Φ′(η) = (Φspl = CubicSpline(Φ(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(Φspl), η))
-        ub′(η) = (ubspl = CubicSpline(ub(η).u, η; extrapolate=true); DataInterpolations.derivative.(Ref(ubspl), η))
-
-        Ss[:,i_k] .+= g(ηs) .* (Θ0(ηs) + Ψ(ηs) + Π(ηs)/4) # SW
-        Ss[:,i_k] .+= (g′(ηs).*ub(ηs) + g(ηs).*ub′(ηs)) / k # Doppler
-        Ss[:,i_k] .+= exp.(.-τ(ηs)) .* (Ψ′(ηs) - Φ′(ηs)) # ISW
-        # TODO: add polarization
+        Θ0 = pt_sol(ηs, idxs=pt.sys.ph.Θ0).u
+        Ψ = pt_sol(ηs, idxs=pt.sys.gravpt.Ψ).u
+        Φ = pt_sol(ηs, idxs=pt.sys.gravpt.Φ).u
+        Π = pt_sol(ηs, idxs=pt.sys.ph.Π).u
+        ub = pt_sol(ηs, idxs=pt.sys.bar.u).u
+        Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
+        Φ′ = D_spline(Φ, ηs)
+        ub′ = D_spline(ub, ηs)
+        @. Ss[:,i_k] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
     end
 
     return Ss
