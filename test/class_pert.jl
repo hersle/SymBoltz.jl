@@ -2,6 +2,7 @@ import .Symboltz
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
+using DifferentialEquations
 using Plots; Plots.default(label=nothing)
 
 @kwdef struct Parameters
@@ -62,14 +63,14 @@ function perts_class(par::Parameters, k::Real; kwargs...)
     return Dict(head[i] => data[:,i] for i in 1:length(head))
 end
 
-k = 1e-4 # 1/Mpc # agree on large scales, disagree on small scales
+k = 1e-1 # 1/Mpc # disagreement on smaller scales
 sol1 = perts_class(par, k)
 
 k = k ./ par.h / Symboltz.k0 # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
-sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)[1]
+sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; solver = KenCarp4(), reltol = 1e-10)[1]
 
 results = Dict(
     "lg(a)" => (log10.(sol1["a"]), log10.(sol2[bg.sys.g.a])),
@@ -82,7 +83,7 @@ results = Dict(
 )
 
 xlabel = "lg(a)"
-ylabel = "Ψ"
+ylabel = "Φ"
 x1, x2 = results[xlabel]
 y1, y2 = results[ylabel]
 x = x1

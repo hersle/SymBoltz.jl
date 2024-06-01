@@ -80,7 +80,7 @@ end
 function perturbations_gravity(gbg, gpt; name)
     @variables δρ(η) Π(η)
     return ODESystem([
-        Dη(gpt.Φ) ~ (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
+        Dη(gpt.Φ) ~ 4π*gbg.a^2*δρ/(3*gbg.ℰ) - gpt.k^2*gpt.Φ/(3*gbg.ℰ) + gbg.ℰ*gpt.Ψ  # (4π*gbg.a^2*δρ - gpt.k^2*gpt.Φ + 3*gbg.ℰ^2*gpt.Ψ) / (3*gbg.ℰ) # Dodelson (6.41) # TODO: write in more natural form?
         gpt.k^2 * (gpt.Ψ + gpt.Φ) ~ Π # anisotropic stress
     ], η; name)
 end
@@ -114,7 +114,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
-        bar.interaction ~ +dτ/R * (bar.u - 3*ph.Θ[1])
+        bar.interaction ~ +dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: baryon speed of sound term!
         ph.ub ~ bar.u
         ph.dτ ~ dτ
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
@@ -128,7 +128,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     return PerturbationsSystem(sys, ssys, prob, bg, th)
 end
 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; aini = 1e-8, reltol=1e-8)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol=1e-8)
     th = pt.th
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
@@ -151,5 +151,5 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
         return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline])
     end)
 
-    return solve(probs, KenCarp4(), EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
+    return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
