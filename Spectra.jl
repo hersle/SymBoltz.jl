@@ -81,7 +81,7 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp; kwargs...) # TODO: reduce memory allocation!
 
     T = eltype([Ωr0, Ωm0, Ωb0, h, As, Yp]) # TODO: handle with/without As differently?
-    ∂Θ_∂lnη = zeros(T, (length(ls), length(ηs))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
+    ∂Θ_∂lnη = [zeros(T, (length(ls), length(ηs))) for _ in 1:nthreads()] # TODO: best to do array of arrays without using @view, or to use matrix + @view?
     Θls = zeros(T, (length(ls), length(ks)))
     lmin, lmax = extrema(ls)
     ls_all = lmin:1:lmax # range with step 1
@@ -90,9 +90,10 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
     # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
     # TODO: try to spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
     # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
-    for ik in eachindex(ks) # TODO: parallellize over k, too? must extend ∂Θ_∂lnη to nthreas() x η x l, too much memory?
+    # TODO: separate into line-of-sight integration function
+    @threads for ik in eachindex(ks) # TODO: parallellize over k, too? must extend ∂Θ_∂lnη to nthreas() x η x l, too much memory?
         k = ks[ik]
-        @threads for iη in eachindex(ηs)
+        for iη in eachindex(ηs)
             η = ηs[iη]
             Sη = Ss[iη,ik] * η
             kΔη = k * (η0-η)
@@ -100,11 +101,11 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs
             for il in eachindex(ls)
                 l = ls[il]
                 Jl = Jls_all[threadid()][1+l-lmin]
-                ∂Θ_∂lnη[il,iη] = Sη * Jl
+                ∂Θ_∂lnη[threadid()][il,iη] = Sη * Jl
             end
         end
-        @threads for il in eachindex(ls)
-            integrand = @view ∂Θ_∂lnη[il,:]
+        for il in eachindex(ls)
+            integrand = @view ∂Θ_∂lnη[threadid()][il,:]
             Θls[il, ik] = integrate(lnηs, integrand, SimpsonEven()) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
