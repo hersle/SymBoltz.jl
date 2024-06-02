@@ -14,18 +14,8 @@ function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
 end
 
 # source function
-function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; Sspline_ks=nothing) 
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ηs), length(ks)))
-
-    if !isnothing(Sspline_ks)
-        Ssplinedata = S(pt, ηs, Sspline_ks, Ωr0, Ωm0, Ωb0, h, Yp)
-        for iη in eachindex(ηs)
-            Ssplinedataη = @view Ssplinedata[iη,:]
-            Sspline = CubicSpline(Ssplinedataη, Sspline_ks)
-            Ss[iη,:] .= Sspline(ks)
-        end
-        return Ss
-    end
+function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp) 
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ηs), length(ks))) # TODO: change order to get DenseArray during integrations?
 
     th = pt.th
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
@@ -56,6 +46,16 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     end
 
     return Ss
+end
+
+function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline) 
+    Sscoarse = S(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
+    Ssfine = similar(Sscoarse, (length(ηs), length(ksfine)))
+    for iη in eachindex(ηs)
+        Sscoarseη = @view Sscoarse[iη,:]
+        Ssfine[iη,:] .= Spline(Sscoarseη, kscoarse)(ksfine)
+    end
+    return Ssfine
 end
 
 #Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp)
@@ -109,9 +109,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
     return Θls
 end
 
-function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp; kwargs...)
+function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, Yp, args...)
     ηs = exp.(lnηs)
-    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp; kwargs...)
+    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp, args...)
     return Θl(ls, ks, lnηs, Ss)
 end
 
@@ -129,24 +129,24 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; splineS = true, Δlnη = 0.03, Δk = 2π/4)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S::AbstractArray)
+    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, Yp, ks_S)
+    P0s = P0(ks, As)
+    return Cl(ls, ks, Θls, P0s)
+end
+
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; Δlnη = 0.03, Δkη0 = 2π/4, Δkη0_S = 50.0)
     bg_sol = solve(pt.bg, Ωr0, Ωm0)
 
     ηi, η0 = max(bg_sol[η][begin], 1e-4), bg_sol[η][end]
     ηi, η0 = ForwardDiff.value.([ηi, η0]) # TODO: do I lose some gradient information here?! no? ηi/η0 is just a shift of the integration interval?
     lnηs = range(log(ηi), log(η0), step=Δlnη) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
-    kmax = 2.0 * ls[end]
-    ks = range_until(0, kmax, Δk; skip_start=true) ./ η0
-    Sspline_ks = splineS ? range_until(0, kmax, 50; skip_start=true) ./ η0 : nothing # Δk = 50/η0
+    kη0max = 2.0 * ls[end]
+    ks_Cl = range_until(0, kη0max, Δkη0; skip_start=true) ./ η0
+    ks_S = range_until(0, kη0max, Δkη0_S; skip_start=true) ./ η0 # Δk = 50/η0
 
-    return Cl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp; Sspline_ks)
-end
-
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp; kwargs...)
-    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp; kwargs...)
-    P0s = P0(ks, As)
-    return Cl(ls, ks, Θls, P0s)
+    return Cl(pt, ls, ks_Cl, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S)
 end
 
 Dl(pt::PerturbationsSystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
