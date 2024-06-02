@@ -18,7 +18,7 @@ par = Parameters()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
-ls = [2:1:8; 10; 12; 16; 22; 30:10:2500]
+ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.As, par.Yp]
 
 # differentiated CMB power spectrum
