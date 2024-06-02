@@ -15,7 +15,7 @@ end
 
 # source function
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp) 
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ηs), length(ks))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
 
     th = pt.th
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
@@ -42,7 +42,7 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
         Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ηs)
         ub′ = D_spline(ub, ηs)
-        @. Ss[:,ik] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
+        @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
     end
 
     return Ss
@@ -50,10 +50,10 @@ end
 
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline) 
     Sscoarse = S(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
-    Ssfine = similar(Sscoarse, (length(ηs), length(ksfine)))
+    Ssfine = similar(Sscoarse, (length(ksfine), length(ηs)))
     for iη in eachindex(ηs)
-        Sscoarseη = @view Sscoarse[iη,:]
-        Ssfine[iη,:] .= Spline(Sscoarseη, kscoarse)(ksfine)
+        Sscoarseη = @view Sscoarse[:,iη]
+        Ssfine[:,iη] .= Spline(Sscoarseη, kscoarse)(ksfine)
     end
     return Ssfine
 end
@@ -91,18 +91,18 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
         k = ks[ik]
         for iη in eachindex(ηs)
             η = ηs[iη]
-            Sη = Ss[iη,ik] * η
+            Sη = Ss[ik,iη] * η
             kΔη = k * (η0-η)
             sphericalbesseljfast!(Jls_all[threadid()], ls_all, kΔη) # TODO: reuse ∂Θ_∂lnη's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
                 l = ls[il]
                 Jl = Jls_all[threadid()][1+l-lmin]
                 ∂Θ_∂lnη[threadid()][il,iη] = Sη * Jl
+                # TODO: integrate in this loop instead?
             end
         end
         for il in eachindex(ls)
-            integrand = @view ∂Θ_∂lnη[threadid()][il,:]
-            Θls[il, ik] = integrate(lnηs, integrand, integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            Θls[il,ik] = integrate(lnηs, ∂Θ_∂lnη[threadid()][il,:], integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
