@@ -32,7 +32,7 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     @threads for ik in eachindex(ks) # TODO: parallellize over threads?
         k = ks[ik]
         pt_sol = pt_sols[ik]
-        # TODO: must be faster!! use saveat for ηs in ODESolution?
+        # TODO: lines below allocate! use saveat for ηs in ODESolution?
         # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
         Θ0 = pt_sol(ηs, idxs=pt.sys.ph.Θ0).u
         Ψ = pt_sol(ηs, idxs=pt.sys.gravpt.Ψ).u
@@ -102,7 +102,8 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
             end
         end
         for il in eachindex(ls)
-            Θls[il,ik] = integrate(lnηs, ∂Θ_∂lnη[threadid()][il,:], integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            integrand = @view ∂Θ_∂lnη[threadid()][il,:]
+            Θls[il,ik] = integrate(lnηs, integrand, integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
