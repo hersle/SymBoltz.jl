@@ -128,7 +128,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     return PerturbationsSystem(sys, ssys, prob, bg, th)
 end
 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol=1e-8)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol=1e-8, kwargs...)
     th = pt.th
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
@@ -151,5 +151,5 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
         return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline])
     end)
 
-    return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
+    return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end

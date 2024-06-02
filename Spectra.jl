@@ -15,30 +15,26 @@ end
 
 # source function
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp) 
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
-
     th = pt.th
-    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp)
+    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
 
-    τ = th_sol(ηs, idxs=th.sys.τ).u
-    τ .-= τ[end] # make τ = 0 today # TODO: assume ηs[end] is today
+    τ = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end] # make τ = 0 today # TODO: assume ηs[end] is today
     τ′ = D_spline(τ, ηs)
     τ″ = D_spline(τ′, ηs)
     g = @. -τ′ * exp(-τ)
     g′ = @. (τ′^2 - τ″) * exp(-τ)
     
-    # TODO: use saveat for ηs
-    pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp)
-    @threads for ik in eachindex(ks) # TODO: parallellize over threads?
+    # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
+    pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
+    Ss = similar(τ, (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+    @threads for ik in eachindex(ks)
         k = ks[ik]
         pt_sol = pt_sols[ik]
-        # TODO: lines below allocate! use saveat for ηs in ODESolution?
-        # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-        Θ0 = pt_sol(ηs, idxs=pt.sys.ph.Θ0).u
-        Ψ = pt_sol(ηs, idxs=pt.sys.gravpt.Ψ).u
-        Φ = pt_sol(ηs, idxs=pt.sys.gravpt.Φ).u
-        Π = pt_sol(ηs, idxs=pt.sys.ph.Π).u
-        ub = pt_sol(ηs, idxs=pt.sys.bar.u).u
+        Θ0 = pt_sol[pt.sys.ph.Θ0]
+        Ψ = pt_sol[pt.sys.gravpt.Ψ]
+        Φ = pt_sol[pt.sys.gravpt.Φ]
+        Π = pt_sol[pt.sys.ph.Π]
+        ub = pt_sol[pt.sys.bar.u]
         Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ηs)
         ub′ = D_spline(ub, ηs)
@@ -72,7 +68,6 @@ function sphericalbesseljfast!(out, ls::AbstractRange, x)
     return out
 end
 
-# TODO: allocations?
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
