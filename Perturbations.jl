@@ -97,10 +97,12 @@ end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 @register_symbolic dτfunc(η, spl) # TODO: improve somehow
+@register_symbolic csb²func(η, spl)
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+csb²func(η, spl) = spl(log(η))
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
-    @parameters fb dτspline # TODO: get rid of
-    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) # TODO: get rid of
+    @parameters fb dτspline csb²spline # TODO: get rid of
+    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) csb²(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
@@ -114,14 +116,15 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
-        bar.interaction ~ +dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: baryon speed of sound term!
+        bar.interaction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable...
         ph.ub ~ bar.u
         ph.dτ ~ dτ
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
+        csb² ~ csb²func(η, csb²spline)
     
         # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [Δm, dτ], [fb, dτspline]; name)
+    ], η, [Δm, dτ], [fb, dτspline, csb²spline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
@@ -142,13 +145,16 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
     dτ = dτs[begin]
 
-    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN)
+    csb²s = th_sol[th.sys.cs²]
+    csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
+
+    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN, pt.ssys.csb²spline => NaN)
     u0 = Dict(bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ) # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))    
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true)
     probs = EnsembleProblem(; prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
         println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline])
+        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline, pt.ssys.csb²spline => csb²spline])
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization

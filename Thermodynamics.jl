@@ -108,7 +108,7 @@ end
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
     @parameters fb H0
     H0 = GlobalScope(H0)
-    @variables Xe(η) ne(η) τ(η) = 0.0 ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
     # defaults[Xe] = sum(atom.Xe for atom in atoms) + Xeϵ # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
@@ -117,6 +117,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
         Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ # Tγ = Tγ0 / a
         Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
+        cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         [atom.T ~ Tb for atom in atoms];
         [atom.ne ~ ne for atom in atoms];
