@@ -26,22 +26,22 @@ function perturbations_radiation(g, interact=false; name)
 end
 
 function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; name)
-    @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η)
+    @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η) Π(η)
     eqs = [
         Dη(Θ0) + gpt.k*Θ[1] ~ -Dη(gpt.Φ)
         Dη(Θ[1]) - gpt.k/3*(Θ0-2*Θ[2]) ~ gpt.k/3*gpt.Ψ - dτ/3 * (ub - 3*Θ[1])
-        [Dη(Θ[l]) ~ gpt.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Θ[2]/10*δkron(l,2)) for l in 2:lmax-1]...
-        Dη(Θ[lmax]) ~ gpt.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Θ[2]/10*δkron(lmax,2))
+        [Dη(Θ[l]) ~ gpt.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: Π in last term here?
+        Dη(Θ[lmax]) ~ gpt.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Π/10*δkron(lmax,2))
         δ ~ 4*Θ0
     ]
     defaults = Dict(
         Θ0 => 1/2 * gpt.Φ, # Dodelson (7.89)
         Θ[1] => -1/6 * gpt.k/gbg.ℰ * gpt.Φ, # Dodelson (7.95)
-        Θ[2] => -20/45 * gpt.k/dτ * Θ[1], # without polarization, may be overwritten below
+        # Θ[2] is set differently depending on polarization below
         [Θ[l] => -l/(2*l+1) * gpt.k/dτ * Θ[l-1] for l in 3:lmax]...
     )
     if polarization
-        @variables ΘP0(η) ΘP(η)[1:lmax] Π(η)
+        @variables ΘP0(η) ΘP(η)[1:lmax]
         push!(eqs,
             Dη(ΘP0) + gpt.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
             Dη(ΘP[1]) - gpt.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
@@ -56,6 +56,9 @@ function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; nam
             ΘP[2] => 1/4 * Θ[2],
             [ΘP[l] => -l/(2*l+1) * gpt.k/dτ * ΘP[l-1] for l in 3:lmax]...
         )
+    else
+        push!(eqs, Π ~ Θ[2])
+        push!(defaults, Θ[2] => -20/45 * gpt.k/dτ * Θ[1]) # without polarization
     end
     return ODESystem(eqs, η; defaults, name)
 end
