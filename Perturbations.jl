@@ -134,7 +134,8 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     return PerturbationsSystem(sys, ssys, prob, bg, th)
 end
 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol=1e-8, kwargs...)
+# TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp47(), aini = 1e-8, reltol = 1e-8, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
@@ -151,12 +152,14 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     csb²s = th_sol[th.sys.cs²]
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = Dict(pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN, pt.ssys.csb²spline => NaN)
-    u0 = Dict(bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ) # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))    
-    prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true)
+    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN, pt.ssys.csb²spline => NaN]
+    u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ] # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))
+    prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = true)
     probs = EnsembleProblem(; prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
-        println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
+        if verbose
+            println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
+        end
         return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline, pt.ssys.csb²spline => csb²spline])
     end)
 
