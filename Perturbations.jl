@@ -155,7 +155,7 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN, pt.ssys.csb²spline => NaN]
     u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ] # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = true)
-    probs = EnsembleProblem(; prob, prob_func = (prob, i, _) -> begin
+    probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
         if verbose
             println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
