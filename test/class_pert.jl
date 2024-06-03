@@ -8,7 +8,7 @@ using Plots; Plots.default(label=nothing)
 @kwdef struct Parameters
     Ωr0 = 5.5e-5
     Ωm0 = 0.317
-    Ωb0 = 0.001 # 5 # TODO: more
+    Ωb0 = 0.03
     h = 0.67
     As = 2.1e-9
     Yp = 0.01 # 245 # TODO: more
@@ -63,23 +63,32 @@ function perts_class(par::Parameters, k::Real; kwargs...)
     return Dict(head[i] => data[:,i] for i in 1:length(head))
 end
 
-k = 1e-1 # 1/Mpc # disagreement on smaller scales
-sol1 = perts_class(par, k)
+kMpc = 1e-1 # 1/Mpc # disagreement on smaller scales
+sol1 = perts_class(par, kMpc)
 
-k = k ./ par.h / Symboltz.k0 # h/Mpc -> code units
+k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
 sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; solver = KenCarp4(), reltol = 1e-10)[1]
 
+# map results from both codes to common convention
 results = Dict(
+    "η" => (sol1["tau[Mpc]"], sol2[Symboltz.η] / (par.h*Symboltz.k0)),
     "lg(a)" => (log10.(sol1["a"]), log10.(sol2[bg.sys.g.a])),
     "a" => (sol1["a"], sol2[bg.sys.g.a]),
     "Φ" => (sol1["phi"], sol2[pt.ssys.gpt.Φ]), # TODO: same?
     "Ψ" => (sol1["psi"], -sol2[pt.ssys.gpt.Ψ]), # TODO: same?
     "δb" => (sol1["delta_b"], -sol2[pt.ssys.bar.δ]), # TODO: sign?
     "δc" => (sol1["delta_cdm"], -sol2[pt.ssys.cdm.δ]), # TODO: sign?
-    "δγ" => (sol1["delta_g"], -sol2[pt.ssys.ph.δ])
+    "δγ" => (sol1["delta_g"], -sol2[pt.ssys.ph.δ]),
+    "θb" => (sol1["theta_b"], -sol2[pt.ssys.bar.u] * kMpc),
+    "θc" => (sol1["theta_cdm"], -sol2[pt.ssys.cdm.u] * kMpc),
+    "θγ" => (sol1["theta_g"], -sol2[pt.ssys.ph.Θ[1]] * 3 * kMpc),
+    "Π" => (sol1["shear_g"], sol2[pt.ssys.ph.Θ[2]] * -2),
+    "P0" => (sol1["pol0_g"], sol2[pt.ssys.ph.ΘP0] * -4), # TODO: is -4 correct ???
+    "P1" => (sol1["pol1_g"], sol2[pt.ssys.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
+    "P2" => (sol1["pol2_g"], sol2[pt.ssys.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
 xlabel = "lg(a)"
