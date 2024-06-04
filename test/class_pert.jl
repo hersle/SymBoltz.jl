@@ -12,6 +12,7 @@ using Plots; Plots.default(label=nothing)
     h = 0.67
     As = 2.1e-9
     Yp = 0.01 # 245 # TODO: more
+    lmax = 6
 end
 
 par = Parameters()
@@ -49,6 +50,11 @@ function perts_class(par::Parameters, k::Real; kwargs...)
         "N_ncdm" => 0.0,
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
         "recombination" => "hyrec", # or HyREC
+        "l_max_g" => par.lmax,
+        "l_max_pol_g" => par.lmax,
+        "l_max_ur" => par.lmax,
+        "l_max_ncdm" => par.lmax,
+        "radiation_streaming_approximation" => 0,
     )
 
     run_class(in; kwargs...)
@@ -69,7 +75,7 @@ sol1 = perts_class(par, kMpc)
 k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, 6)
+@named pt = Symboltz.perturbations_ΛCDM(th, par.lmax)
 sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; solver = KenCarp4(), reltol = 1e-10)[1]
 
 # map results from both codes to common convention
