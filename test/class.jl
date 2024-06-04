@@ -11,8 +11,8 @@ using Plots; Plots.default(label=nothing)
     h = 0.67
     As = 2.1e-9
     Yp = 0.01 # 245 # TODO: more
-    lmax = 6
 end
+lmax = 6
 
 par = Parameters()
 
@@ -51,10 +51,10 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "N_ncdm" => 0.0,
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
         "recombination" => "hyrec", # or HyREC
-        "l_max_g" => par.lmax,
-        "l_max_pol_g" => par.lmax,
-        "l_max_ur" => par.lmax,
-        "l_max_ncdm" => par.lmax,
+        "l_max_g" => lmax,
+        "l_max_pol_g" => lmax,
+        "l_max_ur" => lmax,
+        "l_max_ncdm" => lmax,
     )
 
     run_class(in; kwargs...)
@@ -79,7 +79,7 @@ sol1 = output_class(par, kMpc)
 k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, par.lmax)
+@named pt = Symboltz.perturbations_ΛCDM(th, lmax)
 sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
 
 # map results from both codes to common convention
@@ -126,6 +126,6 @@ r = CubicSpline(y1, x1; extrapolate=true).(x) ./ CubicSpline(y2, x2; extrapolate
 xlims = extrema(x)
 
 p = plot(layout = (2, 1), size = (700, 800))
-plot!(p[1], x1, y1; label = "CLASS", ylabel, title = "k = $(k*Symboltz.k0) h/Mpc")
+plot!(p[1], x1, y1; label = "CLASS", ylabel, title = "k = $(kMpc) / Mpc")
 plot!(p[1], x2, y2; label = "Symboltz", xlims, ylims)
 plot!(p[2], x, r; ylims = (0.8, 1.2), yticks = [0.8, 0.9, 1.0, 1.1, 1.2], yminorticks = 0.8:0.01:1.2, yminorgrid = true, xlims, xlabel, ylabel = "Symboltz / CLASS")
