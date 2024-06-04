@@ -76,12 +76,11 @@ k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, par.lmax)
-sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; solver = KenCarp4(), reltol = 1e-10)[1]
+sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; solver = KenCarp47(), reltol = 1e-10)[1]
 
 # map results from both codes to common convention
 results = Dict(
     "η" => (sol1["tau[Mpc]"], sol2[Symboltz.η] / (par.h*Symboltz.k0)),
-    "lg(a)" => (log10.(sol1["a"]), log10.(sol2[bg.sys.g.a])),
     "a" => (sol1["a"], sol2[bg.sys.g.a]),
     "Φ" => (sol1["phi"], sol2[pt.ssys.gpt.Φ]), # TODO: same?
     "Ψ" => (sol1["psi"], -sol2[pt.ssys.gpt.Ψ]), # TODO: same?
@@ -95,14 +94,17 @@ results = Dict(
     "P0" => (sol1["pol0_g"], sol2[pt.ssys.ph.ΘP0] * -4), # TODO: is -4 correct ???
     "P1" => (sol1["pol1_g"], sol2[pt.ssys.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
     "P2" => (sol1["pol2_g"], sol2[pt.ssys.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
+
+    "lg(η)" => (log.(sol1["tau[Mpc]"]), log.(sol2[Symboltz.η] / (par.h*Symboltz.k0))),
+    "lg(a)" => (log10.(sol1["a"]), log10.(sol2[bg.sys.g.a])),
 )
 
-xlabel = "lg(a)"
-ylabel = "Φ"
+xlabel = "lg(η)"
+ylabel = "a"
 x1, x2 = results[xlabel]
 y1, y2 = results[ylabel]
 x = x1
-r = CubicSpline(y1, x1).(x) ./ CubicSpline(y2, x2).(x) # ratio at common x
+r = CubicSpline(y1, x1; extrapolate=true).(x) ./ CubicSpline(y2, x2; extrapolate=true).(x) # ratio at common x # TODO: verify extrapolate is ok
 xlims = extrema(x)
 
 p = plot(layout = (2, 1), size = (600, 800))
