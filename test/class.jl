@@ -80,37 +80,40 @@ k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2 = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
+sol2_th = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
+sol2_pt = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
 
 # map results from both codes to common convention
 results = Dict(
     # background
-    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2[bg.sys.g.a])),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[bg.sys.g.E]),
+    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_pt[bg.sys.g.a])),
+    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_pt[bg.sys.g.E]),
 
     # thermodynamics
-    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2[bg.sys.g.a])),
-    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2[pt.ssys.dτ] * (Symboltz.k0 * par.h))),
+    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[bg.sys.g.a])),
+    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2_th[th.ssys.dτ] * (Symboltz.k0 * par.h))),
+    "lg(|csb²|)" => (log10.(abs.(reverse(sol1["th"]["c_b^2"]))), log10.(abs.(sol2_th[th.sys.cs²]))),
+    "Xe" => (reverse(sol1["th"]["x_e"]), sol2_th[th.sys.Xe]),
+    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2_th[th.sys.Tb]),
 
     # perturbations
-    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2[bg.sys.g.a])),
-    "a_pt" => (sol1["pt"]["a"], sol2[bg.sys.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2[pt.ssys.gpt.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2[pt.ssys.gpt.Ψ]), # TODO: same?
-    "δb" => (sol1["pt"]["delta_b"], -sol2[pt.ssys.bar.δ]), # TODO: sign?
-    "δc" => (sol1["pt"]["delta_cdm"], -sol2[pt.ssys.cdm.δ]), # TODO: sign?
-    "δγ" => (sol1["pt"]["delta_g"], -sol2[pt.ssys.ph.δ]),
-    "θb" => (sol1["pt"]["theta_b"], -sol2[pt.ssys.bar.u] * kMpc),
-    "θc" => (sol1["pt"]["theta_cdm"], -sol2[pt.ssys.cdm.u] * kMpc),
-    "θγ" => (sol1["pt"]["theta_g"], -sol2[pt.ssys.ph.Θ[1]] * 3 * kMpc),
-    "Π" => (sol1["pt"]["shear_g"], sol2[pt.ssys.ph.Θ[2]] * -2),
-    "P0" => (sol1["pt"]["pol0_g"], sol2[pt.ssys.ph.ΘP0] * -4), # TODO: is -4 correct ???
-    "P1" => (sol1["pt"]["pol1_g"], sol2[pt.ssys.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
-    "P2" => (sol1["pt"]["pol2_g"], sol2[pt.ssys.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
+    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2_pt[bg.sys.g.a])),
+    "a_pt" => (sol1["pt"]["a"], sol2_pt[bg.sys.g.a]),
+    "Φ" => (sol1["pt"]["phi"], sol2_pt[pt.ssys.gpt.Φ]), # TODO: same?
+    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[pt.ssys.gpt.Ψ]), # TODO: same?
+    "δb" => (sol1["pt"]["delta_b"], -sol2_pt[pt.ssys.bar.δ]), # TODO: sign?
+    "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[pt.ssys.cdm.δ]), # TODO: sign?
+    "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[pt.ssys.ph.δ]),
+    "θb" => (sol1["pt"]["theta_b"], -sol2_pt[pt.ssys.bar.u] * kMpc),
+    "θc" => (sol1["pt"]["theta_cdm"], -sol2_pt[pt.ssys.cdm.u] * kMpc),
+    "θγ" => (sol1["pt"]["theta_g"], -sol2_pt[pt.ssys.ph.Θ[1]] * 3 * kMpc),
+    "Π" => (sol1["pt"]["shear_g"], sol2_pt[pt.ssys.ph.Θ[2]] * -2),
+    "P0" => (sol1["pt"]["pol0_g"], sol2_pt[pt.ssys.ph.ΘP0] * -4), # TODO: is -4 correct ???
+    "P1" => (sol1["pt"]["pol1_g"], sol2_pt[pt.ssys.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
+    "P2" => (sol1["pt"]["pol2_g"], sol2_pt[pt.ssys.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
-xlabel = "lg(a_pt)"
-ylabel = "Φ"
+xlabel, ylabel = "lg(a_th)", "lg(τ′)"
 x1, x2 = results[xlabel]
 y1, y2 = results[ylabel]
 x1min, x1max = extrema(x1)
@@ -118,9 +121,7 @@ x2min, x2max = extrema(x2)
 x = range(max(x1min, x2min), min(x1max, x2max), length = 1000)
 y1min, y1max = extrema(y1)
 y2min, y2max = extrema(y2)
-ymin = min(y1min, y2min)
-ymax = max(y1max, y2max)
-ylims = (ymin, ymax)
+ylims = (min(y1min, y2min), max(y1max, y2max))
 
 r = CubicSpline(y1, x1; extrapolate=true).(x) ./ CubicSpline(y2, x2; extrapolate=true).(x) # ratio at common x # TODO: verify extrapolate is ok
 xlims = extrema(x)
@@ -128,4 +129,5 @@ xlims = extrema(x)
 p = plot(layout = (2, 1), size = (700, 800))
 plot!(p[1], x1, y1; label = "CLASS", ylabel, title = "k = $(kMpc) / Mpc")
 plot!(p[1], x2, y2; label = "Symboltz", xlims, ylims)
-plot!(p[2], x, r; ylims = (0.8, 1.2), yticks = [0.8, 0.9, 1.0, 1.1, 1.2], yminorticks = 0.8:0.01:1.2, yminorgrid = true, xlims, xlabel, ylabel = "Symboltz / CLASS")
+hline!(p[2], [1.0], linestyle = :dash, color = :black)
+plot!(p[2], x, r; yminorticks = 10, yminorgrid = true, xlims, xlabel, ylabel = "Symboltz / CLASS")

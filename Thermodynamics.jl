@@ -108,7 +108,7 @@ end
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
     @parameters fb H0
     H0 = GlobalScope(H0)
-    @variables Xe(η) ne(η) τ(η) = 0.0 ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
     # defaults[Xe] = sum(atom.Xe for atom in atoms) + Xeϵ # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
@@ -127,6 +127,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Xe ~ sum(atom.Xe for atom in atoms) + Xeϵ # TODO: makes more sense to sum ne instead?
         ne ~ Xe * nb # my convention
         Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        dτ ~ Dη(τ)
     ], η; defaults, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
