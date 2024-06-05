@@ -15,15 +15,27 @@ function perturbations_metric(; name)
     return ODESystem(Equation[], η, [Φ, Ψ], [k]; defaults, name)
 end
 
-function perturbations_radiation(g, interact=false; name)
-    @variables Θ0(η) Θ1(η) δ(η)
-    interaction = interact ? only(@variables interaction(η)) : 0
-    return ODESystem([
-        Dη(Θ0) + k*Θ1 ~ -Dη(g.Φ) # Dodelson (5.67) or (8.10)
-        Dη(Θ1) - k/3*Θ0 ~ k/3*g.Ψ + interaction # Dodelson (5.67) or (8.11)
-        δ ~ 4*Θ0
-    ], η; name)
+function perturbations_species(gbg, gpt, w, cs² = w, w′ = 0, σ = 0; uinteract = false, name)
+    @assert w′ == 0 && σ == 0 # TODO: relax (need to include in ICs)
+    @variables δ(η) u(η) Δ(η) uinteraction(η)
+    eqs = [
+        Dη(δ) ~ -(1+w)*(gpt.k*u+3*Dη(gpt.Φ)) - 3*gbg.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
+        Dη(u) ~ -gbg.ℰ*(1-3*w)*u - w′/(1+w)*u + cs²/(1+w)*gpt.k*δ + gpt.k*gpt.Ψ - gpt.k*σ + uinteraction # Bertschinger & Ma (30) with θ = kv
+        Δ ~ δ + 3 * (1+w) * gbg.ℰ/gpt.k * u # Baumann (4.2.144) with v -> -u
+    ]
+    defaults = [
+        δ => 3/2 * (1+w) * gpt.Φ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        u => -1/2 * gpt.k / gbg.ℰ * gpt.Φ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+    ]
+    if !uinteract
+        push!(eqs, uinteraction ~ 0)
+    end
+    return ODESystem(eqs, η, [δ, u, Δ, uinteraction], []; defaults, name)
 end
+
+perturbations_matter(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...)
+perturbations_radiation(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...)
+perturbations_cosmological_constant(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...) # TODO: ill-defined?
 
 function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; name)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η) Π(η)
@@ -63,23 +75,6 @@ function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; nam
     return ODESystem(eqs, η; defaults, name)
 end
 
-function perturbations_matter(gbg, gpt, interact=false; name)
-    @variables δ(η) u(η) Δ(η) interaction(η)
-    eqs = [
-        Dη(δ) + gpt.k*u ~ -3*Dη(gpt.Φ) # Dodelson (5.69) or (8.12) with i*uc -> uc
-        Dη(u) + u*gbg.ℰ ~ gpt.k*gpt.Ψ + interaction # Dodelson (5.70) or (8.13) with i*uc -> uc (opposite sign convention from Hans' website) # TODO: treat interaction explicitly
-        Δ ~ δ + 3 * gbg.ℰ/gpt.k * u # TODO: correct??? gauge-invariant density perturbation (https://arxiv.org/pdf/1307.1459#equation.2.12)
-    ]
-    defaults = [
-        δ => 3/2 * gpt.Φ # Dodelson (7.94)
-        u => -1/2 * gpt.k/gbg.ℰ * gpt.Φ # Dodelson (7.95)
-    ]
-    if !interact
-        push!(eqs, interaction ~ 0)
-    end
-    return ODESystem(eqs, η, [δ, u, Δ, interaction], []; defaults, name)
-end
-
 function perturbations_gravity(gbg, gpt; name)
     @variables δρ(η) Π(η)
     return ODESystem([
@@ -92,8 +87,8 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
     bg = th.bg
     @named gpt = Symboltz.perturbations_metric()
     @named ph = Symboltz.perturbations_photon_hierarchy(bg.sys.g, gpt, lmax, true)
-    @named cdm = Symboltz.perturbations_matter(bg.sys.g, gpt, false)
-    @named bar = Symboltz.perturbations_matter(bg.sys.g, gpt, true)
+    @named cdm = Symboltz.perturbations_matter(bg.sys.g, gpt; uinteract=false)
+    @named bar = Symboltz.perturbations_matter(bg.sys.g, gpt; uinteract=true)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, gpt)
     return Symboltz.PerturbationsSystem(bg, th, gpt, gravpt, ph, cdm, bar; name)
 end
@@ -119,7 +114,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
-        bar.interaction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable...
+        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable...
         ph.ub ~ bar.u
         ph.dτ ~ dτ
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
