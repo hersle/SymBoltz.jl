@@ -14,10 +14,10 @@ function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
 end
 
 # source function
-function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp) 
+function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; observe = true) 
+    # only needed if observe == false
     th = pt.th
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-
     τ = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end] # make τ = 0 today # TODO: assume ηs[end] is today
     τ′ = D_spline(τ, ηs)
     τ″ = D_spline(τ′, ηs)
@@ -28,24 +28,28 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
     Ss = similar(τ, (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
-        k = ks[ik]
         pt_sol = pt_sols[ik]
-        Θ0 = pt_sol[pt.sys.ph.Θ0]
-        Ψ = pt_sol[pt.sys.gravpt.Ψ]
-        Φ = pt_sol[pt.sys.gravpt.Φ]
-        Π = pt_sol[pt.sys.ph.Π]
-        ub = pt_sol[pt.sys.bar.u]
-        Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
-        Φ′ = D_spline(Φ, ηs)
-        ub′ = D_spline(ub, ηs)
-        @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
+        if observe # choose whether to compute S from observed perturbation equations, or using splines
+            Ss[ik,:] .= pt_sol[pt.ssys.S] # whether this gives a accurate CMB spectrum depends on the perturbation ODE solver (e.g. KenCarp{4,47,5,58}) and its reltol
+        else
+            k = ks[ik]
+            Θ0 = pt_sol[pt.sys.ph.Θ0]
+            Ψ = pt_sol[pt.sys.gravpt.Ψ]
+            Φ = pt_sol[pt.sys.gravpt.Φ]
+            Π = pt_sol[pt.sys.ph.Π]
+            ub = pt_sol[pt.sys.bar.u]
+            Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
+            Φ′ = D_spline(Φ, ηs)
+            ub′ = D_spline(ub, ηs)    
+            @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
+        end
     end
 
     return Ss
 end
 
-function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline) 
-    Sscoarse = S(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
+function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
+    Sscoarse = S(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp; kwargs...)
     Ssfine = similar(Sscoarse, (length(ksfine), length(ηs)))
     for iη in eachindex(ηs)
         Sscoarseη = @view Sscoarse[:,iη]
@@ -105,9 +109,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
     return Θls
 end
 
-function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, Yp, args...)
+function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, Yp, args...; kwargs...)
     ηs = exp.(lnηs)
-    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp, args...)
+    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp, args...; kwargs...)
     return Θl(ls, ks, lnηs, Ss)
 end
 
@@ -125,13 +129,13 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S::AbstractArray)
-    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, Yp, ks_S)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
+    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, Yp, ks_S; kwargs...)
     P0s = P0(ks, As)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; Δlnη = 0.03, Δkη0 = 2π/4, Δkη0_S = 50.0)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; Δlnη = 0.03, Δkη0 = 2π/4, Δkη0_S = 50.0, observe = false)
     bg_sol = solve(pt.bg, Ωr0, Ωm0)
 
     ηi, η0 = max(bg_sol[η][begin], 1e-4), bg_sol[η][end]
@@ -142,7 +146,7 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As,
     ks_Cl = range_until(0, kη0max, Δkη0; skip_start=true) ./ η0
     ks_S = range_until(0, kη0max, Δkη0_S; skip_start=true) ./ η0 # Δk = 50/η0
 
-    return Cl(pt, ls, ks_Cl, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S)
+    return Cl(pt, ls, ks_Cl, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S; observe)
 end
 
 Dl(pt::PerturbationsSystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π

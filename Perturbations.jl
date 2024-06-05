@@ -94,13 +94,17 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
+@register_symbolic τfunc(η, spl)
 @register_symbolic dτfunc(η, spl) # TODO: improve somehow
+@register_symbolic ddτfunc(η, spl) # TODO: improve somehow
 @register_symbolic csb²func(η, spl)
+τfunc(η, spl) = spl(η) # +exp(spl(log(η)))
 dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
+ddτfunc(η, spl) = spl(η)
 csb²func(η, spl) = spl(log(η))
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
-    @parameters fb dτspline csb²spline # TODO: get rid of
-    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) dτ(η) Δm(η) csb²(η) # TODO: get rid of
+    @parameters fb τspline dτspline ddτspline csb²spline # TODO: get rid of
+    @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) csb²(η) τ(η) dτ(η) ddτ(η) v(η) dv(η) Δm(η) SSW(η) SD(η) SISW(η) S(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ
@@ -117,12 +121,25 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable...
         ph.ub ~ bar.u
         ph.dτ ~ dτ
+        τ ~ τfunc(η, τspline)
         dτ ~ dτfunc(η, dτspline) # TODO: spline over η
         csb² ~ csb²func(η, csb²spline)
     
         # gravity shear stress
+
+        ddτ ~ ddτfunc(η, ddτspline)
+        v ~ -dτ * exp(-τ) # visibility function
+        dv ~ (dτ^2 - ddτ) * exp(-τ)
+        
+        SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # SW
+        SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
+        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # ISW # TODO: unstable, gives wiggly CMB peaks
+        # TODO: add polarization
+        S ~ SSW + SD + SISW
+
+        # gravity shear stress
         grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
-    ], η, [Δm, dτ, csb²], [fb, dτspline, csb²spline]; name)
+    ], η, [Δm, csb², τ, dτ, ddτ, v, dv, SSW, SD, SISW, S], [fb, csb²spline, τspline, dτspline, ddτspline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
     prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
@@ -130,7 +147,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
 end
 
 # TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp47(), aini = 1e-8, reltol = 1e-8, verbose = false, kwargs...)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
@@ -139,15 +156,17 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     ηini, ηtoday = ηs[begin], ηs[end]
     ρr, ρm, ρΛ, a, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.a, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
     τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
-    τspline = CubicSpline(τs, ηs)
+    τspline = CubicSpline(τs, ηs; extrapolate=true)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
-    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # TODO: extrapolate valid?
+    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # spline this logarithmically for accurayc during integration # TODO: extrapolate valid?
     dτ = dτs[begin]
+    ddτs = DataInterpolations.derivative.(Ref(τspline), ηs, 2) # spline normally (just observed anyway)
+    ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
 
     csb²s = th_sol[th.sys.cs²]
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.dτspline => NaN, pt.ssys.csb²spline => NaN]
+    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => NaN, pt.ssys.dτspline => NaN, pt.ssys.ddτspline => NaN, pt.ssys.csb²spline => NaN]
     u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ] # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
@@ -155,7 +174,7 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
         if verbose
             println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
         end
-        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.dτspline => dτspline, pt.ssys.csb²spline => csb²spline])
+        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline])
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
