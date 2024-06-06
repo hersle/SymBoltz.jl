@@ -26,7 +26,7 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0,
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-    Ss = similar(τ, (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
         if observe # choose whether to compute S from observed perturbation equations, or using splines
