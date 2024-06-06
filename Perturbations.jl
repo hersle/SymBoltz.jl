@@ -1,7 +1,6 @@
 struct PerturbationsSystem
     sys::ODESystem
     ssys::ODESystem
-    prob::ODEProblem
     bg::BackgroundSystem
     th::ThermodynamicsSystem
 end
@@ -94,59 +93,47 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; name)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
-@register_symbolic τfunc(η, spl)
-@register_symbolic dτfunc(η, spl) # TODO: improve somehow
-@register_symbolic ddτfunc(η, spl) # TODO: improve somehow
-@register_symbolic csb²func(η, spl)
-τfunc(η, spl) = spl(η) # +exp(spl(log(η)))
-dτfunc(η, spl) = -exp(spl(log(η))) # TODO: type-stable? @code_warntype dτfunc(1e0) gives warnings, but code seems fast?
-ddτfunc(η, spl) = spl(η)
-csb²func(η, spl) = spl(log(η))
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; name)
-    @parameters fb τspline dτspline ddτspline csb²spline # TODO: get rid of
+    @parameters fb τspline::CubicSpline dτspline::CubicSpline ddτspline::CubicSpline csb²spline::CubicSpline # TODO: get rid of
     @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) csb²(η) τ(η) dτ(η) ddτ(η) v(η) dv(η) Δm(η) SSW(η) SD(η) SISW(η) S(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
+        # gravity density and shear stress
         ρb ~ fb * bg.sys.mat.ρ
         ρc ~ bg.sys.mat.ρ - ρb
         δρr ~ ph.δ * bg.sys.rad.ρ
         δρc ~ cdm.δ * ρc
         δρb ~ bar.δ * ρb
         grav.δρ ~ δρr + δρc + δρb # total energy density perturbation
-
-        Δm ~ (ρc * cdm.Δ + ρb * bar.Δ) / bg.sys.mat.ρ # total gauge-invariant matter overdensity
+        grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * ρb / bg.sys.rad.ρ # Dodelson (5.74)
         bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable...
         ph.ub ~ bar.u
         ph.dτ ~ dτ
-        τ ~ τfunc(η, τspline)
-        dτ ~ dτfunc(η, dτspline) # TODO: spline over η
-        csb² ~ csb²func(η, csb²spline)
-    
-        # gravity shear stress
 
-        ddτ ~ ddτfunc(η, ddτspline)
+        # gauge-independent matter overdensity for matter power spectrum
+        Δm ~ (ρc * cdm.Δ + ρb * bar.Δ) / bg.sys.mat.ρ
+
+        # source functions for CMB power spectrum
+        τ ~ spleval(η, τspline)
+        dτ ~ -exp(spleval(log(η), dτspline))
+        ddτ ~ spleval(η, ddτspline)
+        csb² ~ spleval(log(η), csb²spline)
         v ~ -dτ * exp(-τ) # visibility function
         dv ~ (dτ^2 - ddτ) * exp(-τ)
-        
         SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # SW
         SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
-        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # ISW # TODO: unstable, gives wiggly CMB peaks
-        # TODO: add polarization
-        S ~ SSW + SD + SISW
-
-        # gravity shear stress
-        grav.Π ~ -32π*bg.sys.g.a^2 * bg.sys.rad.ρ*ph.Θ[2] # TODO: add neutrinos
+        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # ISW
+        S ~ SSW + SD + SISW # TODO: add polarization
     ], η, [Δm, csb², τ, dτ, ddτ, v, dv, SSW, SD, SISW, S], [fb, csb²spline, τspline, dτspline, ddτspline]; name)
     sys = compose(connections, g, grav, ph, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true) 
-    return PerturbationsSystem(sys, ssys, prob, bg, th)
+    return PerturbationsSystem(sys, ssys, bg, th)
 end
 
-# TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type
+# TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
 function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
@@ -166,16 +153,20 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     csb²s = th_sol[th.sys.cs²]
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => NaN, pt.ssys.dτspline => NaN, pt.ssys.ddτspline => NaN, pt.ssys.csb²spline => NaN]
-    u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ] # merge(ModelingToolkit.defaults(pt.ssys), Dict(pt.ssys.dτ => dτ, bg.sys.g.ℰ => ℰ, bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a))
+    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline]
+    u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ]
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
         if verbose
             println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
         end
-        return remake(prob; p = [pt.ssys.gpt.k => k, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline])
+        return remake(prob; p = [pt.ssys.gpt.k => k])
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
+
+# proxy function for evaluating a spline
+@register_symbolic spleval(x, spline::CubicSpline)
+spleval(x, spline) = spline(x)
