@@ -48,8 +48,9 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
         ub = pt_sol[pt.sys.bar.u]
         Ψ′ = D_spline(Ψ, ηs) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ηs)
-        ub′ = D_spline(ub, ηs)    
-        @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) # SW + Doppler + ISW # TODO: add polarization
+        ub′ = D_spline(ub, ηs)
+        gΠ″ = D_spline(g .* Π, ηs; order = 2)
+        @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
     end
 
     return Ss
