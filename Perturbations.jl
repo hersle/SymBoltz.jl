@@ -33,8 +33,8 @@ function perturbations_species(gbg, gpt, w, cs² = w, w′ = 0, σ = 0; uinterac
 end
 
 perturbations_matter(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...)
-perturbations_radiation(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...)
-perturbations_cosmological_constant(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 0; kwargs...) # TODO: ill-defined?
+perturbations_radiation(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, 1//3; kwargs...)
+perturbations_cosmological_constant(gbg, gpt; kwargs...) = perturbations_species(gbg, gpt, -1; kwargs...) # TODO: ill-defined?
 
 function perturbations_photon_hierarchy(gbg, gpt, lmax=6, polarization=true; name)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η) Π(η)
