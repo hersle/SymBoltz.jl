@@ -17,10 +17,10 @@ end
 # this one is more elegant, but a little numerically unstable (would really like to use this one)
 function S_observed(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp)
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ηs), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
-        Ss[ik,:] .= pt_sol[pt.ssys.S] # whether this gives a accurate CMB spectrum depends on the perturbation ODE solver (e.g. KenCarp{4,47,5,58}) and its reltol
+        Ss[:,ik] .= pt_sol[pt.ssys.S] # whether this gives a accurate CMB spectrum depends on the perturbation ODE solver (e.g. KenCarp{4,47,5,58}) and its reltol
     end
     return Ss
 end
@@ -37,7 +37,7 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
     pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ηs), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
         k = ks[ik]
@@ -50,18 +50,18 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
         Φ′ = D_spline(Φ, ηs)
         ub′ = D_spline(ub, ηs)
         gΠ″ = D_spline(g .* Π, ηs; order = 2)
-        @. Ss[ik,:] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
+        @. Ss[:,ik] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
     end
 
     return Ss
 end
 
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
-    Sscoarse = S_observed(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
-    Ssfine = similar(Sscoarse, (length(ksfine), length(ηs)))
+    Sscoarse = S_splined(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
+    Ssfine = similar(Sscoarse, (length(ηs), length(ksfine)))
     for iη in eachindex(ηs)
-        Sscoarseη = @view Sscoarse[:,iη]
-        Ssfine[:,iη] .= Spline(Sscoarseη, kscoarse)(ksfine)
+        Sscoarseη = @view Sscoarse[iη,:]
+        Ssfine[iη,:] .= Spline(Sscoarseη, kscoarse)(ksfine)
     end
     return Ssfine
 end
@@ -98,7 +98,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
         k = ks[ik]
         for iη in eachindex(ηs)
             η = ηs[iη]
-            Sη = Ss[ik,iη] * η
+            Sη = Ss[iη,ik] * η
             kΔη = k * (η0-η)
             sphericalbesseljfast!(Jls_all[threadid()], ls_all, kΔη) # TODO: reuse ∂Θ_∂lnη's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
