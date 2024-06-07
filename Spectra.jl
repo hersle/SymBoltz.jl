@@ -88,7 +88,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
     ηs = exp.(lnηs)
     η0 = ηs[end]
 
-    Θls = similar(Ss, (length(ls), length(ks)))
+    Θls = similar(Ss, (length(ks), length(ls)))
     ∂Θ_∂lnη = [similar(Ss, (length(ls), length(ηs))) for _ in 1:nthreads()] # TODO: best to do array of arrays without using @view, or to use matrix + @view?
     lmin, lmax = extrema(ls)
     ls_all = lmin:1:lmax # range with step 1
@@ -110,7 +110,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
         end
         for il in eachindex(ls)
             integrand = @view ∂Θ_∂lnη[threadid()][il,:]
-            Θls[il,ik] = integrate(lnηs, integrand, integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            Θls[ik,il] = integrate(lnηs, integrand, integrator) # integrate over η # TODO: add starting Θl(ηini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
@@ -130,7 +130,8 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     dCl_dks_with0 = [zeros(eltype(Θls), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
 
     @threads for il in eachindex(ls)
-        @. dCl_dks_with0[threadid()][2:end] = 2/π * ks^2 * P0s * Θls[il,:]^2
+        integrand = @view Θls[:,il]
+        @. dCl_dks_with0[threadid()][2:end] = 2/π * ks^2 * P0s * integrand^2
         Cls[il] = integrate(ks_with0, dCl_dks_with0[threadid()], integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
