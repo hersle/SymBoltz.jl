@@ -33,38 +33,35 @@ perturbations_radiation(g0, g1; kwargs...) = perturbations_species(g0, g1, 0; kw
 perturbations_cosmological_constant(g0, g1; kwargs...) = perturbations_species(g0, g1, 0; kwargs...) # TODO: ill-defined?
 
 function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwargs...)
-    @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η) Π(η)
+    @variables Θ0(η) Θ(η)[1:lmax] δ(η) dτ(η) ub(η) Π(η) ΘP0(η) ΘP(η)[1:lmax]
     eqs = [
         Dη(Θ0) + g1.k*Θ[1] ~ -Dη(g1.Φ)
         Dη(Θ[1]) - g1.k/3*(Θ0-2*Θ[2]) ~ g1.k/3*g1.Ψ - dτ/3 * (ub - 3*Θ[1])
         [Dη(Θ[l]) ~ g1.k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: Π in last term here?
         Dη(Θ[lmax]) ~ g1.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Π/10*δkron(lmax,2))
         δ ~ 4*Θ0
+        Π ~ Θ[2] + ΘP[2] + ΘP0
     ]
-    defaults = [
-        Θ0 => 1/2 * g1.Φ, # Dodelson (7.89)
-        Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ, # Dodelson (7.95)
-        Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # # depends on whether polarization is included
-        [Θ[l] => -l/(2*l+1) * g1.k/dτ * Θ[l-1] for l in 3:lmax]...
-    ]
-    if polarization # TODO: include all ΘP, but set them to 0 if not included
-        @variables ΘP0(η) ΘP(η)[1:lmax]
+    if polarization
         push!(eqs,
             Dη(ΘP0) + g1.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
             Dη(ΘP[1]) - g1.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
             [Dη(ΘP[l]) - g1.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...,
             Dη(ΘP[lmax]) ~ g1.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax],
-            Π ~ Θ[2] + ΘP[2] + ΘP0
-        )
-        push!(defaults,
-            ΘP0 => 5/4 * Θ[2],
-            ΘP[1] => -1/4 * g1.k/dτ * Θ[2],
-            ΘP[2] => 1/4 * Θ[2],
-            [ΘP[l] => -l/(2*l+1) * g1.k/dτ * ΘP[l-1] for l in 3:lmax]...
         )
     else
-        push!(eqs, Π ~ Θ[2])
+        push!(eqs, ΘP0 ~ 0, collect(ΘP .~ 0)...)
     end
+    defaults = [
+        Θ0 => 1/2 * g1.Φ, # Dodelson (7.89)
+        Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ, # Dodelson (7.95)
+        Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # # depends on whether polarization is included
+        [Θ[l] => -l/(2*l+1) * g1.k/dτ * Θ[l-1] for l in 3:lmax]...,
+        ΘP0 => 5/4 * Θ[2],
+        ΘP[1] => -1/4 * g1.k/dτ * Θ[2],
+        ΘP[2] => 1/4 * Θ[2],
+        [ΘP[l] => -l/(2*l+1) * g1.k/dτ * ΘP[l-1] for l in 3:lmax]...
+    ]
     return ODESystem(eqs, η; defaults, kwargs...)
 end
 
