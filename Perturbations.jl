@@ -139,22 +139,23 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     bg = th.bg
     fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
+    ρr0, ρm0, ρΛ0 = th_sol.prob.ps[[bg.sys.rad.ρ0, bg.sys.mat.ρ0, bg.sys.de.ρ0]]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
-    ρr, ρm, ρΛ, a, ℰ = th_sol(ηini; idxs=[bg.sys.rad.ρ, bg.sys.mat.ρ, bg.sys.de.ρ, bg.sys.g.a, bg.sys.g.ℰ]) # TODO: avoid duplicate logic
-    τs = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end]
+    ηs = exp.(range(log(ηini), log(ηtoday), length=512)) # TODO: select determine points adaptively from th_sol # TODO: use saveat in th sol
+    a, ℰ = th_sol(ηini; idxs=[bg.sys.g.a, bg.sys.g.ℰ])
+    τs = th_sol(ηs, idxs=th.sys.τ).u .- th_sol(ηtoday, idxs=th.sys.τ)
     τspline = CubicSpline(τs, ηs; extrapolate=true)
     dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
     dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # spline this logarithmically for accurayc during integration # TODO: extrapolate valid?
     dτ = dτs[begin]
     ddτs = DataInterpolations.derivative.(Ref(τspline), ηs, 2) # spline normally (just observed anyway)
     ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
-
-    csb²s = th_sol[th.sys.cs²]
+    csb²s = th_sol(ηs, idxs=th.sys.cs²).u
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = [pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline]
-    u0 = [bg.sys.rad.ρ => ρr, bg.sys.mat.ρ => ρm, bg.sys.de.ρ => ρΛ, bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ]
+    p = [bg.sys.rad.ρ0 => ρr0, bg.sys.mat.ρ0 => ρm0, bg.sys.de.ρ0 => ρΛ0, pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline]
+    u0 = [bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ]
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
         k = ks[i]

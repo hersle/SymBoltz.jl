@@ -136,30 +136,21 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
 end
 
 function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
+    bg = th.bg
     H0 = H100 * h
-    bg_sol = solve(th.bg, Ωr0, Ωm0)
+    bg_sol = solve(bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    ρrini, ρmini, ρΛini = bg_sol(ηini; idxs=[th.bg.sys.rad.ρ, th.bg.sys.mat.ρ, th.bg.sys.de.ρ]) # TODO: avoid duplicate logic
+    ρr0, ρm0, ρΛ0 = bg_sol.prob.ps[[bg.ssys.rad.ρ0, bg.ssys.mat.ρ0, bg.ssys.de.ρ0]]
     fb = Ωb0 / Ωm0; @assert fb <= 1
-    Tini = (ρrini * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
+    Tini = (ρr0 * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     YHe = Yp
     YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
-
-    #= 
-    # TODO: fails with dual numbers, wait for fix https://github.com/SciML/ModelingToolkit.jl/pull/2686
-    prob = ODEProblem(
-        th.ssys,
-        [th.ssys.Tγ => Tini, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini],
-        (ηini, ηtoday),
-        [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#], # TODO: locallize Bauman λ parameter to its system definition (once Ωb0 etc. are accessible?)
-    )
-    =#
 
     #TODO: use defaults for th.ssys.Xe => 1 + Yp/2 when fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2715
     prob = remake(th.prob;
         tspan = (ηini, ηtoday),
-        u0 = [th.ssys.Xe => 1 + YHe/2, th.ssys.Tγ => Tini, th.bg.sys.rad.ρ => ρrini, th.bg.sys.mat.ρ => ρmini, th.bg.sys.de.ρ => ρΛini, th.bg.ssys.g.a => aini],
-        p = [th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
+        u0 = [th.ssys.Xe => 1 + YHe/2, th.ssys.Tγ => Tini, bg.ssys.g.a => aini],
+        p = [bg.sys.rad.ρ0 => ρr0, bg.sys.mat.ρ0 => ρm0, bg.sys.de.ρ0 => ρΛ0, th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
         use_defaults = true
     )
 

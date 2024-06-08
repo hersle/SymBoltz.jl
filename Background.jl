@@ -27,17 +27,18 @@ function background_gravity_GR(g; name)
     return ODESystem(eqs, η, [ρ, ρcrit], []; name)
 end
 
-function background_species(g, eos; name)
+function background_species(g, w; name)
+    @parameters ρ0 # TODO: Ω0
     @variables ρ(η) P(η)
     eqs = [
-        P ~ eos(ρ) # equation of state
-        Dη(ρ) ~ -3 * g.ℰ * (ρ + P) # alternative analytical solution: ρ ~ ρ0 / a^(3*(1+w))
+        P ~ w * ρ # equation of state
+        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: Dη(ρ) ~ -3 * g.ℰ * (ρ + P) 
     ]
     return ODESystem(eqs, η; name)
 end
-background_radiation(g; kwargs...) = background_species(g, ρ -> ρ/3; kwargs...)
-background_matter(g; kwargs...) = background_species(g, ρ -> 0; kwargs...)
-background_cosmological_constant(g; kwargs...) = background_species(g, ρ -> -ρ; kwargs...)
+background_radiation(g; kwargs...) = background_species(g, 1//3; kwargs...)
+background_matter(g; kwargs...) = background_species(g, 0; kwargs...)
+background_cosmological_constant(g; kwargs...) = background_species(g, -1; kwargs...)
 
 function background_ΛCDM(; name)
     @named g = background_metric()
@@ -62,13 +63,11 @@ end
 function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Vern8(), reltol=1e-8, kwargs...)
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     # TODO: take symbolic IC map
-    ΩΛ0 = 1 - Ωr0 - Ωm0
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution
-    ρrini = 3/8π * Ωr0 / aini^4
-    ρmini = 3/8π * Ωm0 / aini^3
-    ρΛini = 3/8π * ΩΛ0
+    ΩΛ0 = 1 - Ωr0 - Ωm0 # TODO: move into system
+    ρr0, ρm0, ρΛ0 = 3/8π * [Ωr0, Ωm0, ΩΛ0]
     
-    prob = remake(bg.prob; tspan=(ηini, 10.0), u0 = [bg.ssys.g.a => aini, bg.ssys.rad.ρ => ρrini, bg.ssys.mat.ρ => ρmini, bg.ssys.de.ρ => ρΛini])
+    prob = remake(bg.prob; tspan=(ηini, 10.0), u0 = [bg.ssys.g.a => aini], p = [bg.ssys.rad.ρ0 => ρr0, bg.ssys.mat.ρ0 => ρm0, bg.ssys.de.ρ0 => ρΛ0])
 
     # integrate until a == aend
     aindex = variable_index(bg.ssys, bg.ssys.g.a)
