@@ -41,17 +41,15 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
         Dη(Θ[lmax]) ~ g1.k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / η + dτ * (Θ[lmax] - Π/10*δkron(lmax,2))
         δ ~ 4*Θ0
         Π ~ Θ[2] + ΘP[2] + ΘP0
+        (polarization ? [
+            Dη(ΘP0) + g1.k*ΘP[1] ~ dτ * (ΘP0 - Π/2)
+            Dη(ΘP[1]) - g1.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2))
+            [Dη(ΘP[l]) - g1.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
+            Dη(ΘP[lmax]) ~ g1.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax]
+        ] : [
+            ΘP0 ~ 0, collect(ΘP .~ 0)... # pin to zero
+        ])...
     ]
-    if polarization
-        push!(eqs,
-            Dη(ΘP0) + g1.k*ΘP[1] ~ dτ * (ΘP0 - Π/2),
-            Dη(ΘP[1]) - g1.k/(2*1+1) * (1*ΘP0 - (1+1)*ΘP[1+1]) ~ dτ * (ΘP[1] - Π/10*δkron(1,2)),
-            [Dη(ΘP[l]) - g1.k/(2*l+1) * (l*ΘP[l-1] - (l+1)*ΘP[l+1]) ~ dτ * (ΘP[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...,
-            Dη(ΘP[lmax]) ~ g1.k*ΘP[lmax-1] - (lmax+1) * ΘP[lmax] / η + dτ * ΘP[lmax],
-        )
-    else
-        push!(eqs, ΘP0 ~ 0, collect(ΘP .~ 0)...)
-    end
     defaults = [
         Θ0 => 1/2 * g1.Φ, # Dodelson (7.89)
         Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ, # Dodelson (7.95)
