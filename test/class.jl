@@ -1,3 +1,4 @@
+include("../Symboltz.jl")
 import .Symboltz
 using ModelingToolkit
 using DelimitedFiles
@@ -99,8 +100,8 @@ results = Dict(
     # perturbations
     "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2_pt[bg.sys.g.a])),
     "a_pt" => (sol1["pt"]["a"], sol2_pt[bg.sys.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2_pt[pt.ssys.gpt.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[pt.ssys.gpt.Ψ]), # TODO: same?
+    "Φ" => (sol1["pt"]["phi"], sol2_pt[pt.ssys.g1.Φ]), # TODO: same?
+    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[pt.ssys.g1.Ψ]), # TODO: same?
     "δb" => (sol1["pt"]["delta_b"], -sol2_pt[pt.ssys.bar.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[pt.ssys.cdm.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[pt.ssys.ph.δ]),

@@ -1,3 +1,4 @@
+include("../Symboltz.jl")
 import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
@@ -23,7 +24,9 @@ function plot_dependency_graph(sys)
 
     plot(
         tstate.structure.graph, names = names, method = :stress,
-        fontsize = 9, nodeshape = :hexagon, nodecolor = groups,
+        fontsize = 5, nodeshape = :hexagon, nodecolor = groups,
         self_edge_size = 0 # hide self-to-self nodes
     ) # see https://docs.juliaplots.org/stable/generated/graph_attributes/
 end
+
+plot_dependency_graph(pt.ssys)

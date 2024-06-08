@@ -16,12 +16,12 @@ function thermodynamics_hydrogen_recombination_saha(Eion = NoUnits(13.59844u"eV/
         R ~ exp(-Eion/(kB*T)) / (λ^3 * ne)
         X ~ R / (1 + R) # = nH₊/nH
         Xe ~ Y * X
-    ], η, [Xe, n, ne, T, nb, nγ], [Y]; defaults = [X => 1.0, Xe => Y], kwargs...)
+    ], η; defaults = [X => 1.0, Xe => Y], kwargs...)
 end
 
 function thermodynamics_helium_recombination_saha(; Eion1 = NoUnits(24.58738u"eV/J"), Eion2 = NoUnits(54.41776u"eV/J"), kwargs...)
-    @parameters Y
-    @variables Xe(η) X1(η) X2(η) T(η) λ(η) R1(η) R2(η) ne(η) n(η) nb(η) nγ(η)
+    pars = @parameters Y
+    vars = @variables Xe(η) X1(η) X2(η) T(η) λ(η) R1(η) R2(η) ne(η) n(η) nb(η) nγ(η)
     return ODESystem([
         λ ~ h / √(2π*me*kB*T)
         R1 ~ 2 * exp(-Eion1/(kB*T)) / (λ^3 * ne)
@@ -29,7 +29,7 @@ function thermodynamics_helium_recombination_saha(; Eion1 = NoUnits(24.58738u"eV
         X1 ~ R1 / (1 + R1 + R1*R2)
         X2 ~ R2 * X1
         Xe ~ Y/4 * (X1 + 2*X2)
-    ], η, [Xe, n, ne, T, nb, nγ], [Y]; defaults = [X2 => 1.0, X1 => 0.0, Xe => Y/2], kwargs...)
+    ], η, vars, pars; defaults = [X2 => 1.0, X1 => 0.0, Xe => Y/2], kwargs...)
 end
 
 # background thermodynamics / recombination
@@ -38,8 +38,8 @@ smoothmin(v1, v2; kwargs...) = smoothifelse(v1 - v2, v1, v2; kwargs...)
 smoothmax(v1, v2; kwargs...) = smoothifelse(v1 - v2, v2, v1; kwargs...)
 
 function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844u"eV/J"), kwargs...)
-    @parameters Y
-    @variables X(η) Xe(η) T(η) λe(η) H(η) ne(η) n(η) n1s(η) λ(η) λα(η) α2(η) β(η) C(η) Λα⁻¹(η) Λ2γ_Λα(η) β2_Λα(η) nb(η) nγ(η)
+    pars = @parameters Y
+    vars = @variables X(η) Xe(η) T(η) λe(η) H(η) ne(η) n(η) n1s(η) λ(η) λα(η) α2(η) β(η) C(η) Λα⁻¹(η) Λ2γ_Λα(η) β2_Λα(η) nb(η) nγ(η)
     Eion = -E1
     E(n) = E1 / n^2
     return ODESystem([
@@ -58,7 +58,7 @@ function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844
 
         Dη(X) * g.H0 ~ g.a * C * ((1-X) * β - α2*X^2*n) # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
         Xe ~ X * Y
-    ], η, [X, Xe, n, T, ne, C, β2_Λα, Λ2γ_Λα, Λα⁻¹, n1s, nb, nγ], [Y]; defaults = [X => 1.0, Xe => Y], kwargs...)
+    ], η, vars, pars; defaults = [X => 1.0, Xe => Y], kwargs...)
 end
 # testing:
 # plot(log.(th_sol.t), th_sol[th.sys.H.Λα⁻¹])
@@ -78,20 +78,20 @@ function thermodynamics_hydrogen_recombination_baumann(g; Eion = NoUnits(13.5984
     ], η, [X, Xeq, T, ne, n, R⁻¹, nb, nγ], [Y, λ]; defaults = [X => 1.0], kwargs...)
 end
 
-function reionization_tanh(g, z0, Δz0, Xe0; name, kwargs...)
+function reionization_tanh(g, z0, Δz0, Xe0; kwargs...)
     y(z) = (1+z)^(3/2)
     Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
     @variables Xe(η) z(η) T(η) ne(η) nb(η) nγ(η)
     @parameters Y
-    base = ODESystem(Equation[], η, [T, ne, nb, nγ], [Y]; name=:base)
+    @named base = ODESystem(Equation[], η, [T, ne, nb, nγ], [Y])
     return extend(ODESystem([
         z ~ 1/g.a - 1
         Xe ~ smoothifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
-    ], η; name, kwargs...), base)
+    ], η; kwargs...), base)
 end
 
-function thermodynamics_ΛCDM(bg::BackgroundSystem; name)
-    defaults = Dict()
+function thermodynamics_ΛCDM(bg::BackgroundSystem; kwargs...)
+    defaults = Dict() # TODO: merge with kwargs
     #@named H = thermodynamics_hydrogen_recombination_saha()
     @named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
     #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
@@ -99,58 +99,57 @@ function thermodynamics_ΛCDM(bg::BackgroundSystem; name)
     @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y)
     @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
     @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
-    return ThermodynamicsSystem(bg, [H, He, Hre, Here1, Here2]; name, defaults)
+    return ThermodynamicsSystem(bg, [H, He, Hre, Here1, Here2]; defaults, kwargs...)
 end
 
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
-    @parameters fb H0
-    H0 = GlobalScope(H0)
+    @parameters fb
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
-    defaults[Tγ] = (bg.sys.rad.ρ0 * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB / bg.sys.g.a # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
-    # defaults[Xe] = sum(atom.Xe for atom in atoms) + Xeϵ # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
+    push!(defaults, Tγ => (bg.sys.rad.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB / bg.sys.g.a) # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter; wait for https://github.com/SciML/ModelingToolkit.jl/issues/2774?
+    #push!(defaults, Xe => sum(atom.Xe for atom in atoms) + Xeϵ) # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
-        ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
+        ρb ~ fb * bg.sys.mat.ρ * bg.sys.g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
 
         fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
-        Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ # Tγ = Tγ0 / a
+        Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ # Tγ = Tγ0 / a # TODO: use analytical solution
         Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
         cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
-        [atom.T ~ Tb for atom in atoms];
+        [atom.T ~ Tb for atom in atoms]; # TODO: do something better than this
         [atom.ne ~ ne for atom in atoms];
         [atom.nb ~ nb for atom in atoms];
         [atom.nγ ~ nb for atom in atoms];
 
         Xe ~ sum(atom.Xe for atom in atoms) + Xeϵ # TODO: makes more sense to sum ne instead?
         ne ~ Xe * nb # my convention
-        Dη(τ) * H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        Dη(τ) * bg.sys.g.H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
         dτ ~ Dη(τ)
     ], η; defaults, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (0.0, 4.0), parameters(ssys) .=> NaN; jac=true)
+    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (NaN, NaN), parameters(ssys) .=> NaN; jac=true)
     return ThermodynamicsSystem(sys, ssys, prob, bg)
 end
 
 function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
     bg = th.bg
-    H0 = H100 * h
     bg_sol = solve(bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ΩΛ0 = bg_sol.prob.ps[bg.ssys.de.Ω0]
-    fb = Ωb0 / Ωm0; @assert fb <= 1
-    YHe = Yp
+    fb = Ωb0 / Ωm0 # TODO: handle in system
+    YHe = Yp # TODO: handle in system
     YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
 
-    #TODO: use defaults for th.ssys.Xe => 1 + Yp/2 when fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2715
-    prob = remake(th.prob;
+    # TODO: use defaults for th.ssys.Xe => 1 + Yp/2
+    prob = remake(
+        th.prob;
         tspan = (ηini, ηtoday),
         u0 = [th.ssys.Xe => 1 + YHe/2, bg.ssys.g.a => aini],
-        p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
+        p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.fb => fb, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
         use_defaults = true
     )
 

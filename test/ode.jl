@@ -1,3 +1,4 @@
+include("../Symboltz.jl")
 import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
@@ -10,9 +11,11 @@ using Plots; Plots.default(label=nothing)
     As = 2.1e-9
     Yp = 0.245
 end
-par = Parameters()
 
+par = Parameters()
 @named bg = Symboltz.background_ΛCDM()
+@named th = Symboltz.thermodynamics_ΛCDM(bg)
+@named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
 if true
     bg_sol = Symboltz.solve(bg, par.Ωr0, par.Ωm0)
@@ -23,8 +26,6 @@ if true
     plot!(p[2], log10.(bg_sol[bg.ssys.g.a]), stack(bg_sol[[bg.ssys.rad.ρ, bg.ssys.mat.ρ, bg.ssys.de.ρ]] ./ bg_sol[bg.sys.grav.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left); display(p)
 end
 
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-
 if true
     th_sol = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
 
@@ -34,15 +35,13 @@ if true
     plot!(p[2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.sys.Tγ, th.sys.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"]); display(p)
 end
 
-@named pt = Symboltz.perturbations_ΛCDM(th, 6)
-
 if true
     ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c
     pt_sols = Symboltz.solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
 
     p = plot(layout=(1,2), size=(1000, 400), margin=5*Plots.mm); display(p) # TODO: add plot recipe!
     for (i, pt_sol) in enumerate(pt_sols)
-        plot!(p[1], log10.(pt_sol[pt.sys.bg.g.a]), pt_sol[pt.sys.gpt.Φ] / pt_sol[pt.sys.gpt.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
+        plot!(p[1], log10.(pt_sol[pt.sys.bg.g.a]), pt_sol[pt.sys.g1.Φ] / pt_sol[pt.sys.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
         plot!(p[2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")
         plot!(p[2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.bar.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")
     end

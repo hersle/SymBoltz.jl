@@ -1,3 +1,4 @@
+include("../Symboltz.jl")
 import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
