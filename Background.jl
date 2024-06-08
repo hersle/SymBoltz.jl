@@ -40,9 +40,10 @@ function background_ΛCDM(; kwargs...)
     @named g = background_metric()
     @named grav = background_gravity_GR(g)
     @named rad = background_radiation(g)
-    @named mat = background_matter(g)
+    @named cdm = background_matter(g)
+    @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
-    return BackgroundSystem(g, grav, [rad, mat, de]; kwargs...)
+    return BackgroundSystem(g, grav, [rad, cdm, bar, de]; kwargs...)
 end
 
 function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; jac=true, kwargs...)
@@ -56,17 +57,17 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
     return BackgroundSystem(sys, ssys, prob)
 end
 
-function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Vern8(), reltol=1e-8, kwargs...)
+function solve(bg::BackgroundSystem, Ωr0, Ωc0, Ωb0; aini=1e-8, aend=1.0, solver=Vern8(), reltol=1e-8, kwargs...)
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     # TODO: take symbolic IC map
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution # TODO: use init system
-    ΩΛ0 = 1 - Ωr0 - Ωm0 # TODO: move into system
+    ΩΛ0 = 1 - Ωr0 - Ωc0 - Ωb0 # TODO: move into system
     
     prob = remake(
         bg.prob;
         tspan = (ηini, 4.0),
         u0 = [bg.ssys.g.a => aini],
-        p = [bg.ssys.rad.Ω0 => Ωr0, bg.ssys.mat.Ω0 => Ωm0, bg.ssys.de.Ω0 => ΩΛ0]
+        p = [bg.ssys.rad.Ω0 => Ωr0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0, bg.ssys.de.Ω0 => ΩΛ0]
     )
 
     # integrate until a == aend # TODO: just use η interval instead

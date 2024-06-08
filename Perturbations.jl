@@ -84,13 +84,13 @@ end
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
 function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, cdm::ODESystem, bar::ODESystem; kwargs...)
-    @parameters fb τspline::CubicSpline dτspline::CubicSpline ddτspline::CubicSpline csb²spline::CubicSpline # TODO: get rid of
+    @parameters τspline::CubicSpline dτspline::CubicSpline ddτspline::CubicSpline csb²spline::CubicSpline # TODO: get rid of
     @variables ρc(η) ρb(η) δρr(η) δρc(η) δρb(η) R(η) csb²(η) τ(η) dτ(η) ddτ(η) v(η) dv(η) Δm(η) SSW(η) SD(η) SISW(η) S(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([
         # gravity density and shear stress
-        ρb ~ fb * bg.sys.mat.ρ
-        ρc ~ bg.sys.mat.ρ - ρb
+        ρb ~ bg.sys.bar.ρ
+        ρc ~ bg.sys.cdm.ρ
         δρr ~ ph.δ * bg.sys.rad.ρ
         δρc ~ cdm.δ * ρc
         δρb ~ bar.δ * ρb
@@ -104,7 +104,7 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         ph.dτ ~ dτ
 
         # gauge-independent matter overdensity for matter power spectrum
-        Δm ~ (ρc * cdm.Δ + ρb * bar.Δ) / bg.sys.mat.ρ
+        Δm ~ (ρc * cdm.Δ + ρb * bar.Δ) / (bg.sys.cdm.ρ + bg.sys.bar.ρ)
 
         # source functions for CMB power spectrum
         τ ~ spleval(η, τspline) # optical depth
@@ -124,11 +124,11 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
 end
 
 # TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωc0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
-    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
-    ΩΛ0, fb = th_sol.ps[[bg.sys.de.Ω0, th.ssys.fb]]
+    th_sol = solve(th, Ωr0, Ωc0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
+    ΩΛ0 = th_sol.ps[bg.sys.de.Ω0]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
     ηs = exp.(range(log(ηini), log(ηtoday), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: use saveat in th sol # TODO: CMB spectrum is sensitive to number of points here!
@@ -142,7 +142,7 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     csb²s = th_sol(ηs, idxs=th.sys.cs²).u
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.fb => fb, pt.ssys.g1.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
+    p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
     u0 = [bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτs[begin]]
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers # TODO: move into PerturbationsSystem again?
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin

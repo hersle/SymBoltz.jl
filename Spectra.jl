@@ -7,17 +7,17 @@ using Base.Threads
 P0(k, As) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function P(pt::PerturbationsSystem, k, Ωr0, Ωm0, Ωb0, h, As, Yp)
-    pt_sols = solve(pt, k, Ωr0, Ωm0, Ωb0, h, Yp)
+function P(pt::PerturbationsSystem, k, Ωr0, Ωc0, Ωb0, h, As, Yp)
+    pt_sols = solve(pt, k, Ωr0, Ωc0, Ωb0, h, Yp)
     ηtoday = pt_sols[1].prob.tspan[end] # TODO: something more robust?
     return P0(k, As) .* pt_sols(ηtoday, idxs=pt.sys.Δm) .^ 2
 end
 
 # source function
 # this one is more elegant, but a little numerically unstable (would really like to use this one)
-function S_observed(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp)
-    pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+function S_observed(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωc0, Ωb0, h, Yp)
+    pt_sols = solve(pt, ks, Ωr0, Ωc0, Ωb0, h, Yp; saveat = ηs)
+    Ss = zeros(eltype([Ωr0, Ωc0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
         Ss[ik,:] .= pt_sol[pt.ssys.S] # whether this gives a accurate CMB spectrum depends on the perturbation ODE solver (e.g. KenCarp{4,47,5,58}) and its reltol
@@ -26,9 +26,9 @@ function S_observed(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArr
 end
 
 # this one is less elegant, but more numerically stable
-function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp)
+function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArray, Ωr0, Ωc0, Ωb0, h, Yp)
     th = pt.th
-    th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
+    th_sol = solve(th, Ωr0, Ωc0, Ωb0, h, Yp; saveat = ηs)
     τ = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end] # make τ = 0 today # TODO: assume ηs[end] is today
     τ′ = D_spline(τ, ηs)
     τ″ = D_spline(τ′, ηs)
@@ -36,8 +36,8 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
     g′ = @. (τ′^2 - τ″) * exp(-τ)
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(η)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-    pt_sols = solve(pt, ks, Ωr0, Ωm0, Ωb0, h, Yp; saveat = ηs)
-    Ss = zeros(eltype([Ωr0, Ωm0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
+    pt_sols = solve(pt, ks, Ωr0, Ωc0, Ωb0, h, Yp; saveat = ηs)
+    Ss = zeros(eltype([Ωr0, Ωc0, Ωb0, h, Yp]), (length(ks), length(ηs))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
         k = ks[ik]
@@ -55,8 +55,8 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
     return Ss
 end
 
-function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
-    Sscoarse = S_observed(pt, ηs, kscoarse, Ωr0, Ωm0, Ωb0, h, Yp)
+function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωr0, Ωc0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
+    Sscoarse = S_observed(pt, ηs, kscoarse, Ωr0, Ωc0, Ωb0, h, Yp)
     Ssfine = similar(Sscoarse, (length(ksfine), length(ηs)))
     for iη in eachindex(ηs)
         Sscoarseη = @view Sscoarse[:,iη]
@@ -65,7 +65,7 @@ function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, �
     return Ssfine
 end
 
-#Ss = S(ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp)
+#Ss = S(ηs, ks, Ωr0, Ωc0, Ωb0, h, Yp)
 #plot(ηs, asinh.(Ss[:,[1,9]]))
 
 # TODO: contribute back to Bessels.jl
@@ -116,9 +116,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::Abs
     return Θls
 end
 
-function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, Yp, args...; kwargs...)
+function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
     ηs = exp.(lnηs)
-    Ss = S(pt, ηs, ks, Ωr0, Ωm0, Ωb0, h, Yp, args...; kwargs...)
+    Ss = S(pt, ηs, ks, Ωr0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
     return Θl(ls, ks, lnηs, Ss)
 end
 
@@ -136,14 +136,14 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
-    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωm0, Ωb0, h, Yp, ks_S; kwargs...)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ωr0, Ωc0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
+    Θls = Θl(pt, ls, ks, lnηs, Ωr0, Ωc0, Ωb0, h, Yp, ks_S; kwargs...)
     P0s = P0(ks, As)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As, Yp; Δlnη = 0.03, Δkη0 = 2π/4, Δkη0_S = 50.0, observe = false)
-    bg_sol = solve(pt.bg, Ωr0, Ωm0)
+function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωc0, Ωb0, h, As, Yp; Δlnη = 0.03, Δkη0 = 2π/4, Δkη0_S = 50.0, observe = false)
+    bg_sol = solve(pt.bg, Ωr0, Ωc0, Ωb0)
 
     ηi, η0 = max(bg_sol[η][begin], 1e-4), bg_sol[η][end]
     ηi, η0 = ForwardDiff.value.([ηi, η0]) # TODO: do I lose some gradient information here?! no? ηi/η0 is just a shift of the integration interval?
@@ -153,12 +153,12 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωr0, Ωm0, Ωb0, h, As,
     ks_Cl = range_until(0, kη0max, Δkη0; skip_start=true) ./ η0
     ks_S = range_until(0, kη0max, Δkη0_S; skip_start=true) ./ η0 # Δk = 50/η0
 
-    return Cl(pt, ls, ks_Cl, lnηs, Ωr0, Ωm0, Ωb0, h, As, Yp, ks_S; observe)
+    return Cl(pt, ls, ks_Cl, lnηs, Ωr0, Ωc0, Ωb0, h, As, Yp, ks_S; observe)
 end
 
 Dl(pt::PerturbationsSystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
 
-#Dls = Dl(ls, ks, ηs, Ωr0, Ωm0, Ωb0, h, As, Yp; Sspline_ks)
+#Dls = Dl(ls, ks, ηs, Ωr0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
 
 function D_spline(y, x; Spline = CubicSpline, order = 1)

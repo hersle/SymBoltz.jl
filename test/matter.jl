@@ -6,7 +6,7 @@ using ForwardDiff, DiffResults, FiniteDiff
 
 @kwdef struct Parameters
     Ωr0 = 5.5e-5
-    Ωm0 = 0.317
+    Ωc0 = 0.267
     Ωb0 = 0.05
     h = 0.67
     As = 2.1e-9
@@ -19,7 +19,7 @@ par = Parameters()
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
 ks = 10 .^ range(-4, +2, length=300) / Symboltz.k0
-θ0 = [par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.As, par.Yp]
+θ0 = [par.Ωr0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
 Pres = DiffResults.JacobianResult(ks, θ0)

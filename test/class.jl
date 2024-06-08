@@ -7,7 +7,7 @@ using Plots; Plots.default(label=nothing)
 
 @kwdef struct Parameters
     Ωr0 = 5.5e-5
-    Ωm0 = 0.317
+    Ωc0 = 0.267
     Ωb0 = 0.03
     h = 0.67
     As = 2.1e-9

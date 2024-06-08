@@ -106,16 +106,16 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
-    @parameters fb Tγ0
+    @parameters Tγ0
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) fγb(η) cs²(η)
     push!(defaults, Tγ0 => (bg.sys.rad.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
     push!(defaults, Tb  => Tγ0 / bg.sys.g.a) # TODO: replace by Tγ if fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2774
     #push!(defaults, Xe => sum(atom.Xe for atom in atoms) + Xeϵ) # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
-        ρb ~ fb * bg.sys.mat.ρ * bg.sys.g.H0^2/G # kg/m³
+        ρb ~ bg.sys.bar.ρ * bg.sys.g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
 
-        fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
+        fγb ~ bg.sys.rad.ρ / bg.sys.bar.ρ # ργ/ρb
         Tγ ~ Tγ0 / bg.sys.g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ
         Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
         cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
@@ -136,12 +136,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     return ThermodynamicsSystem(sys, ssys, prob, bg)
 end
 
-function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
+function solve(th::ThermodynamicsSystem, Ωr0, Ωc0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
     bg = th.bg
-    bg_sol = solve(bg, Ωr0, Ωm0)
+    bg_sol = solve(bg, Ωr0, Ωc0, Ωb0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ΩΛ0 = bg_sol.ps[bg.ssys.de.Ω0]
-    fb = Ωb0 / Ωm0 # TODO: handle in system
     YHe = Yp # TODO: handle in system
     YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
 
@@ -150,7 +149,7 @@ function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aen
         th.prob;
         tspan = (ηini, ηtoday),
         u0 = [th.ssys.Xe => 1 + YHe/2, bg.ssys.g.a => aini],
-        p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.fb => fb, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
+        p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
         use_defaults = true
     )
 
