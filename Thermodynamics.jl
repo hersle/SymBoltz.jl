@@ -106,16 +106,17 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
-    @parameters fb
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
-    push!(defaults, Tγ => (bg.sys.rad.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB / bg.sys.g.a) # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter; wait for https://github.com/SciML/ModelingToolkit.jl/issues/2774?
+    @parameters fb Tγ0
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) fγb(η) cs²(η)
+    push!(defaults, Tγ0 => (bg.sys.rad.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
+    push!(defaults, Tb  => Tγ0 / bg.sys.g.a) # TODO: replace by Tγ if fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2774
     #push!(defaults, Xe => sum(atom.Xe for atom in atoms) + Xeϵ) # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ * bg.sys.g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
 
         fγb ~ bg.sys.rad.ρ / (fb*bg.sys.mat.ρ) # ργ/ρb
-        Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ # Tγ = Tγ0 / a # TODO: use analytical solution
+        Tγ ~ Tγ0 / bg.sys.g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ
         Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
         cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
