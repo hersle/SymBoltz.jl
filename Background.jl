@@ -28,7 +28,7 @@ function background_gravity_GR(g; name)
 end
 
 function background_species(g, w; name)
-    @parameters ρ0 # TODO: Ω0
+    @parameters Ω0 ρ0 = 3/8π*Ω0
     @variables ρ(η) P(η)
     eqs = [
         P ~ w * ρ # equation of state
@@ -65,9 +65,8 @@ function solve(bg::BackgroundSystem, Ωr0, Ωm0; aini=1e-8, aend=1.0, solver=Ver
     # TODO: take symbolic IC map
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution
     ΩΛ0 = 1 - Ωr0 - Ωm0 # TODO: move into system
-    ρr0, ρm0, ρΛ0 = 3/8π * [Ωr0, Ωm0, ΩΛ0]
     
-    prob = remake(bg.prob; tspan=(ηini, 10.0), u0 = [bg.ssys.g.a => aini], p = [bg.ssys.rad.ρ0 => ρr0, bg.ssys.mat.ρ0 => ρm0, bg.ssys.de.ρ0 => ρΛ0])
+    prob = remake(bg.prob; tspan=(ηini, 10.0), u0 = [bg.ssys.g.a => aini], p = [bg.ssys.rad.Ω0 => Ωr0, bg.ssys.mat.Ω0 => Ωm0, bg.ssys.de.Ω0 => ΩΛ0])
 
     # integrate until a == aend
     aindex = variable_index(bg.ssys, bg.ssys.g.a)

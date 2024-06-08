@@ -137,9 +137,8 @@ end
 function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
-    fb = Ωb0 / Ωm0; @assert fb <= 1 # TODO: avoid duplication thermo logic
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers) TODO: use th_sol(a; idxs=th.dτ) directly in a type-stable way?
-    ρr0, ρm0, ρΛ0 = th_sol.prob.ps[[bg.sys.rad.ρ0, bg.sys.mat.ρ0, bg.sys.de.ρ0]]
+    ΩΛ0, fb = th_sol.prob.ps[[bg.sys.de.Ω0, th.ssys.fb]]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
     ηs = exp.(range(log(ηini), log(ηtoday), length=512)) # TODO: select determine points adaptively from th_sol # TODO: use saveat in th sol
@@ -154,7 +153,7 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     csb²s = th_sol(ηs, idxs=th.sys.cs²).u
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
-    p = [bg.sys.rad.ρ0 => ρr0, bg.sys.mat.ρ0 => ρm0, bg.sys.de.ρ0 => ρΛ0, pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline]
+    p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.fb => fb, pt.ssys.gpt.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline]
     u0 = [bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτ]
     prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin

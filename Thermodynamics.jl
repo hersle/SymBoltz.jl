@@ -109,6 +109,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @parameters fb H0
     H0 = GlobalScope(H0)
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) = Tγ fγb(η) cs²(η)
+    defaults[Tγ] = (bg.sys.rad.ρ0 * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB / bg.sys.g.a # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     # defaults[Xe] = sum(atom.Xe for atom in atoms) + Xeϵ # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
     connections = ODESystem([
         ρb ~ fb * bg.sys.mat.ρ * H0^2/G # kg/m³
@@ -140,17 +141,16 @@ function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aen
     H0 = H100 * h
     bg_sol = solve(bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    ρr0, ρm0, ρΛ0 = bg_sol.prob.ps[[bg.ssys.rad.ρ0, bg.ssys.mat.ρ0, bg.ssys.de.ρ0]]
+    ΩΛ0 = bg_sol.prob.ps[bg.ssys.de.Ω0]
     fb = Ωb0 / Ωm0; @assert fb <= 1
-    Tini = (ρr0 * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB / aini # common initial Tb = Tγ TODO: relate to ρr0 once that is a parameter
     YHe = Yp
     YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
 
     #TODO: use defaults for th.ssys.Xe => 1 + Yp/2 when fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2715
     prob = remake(th.prob;
         tspan = (ηini, ηtoday),
-        u0 = [th.ssys.Xe => 1 + YHe/2, th.ssys.Tγ => Tini, bg.ssys.g.a => aini],
-        p = [bg.sys.rad.ρ0 => ρr0, bg.sys.mat.ρ0 => ρm0, bg.sys.de.ρ0 => ρΛ0, th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
+        u0 = [th.ssys.Xe => 1 + YHe/2, bg.ssys.g.a => aini],
+        p = [bg.sys.rad.Ω0 => Ωr0, bg.sys.mat.Ω0 => Ωm0, bg.sys.de.Ω0 => ΩΛ0, th.ssys.fb => fb, th.ssys.H0 => H0, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
         use_defaults = true
     )
 
