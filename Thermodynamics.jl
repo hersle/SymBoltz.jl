@@ -140,7 +140,7 @@ function solve(th::ThermodynamicsSystem, Ωr0, Ωm0, Ωb0, h, Yp; aini=1e-8, aen
     bg = th.bg
     bg_sol = solve(bg, Ωr0, Ωm0)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    ΩΛ0 = bg_sol.prob.ps[bg.ssys.de.Ω0]
+    ΩΛ0 = bg_sol.ps[bg.ssys.de.Ω0]
     fb = Ωb0 / Ωm0 # TODO: handle in system
     YHe = Yp # TODO: handle in system
     YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1

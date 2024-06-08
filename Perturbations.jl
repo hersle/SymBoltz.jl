@@ -128,7 +128,7 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωm0, Ωb0, h, 
     th = pt.th
     bg = th.bg
     th_sol = solve(th, Ωr0, Ωm0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
-    ΩΛ0, fb = th_sol.prob.ps[[bg.sys.de.Ω0, th.ssys.fb]]
+    ΩΛ0, fb = th_sol.ps[[bg.sys.de.Ω0, th.ssys.fb]]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
     ηs = exp.(range(log(ηini), log(ηtoday), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: use saveat in th sol # TODO: CMB spectrum is sensitive to number of points here!
