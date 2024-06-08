@@ -1,5 +1,5 @@
 include("../Symboltz.jl")
-import .Symboltz
+using .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 
@@ -15,21 +15,21 @@ using Plots; Plots.default(label=nothing)
 end
 
 par = Parameters()
-@named bg = Symboltz.background_ΛCDM()
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, 6)
+@named bg = background_ΛCDM()
+@named th = thermodynamics_ΛCDM(bg)
+@named pt = perturbations_ΛCDM(th, 6)
 
 p = plot(layout=(3,2), size=(1000, 1200), margin=5*Plots.mm)
 
 if true
-    bg_sol = Symboltz.solve(bg, par.Ωr0, par.Ωm0)
+    bg_sol = solve(bg, par.Ωr0, par.Ωm0)
     plot!(p[1,1], bg_sol[Symboltz.η], bg_sol[bg.ssys.g.a]; xlabel="η / (1/H0)", ylabel="a", ylims=(0, 1))
     plot!(p[1,2], log10.(bg_sol[bg.ssys.g.a]), stack(bg_sol[[bg.ssys.rad.ρ, bg.ssys.mat.ρ, bg.ssys.de.ρ]] ./ bg_sol[bg.sys.grav.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ωr" "Ωm" "ΩΛ"], legend=:left)
     display(p)
 end
 
 if true
-    th_sol = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
+    th_sol = solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp)
     plot!(p[2,1], log10.(th_sol[bg.ssys.g.a]), log10.(abs.(stack(th_sol[[th.ssys.Xe, th.ssys.H.Xe]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["Xe" "XH"], legend=:bottomleft)
     plot!(p[2,2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.sys.Tγ, th.sys.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"])
     display(p)
@@ -37,7 +37,7 @@ end
 
 if true
     ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c
-    pt_sols = Symboltz.solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
+    pt_sols = solve(pt, ks, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
     for (i, pt_sol) in enumerate(pt_sols)
         plot!(p[3,1], log10.(pt_sol[pt.sys.bg.g.a]), pt_sol[pt.sys.g1.Φ] / pt_sol[pt.sys.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
         plot!(p[3,2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(δc)")

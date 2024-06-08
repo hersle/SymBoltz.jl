@@ -26,6 +26,8 @@ include("Perturbations.jl")
 include("Spectra.jl")
 
 export BackgroundSystem, ThermodynamicsSystem, PerturbationsSystem
+export background_ΛCDM, thermodynamics_ΛCDM, perturbations_ΛCDM
 export solve
+export P0, P, Cl, Dl
 
 end

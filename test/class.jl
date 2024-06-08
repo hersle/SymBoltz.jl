@@ -1,5 +1,5 @@
 include("../Symboltz.jl")
-import .Symboltz
+using .Symboltz
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
@@ -78,11 +78,11 @@ kMpc = 1e-1 # 1/Mpc # disagreement on smaller scales
 sol1 = output_class(par, kMpc)
 
 k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
-@named bg = Symboltz.background_ΛCDM()
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2_th = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
-sol2_pt = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
+@named bg = background_ΛCDM()
+@named th = thermodynamics_ΛCDM(bg)
+@named pt = perturbations_ΛCDM(th, lmax)
+sol2_th = solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
+sol2_pt = solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
 
 # map results from both codes to common convention
 results = Dict(
