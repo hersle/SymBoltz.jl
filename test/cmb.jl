@@ -5,7 +5,8 @@ using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
 
 @kwdef struct Parameters
-    Ωr0 = 5.5e-5
+    Ωγ0 = 5.5e-5
+    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
     Ωc0 = 0.267
     Ωb0 = 0.05
     h = 0.67
@@ -19,7 +20,7 @@ par = Parameters()
 @named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
-θ0 = [par.Ωr0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
+θ0 = [par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
 
 # differentiated CMB power spectrum
 lgDl(lgθ) = log10.(Symboltz.Dl(pt, ls, (10 .^ lgθ)...))
