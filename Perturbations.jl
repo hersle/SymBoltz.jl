@@ -63,8 +63,9 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
     return ODESystem(eqs, η; defaults, kwargs...)
 end
 
-function perturbations_massless_neutrino_hierarchy(g0, g1, lmax=6; kwargs...)
+function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, lmax=6; kwargs...)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η)
+    ρ0 = neu0.ρ0 |> ParentScope # TODO: remove this hack to set IC Θ[2] from background neutrinos; just set Θ[l≥2] = 0 since they are so small anyway?
     eqs = [
         Dη(Θ0) ~ -g1.k*Θ[1] - Dη(g1.Φ)
         Dη(Θ[1]) ~ g1.k/3 * (Θ0 - 2*Θ[2] + g1.Ψ)
@@ -75,7 +76,7 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, lmax=6; kwargs...)
     defaults = [
         Θ0 => 1/2 * g1.Φ,
         Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ,
-        Θ[2] => 0, # TODO: make -g1.k^2*g0.a^2*(g1.Φ+g1.Ψ) / (32π*ρν0), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        Θ[2] => -g1.k^2*g0.a^2*(g1.Φ+g1.Ψ) / (32π*ρ0), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [Θ[l] => g1.k/((2*l+1)*g0.ℰ) * Θ[l-1] for l in 3:lmax]...
     ]
     return ODESystem(eqs, η; defaults, kwargs...)
@@ -93,7 +94,7 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
     bg = th.bg
     @named g1 = Symboltz.perturbations_metric()
     @named ph = Symboltz.perturbations_photon_hierarchy(bg.sys.g, g1, lmax, true)
-    @named neu = Symboltz.perturbations_massless_neutrino_hierarchy(bg.sys.g, g1, lmax)
+    @named neu = Symboltz.perturbations_massless_neutrino_hierarchy(bg.sys.g, g1, bg.sys.neu, lmax)
     @named cdm = Symboltz.perturbations_matter(bg.sys.g, g1; uinteract=false)
     @named bar = Symboltz.perturbations_matter(bg.sys.g, g1; uinteract=true)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, g1)
