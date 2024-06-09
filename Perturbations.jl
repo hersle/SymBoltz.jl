@@ -148,7 +148,8 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωr0, Ωc0, Ωb0, h, 
     probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
         k = ks[i]
         verbose && println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        return remake(prob; p = [pt.ssys.g1.k => k]) # TODO: need use_defaults?
+        #return remake(prob; u0 = Dict(), p = [pt.ssys.g1.k => k], use_defaults = true) # TODO: fix! not working with use_defaults because ℰ and (ph.)dτ appears in initialization eqs with no values
+        return ODEProblem(pt.ssys, [u0; pt.ssys.ph.dτ => dτs[begin]], (ηini, ηtoday), [p; pt.ssys.g1.k => k])
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
