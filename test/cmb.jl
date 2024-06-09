@@ -1,5 +1,5 @@
 include("../Symboltz.jl")
-using .Symboltz
+import .Symboltz
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
@@ -14,15 +14,15 @@ using ForwardDiff, DiffResults, FiniteDiff
 end
 
 par = Parameters()
-@named bg = background_ΛCDM()
-@named th = thermodynamics_ΛCDM(bg)
-@named pt = perturbations_ΛCDM(th, 6)
+@named bg = Symboltz.background_ΛCDM()
+@named th = Symboltz.thermodynamics_ΛCDM(bg)
+@named pt = Symboltz.perturbations_ΛCDM(th, 6)
 
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [par.Ωr0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
 
 # differentiated CMB power spectrum
-lgDl(lgθ) = log10.(Dl(pt, ls, (10 .^ lgθ)...))
+lgDl(lgθ) = log10.(Symboltz.Dl(pt, ls, (10 .^ lgθ)...))
 lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
 lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
