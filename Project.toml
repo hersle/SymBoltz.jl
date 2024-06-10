@@ -1,6 +1,7 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
+Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
