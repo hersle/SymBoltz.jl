@@ -1,3 +1,4 @@
+include("../Symboltz.jl")
 import .Symboltz
 using ModelingToolkit
 using DelimitedFiles
@@ -5,8 +6,9 @@ using DataInterpolations
 using Plots; Plots.default(label=nothing)
 
 @kwdef struct Parameters
-    Ωr0 = 5.5e-5
-    Ωm0 = 0.317
+    Ωγ0 = 5.5e-5
+    Ων0 = 0.0 # TODO: include in CLASS comparison
+    Ωc0 = 0.267
     Ωb0 = 0.03
     h = 0.67
     As = 2.1e-9
@@ -40,9 +42,9 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "modes" => "s",
         "gauge" => "newtonian",
         "h" => par.h,
-        "Omega_g" => par.Ωr0,
+        "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
-        "Omega_cdm" => par.Ωm0 - par.Ωb0,
+        "Omega_cdm" => par.Ωc0,
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
@@ -80,8 +82,8 @@ k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2_th = Symboltz.solve(th, par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
-sol2_pt = Symboltz.solve(pt, [k], par.Ωr0, par.Ωm0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
+sol2_th = Symboltz.solve(th,      par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
+sol2_pt = Symboltz.solve(pt, [k], par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
 
 # map results from both codes to common convention
 results = Dict(
@@ -99,8 +101,8 @@ results = Dict(
     # perturbations
     "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2_pt[bg.sys.g.a])),
     "a_pt" => (sol1["pt"]["a"], sol2_pt[bg.sys.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2_pt[pt.ssys.gpt.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[pt.ssys.gpt.Ψ]), # TODO: same?
+    "Φ" => (sol1["pt"]["phi"], sol2_pt[pt.ssys.g1.Φ]), # TODO: same?
+    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[pt.ssys.g1.Ψ]), # TODO: same?
     "δb" => (sol1["pt"]["delta_b"], -sol2_pt[pt.ssys.bar.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[pt.ssys.cdm.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[pt.ssys.ph.δ]),
