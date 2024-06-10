@@ -83,6 +83,7 @@ end
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(η0-ηini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
+# TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
 # line of sight integration
 function Θl(ls::AbstractArray, ks::AbstractRange, lnηs::AbstractRange, Ss::AbstractArray; integrator = SimpsonEven())
     ηs = exp.(lnηs)
