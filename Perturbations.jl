@@ -21,8 +21,8 @@ function perturbations_species(g0, g1, w, cs² = w, w′ = 0, σ = 0; uinteract 
         Δ ~ δ + 3 * (1+w) * g0.ℰ/g1.k * u # Baumann (4.2.144) with v -> -u
     ]
     defaults = [
-        δ => 3/2 * (1+w) * g1.Φ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        u => -1/2 * g1.k / g0.ℰ * g1.Φ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        δ => -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        u => -1/2 * g1.k / g0.ℰ * g1.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !uinteract && push!(eqs, uinteraction ~ 0)
     return ODESystem(eqs, η; defaults, kwargs...)
@@ -51,8 +51,8 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
         ])...
     ]
     defaults = [
-        Θ0 => 1/2 * g1.Φ, # Dodelson (7.89)
-        Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ, # Dodelson (7.95)
+        Θ0 => -1/2 * g1.Ψ, # Dodelson (7.89)
+        Θ[1] => 1/6 * g1.k/g0.ℰ * g1.Ψ, # Dodelson (7.95)
         Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # depends on whether polarization is included # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [Θ[l] => -l/(2*l+1) * g1.k/dτ * Θ[l-1] for l in 3:lmax]...,
         ΘP0 => 5/4 * Θ[2],
@@ -76,10 +76,10 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
         δ ~ 4*Θ0
     ]
     defaults = [
-        Θ0 => 1/2 * g1.Φ,
-        Θ[1] => -1/6 * g1.k/g0.ℰ * g1.Φ,
-        Θ[2] => -g1.k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
-        [Θ[l] => g1.k/((2*l+1)*g0.ℰ) * Θ[l-1] for l in 3:lmax]...
+        Θ0 => -1/2 * g1.Ψ,
+        Θ[1] => 1/6 * g1.k/g0.ℰ * g1.Ψ,
+        Θ[2] => (g1.k*g0.a)^2 / (80π*ρr0) * g1.Ψ, # 2/15 * (g1.k*η)^2 * g1.Ψ, # -g1.k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        [Θ[l] => 1/(2*l+1) * g1.k/g0.ℰ * Θ[l-1] for l in 3:lmax]...
     ]
     return ODESystem(eqs, η; defaults, kwargs...)
 end
@@ -102,8 +102,8 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, g1)
     fν = bg.sys.neu.Ω0 / (bg.sys.ph.Ω0 + bg.sys.neu.Ω0)
     defaults = [
-        g1.Ψ => -1/(3/2 + 2*fν/5),
-        g1.Φ => -(1 + 2*fν/5) * g1.Ψ
+        g1.Ψ => -1 / (3/2 + 2*fν/5),
+        g1.Φ => -(1 + 2*fν/5) * g1.Ψ,
     ]
     return Symboltz.PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, kwargs...)
 end
