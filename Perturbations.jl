@@ -169,13 +169,22 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, �
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
 
     p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
-    u0 = [bg.sys.g.a => a, bg.sys.g.ℰ => ℰ, pt.ssys.dτ => dτs[begin]]
-    prob = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers # TODO: move into PerturbationsSystem again?
-    probs = EnsembleProblem(; safetycopy = false, prob, prob_func = (prob, i, _) -> begin
+    u0 = [bg.sys.g.a => a, bg.ssys.g.ℰ => ℰ, pt.ssys.dτ => dτs[begin], pt.ssys.ph.dτ => dτs[begin]]
+    prob_uninit = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers # TODO: move into PerturbationsSystem again?
+    iprob_uninit = ModelingToolkit.InitializationProblem(pt.ssys, ηini, u0, p; warn_initialize_determined = false)
+
+    iarg = FastShortcutNLLSPolyalg(linsolve = LUFactorization())
+    vars = unknowns(pt.ssys)
+    probs = EnsembleProblem(; safetycopy = false, prob = prob_uninit, prob_func = (prob_uninit, i, _) -> begin
         k = ks[i]
         verbose && println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        #return remake(prob; u0 = Dict(), p = [pt.ssys.g1.k => k], use_defaults = true) # TODO: fix! not working with use_defaults because ℰ and (ph.)dτ appears in initialization eqs with no values
-        return ODEProblem(pt.ssys, [u0; pt.ssys.ph.dτ => dτs[begin]], (ηini, ηtoday), [p; pt.ssys.g1.k => k])
+        iprob = remake(iprob_uninit, p = [pt.ssys.g1.k => k])
+        isol = solve(iprob, iarg; verbose) # TODO: reduce time spent here!
+        p2 = Dict(p)
+        p2[pt.ssys.g1.k] = k
+        u02 = vars .=> isol[vars]
+        return remake(prob_uninit; u0 = u02, p = p2)
+        #return ODEProblem(pt.ssys, u0, (ηini, ηtoday), p2) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
