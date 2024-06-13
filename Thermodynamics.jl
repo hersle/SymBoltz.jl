@@ -96,9 +96,9 @@ function thermodynamics_ΛCDM(bg::BackgroundSystem; kwargs...)
     @named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
     #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
     @named He = thermodynamics_helium_recombination_saha()
-    @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.var"H.Y" => H.Y) # TODO: avoid extra default?
-    @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.var"He.Y" => He.Y)
-    @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.var"He.Y" => He.Y)
+    @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y) # TODO: avoid extra default?
+    @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
+    @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
     return ThermodynamicsSystem(bg, [H, He, Hre, Here1, Here2]; defaults, kwargs...)
 end
 
