@@ -20,12 +20,12 @@ function perturbations_species(g0, g1, w, cs² = w, w′ = 0, σ = 0; uinteract 
         Dη(u) ~ -g0.ℰ*(1-3*w)*u - w′/(1+w)*u + cs²/(1+w)*g1.k*δ + g1.k*g1.Ψ - g1.k*σ + uinteraction # Bertschinger & Ma (30) with θ = kv
         Δ ~ δ + 3 * (1+w) * g0.ℰ/g1.k * u # Baumann (4.2.144) with v -> -u
     ]
-    defaults = [
-        δ => -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        u => -1/2 * g1.k / g0.ℰ * g1.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+    initialization_eqs = [
+        δ ~ -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        u ~ -1/2 * g1.k*η * g1.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !uinteract && push!(eqs, uinteraction ~ 0)
-    return ODESystem(eqs, η; defaults, kwargs...)
+    return ODESystem(eqs, η; initialization_eqs, kwargs...)
 end
 
 perturbations_matter(g0, g1; kwargs...) = perturbations_species(g0, g1, 0; kwargs...)
@@ -50,24 +50,23 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
             ΘP0 ~ 0, collect(ΘP .~ 0)... # pin to zero
         ])...
     ]
-    defaults = [
-        Θ0 => -1/2 * g1.Ψ, # Dodelson (7.89)
-        Θ[1] => 1/6 * g1.k/g0.ℰ * g1.Ψ, # Dodelson (7.95)
-        Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # depends on whether polarization is included # TODO: how to set ICs consistently with Ψ, Π and Θν2?
-        [Θ[l] => -l/(2*l+1) * g1.k/dτ * Θ[l-1] for l in 3:lmax]...,
-        ΘP0 => 5/4 * Θ[2],
-        ΘP[1] => -1/4 * g1.k/dτ * Θ[2],
-        ΘP[2] => 1/4 * Θ[2],
-        [ΘP[l] => -l/(2*l+1) * g1.k/dτ * ΘP[l-1] for l in 3:lmax]...
+    initialization_eqs = [
+        Θ0 ~ -1/2 * g1.Ψ, # Dodelson (7.89)
+        Θ[1] ~ 1/6 * g1.k*η * g1.Ψ, # Dodelson (7.95)
     ]
-    return ODESystem(eqs, η; defaults, kwargs...)
+    defaults = [
+        Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
+        [Θ[l] => 0 #=-l/(2*l+1) * g1.k/dτ * Θ[l-1]=# for l in 3:lmax]...,
+        ΘP0 => 0, # 5/4 * Θ[2],
+        ΘP[1] => 0, # -1/4 * g1.k/dτ * Θ[2],
+        ΘP[2] => 0, # 1/4 * Θ[2],
+        [ΘP[l] => 0 #=-l/(2*l+1) * g1.k/dτ * ΘP[l-1]=# for l in 3:lmax]...
+    ]
+    return ODESystem(eqs, η; initialization_eqs, defaults, kwargs...)
 end
 
 function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kwargs...)
     @variables Θ0(η) Θ(η)[1:lmax] δ(η)
-    ρν0 = neu0.ρ0 |> ParentScope # TODO: remove this hack to set IC Θ[2] from background neutrinos; just set Θ[l≥2] = 0 since they are so small anyway?
-    ργ0 = ph0.ρ0 |> ParentScope # TODO: remove this hack to set IC Θ[2] from background neutrinos; just set Θ[l≥2] = 0 since they are so small anyway?
-    ρr0 = ργ0 + ρν0
     eqs = [
         Dη(Θ0) ~ -g1.k*Θ[1] - Dη(g1.Φ)
         Dη(Θ[1]) ~ g1.k/3 * (Θ0 - 2*Θ[2] + g1.Ψ)
@@ -75,13 +74,15 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
         Dη(Θ[lmax]) ~ g1.k*Θ[lmax-1] - (lmax+1)/η*Θ[lmax]
         δ ~ 4*Θ0
     ]
-    defaults = [
-        Θ0 => -1/2 * g1.Ψ,
-        Θ[1] => 1/6 * g1.k/g0.ℰ * g1.Ψ,
-        Θ[2] => (g1.k*g0.a)^2 / (80π*ρr0) * g1.Ψ, # 2/15 * (g1.k*η)^2 * g1.Ψ, # -g1.k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
-        [Θ[l] => 1/(2*l+1) * g1.k/g0.ℰ * Θ[l-1] for l in 3:lmax]...
+    initialization_eqs = [
+        Θ0 ~ -1/2 * g1.Ψ,
+        Θ[1] ~ 1/6 * g1.k*η * g1.Ψ,
+        Θ[2] ~ 1/30 * (g1.k*η)^2 * g1.Ψ, # Dodelson (7.122) and (7.123), # (g1.k*g0.a)^2 / (80π*ρr0) * g1.Ψ, # 2/15 * (g1.k*η)^2 * g1.Ψ, # -g1.k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
     ]
-    return ODESystem(eqs, η; defaults, kwargs...)
+    defaults = [
+        [Θ[l] => 0 #=1/(2*l+1) * g1.k/g0.ℰ * Θ[l-1]=# for l in 3:lmax]...
+    ]
+    return ODESystem(eqs, η; initialization_eqs, defaults, kwargs...)
 end
 
 function perturbations_gravity(g0, g1; kwargs...)
@@ -100,12 +101,11 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
     @named cdm = Symboltz.perturbations_matter(bg.sys.g, g1; uinteract=false)
     @named bar = Symboltz.perturbations_matter(bg.sys.g, g1; uinteract=true)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, g1)
-    fν = bg.sys.neu.Ω0 / (bg.sys.ph.Ω0 + bg.sys.neu.Ω0)
+    fν = bg.sys.neu.Ω0 / (bg.sys.ph.Ω0 + bg.sys.neu.Ω0) # TODO: make proper parameter
     defaults = [
-        g1.Ψ => -1 / (3/2 + 2*fν/5),
-        g1.Φ => -(1 + 2*fν/5) * g1.Ψ,
+        g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
-    return Symboltz.PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, kwargs...)
+    return Symboltz.PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0, neu.Θ[1] => 1e-5], kwargs...)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
@@ -139,10 +139,12 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         csb² ~ spleval(log(η), csb²spline)
         v ~ -dτ * exp(-τ) # visibility function # TODO: take derivatives without additional splines
         dv ~ (dτ^2 - ddτ) * exp(-τ)
-        SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # Sachs-Wolfe
-        SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
-        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # integrated Sachs-Wolfe
-        S ~ SSW + SD + SISW # CMB source function TODO: add polarization
+
+        # not working after added initialization system TODO: restore
+        #SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # Sachs-Wolfe
+        #SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
+        #SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # integrated Sachs-Wolfe
+        #S ~ SSW + SD + SISW # CMB source function TODO: add polarization
     ], η; kwargs...)
     sys = compose(connections, g, grav, ph, neu, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
@@ -167,24 +169,14 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, �
     ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
     csb²s = th_sol(ηs, idxs=th.sys.cs²).u
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
-
-    p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => 0.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
-    u0 = [bg.sys.g.a => a, bg.ssys.g.ℰ => ℰ, pt.ssys.dτ => dτs[begin], pt.ssys.ph.dτ => dτs[begin]]
-    prob_uninit = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true, sparse = false) # TODO: sparse fails with dual numbers # TODO: move into PerturbationsSystem again?
-    iprob_uninit = ModelingToolkit.InitializationProblem(pt.ssys, ηini, u0, p; warn_initialize_determined = false)
-
-    iarg = FastShortcutNLLSPolyalg(linsolve = LUFactorization())
-    vars = unknowns(pt.ssys)
-    probs = EnsembleProblem(; safetycopy = false, prob = prob_uninit, prob_func = (prob_uninit, i, _) -> begin
+    
+    # TODO: improve performance!
+    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (_, i, _) -> begin
         k = ks[i]
         verbose && println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        iprob = remake(iprob_uninit, p = [pt.ssys.g1.k => k])
-        isol = solve(iprob, iarg; verbose) # TODO: reduce time spent here!
-        p2 = Dict(p)
-        p2[pt.ssys.g1.k] = k
-        u02 = vars .=> isol[vars]
-        return remake(prob_uninit; u0 = u02, p = p2)
-        #return ODEProblem(pt.ssys, u0, (ηini, ηtoday), p2) # works, but even slower
+        p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => k, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
+        u0 = [bg.sys.g.a => a] # TODO: does this cause overinitialization?    
+        return ODEProblem(pt.ssys, u0, (ηini, ηtoday), p) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
