@@ -7,7 +7,7 @@ using Plots; Plots.default(label=nothing)
 
 @kwdef struct Parameters
     Ωγ0 = 5.5e-5
-    Ων0 = 0.0 # TODO: include in CLASS comparison
+    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # 0.0
     Ωc0 = 0.267
     Ωb0 = 0.03
     h = 0.67
@@ -45,11 +45,11 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
         "Omega_cdm" => par.Ωc0,
+        "Omega_ur" => par.Ων0, # massless neutrinos
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
-        "N_ur" => 0.0,
         "N_ncdm" => 0.0,
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
         "recombination" => "hyrec", # or HyREC
