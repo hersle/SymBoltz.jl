@@ -170,14 +170,21 @@ function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, �
     ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
     csb²s = th_sol(ηs, idxs=th.sys.cs²).u
     csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
+
+    u0 = [bg.sys.g.a => a] # TODO: does this cause overinitialization?
+    p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => 1.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
+    prob_uninit = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true) # TODO: sparse fails with dual numbers # TODO: cache in PerturbationsSystem again?
+    iprob_uninit = ModelingToolkit.InitializationProblem(pt.ssys, ηini, u0, p; warn_initialize_determined = false) # TODO: cache in PerturbationsSystem again?
     
+    vars = unknowns(pt.ssys)
     # TODO: improve performance!
-    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (_, i, _) -> begin
+    probs = EnsembleProblem(; safetycopy = false, prob = prob_uninit, prob_func = (prob_uninit, i, _) -> begin
         k = ks[i]
         verbose && println("$i/$(length(ks)) k = $(k*k0) Mpc/h")
-        p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, pt.ssys.g1.k => k, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
-        u0 = [bg.sys.g.a => a] # TODO: does this cause overinitialization?    
-        return ODEProblem(pt.ssys, u0, (ηini, ηtoday), p) # works, but even slower
+        iprob = remake(iprob_uninit, p = [pt.ssys.g1.k => k])
+        isol = solve(iprob; verbose) # TODO: reduce time spent here!
+        return remake(prob_uninit, u0 = isol[vars], p = [pt.ssys.g1.k => k]) # TODO: avoid vars indexing?
+        #return ODEProblem(pt.ssys, u0, (ηini, ηtoday), merge(Dict(p), Dict(pt.ssys.g1.k => k))) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
