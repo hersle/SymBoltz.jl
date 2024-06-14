@@ -53,16 +53,14 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
     initialization_eqs = [
         Θ0 ~ -1/2 * g1.Ψ, # Dodelson (7.89)
         Θ[1] ~ 1/6 * g1.k*η * g1.Ψ, # Dodelson (7.95)
+        Θ[2] ~ (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
+        [Θ[l] ~ -l/(2*l+1) * g1.k/dτ * Θ[l-1] for l in 3:lmax]...,
+        ΘP0 ~ 5/4 * Θ[2],
+        ΘP[1] ~ -1/4 * g1.k/dτ * Θ[2],
+        ΘP[2] ~ 1/4 * Θ[2],
+        [ΘP[l] ~ -l/(2*l+1) * g1.k/dτ * ΘP[l-1] for l in 3:lmax]...
     ]
-    defaults = [
-        Θ[2] => (polarization ? -8/15 : -20/45) * g1.k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
-        [Θ[l] => 0 #=-l/(2*l+1) * g1.k/dτ * Θ[l-1]=# for l in 3:lmax]...,
-        ΘP0 => 0, # 5/4 * Θ[2],
-        ΘP[1] => 0, # -1/4 * g1.k/dτ * Θ[2],
-        ΘP[2] => 0, # 1/4 * Θ[2],
-        [ΘP[l] => 0 #=-l/(2*l+1) * g1.k/dτ * ΘP[l-1]=# for l in 3:lmax]...
-    ]
-    return ODESystem(eqs, η; initialization_eqs, defaults, kwargs...)
+    return ODESystem(eqs, η; initialization_eqs, kwargs...)
 end
 
 function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kwargs...)
@@ -78,11 +76,9 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
         Θ0 ~ -1/2 * g1.Ψ,
         Θ[1] ~ 1/6 * g1.k*η * g1.Ψ,
         Θ[2] ~ 1/30 * (g1.k*η)^2 * g1.Ψ, # Dodelson (7.122) and (7.123), # (g1.k*g0.a)^2 / (80π*ρr0) * g1.Ψ, # 2/15 * (g1.k*η)^2 * g1.Ψ, # -g1.k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        [Θ[l] ~ 1/(2*l+1) * g1.k*η * Θ[l-1] for l in 3:lmax]...
     ]
-    defaults = [
-        [Θ[l] => 0 #=1/(2*l+1) * g1.k/g0.ℰ * Θ[l-1]=# for l in 3:lmax]...
-    ]
-    return ODESystem(eqs, η; initialization_eqs, defaults, kwargs...)
+    return ODESystem(eqs, η; initialization_eqs, kwargs...)
 end
 
 function perturbations_gravity(g0, g1; kwargs...)
@@ -106,7 +102,7 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
         g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
-    return PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0, neu.Θ[1] => 1e-5], kwargs...)
+    return PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0, neu.Θ[1] => 1e-5, ph.Θ[6] => 0.0], kwargs...)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
