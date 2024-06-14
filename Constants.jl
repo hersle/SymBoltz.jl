@@ -8,6 +8,7 @@ const G  = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2"
 const α  = PhysicalConstants.CODATA2018.α # fine structure constant, ≈ 1/137
 const me = PhysicalConstants.CODATA2018.m_e / u"kg"
 const mp = PhysicalConstants.CODATA2018.m_p / u"kg"
+const σ  = PhysicalConstants.CODATA2018.σ / u"W*K^-4*m^-2" # Stefan-Boltzmann constant ("radiation constant"?)
 const σT = PhysicalConstants.CODATA2018.σ_e / u"m^2"
 const km  = 1u"km/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits

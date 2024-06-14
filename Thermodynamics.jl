@@ -3,7 +3,6 @@ import SpecialFunctions: zeta as ζ
 struct ThermodynamicsSystem
     sys::ODESystem
     ssys::ODESystem
-    prob::ODEProblem
     bg::BackgroundSystem
 end
 
@@ -99,59 +98,61 @@ function thermodynamics_ΛCDM(bg::BackgroundSystem; kwargs...)
     @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y) # TODO: avoid extra default?
     @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
     @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
-    return ThermodynamicsSystem(bg, [H, He, Hre, Here1, Here2]; defaults, kwargs...)
+    return ThermodynamicsSystem(bg, ODESystem[#=H, He, Hre, Here1, Here2=#]; defaults, kwargs...)
 end
 
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
-function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=1e-10, defaults = Dict(), kwargs...)
+function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
     @parameters Tγ0
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) fγb(η) cs²(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) fγb(η) cs²(η) Xp(η) t(η) nH(η) αH(η) βH(η) β_α_H(η) KH(η) ΛH(η)
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
-    push!(defaults, Tb  => Tγ0 / bg.sys.g.a) # TODO: replace by Tγ if fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2774
-    #push!(defaults, Xe => sum(atom.Xe for atom in atoms) + Xeϵ) # TODO: wait for fixes https://github.com/SciML/ModelingToolkit.jl/pull/2686 and/or https://github.com/SciML/ModelingToolkit.jl/issues/2715
+    aR = 4/c*σ # "radiation constant"
+    λH2p = 121.5682e-9 # nm
+    νH2s = c / λH2p # TODO: replace h*νH2s -> 3/4 * 13.6 eV
+    initialization_eqs = [
+        Xp ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X # TODO: generalize to He
+        Tb ~ Tγ
+    ]
+    g = bg.sys.g
     connections = ODESystem([
         ρb ~ bg.sys.bar.ρ * bg.sys.g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
 
         fγb ~ bg.sys.ph.ρ / bg.sys.bar.ρ # ργ/ρb # TODO: make parameter?
         Tγ ~ Tγ0 / bg.sys.g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ
-        Dη(Tb) ~ -2*Tb * bg.sys.g.ℰ - 8/3*(mp/me)*fγb*bg.sys.g.a*Dη(τ)*(Tγ-Tb) # TODO: multiply last term by a or not?
-        cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
+        Dη(Tb) ~ -2*Tb*bg.sys.g.ℰ - 8/3*bg.sys.g.a*σT*aR*Tγ^4 / (me*c) * Xe/(1 + Xe) * (Tb-Tγ) / bg.sys.g.H0 # TODO: add He
+        #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
-        [atom.T ~ Tb for atom in atoms]; # TODO: do something better than this
-        [atom.ne ~ ne for atom in atoms];
-        [atom.nb ~ nb for atom in atoms];
-        [atom.nγ ~ nb for atom in atoms];
+        # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
+        nH ~ nb # TODO: generalize to He
+        t ~ Tb / 1e4
+        αH ~ 1.14e-19 * 4.309*t^-0.6166 / (1 + 0.6703*t^0.5300) # fitting formula
+        β_α_H ~ (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νH2s/(kB*Tb))
+        βH ~ αH * β_α_H
+        KH ~ λH2p^3 / (8π*g.H)
+        ΛH ~ 8.22458 # s⁻¹
+        Dη(Xp) ~ g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (βH*(1-Xp) - αH*Xp*Xe*nH) # TODO: another exp(-h*ν2s/(kB*T)) in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Xe ~ Xp # TODO: add He
+        ne ~ Xe * nH
 
-        Xe ~ sum(atom.Xe for atom in atoms) + Xeϵ # TODO: makes more sense to sum ne instead?
-        ne ~ Xe * nb # my convention
-        Dη(τ) * bg.sys.g.H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
-        dτ ~ Dη(τ)
-    ], η; defaults, kwargs...)
+        #Dη(τ) * bg.sys.g.H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        #dτ ~ Dη(τ)
+    ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (NaN, NaN), parameters(ssys) .=> NaN; jac=true)
-    return ThermodynamicsSystem(sys, ssys, prob, bg)
+    return ThermodynamicsSystem(sys, ssys, bg)
 end
 
-function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-8, aend=1.0, solver=RadauIIA5(), reltol=1e-8, kwargs...)
+function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-5, aend=1.0, solver=Rodas5P(), reltol=1e-8, kwargs...)
     bg = th.bg
-    bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0)
+    bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; aini, aend)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ΩΛ0 = bg_sol.ps[bg.ssys.de.Ω0]
-    YHe = Yp # TODO: handle in system
-    YH = 1 - YHe/4 # TODO: handle with symbolic sum(Y) = 1
 
     # TODO: use defaults for th.ssys.Xe => 1 + Yp/2
-    prob = remake(
-        th.prob;
-        tspan = (ηini, ηtoday),
-        u0 = [th.ssys.Xe => 1 + YHe/2, bg.ssys.g.a => aini],
-        p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.H.Y => YH, th.ssys.He.Y => YHe#=, th.ssys.H.λ => 3.9e3 * (Ωb0*h/0.03)=#],
-        use_defaults = true
-    )
+    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h])
 
     # make solver take smaller steps when some quantity goes out of bounds: https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#My-ODE-goes-negative-but-should-stay-positive,-what-tools-can-help?
     #XHindex = variable_index(th.ssys, th.ssys.H.X)
