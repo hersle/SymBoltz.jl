@@ -103,7 +103,8 @@ function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
     @named gravpt = Symboltz.perturbations_gravity(bg.sys.g, g1)
     fν = bg.sys.neu.Ω0 / (bg.sys.ph.Ω0 + bg.sys.neu.Ω0) # TODO: make proper parameter
     defaults = [
-        g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
+        g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
+        #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
     return Symboltz.PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0, neu.Θ[1] => 1e-5], kwargs...)
 end
