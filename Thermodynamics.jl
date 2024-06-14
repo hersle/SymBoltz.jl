@@ -39,7 +39,7 @@ smoothmax(v1, v2; kwargs...) = smoothifelse(v1 - v2, v2, v1; kwargs...)
 
 function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844u"eV/J"), kwargs...)
     pars = @parameters Y
-    vars = @variables X(η) Xe(η) T(η) λe(η) H(η) ne(η) n(η) n1s(η) λ(η) λα(η) α2(η) β(η) C(η) Λα⁻¹(η) Λ2γ_Λα(η) β2_Λα(η) nb(η) nγ(η)
+    vars = @variables X(η) Xe(η) T(η) λe(η) ne(η) n(η) n1s(η) λ(η) λα(η) α2(η) β(η) C(η) Λα⁻¹(η) Λ2γ_Λα(η) β2_Λα(η) nb(η) nγ(η)
     Eion = -E1
     E(n) = E1 / n^2
     return ODESystem([
@@ -66,7 +66,7 @@ end
 # TODO: does this work correctly together with He?
 function thermodynamics_hydrogen_recombination_baumann(g; Eion = NoUnits(13.59844u"eV/J"), ϵ=1e-20, kwargs...)
     @parameters Y λ
-    @variables X(η) Xeq(η) T(η) ne(η) n(η) R⁻¹(η) x(η) nb(η) nγ(η) H(η)
+    @variables X(η) Xeq(η) T(η) ne(η) n(η) R⁻¹(η) x(η) nb(η) nγ(η)
     return ODESystem([
         # Baumann (3.3.108) (ϵ ≪ 1 maintains numerical stability)
         R⁻¹ ~ exp(-Eion/kB/T) / (2*ζ(3)/π^2 * nγ/nb * (2π*kB*T/(me*c^2))^(3/2))
