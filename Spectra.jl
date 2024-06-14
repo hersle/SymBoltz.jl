@@ -57,7 +57,7 @@ function S_splined(pt::PerturbationsSystem, ηs::AbstractArray, ks::AbstractArra
 end
 
 function S(pt::PerturbationsSystem, ηs::AbstractArray, ksfine::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
-    Sscoarse = S_splined(pt, ηs, kscoarse, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # TODO: restore observed
+    Sscoarse = S_observed(pt, ηs, kscoarse, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # TODO: restore observed
     Ssfine = similar(Sscoarse, (length(ηs), length(ksfine)))
     for iη in eachindex(ηs)
         Sscoarseη = @view Sscoarse[iη,:]

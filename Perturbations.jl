@@ -137,10 +137,10 @@ function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::
         dv ~ (dτ^2 - ddτ) * exp(-τ)
 
         # not working after added initialization system TODO: restore
-        #SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # Sachs-Wolfe
-        #SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
-        #SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # integrated Sachs-Wolfe
-        #S ~ SSW + SD + SISW # CMB source function TODO: add polarization
+        SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # Sachs-Wolfe
+        SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
+        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # integrated Sachs-Wolfe
+        S ~ SSW + SD + SISW # CMB source function TODO: add polarization
     ], η; kwargs...)
     sys = compose(connections, g, grav, ph, neu, bar, cdm, bg.sys) # TODO: add background stuff?
     ssys = structural_simplify(sys)
