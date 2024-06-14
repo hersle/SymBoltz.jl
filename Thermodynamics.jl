@@ -133,7 +133,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βH ~ αH * β_α_H
         KH ~ λH2p^3 / (8π*g.H)
         ΛH ~ 8.22458 # s⁻¹
-        Dη(Xp) ~ g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (βH*(1-Xp) - αH*Xp*Xe*nH) # TODO: another exp(-h*ν2s/(kB*T)) in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Dη(Xp) ~ -g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-h*νH2s/(kB*Tb))) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
         Xe ~ Xp # TODO: add He
         ne ~ Xe * nH
 
