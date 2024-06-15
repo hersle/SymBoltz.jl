@@ -105,36 +105,56 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
-    @parameters Tγ0
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) fγb(η) cs²(η) Xp(η) t(η) nH(η) αH(η) βH(η) β_α_H(η) KH(η) ΛH(η)
+    @parameters Tγ0 Yp fHe = Yp / (4*(1-Yp)) # fHe = nHe/nH
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) cs²(η) t(η)
+    @variables Xp(η) nH(η) αH(η) βH(η) KH(η) # H
+    @variables XHeII(η) nHe(η) αHeI(η) βHeI(η) KHeI(η) # He
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
     aR = 4/c*σ # "radiation constant"
-    λH2p = 121.5682e-9 # nm
+    λH2p = 121.5682e-9 # m, close enough to λH2s
     νH2s = c / λH2p # TODO: replace h*νH2s -> 3/4 * 13.6 eV
+    ΛH = 8.22458 # s⁻¹
+
+    T1 = 10 ^ 5.114 # K
+    T2 = 3.0 # K
+    λHeI2s = 60.1404e-9 # m
+    λHeI2p = 58.4334e-9 # m
+    νHeI2s = c / λHeI2s # s⁻¹
+    νHeI2p = c / λHeI2p # s⁻¹
+    νps = νHeI2p - νHeI2s # s⁻¹
+    ΛHe = 51.3 # s⁻¹
+
     initialization_eqs = [
-        Xp ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X # TODO: generalize to He
+        XHeII ~ fHe, # TODO: add first order correction?
+        Xp ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
     ]
     g = bg.sys.g
     connections = ODESystem([
         ρb ~ bg.sys.bar.ρ * bg.sys.g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
+        nH ~ (1-Yp) * nb
+        nHe ~ Yp/4 * nb
 
-        fγb ~ bg.sys.ph.ρ / bg.sys.bar.ρ # ργ/ρb # TODO: make parameter?
         Tγ ~ Tγ0 / bg.sys.g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ
-        Dη(Tb) ~ -2*Tb*bg.sys.g.ℰ - 8/3*bg.sys.g.a*σT*aR*Tγ^4 / (me*c) * Xe/(1 + Xe) * (Tb-Tγ) / bg.sys.g.H0 # TODO: add He
+        Dη(Tb) ~ -2*Tb*bg.sys.g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1 + fHe + Xe) * (Tb-Tγ)
         #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
-        nH ~ nb # TODO: generalize to He
         t ~ Tb / 1e4
-        αH ~ 1.14e-19 * 4.309*t^-0.6166 / (1 + 0.6703*t^0.5300) # fitting formula
-        β_α_H ~ (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νH2s/(kB*Tb))
-        βH ~ αH * β_α_H
+        αH ~ 1.14e-19 * 4.309 * t^-0.6166 / (1 + 0.6703 * t^0.5300) # fitting formula # TODO: fudge factor 1.14e-19 or 1.0e-19?
+        βH ~ αH * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νH2s/(kB*Tb))
         KH ~ λH2p^3 / (8π*g.H)
-        ΛH ~ 8.22458 # s⁻¹
         Dη(Xp) ~ -g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-h*νH2s/(kB*Tb))) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
-        Xe ~ Xp # TODO: add He
+
+        # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
+        αHeI ~ 10 ^ -16.744 / (√(Tb/T2) * (1+√(Tb/T2))^(1-0.711) * (1+√(Tb/T1))^(1+0.711)) # fitting formula
+        βHeI ~ αHeI * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νHeI2s/(kB*Tb))
+        KHeI ~ λHeI2p^3 / (8π*g.H)
+        Dη(XHeII) ~ -g.a/g.H0 * (1+KHeI*ΛHe*nH*(fHe-XHeII)*exp(-h*νps/(kB*Tb))) / (1 + KHeI*(ΛHe+βHeI)*nH*(fHe-XHeII)*exp(-h*νps/(kB*Tb))) * (XHeII*Xe*nH*αHeI - βHeI*(fHe-XHeII) * exp(-h*νHeI2s/(kB*Tb)))
+
+        # electrons
+        Xe ~ Xp + XHeII # TODO: mult XHeII by fHe or not?
         ne ~ Xe * nH
 
         #Dη(τ) * bg.sys.g.H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
@@ -145,14 +165,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     return ThermodynamicsSystem(sys, ssys, bg)
 end
 
-function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-5, aend=1.0, solver=Rodas5P(), reltol=1e-8, kwargs...)
+function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-4, aend=1.0, solver=Rodas5P(), reltol=1e-8, kwargs...)
     bg = th.bg
     bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; aini, aend)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
     ΩΛ0 = bg_sol.ps[bg.ssys.de.Ω0]
 
     # TODO: use defaults for th.ssys.Xe => 1 + Yp/2
-    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h])
+    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
 
     # make solver take smaller steps when some quantity goes out of bounds: https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#My-ODE-goes-negative-but-should-stay-positive,-what-tools-can-help?
     #XHindex = variable_index(th.ssys, th.ssys.H.X)
