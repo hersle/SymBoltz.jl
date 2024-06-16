@@ -128,7 +128,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     E_He_∞_2s  = E_He_∞_1s - E_He_2s_1s # E_∞ - E_2s
 
     initialization_eqs = [
-        XHe⁺ ~ fHe, # TODO: add first order correction?
+        XHe⁺ ~ 1, # TODO: add first order correction?
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
     ]
@@ -155,11 +155,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
         βHe ~ αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ λ_He_2p_1s^3 / (8π*g.H)
-        CHe ~ (1 + KHe*ΛHe*nH*(fHe-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nH*(fHe-XHe⁺)*exp(-βb*E_He_2p_2s))
-        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*Xe*nH*αHe - βHe*(fHe-XHe⁺)*exp(-βb*E_He_2s_1s)) # TODO: redefine XHe⁺ = nHe⁺/nHe ≠ nHe⁺/nH
+        CHe ~ (1 + KHe*ΛHe*nH*fHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nH*fHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
+        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*Xe*nH*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # electrons
-        Xe ~ XH⁺ + XHe⁺ # TODO: add xHe⁺⁺
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ # TODO: add xHe⁺⁺
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
         #Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
