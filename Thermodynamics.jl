@@ -106,7 +106,7 @@ end
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
     @parameters Tγ0 Yp fHe = Yp / (4*(1-Yp)) # fHe = nHe/nH
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) CHe(η) # He <-> He⁺
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
@@ -135,12 +135,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     g = bg.sys.g
     connections = ODESystem([
         ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³
-        nb ~ ρb / mp # 1/m³
-        nH ~ (1-Yp) * nb
-        nHe ~ Yp/4 * nb
+        nH ~ (1-Yp) * ρb/mp # 1/m³
+        nHe ~ fHe * nH # 1/m³ # TODO: take true mass ratio ≠ 4
 
         Tγ ~ Tγ0 / g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * g.ℰ
-        Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1 + fHe + Xe) * (Tb-Tγ) # baryon temperature
+        Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
@@ -148,8 +147,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
         αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table # TODO: fudge factor 1.14e-19 or 1.0e-19?
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH ~ λ_H_2s_1s^3 / (8π*g.H)
-        CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺))
+        KH ~ λ_H_2s_1s^3 / (8π*g.H) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
+        CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*Xe*nH - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
         # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
@@ -157,11 +156,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βHe ~ αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ λ_He_2p_1s^3 / (8π*g.H)
         CHe ~ (1 + KHe*ΛHe*nH*(fHe-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nH*(fHe-XHe⁺)*exp(-βb*E_He_2p_2s))
-        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*Xe*nH*αHe - βHe*(fHe-XHe⁺)*exp(-βb*E_He_2s_1s))
+        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*Xe*nH*αHe - βHe*(fHe-XHe⁺)*exp(-βb*E_He_2s_1s)) # TODO: redefine XHe⁺ = nHe⁺/nHe ≠ nHe⁺/nH
 
         # electrons
-        Xe ~ XH⁺ + XHe⁺
-        ne ~ Xe * nH
+        Xe ~ XH⁺ + XHe⁺ # TODO: add xHe⁺⁺
+        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
         #Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
         #dτ ~ Dη(τ)
