@@ -111,18 +111,18 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables XHeII(η) nHe(η) αHeI(η) βHeI(η) KHeI(η) # He
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
     aR = 4/c*σ # "radiation constant"
-    λH2p = 121.5682e-9 # m, close enough to λH2s
-    νH2s = c / λH2p # TODO: replace h*νH2s -> 3/4 * 13.6 eV
     ΛH = 8.22458 # s⁻¹
 
     T1 = 10 ^ 5.114 # K
     T2 = 3.0 # K
-    λHeI2s = 60.1404e-9 # m
-    λHeI2p = 58.4334e-9 # m
-    νHeI2s = c / λHeI2s # s⁻¹
-    νHeI2p = c / λHeI2p # s⁻¹
-    νps = νHeI2p - νHeI2s # s⁻¹
     ΛHe = 51.3 # s⁻¹
+
+    # TODO: use energy levels instead?
+    λ_H_ion = 91.17534471485433e-9 # n=∞ -> n=1
+    λ_H_2s_1s = 121.56700176979052e-9 # n=2 -> n=1
+    λ_HeI_ion = 50.425904246895875e-9 # n=∞ -> n=1 (first ionization)
+    λ_HeI_2s_1s = 60.14045177050301e-9 # n=2, l=1 -> n=1, l=1
+    λ_HeI_2p_1s = 58.433437749406686e-9 # n=2, l=2 -> n=1, l=1
 
     initialization_eqs = [
         XHeII ~ fHe, # TODO: add first order correction?
@@ -143,15 +143,15 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
         t ~ Tb / 1e4
         αH ~ 1.14e-19 * 4.309 * t^-0.6166 / (1 + 0.6703 * t^0.5300) # fitting formula # TODO: fudge factor 1.14e-19 or 1.0e-19?
-        βH ~ αH * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νH2s/(kB*Tb))
-        KH ~ λH2p^3 / (8π*g.H)
-        Dη(Xp) ~ -g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-h*νH2s/(kB*Tb))) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        βH ~ αH * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*c*(1/λ_H_ion-1/λ_H_2s_1s) / (kB*Tb))
+        KH ~ λ_H_2s_1s^3 / (8π*g.H)
+        Dη(Xp) ~ -g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-h*c/λ_H_2s_1s/(kB*Tb))) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
         # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
         αHeI ~ 10 ^ -16.744 / (√(Tb/T2) * (1+√(Tb/T2))^(1-0.711) * (1+√(Tb/T1))^(1+0.711)) # fitting formula
-        βHeI ~ αHeI * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*νHeI2s/(kB*Tb))
-        KHeI ~ λHeI2p^3 / (8π*g.H)
-        Dη(XHeII) ~ -g.a/g.H0 * (1+KHeI*ΛHe*nH*(fHe-XHeII)*exp(-h*νps/(kB*Tb))) / (1 + KHeI*(ΛHe+βHeI)*nH*(fHe-XHeII)*exp(-h*νps/(kB*Tb))) * (XHeII*Xe*nH*αHeI - βHeI*(fHe-XHeII) * exp(-h*νHeI2s/(kB*Tb)))
+        βHeI ~ αHeI * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*c*(1/λ_HeI_ion-1/λ_HeI_2s_1s)/(kB*Tb))
+        KHeI ~ λ_HeI_2p_1s^3 / (8π*g.H)
+        Dη(XHeII) ~ -g.a/g.H0 * (1+KHeI*ΛHe*nH*(fHe-XHeII)*exp(-h*c*(1/λ_HeI_2p_1s-1/λ_HeI_2s_1s)/(kB*Tb))) / (1 + KHeI*(ΛHe+βHeI)*nH*(fHe-XHeII)*exp(-h*c*(1/λ_HeI_2p_1s-1/λ_HeI_2s_1s)/(kB*Tb))) * (XHeII*Xe*nH*αHeI - βHeI*(fHe-XHeII) * exp(-h*c/λ_HeI_2s_1s/(kB*Tb)))
 
         # electrons
         Xe ~ Xp + XHeII # TODO: mult XHeII by fHe or not?
