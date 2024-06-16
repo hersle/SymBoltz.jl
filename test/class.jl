@@ -52,7 +52,7 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "Omega_scf" => 0.0,
         "N_ncdm" => 0.0,
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
-        "recombination" => "hyrec", # or HyREC
+        "recombination" => "recfast", # or HyREC
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
         "l_max_ur" => lmax,
