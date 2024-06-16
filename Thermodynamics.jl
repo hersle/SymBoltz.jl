@@ -150,14 +150,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ λ_H_2s_1s^3 / (8π*g.H) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
-        Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*Xe*nH - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
         # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
         αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
         βHe ~ αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ λ_He_2p_1s^3 / (8π*g.H)
-        CHe ~ (1 + KHe*ΛHe*nH*fHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nH*fHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
-        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*Xe*nH*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
+        CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
+        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*ne*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # electrons
         Xe ~ 1*XH⁺ + fHe*XHe⁺ # TODO: add xHe⁺⁺
