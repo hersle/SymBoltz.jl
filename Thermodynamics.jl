@@ -146,7 +146,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
-        αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table # TODO: fudge factor 1.14e-19 or 1.0e-19?
+        αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ λ_H_2s_1s^3 / (8π*g.H) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
