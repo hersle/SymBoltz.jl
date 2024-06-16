@@ -106,23 +106,26 @@ end
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
     @parameters Tγ0 Yp fHe = Yp / (4*(1-Yp)) # fHe = nHe/nH
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) cs²(η) t(η)
-    @variables Xp(η) nH(η) αH(η) βH(η) KH(η) # H
-    @variables XHeII(η) nHe(η) αHeI(η) βHeI(η) KHeI(η) # He
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) nb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
+    @variables Xp(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H
+    @variables XHeII(η) nHe(η) αHeI(η) βHeI(η) KHeI(η) CHeI(η) # HeI
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
-    aR = 4/c*σ # "radiation constant"
+
     ΛH = 8.22458 # s⁻¹
-
-    T1 = 10 ^ 5.114 # K
-    T2 = 3.0 # K
     ΛHe = 51.3 # s⁻¹
-
-    # TODO: use energy levels instead?
-    λ_H_ion = 91.17534471485433e-9 # n=∞ -> n=1
-    λ_H_2s_1s = 121.56700176979052e-9 # n=2 -> n=1
-    λ_HeI_ion = 50.425904246895875e-9 # n=∞ -> n=1 (first ionization)
-    λ_HeI_2s_1s = 60.14045177050301e-9 # n=2, l=1 -> n=1, l=1
-    λ_HeI_2p_1s = 58.433437749406686e-9 # n=2, l=2 -> n=1, l=1
+    λ_H_∞_1s    =  91.1753e-9 # n=∞ -> n=1 (ionization energy)
+    λ_H_2s_1s   = 121.5670e-9 # n=2 -> n=1
+    λ_HeI_∞_1s  =  50.4259e-9 # n=∞ -> n=1 (first ionization energy)
+    λ_HeI_2s_1s =  60.1405e-9 # n=2, l=1 -> n=1, l=1
+    λ_HeI_2p_1s =  58.4334e-9 # n=2, l=2 -> n=1, l=1
+    E_H_∞_1s    = h*c / λ_H_∞_1s # E_∞  - E_1s
+    E_H_2s_1s   = h*c / λ_H_2s_1s # E_2s - E_1s
+    E_H_∞_2s    = E_H_∞_1s - E_H_2s_1s # E_∞ - E_2s
+    E_HeI_∞_1s  = h*c / λ_HeI_∞_1s # E_∞  - E_1s
+    E_HeI_2s_1s = h*c / λ_HeI_2s_1s # E_2s - E_1s
+    E_HeI_2p_1s = h*c / λ_HeI_2p_1s # E_2p - E_1s
+    E_HeI_2p_2s = E_HeI_2p_1s - E_HeI_2s_1s # E_2p - E_2s
+    E_HeI_∞_2s  = E_HeI_∞_1s - E_HeI_2s_1s # E_∞ - E_2s
 
     initialization_eqs = [
         XHeII ~ fHe, # TODO: add first order correction?
@@ -131,33 +134,36 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     ]
     g = bg.sys.g
     connections = ODESystem([
-        ρb ~ bg.sys.bar.ρ * bg.sys.g.H0^2/G # kg/m³
+        ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³
         nb ~ ρb / mp # 1/m³
         nH ~ (1-Yp) * nb
         nHe ~ Yp/4 * nb
 
-        Tγ ~ Tγ0 / bg.sys.g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * bg.sys.g.ℰ
-        Dη(Tb) ~ -2*Tb*bg.sys.g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1 + fHe + Xe) * (Tb-Tγ)
-        #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/bg.sys.g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
+        Tγ ~ Tγ0 / g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * g.ℰ
+        Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1 + fHe + Xe) * (Tb-Tγ) # baryon temperature
+        βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
+        λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
+        #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
-        t ~ Tb / 1e4
-        αH ~ 1.14e-19 * 4.309 * t^-0.6166 / (1 + 0.6703 * t^0.5300) # fitting formula # TODO: fudge factor 1.14e-19 or 1.0e-19?
-        βH ~ αH * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*c*(1/λ_H_ion-1/λ_H_2s_1s) / (kB*Tb))
+        αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table # TODO: fudge factor 1.14e-19 or 1.0e-19?
+        βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ λ_H_2s_1s^3 / (8π*g.H)
-        Dη(Xp) ~ -g.a/g.H0 * (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp)) * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-h*c/λ_H_2s_1s/(kB*Tb))) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        CH ~ (1 + KH*ΛH*nH*(1-Xp)) / (1 + KH*(ΛH+βH)*nH*(1-Xp))
+        Dη(Xp) ~ -g.a/g.H0 * CH * (αH*Xp*Xe*nH - βH*(1-Xp)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
         # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
-        αHeI ~ 10 ^ -16.744 / (√(Tb/T2) * (1+√(Tb/T2))^(1-0.711) * (1+√(Tb/T1))^(1+0.711)) # fitting formula
-        βHeI ~ αHeI * (2π*me*kB*Tb/h^2)^(3/2) * exp(-h*c*(1/λ_HeI_ion-1/λ_HeI_2s_1s)/(kB*Tb))
+        αHeI ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
+        βHeI ~ αHeI / λe^3 * exp(-βb*E_HeI_∞_2s)
         KHeI ~ λ_HeI_2p_1s^3 / (8π*g.H)
-        Dη(XHeII) ~ -g.a/g.H0 * (1+KHeI*ΛHe*nH*(fHe-XHeII)*exp(-h*c*(1/λ_HeI_2p_1s-1/λ_HeI_2s_1s)/(kB*Tb))) / (1 + KHeI*(ΛHe+βHeI)*nH*(fHe-XHeII)*exp(-h*c*(1/λ_HeI_2p_1s-1/λ_HeI_2s_1s)/(kB*Tb))) * (XHeII*Xe*nH*αHeI - βHeI*(fHe-XHeII) * exp(-h*c/λ_HeI_2s_1s/(kB*Tb)))
+        CHeI ~ (1 + KHeI*ΛHe*nH*(fHe-XHeII)*exp(-βb*E_HeI_2p_2s)) / (1 + KHeI*(ΛHe+βHeI)*nH*(fHe-XHeII)*exp(-βb*E_HeI_2p_2s))
+        Dη(XHeII) ~ -g.a/g.H0 * CHeI * (XHeII*Xe*nH*αHeI - βHeI*(fHe-XHeII)*exp(-βb*E_HeI_2s_1s))
 
         # electrons
         Xe ~ Xp + XHeII # TODO: mult XHeII by fHe or not?
         ne ~ Xe * nH
 
-        #Dη(τ) * bg.sys.g.H0 ~ -ne * σT * c * bg.sys.g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        #Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
         #dτ ~ Dη(τ)
     ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
