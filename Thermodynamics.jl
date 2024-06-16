@@ -105,7 +105,8 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
-    @parameters Tγ0 Yp fHe = Yp / (4*(1-Yp)) # fHe = nHe/nH
+    mHe_mH = 4.002603 / 1.00784 # ⪅ 4 ("not4") # TODO: move to Constants
+    @parameters Tγ0 Yp fHe = Yp / (mHe_mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) CHe(η) # He <-> He⁺

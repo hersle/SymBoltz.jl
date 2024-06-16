@@ -137,8 +137,8 @@ for (i, ylabel) in enumerate(ylabels)
     color = i
     plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS", ylabel)
     plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz")
-    y1 = CubicSpline(y1, x1).(x)
-    y2 = CubicSpline(y2, x2).(x)
+    y1 = CubicSpline(y1, x1; extrapolate=true).(x)
+    y2 = CubicSpline(y2, x2; extrapolate=true).(x)
     r = y2 ./ y1
     plot!(p[end], x, r; yminorticks = 10, yminorgrid = true, color)
 end
