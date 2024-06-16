@@ -154,7 +154,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
 
         # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
         αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
-        βHe ~ αHe / λe^3 * exp(-βb*E_He_∞_2s)
+        βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ λ_He_2p_1s^3 / (8π*g.H)
         CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
         Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*ne*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
