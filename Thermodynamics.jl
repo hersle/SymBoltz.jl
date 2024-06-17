@@ -109,7 +109,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @parameters Tγ0 Yp fHe = Yp / (mHe_mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
-    @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) CHe(η) # He <-> He⁺
+    @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0(η) KHe1(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
@@ -157,7 +157,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         # Helium I recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
         αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
-        KHe ~ λ_He_2p_1s^3 / (8π*g.H)
+        KHe0 ~ λ_He_2p_1s^3 / (8π*g.H) # RECFAST He flag 0
+        KHe1 ~ KHe0 / ((1 - exp(-3*1.798287e9*nHe*(1-XHe⁺)*KHe0)) + 1e-12) # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
+        KHe ~ KHe1
         CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
         Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*ne*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
