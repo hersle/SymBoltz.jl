@@ -15,5 +15,6 @@ const km  = 1u"km/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
 const H100 = 100 * km/Mpc
 const k0 = H100 * Mpc / c # h/Mpc # TODO: use H100
+const eV = 1u"eV/J" |> NoUnits
 
 δkron(i, j) = (i == j ? 1 : 0)

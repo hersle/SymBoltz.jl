@@ -31,7 +31,7 @@ end
 
 if true
     th_sol = Symboltz.solve(th, par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp)
-    plot!(p[2,1], log10.(th_sol[bg.ssys.g.a]), log10.(abs.(stack(th_sol[[th.ssys.Xe, th.ssys.XH⁺, th.ssys.XHe⁺]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["Xe" "XH⁺" "XHe⁺"], legend=:bottomleft)
+    plot!(p[2,1], log10.(th_sol[bg.ssys.g.a]), log10.(abs.(stack(th_sol[[th.ssys.Xe, th.ssys.XH⁺, th.ssys.XHe⁺, th.ssys.XHe⁺⁺]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["Xe" "XH⁺" "XHe⁺" "XHe⁺⁺"], legend=:bottomleft)
     plot!(p[2,2], log10.(th_sol[bg.ssys.g.a]), log10.(stack(th_sol[[th.sys.Tγ, th.sys.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"])
     display(p)
 end

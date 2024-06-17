@@ -110,6 +110,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) CHe(η) # He <-> He⁺
+    @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
     ΛH = 8.22458 # s⁻¹
@@ -127,6 +128,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     E_He_2p_1s = h*c / λ_He_2p_1s # E_2p - E_1s
     E_He_2p_2s = E_He_2p_1s - E_He_2s_1s # E_2p - E_2s
     E_He_∞_2s  = E_He_∞_1s - E_He_2s_1s # E_∞ - E_2s
+    E_He⁺_∞_1s = 54.4178 * eV # E_∞ - E_1s (second ionization energy)
 
     initialization_eqs = [
         XHe⁺ ~ 1, # TODO: add first order correction?
@@ -152,15 +154,23 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
-        # Helium recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
+        # Helium I recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
         αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ λ_He_2p_1s^3 / (8π*g.H)
         CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
         Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*ne*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
+        # Helium II Saha recombo (https://arxiv.org/pdf/astro-ph/9909275)
+        # solution of quadratic equation A*(XHe⁺⁺)² + B*XHe⁺⁺ + C = 0 from Saha equation (6)
+        RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6)
+        AHe⁺ ~ 1
+        BHe⁺ ~ RHe⁺ - 1 - fHe
+        CHe⁺ ~ -RHe⁺ * (1 + 2*fHe)
+        XHe⁺⁺ ~ (-BHe⁺ + √(BHe⁺^2 - 4*AHe⁺*CHe⁺)) / (2*AHe⁺) - 1 - fHe # XHe⁺⁺ = Xe - 1*XH⁺ - fHe*XHe⁺ (with XH⁺ = XHe⁺ = 1)
+
         # electrons
-        Xe ~ 1*XH⁺ + fHe*XHe⁺ # TODO: add xHe⁺⁺
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
         #Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
