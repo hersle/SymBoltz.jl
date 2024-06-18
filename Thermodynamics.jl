@@ -111,6 +111,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
+    @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) # Helium triplet correction
+    @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
     ΛH = 8.22458 # s⁻¹
@@ -130,6 +132,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     E_He_∞_2s  = E_He_∞_1s - E_He_2s_1s # E_∞ - E_2s
     E_He⁺_∞_1s = 54.4178 * eV # E_∞ - E_1s (second ionization energy)
     A2Ps = 1.798287e9
+    A2Pt = 177.58e0
+    λHe2Pt = 59.1411e-9 # TODO: rename s,t to singlet,triplet?
+    λHe2St = 62.5563e-9
+    EHe2Pt = h*c / λHe2Pt
+    EHe2St = h*c / λHe2St
     initialization_eqs = [
         XHe⁺ ~ 1, # TODO: add first order correction?
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
@@ -163,7 +170,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
-        Dη(XHe⁺) ~ -g.a/g.H0 * CHe * (XHe⁺*ne*αHe - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
+        αHe3 ~ 10^(-16.306) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.761) * (1+√(Tb/10^5.114))^(1+0.761)) # Helium triplet correction
+        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/260.0463e-9)
+        τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λHe2Pt^3/(8π*g.H)
+        pHe3 ~ (1 - exp(-τHe3)) / τHe3
+        CHe3 ~ (1e-10 + A2Pt*pHe3*exp(-βb*(EHe2Pt - EHe2St))) / (1e-10 + A2Pt*pHe3*exp(-βb*(EHe2Pt - EHe2St)) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior)
+        DXHe⁺_Dη_singlet ~ -g.a/g.H0 * CHe  * (XHe⁺*ne*αHe  - βHe *(1-XHe⁺) * exp(-βb*E_He_2s_1s))
+        DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (XHe⁺*ne*αHe3 - βHe3*(1-XHe⁺)*3*exp(-βb*EHe2St))
+        Dη(XHe⁺) ~ DXHe⁺_Dη_singlet # + DXHe⁺_Dη_triplet
 
         # Helium II Saha recombo (https://arxiv.org/pdf/astro-ph/9909275)
         # solution of quadratic equation A*(XHe⁺⁺)² + B*XHe⁺⁺ + C = 0 from Saha equation (6)
@@ -177,8 +191,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        #Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
-        #dτ ~ Dη(τ)
+        Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        dτ ~ Dη(τ)
     ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
