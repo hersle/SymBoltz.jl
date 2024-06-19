@@ -111,7 +111,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
-    @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) # Helium triplet correction
+    @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) γ2Pt(η) # Helium triplet correction
     @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
@@ -174,7 +174,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/260.0463e-9)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λHe2Pt^3/(8π*g.H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        CHe3 ~ (1e-10 + A2Pt*pHe3*exp(-βb*(EHe2Pt - EHe2St))) / (1e-10 + A2Pt*pHe3*exp(-βb*(EHe2Pt - EHe2St)) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior)
+        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*c/λHe2Pt*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)) / (c/λHe2Pt)^2
+        CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*(EHe2Pt - EHe2St))) / (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*(EHe2Pt - EHe2St)) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior)
         DXHe⁺_Dη_singlet ~ -g.a/g.H0 * CHe  * (XHe⁺*ne*αHe  - βHe *(1-XHe⁺) * exp(-βb*E_He_2s_1s))
         DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (XHe⁺*ne*αHe3 - βHe3*(1-XHe⁺)*3*exp(-βb*EHe2St))
         Dη(XHe⁺) ~ DXHe⁺_Dη_singlet # + DXHe⁺_Dη_triplet
