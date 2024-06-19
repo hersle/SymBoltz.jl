@@ -152,7 +152,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        #cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
+        cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
         αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
@@ -192,7 +192,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        Dη(τ) * g.H0 ~ -ne * σT * c * g.a # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        Dη(τ) ~ -ne * σT * c * g.a/g.H0 # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
         dτ ~ Dη(τ)
     ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
