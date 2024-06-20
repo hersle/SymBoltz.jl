@@ -18,7 +18,7 @@ lmax = 6
 
 par = Parameters()
 
-function run_class(in::Dict{String, Any}; exec="class/class_public-3.2.3/class", inpath="class/input.ini", outpath="class/output/")
+function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
         "root" => outpath,
         "overwrite_root" => "yes",
@@ -32,7 +32,7 @@ function run_class(in::Dict{String, Any}; exec="class/class_public-3.2.3/class",
     return run(`$exec $inpath`) # run
 end
 
-function output_class(par::Parameters, k::Real; kwargs...)
+function output_class(par::Parameters, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
     in = Dict(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
@@ -61,9 +61,10 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "l_max_ncdm" => lmax,
     )
 
-    run_class(in; kwargs...)
+    run_class(in, exec, inpath, outpath)
     output = Dict()
-    for (name, file, skipstart) in [("bg", "class/output/_background.dat", 3), ("th", "class/output/_thermodynamics.dat", 10), ("pt", "class/output/_perturbations_k0_s.dat", 1)]
+    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1)]
+        file = outpath * filename
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
         for (n, h) in enumerate(head[begin:end-1])
