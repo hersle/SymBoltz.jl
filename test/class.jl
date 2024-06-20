@@ -1,5 +1,3 @@
-include("../Symboltz.jl")
-import .Symboltz
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
