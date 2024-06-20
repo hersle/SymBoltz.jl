@@ -1,4 +1,5 @@
 name = "Symboltz"
+uuid = "64c5a815-d72d-4982-8b1f-85a778bbef4e"
 authors = ["Herman Sletmoen"]
 
 [deps]
