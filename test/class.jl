@@ -12,7 +12,7 @@ using Plots; Plots.default(label=nothing)
     Ωb0 = 0.03
     h = 0.67
     As = 2.1e-9
-    Yp = 0.01 # 245 # TODO: more
+    Yp = 0.245
 end
 lmax = 6
 
@@ -53,6 +53,8 @@ function output_class(par::Parameters, k::Real; kwargs...)
         "N_ncdm" => 0.0,
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
         "recombination" => "recfast", # or HyREC
+        "recfast_Hswitch" => 1,
+        "recfast_Heswitch" => 6,
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
         "l_max_ur" => lmax,
@@ -75,21 +77,21 @@ function output_class(par::Parameters, k::Real; kwargs...)
     return output
 end
 
-kMpc = 1e-1 # 1/Mpc # disagreement on smaller scales
+kMpc = 1e0 # 1/Mpc # disagreement on smaller scales
 sol1 = output_class(par, kMpc)
 
 k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2_th = Symboltz.solve(th,      par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)
+sol2_th = Symboltz.solve(th,      par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol = 1e-8)
 sol2_pt = Symboltz.solve(pt, [k], par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol = 1e-10)[1]
 
 # map results from both codes to common convention
 results = Dict(
     # background
-    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_pt[bg.sys.g.a])),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_pt[bg.sys.g.E]),
+    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_th[bg.sys.g.a])),
+    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[bg.sys.g.E]),
 
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[bg.sys.g.a])),
@@ -116,7 +118,7 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabel, ylabels = "lg(a_pt)", ["Φ", "Ψ"]
+xlabel, ylabels = "lg(a_th)", ["lg(τ′)"]
 x1, x2 = results[xlabel]
 x1min, x1max = extrema(x1)
 x2min, x2max = extrema(x2)
