@@ -137,6 +137,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     λHe2St = 62.5563e-9
     EHe2Pt = h*c / λHe2Pt
     EHe2St = h*c / λHe2St
+    αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
+    αHe_fit(T; q=10^(-16.744), p=0.711, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
+    αHe3_fit(T; q=10^(-16.306), p=0.761, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula for Helium triplet correction
     initialization_eqs = [
         XHe⁺ ~ 1, # TODO: add first order correction?
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
@@ -155,14 +158,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
-        αH ~ 1.14e-19 * 4.309 * (Tb/1e4)^(-0.6166) / (1 + 0.6703 * (Tb/1e4)^0.5300) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
+        αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + -0.14*exp(-((log(g.a)+7.28)/0.18)^2) + 0.079*exp(-((log(g.a)+6.73)/0.33)^2)) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
         # Helium I recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
-        αHe ~ 10^(-16.744) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.711) * (1+√(Tb/10^5.114))^(1+0.711)) # fitting formula
+        αHe ~ αHe_fit(Tb)
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
         KHe1⁻¹ ~ -exp(-3*A2Ps*nHe*(1-XHe⁺+1e-10)/KHe0⁻¹) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
@@ -170,7 +173,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(+βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(+βb*E_He_2p_2s))
-        αHe3 ~ 10^(-16.306) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.761) * (1+√(Tb/10^5.114))^(1+0.761)) # Helium triplet correction
+        αHe3 ~ αHe3_fit(Tb)
         βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/260.0463e-9)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λHe2Pt^3/(8π*g.H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
