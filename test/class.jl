@@ -53,6 +53,7 @@ function output_class(par::Parameters, k::Real; exec="class", inpath="/tmp/symbo
         "recombination" => "recfast", # or HyREC
         "recfast_Hswitch" => 1,
         "recfast_Heswitch" => 6,
+        "reio_parametrization" => "reio_none",
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
         "l_max_ur" => lmax,
