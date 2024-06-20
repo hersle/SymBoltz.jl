@@ -140,6 +140,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T; q=10^(-16.744), p=0.711, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe3_fit(T; q=10^(-16.306), p=0.761, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula for Helium triplet correction
+    KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
+    KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
     initialization_eqs = [
         XHe⁺ ~ 1, # TODO: add first order correction?
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
@@ -160,7 +162,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + -0.14*exp(-((log(g.a)+7.28)/0.18)^2) + 0.079*exp(-((log(g.a)+6.73)/0.33)^2)) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
+        KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + KH_KH0_fit(g.a)) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
 
