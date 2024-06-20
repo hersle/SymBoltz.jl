@@ -115,13 +115,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
-    ΛH = 8.22458 # s⁻¹
+    # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
+    ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
-    λ_H_∞_1s   =  91.1753e-9 # n=∞ -> n=1 (ionization energy)
-    λ_H_2s_1s  = 121.5670e-9 # n=2 -> n=1
-    λ_He_∞_1s  =  50.4259e-9 # n=∞ -> n=1 (first ionization energy)
-    λ_He_2s_1s =  60.1405e-9 # n=2, l=1 -> n=1, l=1
-    λ_He_2p_1s =  58.4334e-9 # n=2, l=2 -> n=1, l=1
+    λ_H_∞_1s   =  91.17534471485433e-9 # n=∞ -> n=1 (ionization energy)
+    λ_H_2s_1s  = 121.56700176979052e-9 # n=2 -> n=1
+    λ_He_∞_1s  =  50.425904246895875e-9 # n=∞ -> n=1 (first ionization energy)
+    λ_He_2s_1s =  60.14045177050301e-9 # n=2, l=1 -> n=1, l=1
+    λ_He_2p_1s =  58.433437749406686e-9 # n=2, l=2 -> n=1, l=1
     E_H_∞_1s   = h*c / λ_H_∞_1s # E_∞  - E_1s
     E_H_2s_1s  = h*c / λ_H_2s_1s # E_2s - E_1s
     E_H_∞_2s   = E_H_∞_1s - E_H_2s_1s # E_∞ - E_2s
@@ -133,10 +134,12 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     E_He⁺_∞_1s = 54.4178 * eV # E_∞ - E_1s (second ionization energy)
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
-    λHe2Pt = 59.1411e-9 # TODO: rename s,t to singlet,triplet?
-    λHe2St = 62.5563e-9
-    EHe2Pt = h*c / λHe2Pt
-    EHe2St = h*c / λHe2St
+    λ_He_2p_1s_tri = 59.1411e-9 # TODO: rename s,t to singlet,triplet?
+    λ_He_2s_1s_tri = 62.5563e-9
+    E_He_2p_1s_tri = h*c / λ_He_2p_1s_tri
+    E_He_2s_1s_tri = h*c / λ_He_2s_1s_tri
+    E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
+    λwtf = 260.0463e-9 # TODO: wtf is this?
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T; q=10^(-16.744), p=0.711, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe3_fit(T; q=10^(-16.306), p=0.761, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula for Helium triplet correction
@@ -149,9 +152,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     ]
     g = bg.sys.g
     connections = ODESystem([
-        ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³
+        ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
         nH ~ (1-Yp) * ρb/mp # 1/m³
-        nHe ~ fHe * nH # 1/m³ # TODO: take true mass ratio ≠ 4
+        nHe ~ fHe * nH # 1/m³
 
         Tγ ~ Tγ0 / g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * g.ℰ
         Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
@@ -159,14 +162,15 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
-        # Hydrogen recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275)
+        # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + KH_KH0_fit(g.a)) # TODO: introduce (superficial) λ_H_2p_1s = λ_H_2s_1s?
-        CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)) # TODO: introduce (superficial) exp((...)*E_H_2p_2s)=1?
-        Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # TODO: is the last exp(-h*ν2s/(kB*T)) a typo in eq. (1) ? # X = np / nH # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + KH_KH0_fit(g.a))
+        CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) /
+             (1 + KH*(ΛH+βH)*nH*(1-XH⁺))
+        Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because cide η is physical η/(1/H0)
 
-        # Helium I recombo (RECFAST: https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182)
+        # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
@@ -174,30 +178,35 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+1e-10)*c^2 / (1.436289e-22*8π*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)*(c/λ_He_2p_1s)^3) # TODO: introduce mHe and ν_He_2p_1s?
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
-        CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
-        αHe3 ~ αHe3_fit(Tb)
-        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/260.0463e-9)
-        τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λHe2Pt^3/(8π*g.H)
-        pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*c/λHe2Pt*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)) / (c/λHe2Pt)^2
-        CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*(EHe2Pt - EHe2St))) / (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*(EHe2Pt - EHe2St)) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior)
-        DXHe⁺_Dη_singlet ~ -g.a/g.H0 * CHe  * (XHe⁺*ne*αHe  - βHe *(1-XHe⁺) * exp(-βb*E_He_2s_1s))
-        DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (XHe⁺*ne*αHe3 - βHe3*(1-XHe⁺)*3*exp(-βb*EHe2St))
-        Dη(XHe⁺) ~ DXHe⁺_Dη_singlet # + DXHe⁺_Dη_triplet
+        CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
+              (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
+        DXHe⁺_Dη_singlet ~ -g.a/g.H0 * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
-        # Helium II Saha recombo (https://arxiv.org/pdf/astro-ph/9909275)
-        # solution of quadratic equation A*(XHe⁺⁺)² + B*XHe⁺⁺ + C = 0 from Saha equation (6)
-        RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6)
+        # He⁺ + e⁻ triplet recombination
+        αHe3 ~ αHe3_fit(Tb)
+        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/λwtf)
+        τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
+        pHe3 ~ (1 - exp(-τHe3)) / τHe3
+        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*c/λ_He_2p_1s_tri*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)) / (c/λ_He_2p_1s_tri)^2
+        CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
+               (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
+        DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+
+        # He⁺ + e⁻ total recombination
+        Dη(XHe⁺) ~ DXHe⁺_Dη_singlet + DXHe⁺_Dη_triplet
+
+        # He⁺⁺ + e⁻ recombination
+        RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         AHe⁺ ~ 1
         BHe⁺ ~ RHe⁺ - 1 - fHe
         CHe⁺ ~ -RHe⁺ * (1 + 2*fHe)
-        XHe⁺⁺ ~ (-BHe⁺ + √(BHe⁺^2 - 4*AHe⁺*CHe⁺)) / (2*AHe⁺) - 1 - fHe # XHe⁺⁺ = Xe - 1*XH⁺ - fHe*XHe⁺ (with XH⁺ = XHe⁺ = 1)
+        XHe⁺⁺ ~ (-BHe⁺ + √(BHe⁺^2 - 4*AHe⁺*CHe⁺)) / (2*AHe⁺) - 1 - fHe # solve quadratic equation A*(XHe⁺⁺)² + B*XHe⁺⁺ + C = 0 from Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275; XHe⁺⁺ = Xe - 1*XH⁺ - fHe*XHe⁺ (with XH⁺ = XHe⁺ = 1)
 
         # electrons
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        Dη(τ) ~ -ne * σT * c * g.a/g.H0 # common optical depth τ (multiply by H0 on left because code η is physical η/(1/H0))
+        Dη(τ) ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         dτ ~ Dη(τ)
     ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
