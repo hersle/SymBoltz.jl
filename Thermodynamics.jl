@@ -169,7 +169,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+1e-10)*c^2 / (1.436289e-22*8π*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)*(c/λ_He_2p_1s)^3) # TODO: introduce mHe and ν_He_2p_1s?
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
-        CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(-βb*E_He_2p_2s))
+        CHe ~ (1 + KHe*ΛHe*nHe*(1-XHe⁺)*exp(+βb*E_He_2p_2s)) / (1 + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)*exp(+βb*E_He_2p_2s))
         αHe3 ~ 10^(-16.306) / (√(Tb/3.0) * (1+√(Tb/3.0))^(1-0.761) * (1+√(Tb/10^5.114))^(1+0.761)) # Helium triplet correction
         βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/260.0463e-9)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λHe2Pt^3/(8π*g.H)
