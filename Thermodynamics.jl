@@ -108,7 +108,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     mHe_mH = 4.002603 / 1.00784 # ⪅ 4 ("not4") # TODO: move to Constants
     @parameters Tγ0 Yp fHe = Yp / (mHe_mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
-    @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) CH(η) # H <-> H⁺
+    @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
     @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) γ2Pt(η) # Helium triplet correction
@@ -165,7 +165,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH ~ λ_H_2s_1s^3 / (8π*g.H) * (1 + KH_KH0_fit(g.a))
+        KH0 ~ λ_H_2s_1s^3 / (8π*g.H)
+        KH1 ~ KH0 * KH_KH0_fit(g.a)
+        KH ~ KH0 + KH1
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺))
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because cide η is physical η/(1/H0)
