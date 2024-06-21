@@ -105,9 +105,7 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
-    mH = mp # TODO: fix mH vs. mp
-    mHe_mH = 4.002603 / 1.00784 # ⪅ 4 ("not4") # TODO: move to Constants
-    @parameters Tγ0 Yp fHe = Yp / (mHe_mH*(1-Yp)) # fHe = nHe/nH
+    @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) μ(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
@@ -119,28 +117,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
-    λ_H_∞_1s   =  91.17534471485433e-9 # n=∞ -> n=1 (ionization energy)
-    λ_H_2s_1s  = 121.56700176979052e-9 # n=2 -> n=1
-    λ_He_∞_1s  =  50.425904246895875e-9 # n=∞ -> n=1 (first ionization energy)
-    λ_He_2s_1s =  60.14045177050301e-9 # n=2, l=1 -> n=1, l=1
-    λ_He_2p_1s =  58.433437749406686e-9 # n=2, l=2 -> n=1, l=1
-    E_H_∞_1s   = h*c / λ_H_∞_1s # E_∞  - E_1s
-    E_H_2s_1s  = h*c / λ_H_2s_1s # E_2s - E_1s
-    E_H_∞_2s   = E_H_∞_1s - E_H_2s_1s # E_∞ - E_2s
-    E_He_∞_1s  = h*c / λ_He_∞_1s # E_∞  - E_1s
-    E_He_2s_1s = h*c / λ_He_2s_1s # E_2s - E_1s
-    E_He_2p_1s = h*c / λ_He_2p_1s # E_2p - E_1s
-    E_He_2p_2s = E_He_2p_1s - E_He_2s_1s # E_2p - E_2s
-    E_He_∞_2s  = E_He_∞_1s - E_He_2s_1s # E_∞ - E_2s
-    E_He⁺_∞_1s = 54.4178 * eV # E_∞ - E_1s (second ionization energy)
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
-    λ_He_2p_1s_tri = 59.1411e-9 # TODO: rename s,t to singlet,triplet?
-    λ_He_2s_1s_tri = 62.5563e-9
-    E_He_2p_1s_tri = h*c / λ_He_2p_1s_tri
-    E_He_2s_1s_tri = h*c / λ_He_2s_1s_tri
-    E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
-    λwtf = 260.0463e-9 # TODO: wtf is this?
+    λwtf = 260.0463e-9; fwtf = c/λwtf # TODO: wtf is this?
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
@@ -155,14 +134,14 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     g = bg.sys.g
     connections = ODESystem([
         ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
-        nH ~ (1-Yp) * ρb/mp # 1/m³
+        nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
         Tγ ~ Tγ0 / g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * g.ℰ
         Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        μ ~ mH / ((1 + (1/mHe_mH-1)*Yp + Xe*(1-Yp))) # mean molecular weight
+        μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
         cs² ~ kB/(μ*c^2) * (Tb - 1/3*Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # H⁺ + e⁻ recombination
@@ -180,7 +159,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
         KHe1⁻¹ ~ -exp(-3*A2Ps*nHe*(1-XHe⁺+1e-10)/KHe0⁻¹) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
-        γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+1e-10)*c^2 / (1.436289e-22*8π*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)*(c/λ_He_2p_1s)^3) # TODO: introduce mHe and ν_He_2p_1s?
+        γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+1e-10)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
@@ -189,10 +168,10 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
 
         # He⁺ + e⁻ triplet recombination
         αHe3 ~ αHe3_fit(Tb)
-        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*c/λwtf)
+        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*h*fwtf)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*c/λ_He_2p_1s_tri*√(2π/(βb*mp*mHe_mH*c^2))*(1-XH⁺+1e-10)) / (c/λ_He_2p_1s_tri)^2
+        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2
         CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
                (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
         DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
