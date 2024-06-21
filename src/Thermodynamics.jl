@@ -105,9 +105,10 @@ end
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
+    mH = mp # TODO: fix mH vs. mp
     mHe_mH = 4.002603 / 1.00784 # ⪅ 4 ("not4") # TODO: move to Constants
     @parameters Tγ0 Yp fHe = Yp / (mHe_mH*(1-Yp)) # fHe = nHe/nH
-    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) cs²(η) λe(η)
+    @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) μ(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
@@ -160,7 +161,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        cs² ~ kB/(mp*c^2) * (Tb - Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
+        μ ~ mH / ((1 + (1/mHe_mH-1)*Yp + Xe*(1-Yp))) # mean molecular weight
+        cs² ~ kB/(μ*c^2) * (Tb - 1/3*Dη(Tb)/g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (69) # TODO: proper mean molecular weight
 
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)

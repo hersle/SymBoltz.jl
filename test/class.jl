@@ -96,7 +96,7 @@ results = Dict(
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[bg.sys.g.a])),
     "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2_th[th.ssys.dτ] * (Symboltz.k0 * par.h))),
-    "lg(|csb²|)" => (log10.(abs.(reverse(sol1["th"]["c_b^2"]))), log10.(abs.(sol2_th[th.sys.cs²]))),
+    "lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(sol2_th[th.sys.cs²])),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2_th[th.sys.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2_th[th.sys.Tb]),
 
@@ -118,7 +118,7 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabel, ylabels = "lg(a_th)", ["lg(τ′)"]
+xlabel, ylabels = "lg(a_th)", ["lg(csb²)"]
 x1, x2 = results[xlabel]
 x1min, x1max = extrema(x1)
 x2min, x2max = extrema(x2)
