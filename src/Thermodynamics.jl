@@ -142,8 +142,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
     λwtf = 260.0463e-9 # TODO: wtf is this?
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
-    αHe_fit(T; q=10^(-16.744), p=0.711, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
-    αHe3_fit(T; q=10^(-16.306), p=0.761, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula for Helium triplet correction
+    αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
+    αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
+    αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
     KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
     KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
     initialization_eqs = [
