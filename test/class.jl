@@ -118,30 +118,31 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabel, ylabels = "lg(a_th)", ["lg(csb²)"]
-x1, x2 = results[xlabel]
-x1min, x1max = extrema(x1)
-x2min, x2max = extrema(x2)
-xmin = max(x1min, x2min)
-xmax = min(x1max, x2max)
-i1s = xmin .≤ x1 .≤ xmax .&& [BitVector([true]); x1[begin+1:end] .- x1[begin:end-1] .> 1e-5] # select x values in common range and exclude points too close in time (probably due to CLASS switching between approximation schemes)
-i2s = xmin .≤ x2 .≤ xmax # select x values in common range
-x1 = x1[i1s]
-x2 = x2[i2s]
-x = x2[begin+1:end-1] # compare ratios at Symboltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
+xlabels, ylabels = ["lg(a_th)", "lg(a_pt)"], ["Xe", "Φ"]
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Parameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
-for (i, ylabel) in enumerate(ylabels)
+for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
+    x1, x2 = results[xlabel]
+    x1min, x1max = extrema(x1)
+    x2min, x2max = extrema(x2)
+    xmin = max(x1min, x2min)
+    xmax = min(x1max, x2max)
+    i1s = xmin .≤ x1 .≤ xmax .&& [BitVector([true]); x1[begin+1:end] .- x1[begin:end-1] .> 1e-5] # select x values in common range and exclude points too close in time (probably due to CLASS switching between approximation schemes)
+    i2s = xmin .≤ x2 .≤ xmax # select x values in common range
+    x1 = x1[i1s]
+    x2 = x2[i2s]
+    x = x2[begin+1:end-1] # compare ratios at Symboltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
+
     y1, y2 = results[ylabel]
     y1 = y1[i1s]
     y2 = y2[i2s]
     color = i
-    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS", ylabel)
+    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS", xlabel, ylabel)
     plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz")
     y1 = CubicSpline(y1, x1; extrapolate=true).(x)
     y2 = CubicSpline(y2, x2; extrapolate=true).(x)
     r = y2 ./ y1
     plot!(p[end], x, r; yminorticks = 10, yminorgrid = true, color)
 end
-hline!(p[end], [1.0]; color = :black, linestyle = :dash, xlabel, ylabel = "Symboltz / CLASS", z_order = 1)
+hline!(p[end], [1.0]; color = :black, linestyle = :dash, ylabel = "Symboltz / CLASS", z_order = 1)
