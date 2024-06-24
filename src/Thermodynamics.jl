@@ -109,7 +109,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) μ(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
-    @variables XHe⁺⁺(η) RHe⁺(η) AHe⁺(η) BHe⁺(η) CHe⁺(η) # He⁺ <-> He⁺⁺
+    @variables XHe⁺⁺(η) RHe⁺(η) # He⁺ <-> He⁺⁺
     @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) γ2Pt(η) # Helium triplet correction
     @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
     push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
@@ -181,10 +181,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
 
         # He⁺⁺ + e⁻ recombination
         RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
-        AHe⁺ ~ 1
-        BHe⁺ ~ RHe⁺ - 1 - fHe
-        CHe⁺ ~ -RHe⁺ * (1 + 2*fHe)
-        XHe⁺⁺ ~ (-BHe⁺ + √(BHe⁺^2 - 4*AHe⁺*CHe⁺)) / (2*AHe⁺) - 1 - fHe # solve quadratic equation A*(XHe⁺⁺)² + B*XHe⁺⁺ + C = 0 from Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275; XHe⁺⁺ = Xe - 1*XH⁺ - fHe*XHe⁺ (with XH⁺ = XHe⁺ = 1)
+        XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
 
         # electrons
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
