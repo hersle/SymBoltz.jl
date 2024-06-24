@@ -150,8 +150,8 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         KH0 ~ λ_H_2s_1s^3 / (8π*g.H)
         KH1 ~ KH0 * KH_KH0_fit(g.a)
         KH ~ KH0 + KH1
-        CH ~ (1 + KH*ΛH*nH*(1-XH⁺)) /
-             (1 + KH*(ΛH+βH)*nH*(1-XH⁺))
+        CH ~ (1 + KH*ΛH*nH*(1-XH⁺+1e-10)) /
+             (1 + KH*(ΛH+βH)*nH*(1-XH⁺+1e-10))
         Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because cide η is physical η/(1/H0)
 
         # He⁺ + e⁻ singlet recombination
