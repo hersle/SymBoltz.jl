@@ -151,7 +151,7 @@ end
 function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
     th = pt.th
     bg = th.bg
-    th_sol = solve(th, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
+    th_sol = solve(th, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
     ΩΛ0 = th_sol.ps[bg.sys.de.Ω0]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
