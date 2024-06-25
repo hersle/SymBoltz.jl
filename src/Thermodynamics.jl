@@ -195,12 +195,11 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     return ThermodynamicsSystem(sys, ssys, bg)
 end
 
-function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-7, aend=1.0, solver=Rodas5P(), reltol=1e-6, kwargs...)
+function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; ηspan=(1e-5, 4.0), solver=Rodas5P(), reltol=1e-6, kwargs...)
     bg = th.bg
-    bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; aini, aend)
+    bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; ηspan)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-
-    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
+    prob = ODEProblem(th.ssys, [], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
 
     # make solver take smaller steps when some quantity goes out of bounds: https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#My-ODE-goes-negative-but-should-stay-positive,-what-tools-can-help?
     #XHindex = variable_index(th.ssys, th.ssys.H.X)

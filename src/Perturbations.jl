@@ -133,20 +133,17 @@ function PerturbationsSystem(th::ThermodynamicsSystem, g::ODESystem, grav::ODESy
 end
 
 # TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver = Rodas5P(), aini = 1e-7, reltol = 1e-7, verbose = false, kwargs...)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; ηspan=(1e-5, 4.0), solver = Rodas5P(), aini = 1e-7, reltol = 1e-7, verbose = false, kwargs...)
     th = pt.th
     bg = th.sys.bg # th.bg
-    th_sol = solve(th, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
-    ηs = th_sol[η]
-    ηini, ηtoday = ηs[begin], ηs[end]
-    a = th_sol(ηini; idxs=bg.g.a)
+    bg_sol = solve(th.bg, Ωγ0, Ων0, Ωc0, Ωb0; ηspan)
+    ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
 
-    u0 = [bg.g.a => a] # TODO: does this cause overinitialization?
     p = [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.H0 => H100 * h, th.sys.Yp => Yp] # TODO: copy/merge background parameters
     # TODO: improve performance!
     probs = EnsembleProblem(; safetycopy = false, prob = nothing#=prob_uninit=#, prob_func = (prob_uninit, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(pt.ssys, u0, (ηini, ηtoday), merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
+        return ODEProblem(pt.ssys, [], (ηini, ηtoday), merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization

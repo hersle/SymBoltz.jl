@@ -45,8 +45,13 @@ function background_ΛCDM(; kwargs...)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
     species = [ph, neu, cdm, bar, de]
-    defaults = [species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])]
-    return BackgroundSystem(g, grav, species; defaults, kwargs...)
+    initialization_eqs = [
+        g.a ~ √(ph.Ω0 + neu.Ω0) * η # analytical radiation-dominated solution
+    ]
+    defaults = [
+        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])
+    ]
+    return BackgroundSystem(g, grav, species; initialization_eqs, defaults, kwargs...)
 end
 
 function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; jac=true, kwargs...)
@@ -56,26 +61,17 @@ function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{
     ], η; kwargs...)
     sys = compose(connections, components...)
     ssys = structural_simplify(sys) # simplified system
-    prob = ODEProblem(ssys, unknowns(ssys) .=> NaN, (NaN, NaN), parameters(ssys) .=> NaN; jac)
-    return BackgroundSystem(sys, ssys, prob)
+    return BackgroundSystem(sys, ssys)
 end
 
-function solve(bg::BackgroundSystem, Ωγ0, Ων0, Ωc0, Ωb0; aini=1e-8, aend=1.0, solver=Vern8(), reltol=1e-8, kwargs...)
+function solve(bg::BackgroundSystem, Ωγ0, Ων0, Ωc0, Ωb0; ηspan=(1e-5, 4.0), solver=Vern8(), reltol=1e-8, kwargs...)
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     # TODO: take symbolic IC map
-    Ωr0 = Ωγ0 + Ων0 # TODO: gather m = c + b and r = γ + ν in the ODESystem
-    ηini = aini / √(Ωr0) # analytical radiation-dominated solution # TODO: use init system
-    
-    prob = remake(
-        bg.prob;
-        tspan = (ηini, 4.0),
-        u0 = [bg.ssys.g.a => aini],
-        p = [bg.ssys.ph.Ω0 => Ωγ0, bg.ssys.neu.Ω0 => Ων0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0]
-    )
+    prob = ODEProblem(bg.ssys, [], ηspan, [bg.ssys.ph.Ω0 => Ωγ0, bg.ssys.neu.Ω0 => Ων0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0, bg.ssys.g.H0 => NaN])
 
     # integrate until a == aend # TODO: just use η interval instead
     aindex = variable_index(bg.ssys, bg.ssys.g.a)
-    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!)
+    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - 1.0), terminate!)
 
     return solve(prob, solver; callback, reltol, kwargs...)
 end
