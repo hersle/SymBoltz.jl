@@ -84,37 +84,39 @@ k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2 = Symboltz.solve(pt, [k], par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp)[1]
+pts = structural_simplify(pt)
+pt_prob = ODEProblem(pts, [], (1e-5, 4.0), [th.bg.ph.Ω0 => par.Ωγ0, th.bg.neu.Ω0 => par.Ων0, th.bg.cdm.Ω0 => par.Ωc0, th.bg.bar.Ω0 => par.Ωb0, th.bg.g.h => par.h, th.Yp => par.Yp, Symboltz.k => k])
+sol2 = solve(pt_prob, Rodas5P(); reltol=1e-6)
 
 # map results from both codes to common convention
 results = Dict(
     # background
-    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2[bg.sys.g.a])),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[bg.sys.g.E]),
+    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2[bg.g.a])),
+    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[bg.g.E]),
 
     # thermodynamics
-    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2[bg.sys.g.a])),
-    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2[th.sys.dτ] * (Symboltz.k0 * par.h))),
-    "lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(sol2[th.sys.cs²])),
-    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[th.sys.cs²]),
-    "Xe" => (reverse(sol1["th"]["x_e"]), sol2[th.sys.Xe]),
-    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[th.sys.Tb]),
+    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2[bg.g.a])),
+    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2[th.dτ] * (Symboltz.k0 * par.h))),
+    #"lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(sol2[th.cs²])), # TODO: becomes negative; fix
+    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[th.cs²]),
+    "Xe" => (reverse(sol1["th"]["x_e"]), sol2[th.Xe]),
+    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[th.Tb]),
 
     # perturbations
-    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2[bg.sys.g.a])),
-    "a_pt" => (sol1["pt"]["a"], sol2[bg.sys.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2[pt.ssys.g1.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2[pt.ssys.g1.Ψ]), # TODO: same?
-    "δb" => (sol1["pt"]["delta_b"], -sol2[pt.ssys.bar.δ]), # TODO: sign?
-    "δc" => (sol1["pt"]["delta_cdm"], -sol2[pt.ssys.cdm.δ]), # TODO: sign?
-    "δγ" => (sol1["pt"]["delta_g"], -sol2[pt.ssys.ph.δ]),
-    "θb" => (sol1["pt"]["theta_b"], -sol2[pt.ssys.bar.u] * kMpc),
-    "θc" => (sol1["pt"]["theta_cdm"], -sol2[pt.ssys.cdm.u] * kMpc),
-    "θγ" => (sol1["pt"]["theta_g"], -sol2[pt.ssys.ph.Θ[1]] * 3 * kMpc),
-    "Π" => (sol1["pt"]["shear_g"], sol2[pt.ssys.ph.Θ[2]] * -2),
-    "P0" => (sol1["pt"]["pol0_g"], sol2[pt.ssys.ph.ΘP0] * -4), # TODO: is -4 correct ???
-    "P1" => (sol1["pt"]["pol1_g"], sol2[pt.ssys.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
-    "P2" => (sol1["pt"]["pol2_g"], sol2[pt.ssys.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
+    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2[bg.g.a])),
+    "a_pt" => (sol1["pt"]["a"], sol2[bg.g.a]),
+    "Φ" => (sol1["pt"]["phi"], sol2[pt.g1.Φ]), # TODO: same?
+    "Ψ" => (sol1["pt"]["psi"], -sol2[pt.g1.Ψ]), # TODO: same?
+    "δb" => (sol1["pt"]["delta_b"], -sol2[pt.bar.δ]), # TODO: sign?
+    "δc" => (sol1["pt"]["delta_cdm"], -sol2[pt.cdm.δ]), # TODO: sign?
+    "δγ" => (sol1["pt"]["delta_g"], -sol2[pt.ph.δ]),
+    "θb" => (sol1["pt"]["theta_b"], -sol2[pt.bar.u] * kMpc),
+    "θc" => (sol1["pt"]["theta_cdm"], -sol2[pt.cdm.u] * kMpc),
+    "θγ" => (sol1["pt"]["theta_g"], -sol2[pt.ph.Θ[1]] * 3 * kMpc),
+    "Π" => (sol1["pt"]["shear_g"], sol2[pt.ph.Θ[2]] * -2),
+    "P0" => (sol1["pt"]["pol0_g"], sol2[pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
+    "P1" => (sol1["pt"]["pol1_g"], sol2[pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
+    "P2" => (sol1["pt"]["pol2_g"], sol2[pt.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
