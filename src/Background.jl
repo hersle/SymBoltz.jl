@@ -1,12 +1,12 @@
 function background_metric(; kwargs...)
     a, ℰ, E, H, ℋ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t)) # TODO: more natural way to connect them?
-    H0, = GlobalScope.(@parameters H0)
+    H0, h = GlobalScope.(@parameters H0 h)
     return ODESystem([
         ℰ ~ D(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
-    ], t; kwargs...)
+    ], t, [a, ℰ, E, H, ℋ], [H0, h]; defaults = [H0 => H100 * h], kwargs...)
 end
 
 function background_gravity_GR(g; kwargs...)
