@@ -1,11 +1,8 @@
 function background_metric(; kwargs...)
-    a, ℰ, E, H, ℋ = GlobalScope.(@variables a(η) ℰ(η) E(η) H(η) ℋ(η)) # TODO: more natural way to connect them?
-    H0, = GlobalScope.(@parameters H0)
+    a, ℰ, E = GlobalScope.(@variables a(η) ℰ(η) E(η)) # TODO: more natural way to connect them?
     return ODESystem([
         ℰ ~ Dη(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
-        ℋ ~ ℰ * H0
-        H ~ E * H0
     ], η; kwargs...)
 end
 

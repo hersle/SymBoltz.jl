@@ -23,9 +23,9 @@ bgs = structural_simplify(bg)
 ths = structural_simplify(th)
 pts = structural_simplify(pt)
 
-bg_prob = ODEProblem(bgs, [], (1e-5, 4.0), [bgs.ph.Ω0 => par.Ωγ0, bgs.neu.Ω0 => par.Ων0, bgs.cdm.Ω0 => par.Ωc0, bgs.bar.Ω0 => par.Ωb0, bgs.g.H0 => NaN])
-th_prob = ODEProblem(ths, [], (1e-5, 4.0), [bg.ph.Ω0 => par.Ωγ0, bg.neu.Ω0 => par.Ων0, bg.cdm.Ω0 => par.Ωc0, bg.bar.Ω0 => par.Ωb0, bg.g.H0 => Symboltz.H100 * par.h, ths.Yp => par.Yp])
-pt_prob = ODEProblem(pts, [], (1e-5, 4.0), [th.bg.ph.Ω0 => par.Ωγ0, th.bg.neu.Ω0 => par.Ων0, th.bg.cdm.Ω0 => par.Ωc0, th.bg.bar.Ω0 => par.Ωb0, th.bg.g.H0 => Symboltz.H100 * par.h, th.Yp => par.Yp, Symboltz.k => 1.0 / Symboltz.k0])
+bg_prob = ODEProblem(bgs, [], (1e-5, 4.0), [bgs.ph.Ω0 => par.Ωγ0, bgs.neu.Ω0 => par.Ων0, bgs.cdm.Ω0 => par.Ωc0, bgs.bar.Ω0 => par.Ωb0])
+th_prob = ODEProblem(ths, [], (1e-5, 4.0), [bg.ph.Ω0 => par.Ωγ0, bg.neu.Ω0 => par.Ων0, bg.cdm.Ω0 => par.Ωc0, bg.bar.Ω0 => par.Ωb0, ths.H0 => Symboltz.H100 * par.h, ths.Yp => par.Yp])
+pt_prob = ODEProblem(pts, [], (1e-5, 4.0), [th.bg.ph.Ω0 => par.Ωγ0, th.bg.neu.Ω0 => par.Ων0, th.bg.cdm.Ω0 => par.Ωc0, th.bg.bar.Ω0 => par.Ωb0, th.H0 => Symboltz.H100 * par.h, th.Yp => par.Yp, Symboltz.k => 1.0 / Symboltz.k0])
 
 p = plot(layout=(3,2), size=(1000, 1200), margin=5*Plots.mm)
 

@@ -44,12 +44,12 @@ function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844
         # TODO: fix Peebles' correction factor! it is unstable
         #n1s ~ smoothifelse(0.8 - X, 0, 1-X; k=1e2) * n # (1-X) * n # TODO: n1s sometimes goes negative!
         #λα ~ 8π*ħ*c / (3*Eion)
-        #Λα⁻¹ ~ λα^3 * n1s / (8π * g.H) # TODO: this becomes negative, but should always be positive
+        #Λα⁻¹ ~ λα^3 * n1s / (8π * H) # TODO: this becomes negative, but should always be positive
         #β2_Λα ~ α2 / λe^3 * exp(E(2)/kB/T) * Λα⁻¹ # β2/Λα (compute this instead of β2 = β * exp(3*Eion/(4*kB*T)) to avoid exp overflow)
         #Λ2γ_Λα ~ 8.227 * Λα⁻¹ # Λ2γ/Λα
         C ~ 1 # (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα) # Peebles' correction factor (Dodelson exercise 4.7)
 
-        Dη(X) * g.H0 ~ g.a * C * ((1-X) * β - α2*X^2*n) # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
+        Dη(X) * H0 ~ g.a * C * ((1-X) * β - α2*X^2*n) # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because cide η is physical η/(1/H0))
         Xe ~ X * Y
     ], η, vars, pars; defaults = [X => 1.0, Xe => Y], kwargs...)
 end
@@ -97,14 +97,15 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
     #@named Here1 = reionization_tanh(bg.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
     #@named Here2 = reionization_tanh(bg.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
 
-    @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
+    @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) H0 # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) μ(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
     @variables XHe⁺(η) nHe(η) αHe(η) βHe(η) KHe(η) KHe0⁻¹(η) KHe1⁻¹(η) KHe2⁻¹(η) γ2Ps(η) CHe(η) # He <-> He⁺
     @variables XHe⁺⁺(η) RHe⁺(η) # He⁺ <-> He⁺⁺
     @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) γ2Pt(η) # Helium triplet correction
     @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
-    push!(defaults, Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
+    @variables H(η)
+    push!(defaults, Tγ0 => (bg.ph.ρ0 * 15/π^2 * H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
@@ -125,12 +126,14 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
     ]
     g = bg.g
     connections = ODESystem([
-        ρb ~ bg.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
+        H ~ g.E * H0
+
+        ρb ~ bg.bar.ρ * H0^2/G # kg/m³ (convert from H0=1 units to SI units)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
         Tγ ~ Tγ0 / g.a # alternative derivative: Dη(Tγ) ~ -1*Tγ * g.ℰ
-        Dη(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
+        Dη(Tb) ~ -2*Tb*g.ℰ - g.a/H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
@@ -139,34 +142,34 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH0 ~ λ_H_2s_1s^3 / (8π*g.H)
+        KH0 ~ λ_H_2s_1s^3 / (8π*H)
         KH1 ~ KH0 * KH_KH0_fit(g.a)
         KH ~ KH0 + KH1
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺+1e-10)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺+1e-10))
-        Dη(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because cide η is physical η/(1/H0)
+        Dη(XH⁺) ~ -g.a/H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because cide η is physical η/(1/H0)
 
         # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
-        KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
+        KHe0⁻¹ ~ (8π*H) / λ_He_2p_1s^3 # RECFAST He flag 0
         KHe1⁻¹ ~ -exp(-3*A2Ps*nHe*(1-XHe⁺+1e-10)/KHe0⁻¹) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
         γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+1e-10)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
               (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
-        DXHe⁺_Dη_singlet ~ -g.a/g.H0 * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
+        DXHe⁺_Dη_singlet ~ -g.a/H0 * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # He⁺ + e⁻ triplet recombination
         αHe3 ~ αHe3_fit(Tb)
         βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*Ewtf)
-        τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
+        τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
         γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2 # TODO: fails at extremely early times
         CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
                (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-        DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+        DXHe⁺_Dη_triplet ~ -g.a/H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
 
         # He⁺ + e⁻ total recombination
         Dη(XHe⁺) ~ DXHe⁺_Dη_singlet + DXHe⁺_Dη_triplet
@@ -179,7 +182,7 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
+        dτ ~ -g.a/H0 * ne * σT * c # common optical depth τ
         Dη(τ) ~ dτ
     ], η; defaults, initialization_eqs, kwargs...)
     #connections = debug_system(connections)
