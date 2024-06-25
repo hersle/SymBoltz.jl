@@ -171,7 +171,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*Ewtf)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2
+        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2 # TODO: fails at extremely early times
         CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
                (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
         DXHe⁺_Dη_triplet ~ -g.a/g.H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
@@ -187,15 +187,15 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        Dη(τ) ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
-        dτ ~ Dη(τ)
+        dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
+        Dη(τ) ~ dτ
     ], η; defaults, initialization_eqs, kwargs...)
     sys = compose(connections, [atoms; bg.sys])
     ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
     return ThermodynamicsSystem(sys, ssys, bg)
 end
 
-function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-4, aend=1.0, solver=Rodas5P(), reltol=1e-8, kwargs...)
+function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1e-7, aend=1.0, solver=Rodas5P(), reltol=1e-6, kwargs...)
     bg = th.bg
     bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; aini, aend)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]

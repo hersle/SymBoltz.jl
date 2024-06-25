@@ -1,7 +1,6 @@
 struct PerturbationsSystem
     sys::ODESystem
     ssys::ODESystem
-    bg::BackgroundSystem
     th::ThermodynamicsSystem
 end
 
@@ -89,101 +88,67 @@ function perturbations_gravity(g0, g1; kwargs...)
 end
 
 function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
-    bg = th.bg
+    bg = th.sys.bg
     @named g1 = perturbations_metric()
-    @named ph = perturbations_photon_hierarchy(bg.sys.g, g1, lmax, true)
-    @named neu = perturbations_massless_neutrino_hierarchy(bg.sys.g, g1, bg.sys.neu, bg.sys.ph, lmax)
-    @named cdm = perturbations_matter(bg.sys.g, g1; uinteract=false)
-    @named bar = perturbations_matter(bg.sys.g, g1; uinteract=true)
-    @named gravpt = perturbations_gravity(bg.sys.g, g1)
-    fν = bg.sys.neu.Ω0 / (bg.sys.ph.Ω0 + bg.sys.neu.Ω0) # TODO: make proper parameter
+    @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
+    @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
+    @named cdm = perturbations_matter(bg.g, g1; uinteract=false)
+    @named bar = perturbations_matter(bg.g, g1; uinteract=true)
+    @named gravpt = perturbations_gravity(bg.g, g1)
+    fν = bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0) # TODO: make proper parameter
     defaults = [
         g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
-    return PerturbationsSystem(bg, th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0, neu.Θ[1] => 1e-5, ph.Θ[6] => 0.0], kwargs...)
+    return PerturbationsSystem(th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0; collect(ph.Θ .=> 0.0); collect(neu.Θ .=> 0.0)], kwargs...)
 end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
-function PerturbationsSystem(bg::BackgroundSystem, th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, neu::ODESystem, cdm::ODESystem, bar::ODESystem; kwargs...)
-    @parameters τspline::CubicSpline dτspline::CubicSpline ddτspline::CubicSpline csb²spline::CubicSpline # TODO: get rid of
-    @variables δργ(η) δρν(η) δρc(η) δρb(η) R(η) csb²(η) τ(η) dτ(η) ddτ(η) v(η) dv(η) Δm(η) SSW(η) SD(η) SISW(η) S(η) # TODO: get rid of
+function PerturbationsSystem(th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, neu::ODESystem, cdm::ODESystem, bar::ODESystem; kwargs...)
+    @variables δργ(η) δρν(η) δρc(η) δρb(η) R(η) Δm(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
+    bg = th.sys.bg
     connections = ODESystem([
         # gravity density and shear stress
-        δργ ~ ph.δ * bg.sys.ph.ρ
-        δρν ~ neu.δ * bg.sys.neu.ρ
-        δρc ~ cdm.δ * bg.sys.cdm.ρ
-        δρb ~ bar.δ * bg.sys.bar.ρ
+        δργ ~ ph.δ * bg.ph.ρ
+        δρν ~ neu.δ * bg.neu.ρ
+        δρc ~ cdm.δ * bg.cdm.ρ
+        δρb ~ bar.δ * bg.bar.ρ
         grav.δρ ~ δργ + δρν + δρc + δρb # total energy density perturbation
-        grav.Π ~ -32π*bg.sys.g.a^2 * (bg.sys.ph.ρ*ph.Θ[2] + bg.sys.neu.ρ*neu.Θ[2])
+        grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2] + bg.neu.ρ*neu.Θ[2])
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
-        R ~ 3/4 * bg.sys.bar.ρ / bg.sys.ph.ρ # Dodelson (5.74)
-        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
+        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# th.sys.dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.ub ~ bar.u
-        ph.dτ ~ dτ
+        ph.dτ ~ th.sys.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
-        Δm ~ (bg.sys.cdm.ρ * cdm.Δ + bg.sys.bar.ρ * bar.Δ) / (bg.sys.cdm.ρ + bg.sys.bar.ρ)
-
-        # source functions for CMB power spectrum
-        τ ~ spleval(η, τspline) # optical depth
-        dτ ~ -exp(spleval(log(η), dτspline))
-        ddτ ~ spleval(η, ddτspline)
-        csb² ~ spleval(log(η), csb²spline)
-        v ~ -dτ * exp(-τ) # visibility function # TODO: take derivatives without additional splines
-        dv ~ (dτ^2 - ddτ) * exp(-τ)
-
-        # not working after added initialization system TODO: restore
-        SSW ~ v * (ph.Θ0 + g.Ψ + ph.Π/4) # Sachs-Wolfe
-        SD ~ (dv * bar.u + v * Dη(bar.u)) / g.k # Doppler
-        SISW ~ exp(-τ) * (Dη(g.Ψ) - Dη(g.Φ)) # integrated Sachs-Wolfe
-        S ~ SSW + SD + SISW # CMB source function TODO: add polarization
+        Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
     ], η; kwargs...)
-    sys = compose(connections, g, grav, ph, neu, bar, cdm, bg.sys) # TODO: add background stuff?
+    sys = compose(connections, g, grav, ph, neu, bar, cdm, th.sys)
     ssys = structural_simplify(sys)
-    return PerturbationsSystem(sys, ssys, bg, th)
+    return PerturbationsSystem(sys, ssys, th)
 end
 
 # TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver = KenCarp4(), aini = 1e-8, reltol = 1e-10, verbose = false, kwargs...)
+function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver = Rodas5P(), aini = 1e-7, reltol = 1e-7, verbose = false, kwargs...)
     th = pt.th
-    bg = th.bg
+    bg = th.sys.bg # th.bg
     th_sol = solve(th, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini) # update spline for dτ (e.g. to propagate derivative information through recombination, if called with dual numbers)
-    ΩΛ0 = th_sol.ps[bg.sys.de.Ω0]
+    ΩΛ0 = th_sol.ps[th.ssys.bg.de.Ω0]
     ηs = th_sol[η]
     ηini, ηtoday = ηs[begin], ηs[end]
-    ηs = exp.(range(log(ηini), log(ηtoday), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: use saveat in th sol # TODO: CMB spectrum is sensitive to number of points here!
-    a, ℰ = th_sol(ηini; idxs=[bg.sys.g.a, bg.sys.g.ℰ])
-    τs = th_sol(ηs, idxs=th.sys.τ).u .- th_sol(ηtoday, idxs=th.sys.τ)
-    τspline = CubicSpline(τs, ηs; extrapolate=true)
-    dτs = DataInterpolations.derivative.(Ref(τspline), ηs)
-    dτspline = CubicSpline(log.(.-dτs), log.(ηs); extrapolate=true) # spline this logarithmically for accurayc during integration # TODO: extrapolate valid?
-    ddτs = DataInterpolations.derivative.(Ref(τspline), ηs, 2) # spline normally (just observed anyway)
-    ddτspline = CubicSpline(ddτs, ηs; extrapolate=true)
-    csb²s = th_sol(ηs, idxs=th.sys.cs²).u
-    csb²spline = CubicSpline(csb²s, log.(ηs); extrapolate=true)
+    a = th_sol(ηini; idxs=bg.g.a)
 
-    u0 = [bg.sys.g.a => a] # TODO: does this cause overinitialization?
-    p = [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, k => 1.0, bg.sys.g.H0 => NaN, pt.ssys.τspline => τspline, pt.ssys.dτspline => dτspline, pt.ssys.ddτspline => ddτspline, pt.ssys.csb²spline => csb²spline] # TODO: copy/merge background parameters
-    prob_uninit = ODEProblem(pt.ssys, u0, (ηini, ηtoday), p; jac = true) # TODO: sparse fails with dual numbers # TODO: cache in PerturbationsSystem again?
-    iprob_uninit = ModelingToolkit.InitializationProblem(pt.ssys, ηini, u0, p; warn_initialize_determined = false) # TODO: cache in PerturbationsSystem again?
-    
-    vars = unknowns(pt.ssys)
+    u0 = [bg.g.a => a] # TODO: does this cause overinitialization?
+    p = [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.de.Ω0 => ΩΛ0, bg.g.H0 => H100 * h, th.sys.Yp => Yp] # TODO: copy/merge background parameters
     # TODO: improve performance!
-    probs = EnsembleProblem(; safetycopy = false, prob = prob_uninit, prob_func = (prob_uninit, i, _) -> begin
+    probs = EnsembleProblem(; safetycopy = false, prob = nothing#=prob_uninit=#, prob_func = (prob_uninit, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        iprob = remake(iprob_uninit, p = [k => ks[i]])
-        isol = solve(iprob; verbose) # TODO: reduce time spent here!
-        return remake(prob_uninit, u0 = isol[vars], p = [k => ks[i]]) # TODO: avoid vars indexing?
-        #return ODEProblem(pt.ssys, u0, (ηini, ηtoday), merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
+        return ODEProblem(pt.ssys, u0, (ηini, ηtoday), merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
 end
-
-# proxy function for evaluating a spline
-@register_symbolic spleval(x, spline::CubicSpline)
-spleval(x, spline) = spline(x)

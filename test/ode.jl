@@ -35,14 +35,14 @@ if true
 end
 
 if true
-    ks = 10 .^ range(-4, +2, length=100) / Symboltz.k0 # in code units of k0 = H0/c
-    pt_sols = Symboltz.solve(pt, ks, par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; reltol=1e-8)
+    ks = 10 .^ range(-4, +0, length=5) / Symboltz.k0 # in code units of k0 = H0/c
+    pt_sols = Symboltz.solve(pt, ks, par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp)
     for (i, pt_sol) in enumerate(pt_sols)
-        plot!(p[3,1], log10.(pt_sol[pt.sys.bg.g.a]), pt_sol[pt.sys.g1.Φ] / pt_sol[pt.sys.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
-        plot!(p[3,2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(|δc|), lg(|δγ|), lg(|δν|)")
-        plot!(p[3,2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.bar.δ])); color=i, xlabel="lg(a)")
-        plot!(p[3,2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.ph.δ]));  color=i, xlabel="lg(a)")
-        plot!(p[3,2], log10.(pt_sol[pt.sys.bg.g.a]), log10.(abs.(pt_sol[pt.sys.neu.δ])); color=i, xlabel="lg(a)")
+        plot!(p[3,1], log10.(pt_sol[pt.sys.th.bg.g.a]), pt_sol[pt.sys.g1.Φ] / pt_sol[pt.sys.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
+        plot!(p[3,2], log10.(pt_sol[pt.sys.th.bg.g.a]), log10.(abs.(pt_sol[pt.sys.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(|δc|), lg(|δγ|), lg(|δν|)")
+        plot!(p[3,2], log10.(pt_sol[pt.sys.th.bg.g.a]), log10.(abs.(pt_sol[pt.sys.bar.δ])); color=i, xlabel="lg(a)")
+        plot!(p[3,2], log10.(pt_sol[pt.sys.th.bg.g.a]), log10.(abs.(pt_sol[pt.sys.ph.δ]));  color=i, xlabel="lg(a)")
+        plot!(p[3,2], log10.(pt_sol[pt.sys.th.bg.g.a]), log10.(abs.(pt_sol[pt.sys.neu.δ])); color=i, xlabel="lg(a)")
     end
     display(p)
 end

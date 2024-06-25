@@ -84,8 +84,8 @@ k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
 @named bg = Symboltz.background_ΛCDM()
 @named th = Symboltz.thermodynamics_ΛCDM(bg)
 @named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-sol2_th = Symboltz.solve(th,      par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; aini=1e-7, reltol = 1e-6)
-sol2_pt = Symboltz.solve(pt, [k], par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp; aini=1e-7, reltol = 1e-6)[1]
+sol2_th = Symboltz.solve(th,      par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp)
+sol2_pt = Symboltz.solve(pt, [k], par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp)[1]
 
 # map results from both codes to common convention
 results = Dict(
