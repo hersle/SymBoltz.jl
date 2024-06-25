@@ -138,11 +138,11 @@ for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     y1 = y1[i1s]
     y2 = y2[i2s]
     color = i
-    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS", xlabel, ylabel)
-    plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz")
+    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS (y₁)", xlabel, ylabel)
+    plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz (y₂)")
     y1 = CubicSpline(y1, x1; extrapolate=true).(x)
     y2 = CubicSpline(y2, x2; extrapolate=true).(x)
-    r = y2 ./ y1
-    plot!(p[end], x, r; yminorticks = 10, yminorgrid = true, color)
+    r = @. abs(y2-y1) / max(abs(y1), abs(y2))
+    plot!(p[end], x, r * 100; yminorticks = 10, yminorgrid = true, color)
 end
-hline!(p[end], [1.0]; color = :black, linestyle = :dash, ylabel = "Symboltz / CLASS", z_order = 1)
+hline!(p[end], [0.0]; color = :black, linestyle = :dash, ylabel = "|y₂-y₁| / max(|y₁|, |y₂|) / %", z_order = 1)
