@@ -1,76 +1,4 @@
-import SpecialFunctions: zeta as ζ
-
-function thermodynamics_hydrogen_recombination_saha(Eion = NoUnits(13.59844u"eV/J"); kwargs...)
-    @parameters Y
-    @variables X(t) Xe(t) T(t) λ(t) R(t) ne(t) n(t) nb(t) nγ(t) n(t)
-    return ODESystem([
-        n ~ Y * nb
-        λ ~ h / √(2π*me*kB*T)
-        R ~ exp(-Eion/(kB*T)) / (λ^3 * ne)
-        X ~ R / (1 + R) # = nH⁺/nH
-        Xe ~ Y * X
-    ], t; defaults = [X => 1.0, Xe => Y], kwargs...)
-end
-
-function thermodynamics_helium_recombination_saha(; Eion1 = NoUnits(24.58738u"eV/J"), Eion2 = NoUnits(54.41776u"eV/J"), kwargs...)
-    pars = @parameters Y
-    vars = @variables Xe(t) X1(t) X2(t) T(t) λ(t) R1(t) R2(t) ne(t) n(t) nb(t) nγ(t)
-    return ODESystem([
-        λ ~ h / √(2π*me*kB*T)
-        R1 ~ 2 * exp(-Eion1/(kB*T)) / (λ^3 * ne)
-        R2 ~ 4 * exp(-Eion2/(kB*T)) / (λ^3 * ne)
-        X1 ~ R1 / (1 + R1 + R1*R2)
-        X2 ~ R2 * X1
-        Xe ~ Y/4 * (X1 + 2*X2)
-    ], t, vars, pars; defaults = [X2 => 1.0, X1 => 0.0, Xe => Y/2], kwargs...)
-end
-
-# background thermodynamics / recombination
-smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
-smoothmin(v1, v2; kwargs...) = smoothifelse(v1 - v2, v1, v2; kwargs...)
-smoothmax(v1, v2; kwargs...) = smoothifelse(v1 - v2, v2, v1; kwargs...)
-
-function thermodynamics_hydrogen_recombination_peebles(g; E1 = -NoUnits(13.59844u"eV/J"), kwargs...)
-    pars = @parameters Y
-    vars = @variables X(t) Xe(t) T(t) λe(t) ne(t) n(t) n1s(t) λ(t) λα(t) α2(t) β(t) C(t) Λα⁻¹(t) Λ2γ_Λα(t) β2_Λα(t) nb(t) nγ(t)
-    Eion = -E1
-    E(n) = E1 / n^2
-    return ODESystem([
-        n ~ Y * nb
-        λe ~ h / √(2π*me*kB*T) # h / √(2π*me*kB*T) # e⁻ de-Broglie wavelength
-        α2 ~ 9.78 * (α*ħ/me)^2/c * √(Eion/kB/T) * log(Eion/kB/T) # Dodelson (4.38) (e⁻ + p → H + γ) # TODO: add Recfast fudge factor?
-        β ~ α2 * exp(E(1)/kB/T) / λe^3 # Dodelson (4.37)-(4.38) (γ + H → e⁻ + p)
-
-        # TODO: fix Peebles' correction factor! it is unstable
-        #n1s ~ smoothifelse(0.8 - X, 0, 1-X; k=1e2) * n # (1-X) * n # TODO: n1s sometimes goes negative!
-        #λα ~ 8π*ħ*c / (3*Eion)
-        #Λα⁻¹ ~ λα^3 * n1s / (8π * g.H) # TODO: this becomes negative, but should always be positive
-        #β2_Λα ~ α2 / λe^3 * exp(E(2)/kB/T) * Λα⁻¹ # β2/Λα (compute this instead of β2 = β * exp(3*Eion/(4*kB*T)) to avoid exp overflow)
-        #Λ2γ_Λα ~ 8.227 * Λα⁻¹ # Λ2γ/Λα
-        C ~ 1 # (1 + Λ2γ_Λα) / (1 + Λ2γ_Λα + β2_Λα) # Peebles' correction factor (Dodelson exercise 4.7)
-
-        D(X) * g.H0 ~ g.a * C * ((1-X) * β - α2*X^2*n) # TODO: do min(0, ...) to avoid increasing? # remains ≈ 0 during Saha recombinations, so no need to manually turn off (multiply by H0 on left because side t is physical t/(1/H0))
-        Xe ~ X * Y
-    ], t, vars, pars; defaults = [X => 1.0, Xe => Y], kwargs...)
-end
-# testing:
-# plot(log.(th_sol.t), th_sol[th.sys.H.Λα⁻¹])
-
-# TODO: does this work correctly together with He?
-function thermodynamics_hydrogen_recombination_baumann(g; Eion = NoUnits(13.59844u"eV/J"), ϵ=1e-20, kwargs...)
-    @parameters Y λ
-    @variables X(t) Xeq(t) T(t) ne(t) n(t) R⁻¹(t) x(t) nb(t) nγ(t)
-    return ODESystem([
-        # Baumann (3.3.108) (ϵ ≪ 1 maintains numerical stability)
-        R⁻¹ ~ exp(-Eion/kB/T) / (2*ζ(3)/π^2 * nγ/nb * (2π*kB*T/(me*c^2))^(3/2))
-        Xeq ~ -R⁻¹/2 + √(R⁻¹ + R⁻¹^2/4 + ϵ)
-
-        # Baumann (3.3.123) (λ = λ(x=1) set as parameter)
-        x ~ Eion / (kB*T)
-        D(X) ~ -D(x) * λ/x^2 * (X^2 - Xeq^2)
-    ], t, [X, Xeq, T, ne, n, R⁻¹, nb, nγ], [Y, λ]; defaults = [X => 1.0], kwargs...)
-end
-
+# TODO: add again
 function reionization_tanh(g, z0, Δz0, Xe0; kwargs...)
     y(z) = (1+z)^(3/2)
     Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
@@ -83,19 +11,10 @@ function reionization_tanh(g, z0, Δz0, Xe0; kwargs...)
     ], t; kwargs...), base)
 end
 
-
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
-# TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
 function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
     defaults = Dict() # TODO: merge with kwargs
-    #@named H = thermodynamics_hydrogen_recombination_saha()
-    #@named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
-    #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
-    #@named He = thermodynamics_helium_recombination_saha()
-    #@named Hre = reionization_tanh(bg.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y) # TODO: avoid extra default?
-    #@named Here1 = reionization_tanh(bg.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
-    #@named Here2 = reionization_tanh(bg.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
 
     @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) βb(t) μ(t) cs²(t) λe(t)

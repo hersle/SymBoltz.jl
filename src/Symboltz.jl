@@ -2,9 +2,6 @@ module Symboltz
 
 using ModelingToolkit
 using SymbolicIndexingInterface: variable_index
-using DifferentialEquations
-import DifferentialEquations: solve
-using DataInterpolations
 
 # TODO: make simpler Cosmology interface
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
@@ -28,7 +25,6 @@ include("Spectra.jl")
 
 export BackgroundSystem, ThermodynamicsSystem, PerturbationsSystem
 export background_ΛCDM, thermodynamics_ΛCDM, perturbations_ΛCDM
-export solve
 export P0, P, Cl, Dl
 
 end
