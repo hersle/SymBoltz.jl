@@ -1,9 +1,3 @@
-struct PerturbationsSystem
-    sys::ODESystem
-    ssys::ODESystem
-    th::ThermodynamicsSystem
-end
-
 # TODO: merge with background metric!
 function perturbations_metric(; kwargs...)
     Φ, Ψ = GlobalScope.(@variables Φ(η) Ψ(η))
@@ -87,28 +81,31 @@ function perturbations_gravity(g0, g1; kwargs...)
     ], η; kwargs...)
 end
 
-function perturbations_ΛCDM(th::ThermodynamicsSystem, lmax::Int; kwargs...)
-    bg = th.sys.bg
+# TODO: take list of species, each of which "exposes" contributions to δρ and Π
+# TODO: support nicer and more general spline input interface
+function perturbations_ΛCDM(th::ODESystem, lmax::Int; kwargs...)
+    bg = th.bg
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
     @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
     @named cdm = perturbations_matter(bg.g, g1; uinteract=false)
     @named bar = perturbations_matter(bg.g, g1; uinteract=true)
-    @named gravpt = perturbations_gravity(bg.g, g1)
+    @named grav = perturbations_gravity(bg.g, g1)
+
     fν = bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0) # TODO: make proper parameter
     defaults = [
         g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
-    return PerturbationsSystem(th, g1, gravpt, ph, neu, cdm, bar; defaults, guesses = [g1.Ψ => 1.0; collect(ph.Θ .=> 0.0); collect(neu.Θ .=> 0.0)], kwargs...)
-end
+    guesses = [
+        g1.Ψ => 1.0;
+        collect(ph.Θ .=> 0.0);
+        collect(neu.Θ .=> 0.0)
+    ]
 
-# TODO: take list of species, each of which "exposes" contributions to δρ and Π
-# TODO: support nicer and more general spline input interface
-function PerturbationsSystem(th::ThermodynamicsSystem, g::ODESystem, grav::ODESystem, ph::ODESystem, neu::ODESystem, cdm::ODESystem, bar::ODESystem; kwargs...)
     @variables δργ(η) δρν(η) δρc(η) δρb(η) R(η) Δm(η) # TODO: get rid of
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    bg = th.sys.bg
+    bg = th.bg
     connections = ODESystem([
         # gravity density and shear stress
         δργ ~ ph.δ * bg.ph.ρ
@@ -120,28 +117,12 @@ function PerturbationsSystem(th::ThermodynamicsSystem, g::ODESystem, grav::ODESy
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
-        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# th.sys.dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# th.dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.ub ~ bar.u
-        ph.dτ ~ th.sys.dτ
+        ph.dτ ~ th.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
-    ], η; kwargs...)
-    sys = compose(connections, g, grav, ph, neu, bar, cdm, th.sys)
-    ssys = structural_simplify(sys)
-    return PerturbationsSystem(sys, ssys, th)
-end
-
-# TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
-function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; ηspan=(1e-5, 4.0), solver = Rodas5P(), aini = 1e-7, reltol = 1e-7, verbose = false, kwargs...)
-    th = pt.th.sys
-    bg = th.bg
-    p = [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.H0 => H100 * h, th.Yp => Yp] # TODO: copy/merge background parameters
-    # TODO: improve performance!
-    probs = EnsembleProblem(; safetycopy = false, prob = nothing#=prob_uninit=#, prob_func = (prob_uninit, i, _) -> begin
-        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(pt.ssys, [], ηspan, merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
-    end)
-
-    return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
+    ], η; defaults, guesses, kwargs...)
+    return compose(connections, g1, grav, ph, neu, bar, cdm, th)
 end

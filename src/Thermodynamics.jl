@@ -1,11 +1,5 @@
 import SpecialFunctions: zeta as ζ
 
-struct ThermodynamicsSystem
-    sys::ODESystem
-    ssys::ODESystem
-    bg::BackgroundSystem
-end
-
 function thermodynamics_hydrogen_recombination_saha(Eion = NoUnits(13.59844u"eV/J"); kwargs...)
     @parameters Y
     @variables X(η) Xe(η) T(η) λ(η) R(η) ne(η) n(η) nb(η) nγ(η) n(η)
@@ -89,22 +83,20 @@ function reionization_tanh(g, z0, Δz0, Xe0; kwargs...)
     ], η; kwargs...), base)
 end
 
-function thermodynamics_ΛCDM(bg::BackgroundSystem; kwargs...)
-    defaults = Dict() # TODO: merge with kwargs
-    #@named H = thermodynamics_hydrogen_recombination_saha()
-    @named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
-    #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
-    @named He = thermodynamics_helium_recombination_saha()
-    @named Hre = reionization_tanh(bg.sys.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y) # TODO: avoid extra default?
-    @named Here1 = reionization_tanh(bg.sys.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
-    @named Here2 = reionization_tanh(bg.sys.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
-    return ThermodynamicsSystem(bg, ODESystem[#=H, He, Hre, Here1, Here2=#]; defaults, kwargs...)
-end
 
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: integrate using E/kB*T as independent variable?
 # TODO: make e⁻ and γ species
-function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESystem}; Xeϵ=0.0, defaults = Dict(), kwargs...)
+function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
+    defaults = Dict() # TODO: merge with kwargs
+    #@named H = thermodynamics_hydrogen_recombination_saha()
+    #@named H = thermodynamics_hydrogen_recombination_peebles(bg.sys.g)
+    #@named H = thermodynamics_hydrogen_recombination_baumann(bg.sys.g)
+    #@named He = thermodynamics_helium_recombination_saha()
+    #@named Hre = reionization_tanh(bg.g, 8.0, 0.5, H.Y); push!(defaults, Hre.H₊Y => H.Y) # TODO: avoid extra default?
+    #@named Here1 = reionization_tanh(bg.g, 8.0, 0.5, He.Y/4); push!(defaults, Here1.He₊Y => He.Y)
+    #@named Here2 = reionization_tanh(bg.g, 3.5, 0.5, He.Y/4); push!(defaults, Here2.He₊Y => He.Y)
+
     @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(η) ne(η) τ(η) = 0.0 dτ(η) ρb(η) Tγ(η) Tb(η) βb(η) μ(η) cs²(η) λe(η)
     @variables XH⁺(η) nH(η) αH(η) βH(η) KH(η) KH0(η) KH1(η) CH(η) # H <-> H⁺
@@ -112,7 +104,7 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
     @variables XHe⁺⁺(η) RHe⁺(η) # He⁺ <-> He⁺⁺
     @variables αHe3(η) βHe3(η) τHe3(η) pHe3(η) CHe3(η) γ2Pt(η) # Helium triplet correction
     @variables DXHe⁺_Dη_singlet(η) DXHe⁺_Dη_triplet(η)
-    push!(defaults, Tγ0 => (bg.sys.ph.ρ0 * 15/π^2 * bg.sys.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
+    push!(defaults, Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
@@ -131,9 +123,9 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
     ]
-    g = bg.sys.g
+    g = bg.g
     connections = ODESystem([
-        ρb ~ bg.sys.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
+        ρb ~ bg.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
@@ -190,13 +182,6 @@ function ThermodynamicsSystem(bg::BackgroundSystem, atoms::AbstractArray{ODESyst
         dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         Dη(τ) ~ dτ
     ], η; defaults, initialization_eqs, kwargs...)
-    sys = compose(connections, [atoms; bg.sys])
-    ssys = structural_simplify(sys) # alternatively, disable simplifcation and construct "manually" to get helium Xe in the system
-    return ThermodynamicsSystem(sys, ssys, bg)
-end
-
-function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; ηspan=(1e-5, 4.0), solver=Rodas5P(), reltol=1e-6, kwargs...)
-    bg = th.bg
-    prob = ODEProblem(th.ssys, [], ηspan, [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
-    return solve(prob, solver; reltol, #=isoutofdomain,=# kwargs...) # CLASS uses "NDF15" (https://lesgourg.github.io/class-tour/London2014/Numerical_Methods_in_CLASS_London.pdf)
+    #connections = debug_system(connections)
+    return compose(connections, bg)
 end
