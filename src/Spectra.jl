@@ -3,17 +3,24 @@ using Bessels: besselj!, sphericalbesselj
 using ForwardDiff
 using Base.Threads
 
-#=
 # primordial power spectrum
 P0(k, As) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function P(pt::PerturbationsSystem, k, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp)
-    pt_sols = solve(pt, k, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
-    ttoday = pt_sols[1].prob.tspan[end] # TODO: something more robust?
-    return P0(k, As) .* pt_sols(ttoday, idxs=pt.sys.Δm) .^ 2
+function P(pt::ODESystem, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; solver = Rodas5P(), reltol=1e-7, verbose=true)
+    pts = structural_simplify(pt)
+    th = pts.th
+    bg = th.bg
+
+    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (_, i, _) -> begin
+        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
+        return ODEProblem(pts, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, th.Yp => Yp, k => ks[i]])
+    end)
+    sols = solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol) # TODO: test GPU parallellization
+    return P0(ks, As) .* sols(4.0, idxs=pt.Δm) .^ 2
 end
 
+#=
 # source function
 # this one is more elegant, but a little numerically unstable (would really like to use this one)
 function S_observed(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
