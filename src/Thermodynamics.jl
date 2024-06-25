@@ -199,10 +199,8 @@ function solve(th::ThermodynamicsSystem, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; aini=1
     bg = th.bg
     bg_sol = solve(bg, Ωγ0, Ων0, Ωc0, Ωb0; aini, aend)
     ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-    ΩΛ0 = bg_sol.ps[bg.ssys.de.Ω0]
 
-    # TODO: use defaults for th.ssys.Xe => 1 + Yp/2
-    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.de.Ω0 => ΩΛ0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
+    prob = ODEProblem(th.ssys, [bg.ssys.g.a => aini], (ηini, ηtoday), [bg.sys.ph.Ω0 => Ωγ0, bg.sys.neu.Ω0 => Ων0, bg.sys.cdm.Ω0 => Ωc0, bg.sys.bar.Ω0 => Ωb0, bg.sys.g.H0 => H100 * h, th.ssys.Yp => Yp])
 
     # make solver take smaller steps when some quantity goes out of bounds: https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#My-ODE-goes-negative-but-should-stay-positive,-what-tools-can-help?
     #XHindex = variable_index(th.ssys, th.ssys.H.X)

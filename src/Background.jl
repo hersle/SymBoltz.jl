@@ -44,7 +44,9 @@ function background_ΛCDM(; kwargs...)
     @named cdm = background_matter(g)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
-    return BackgroundSystem(g, grav, [ph, neu, cdm, bar, de]; kwargs...)
+    species = [ph, neu, cdm, bar, de]
+    defaults = [species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])]
+    return BackgroundSystem(g, grav, species; defaults, kwargs...)
 end
 
 function BackgroundSystem(g::ODESystem, grav::ODESystem, species::AbstractArray{ODESystem}; jac=true, kwargs...)
@@ -63,13 +65,12 @@ function solve(bg::BackgroundSystem, Ωγ0, Ων0, Ωc0, Ωb0; aini=1e-8, aend=1
     # TODO: take symbolic IC map
     Ωr0 = Ωγ0 + Ων0 # TODO: gather m = c + b and r = γ + ν in the ODESystem
     ηini = aini / √(Ωr0) # analytical radiation-dominated solution # TODO: use init system
-    ΩΛ0 = 1 - Ωr0 - Ωc0 - Ωb0 # TODO: move into system
     
     prob = remake(
         bg.prob;
         tspan = (ηini, 4.0),
         u0 = [bg.ssys.g.a => aini],
-        p = [bg.ssys.ph.Ω0 => Ωγ0, bg.ssys.neu.Ω0 => Ων0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0, bg.ssys.de.Ω0 => ΩΛ0]
+        p = [bg.ssys.ph.Ω0 => Ωγ0, bg.ssys.neu.Ω0 => Ων0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0]
     )
 
     # integrate until a == aend # TODO: just use η interval instead
