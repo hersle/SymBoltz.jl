@@ -1,29 +1,29 @@
 function background_metric(; kwargs...)
-    a, ℰ, E, H, ℋ = GlobalScope.(@variables a(η) ℰ(η) E(η) H(η) ℋ(η)) # TODO: more natural way to connect them?
+    a, ℰ, E, H, ℋ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t)) # TODO: more natural way to connect them?
     H0, = GlobalScope.(@parameters H0)
     return ODESystem([
-        ℰ ~ Dη(a) / a # ℰ = ℋ/ℋ0
+        ℰ ~ D(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
-    ], η; kwargs...)
+    ], t; kwargs...)
 end
 
 function background_gravity_GR(g; kwargs...)
-    @variables ρ(η) ρcrit(η)
+    @variables ρ(t) ρcrit(t)
     return ODESystem([
-        Dη(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
+        D(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
         ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
-    ], η; kwargs...)
+    ], t; kwargs...)
 end
 
 function background_species(g, w; kwargs...)
     @parameters Ω0 ρ0 = 3/8π*Ω0
-    @variables ρ(η) P(η)
+    @variables ρ(t) P(t)
     return ODESystem([
         P ~ w * ρ # equation of state
-        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: Dη(ρ) ~ -3 * g.ℰ * (ρ + P) 
-    ], η; kwargs...)
+        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P) 
+    ], t; kwargs...)
 end
 background_radiation(g; kwargs...) = background_species(g, 1//3; kwargs...)
 background_matter(g; kwargs...) = background_species(g, 0; kwargs...)
@@ -39,13 +39,13 @@ function background_ΛCDM(; kwargs...)
     @named de = background_cosmological_constant(g)
     species = [ph, neu, cdm, bar, de]
     initialization_eqs = [
-        g.a ~ √(ph.Ω0 + neu.Ω0) * η # analytical radiation-dominated solution
+        g.a ~ √(ph.Ω0 + neu.Ω0) * t # analytical radiation-dominated solution
     ]
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])
     ]
     connections = ODESystem([
         grav.ρ ~ sum(s.ρ for s in species);
-    ], η; initialization_eqs, defaults, kwargs...)
+    ], t; initialization_eqs, defaults, kwargs...)
     return compose(connections, [g; grav; species]...)
 end

@@ -12,10 +12,10 @@ function plot_dependency_graph(sys)
     tstate = ModelingToolkit.get_tearing_state(sys) # works on simplified systems # TODO: what to do on unsimplified systems?
 
     names = string.(tstate.fullvars)
-    names = replace.(names, "Differential(η)" => "Dη", "(η)" => "") # TODO: consider ()′ with something like https://stackoverflow.com/a/35271017
+    names = replace.(names, "Differential(t)" => "D", "(t)" => "") # TODO: consider ()′ with something like https://stackoverflow.com/a/35271017
 
     # color each variable based on its subsystem
-    names_cleaned = replace.(names, (["Dη", "(", ")"] .=> "")...) # remove any derivative signs
+    names_cleaned = replace.(names, (["D", "(", ")"] .=> "")...) # remove any derivative signs
     subsystems = ['₊' in name ? name[begin:findlast('₊', name)-1] : "" for name in names_cleaned]
     usubsystems = unique(subsystems)
     groups = [findfirst(usub -> usub == sub, usubsystems) for sub in subsystems]

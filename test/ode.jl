@@ -31,7 +31,7 @@ p = plot(layout=(3,2), size=(1000, 1200), margin=5*Plots.mm)
 
 if true
     bg_sol = solve(bg_prob, Tsit5())
-    plot!(p[1,1], bg_sol[Symboltz.η], bg_sol[bgs.g.a]; xlabel="η / (1/H0)", ylabel="a", ylims=(0, 1))
+    plot!(p[1,1], bg_sol[Symboltz.t], bg_sol[bgs.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
     plot!(p[1,2], log10.(bg_sol[bgs.g.a]), stack(bg_sol[[bgs.ph.ρ, bgs.neu.ρ, bgs.cdm.ρ, bgs.bar.ρ, bgs.de.ρ]] ./ bg_sol[bgs.grav.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ωγ" "Ων" "Ωc" "Ωb" "ΩΛ"], legend=:left)
     display(p)
 end

@@ -16,9 +16,7 @@ using DataInterpolations
 # TODO: try different AD sensitivity algorithms: https://docs.sciml.ai/SciMLSensitivity/stable/getting_started/
 # TODO: define global spacetime structure here?
 
-@variables η # conformal time in units of 1/H0
-Dη = Differential(η) # d/dη
-
+using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0
 @parameters k # perturbation wavenumber
 k = GlobalScope(k)
 
