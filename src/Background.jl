@@ -68,10 +68,5 @@ function solve(bg::BackgroundSystem, Ωγ0, Ων0, Ωc0, Ωb0; ηspan=(1e-5, 4.0
     # TODO: handle with MTK initialization when this is fixed? https://github.com/SciML/ModelingToolkit.jl/pull/2686
     # TODO: take symbolic IC map
     prob = ODEProblem(bg.ssys, [], ηspan, [bg.ssys.ph.Ω0 => Ωγ0, bg.ssys.neu.Ω0 => Ων0, bg.ssys.cdm.Ω0 => Ωc0, bg.ssys.bar.Ω0 => Ωb0, bg.ssys.g.H0 => NaN])
-
-    # integrate until a == aend # TODO: just use η interval instead
-    aindex = variable_index(bg.ssys, bg.ssys.g.a)
-    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - 1.0), terminate!)
-
-    return solve(prob, solver; callback, reltol, kwargs...)
+    return solve(prob, solver; reltol, kwargs...)
 end

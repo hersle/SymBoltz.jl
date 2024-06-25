@@ -134,16 +134,13 @@ end
 
 # TODO: get rid of allocations!!! use SVector somehow? see https://docs.sciml.ai/ModelingToolkit/dev/basics/FAQ/#Change-the-unknown-variable-vector-type, also follow 
 function solve(pt::PerturbationsSystem, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; ηspan=(1e-5, 4.0), solver = Rodas5P(), aini = 1e-7, reltol = 1e-7, verbose = false, kwargs...)
-    th = pt.th
-    bg = th.sys.bg # th.bg
-    bg_sol = solve(th.bg, Ωγ0, Ων0, Ωc0, Ωb0; ηspan)
-    ηini, ηtoday = bg_sol[η][begin], bg_sol[η][end]
-
-    p = [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.H0 => H100 * h, th.sys.Yp => Yp] # TODO: copy/merge background parameters
+    th = pt.th.sys
+    bg = th.bg
+    p = [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.H0 => H100 * h, th.Yp => Yp] # TODO: copy/merge background parameters
     # TODO: improve performance!
     probs = EnsembleProblem(; safetycopy = false, prob = nothing#=prob_uninit=#, prob_func = (prob_uninit, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(pt.ssys, [], (ηini, ηtoday), merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
+        return ODEProblem(pt.ssys, [], ηspan, merge(Dict(p), Dict(k => ks[i]))) # works, but even slower
     end)
 
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # KenCarp4 and Kvaerno5 seem to work well # TODO: test GPU parallellization
