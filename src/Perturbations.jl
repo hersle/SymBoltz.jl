@@ -92,11 +92,11 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     @named bar = perturbations_matter(bg.g, g1; uinteract=true)
     @named grav = perturbations_gravity(bg.g, g1)
 
-    fν = bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0) # TODO: make proper parameter
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    pars = [] # parameters
-    vars = @variables δργ(t) δρν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) # variables
+    pars = convert(Vector{Any}, @parameters fν)
+    vars = @variables δργ(t) δρν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t)
     defaults = [
+        fν => bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0),
         g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
     ]
