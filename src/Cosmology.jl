@@ -2,9 +2,12 @@ struct CosmologicalModel
     bg::ODESystem
     th::ODESystem
     pt::ODESystem
+
     bg_sim::ODESystem
     th_sim::ODESystem
     pt_sim::ODESystem
+
+    spline_th::Bool # TODO: what about a parametric CosmologicalModel?
 end
 
 @kwdef struct CosmologicalParameters
@@ -17,16 +20,16 @@ end
     Yp = 0.245
 end
 
-function ΛCDM(; lmax=6)
+function ΛCDM(; lmax=6, spline_th = true)
     @named bg = background_ΛCDM()
     @named th = thermodynamics_ΛCDM(bg)
-    @named pt = perturbations_ΛCDM(th, lmax)
+    @named pt = perturbations_ΛCDM(th, lmax; spline_th)
 
     bg_sim = structural_simplify(bg)
     th_sim = structural_simplify(th)
     pt_sim = structural_simplify(pt)
 
-    return CosmologicalModel(bg, th, pt, bg_sim, th_sim, pt_sim)
+    return CosmologicalModel(bg, th, pt, bg_sim, th_sim, pt_sim, spline_th)
 end
 
 # TODO: add aini, aend
@@ -56,18 +59,27 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
     return solve(prob, solver; reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = Rodas5P(), reltol = 1e-6, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
+    pars = Pair{Any, Any}[ # TODO: avoid Any
+        model.th.bg.ph.Ω0 => par.Ωγ0,
+        model.th.bg.neu.Ω0 => par.Ων0,
+        model.th.bg.cdm.Ω0 => par.Ωc0,
+        model.th.bg.bar.Ω0 => par.Ωb0,
+        model.th.bg.g.h => par.h,
+        model.th.Yp => par.Yp
+    ]
+
+    if model.spline_th
+        ts = exp.(range(log(1e-5 + 1e-10), log(4.0 - 1e-10), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
+        th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
+        dτs = th_sol[model.th.dτ] # TODO: interpolate directly from ODESolution?
+        dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuray during integration # TODO: extrapolate valid?
+        push!(pars, model.pt_sim.dτspline => dτspline)
+    end
+
     probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (_, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(model.pt_sim, [], (1e-5, 4.0), [
-            model.th.bg.ph.Ω0 => par.Ωγ0,
-            model.th.bg.neu.Ω0 => par.Ων0,
-            model.th.bg.cdm.Ω0 => par.Ωc0,
-            model.th.bg.bar.Ω0 => par.Ωb0,
-            model.th.bg.g.h => par.h,
-            model.th.Yp => par.Yp,
-            k => ks[i]
-        ])
+        return ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
     end)
     return solve(probs, solver, EnsembleSerial(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
 end

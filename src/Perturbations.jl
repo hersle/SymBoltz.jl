@@ -83,7 +83,7 @@ end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
-function perturbations_ΛCDM(th::ODESystem, lmax::Int; kwargs...)
+function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs...)
     bg = th.bg
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
@@ -93,6 +93,9 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; kwargs...)
     @named grav = perturbations_gravity(bg.g, g1)
 
     fν = bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0) # TODO: make proper parameter
+    # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
+    pars = [] # parameters
+    vars = @variables δργ(t) δρν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) # variables
     defaults = [
         g1.Ψ => -1 / (3/2 + 2*fν/5), # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5), # Ψ found from solving initialization system
@@ -103,10 +106,8 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; kwargs...)
         collect(neu.Θ .=> 0.0)
     ]
 
-    @variables δργ(t) δρν(t) δρc(t) δρb(t) R(t) Δm(t) # TODO: get rid of
-    # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     bg = th.bg
-    connections = ODESystem([
+    eqs = [
         # gravity density and shear stress
         δργ ~ ph.δ * bg.ph.ρ
         δρν ~ neu.δ * bg.neu.ρ
@@ -117,12 +118,30 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; kwargs...)
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
-        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# th.dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.ub ~ bar.u
-        ph.dτ ~ th.dτ
+        ph.dτ ~ dτ
+        dτ ~ th.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
-    ], t; defaults, guesses, kwargs...)
-    return compose(connections, g1, grav, ph, neu, bar, cdm, th)
+    ]
+
+    comps = [g1, grav, ph, neu, bar, cdm] # components
+    if spline_th
+        @parameters dτspline::CubicSpline
+        push!(pars, dτspline) # add parameter for spline of dτ
+        push!(eqs, dτ ~ -exp(spleval(log(t), dτspline))) # connect perturbation dτ with spline evaluation
+        push!(comps, bg) # add background (without thermodynamics)
+    else
+        push!(eqs, dτ ~ th.dτ) # connect perturbation dτ with full thermodynamics solution
+        push!(comps, th) # add background (with thermodynamics)
+    end
+
+    connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
+    return compose(connections, comps...)
 end
+
+# proxy function for evaluating a spline # TODO: move to Utils.jl or similar
+@register_symbolic spleval(x, spline::CubicSpline)
+spleval(x, spline) = spline(x)

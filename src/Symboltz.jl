@@ -3,6 +3,7 @@ module Symboltz
 using ModelingToolkit
 using SymbolicIndexingInterface: variable_index
 using DifferentialEquations
+using DataInterpolations
 
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
