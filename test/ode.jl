@@ -1,5 +1,4 @@
 using ModelingToolkit
-using DifferentialEquations
 using Plots; Plots.default(label=nothing)
 
 # TODO: make plot recipes
