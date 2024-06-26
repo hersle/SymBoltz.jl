@@ -34,12 +34,12 @@ end
 
 # this one is less elegant, but more numerically stable
 function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
-    th = model.th
+    bg = model.bg
     pt = model.pt
 
-    sols = solve_perturbations(model, ks, par; saveat = ts, kwargs...)
-    sol = solve_thermodynamics(model, par; saveat = ts)
-    τ = sol[th.τ] .- sol[th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+    pt_sols = solve_perturbations(model, ks, par; saveat = ts, kwargs...)
+    bg_sol = solve_background(model, par; saveat = ts)
+    τ = bg_sol[bg.th.τ] .- bg_sol[bg.th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)
@@ -48,13 +48,13 @@ function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArra
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
     Ss = zeros(eltype([par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
-        sol = sols[ik]
+        pt_sol = pt_sols[ik]
         k = ks[ik]
-        Θ0 = sol[pt.ph.Θ0]
-        Ψ = sol[pt.grav.Ψ]
-        Φ = sol[pt.grav.Φ]
-        Π = sol[pt.ph.Π]
-        ub = sol[pt.bar.u]
+        Θ0 = pt_sol[pt.ph.Θ0]
+        Ψ = pt_sol[pt.grav.Ψ]
+        Φ = pt_sol[pt.grav.Φ]
+        Π = pt_sol[pt.ph.Π]
+        ub = pt_sol[pt.bar.u]
         Ψ′ = D_spline(Ψ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ts)
         ub′ = D_spline(ub, ts)
@@ -155,7 +155,7 @@ function Cl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnts
 end
 
 function Cl(model::CosmologicalModel, ls::AbstractArray, par::CosmologicalParameters; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve_background(model, par)
+    bg_sol = solve_background(model, par; aend=1.0)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?

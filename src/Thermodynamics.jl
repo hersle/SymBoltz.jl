@@ -13,9 +13,7 @@ end
 
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
-function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
-    defaults = Dict() # TODO: merge with kwargs
-
+function thermodynamics_recfast(g; kwargs...)
     @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
@@ -23,14 +21,13 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
     @variables αHe3(t) βHe3(t) τHe3(t) pHe3(t) CHe3(t) γ2Pt(t) # Helium triplet correction
     @variables DXHe⁺_singlet(t) DXHe⁺_triplet(t)
-    push!(defaults, Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB) # TODO: make part of background species?
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
-    λwtf = 260.0463e-9; fwtf = c/λwtf ; Ewtf = h*fwtf # TODO: wtf is this?
+    λwtf = 260.0463e-9; fwtf = c/λwtf; Ewtf = h*fwtf # TODO: wtf is this?
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
@@ -42,9 +39,7 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
         XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
     ]
-    g = bg.g
-    connections = ODESystem([
-        ρb ~ bg.bar.ρ * g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
+    return ODESystem([
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
@@ -100,7 +95,5 @@ function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
 
         dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         D(τ) ~ dτ
-    ], t; defaults, initialization_eqs, kwargs...)
-    #connections = debug_system(connections)
-    return compose(connections, bg)
+    ], t; initialization_eqs, kwargs...)
 end

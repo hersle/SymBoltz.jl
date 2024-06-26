@@ -83,8 +83,7 @@ end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
-function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs...)
-    bg = th.bg
+function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs...)
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
     @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
@@ -105,8 +104,6 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         collect(ph.Θ .=> 0.0);
         collect(neu.Θ .=> 0.0)
     ]
-
-    bg = th.bg
     eqs = [
         # gravity density and shear stress
         δργ ~ ph.δ * bg.ph.ρ
@@ -121,7 +118,6 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.ub ~ bar.u
         ph.dτ ~ dτ
-        dτ ~ th.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
@@ -134,8 +130,8 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         push!(eqs, dτ ~ -exp(spleval(log(t), dτspline))) # connect perturbation dτ with spline evaluation
         push!(comps, bg) # add background (without thermodynamics)
     else
-        push!(eqs, dτ ~ th.dτ) # connect perturbation dτ with full thermodynamics solution
-        push!(comps, th) # add background (with thermodynamics)
+        push!(eqs, dτ ~ bg.th.dτ) # connect perturbation dτ with full thermodynamics solution
+        push!(comps, bg) # add background (with thermodynamics)
     end
 
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)

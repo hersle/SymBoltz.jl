@@ -1,10 +1,8 @@
 struct CosmologicalModel
     bg::ODESystem
-    th::ODESystem
     pt::ODESystem
 
     bg_sim::ODESystem
-    th_sim::ODESystem
     pt_sim::ODESystem
 
     spline_th::Bool # TODO: what about a parametric CosmologicalModel?
@@ -21,59 +19,45 @@ end
 end
 
 function ΛCDM(; lmax=6, spline_th = true)
-    @named bg = background_ΛCDM()
-    @named th = thermodynamics_ΛCDM(bg)
-    @named pt = perturbations_ΛCDM(th, lmax; spline_th)
-
+    @named bg = background_ΛCDM(; thermo=false) # without thermodynamics; just for use in constructing perturbations
+    @named pt = perturbations_ΛCDM(bg, lmax; spline_th) # TODO: spline full background OR select quantities
+    @named bg = background_ΛCDM(; thermo=true)
     bg_sim = structural_simplify(bg)
-    th_sim = structural_simplify(th)
     pt_sim = structural_simplify(pt)
-
-    return CosmologicalModel(bg, th, pt, bg_sim, th_sim, pt_sim, spline_th)
+    return CosmologicalModel(bg, pt, bg_sim, pt_sim, spline_th)
 end
 
 # TODO: add aini, aend
 
-function solve_background(model::CosmologicalModel, par::CosmologicalParameters; aend = 1e0, solver = Vern8(), reltol = 1e-8, kwargs...)
+function solve_background(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-6, kwargs...)
     prob = ODEProblem(model.bg_sim, [], (1e-5, 4.0), [
         model.bg_sim.ph.Ω0 => par.Ωγ0,
         model.bg_sim.neu.Ω0 => par.Ων0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
-        model.bg_sim.g.h => NaN
+        model.bg_sim.g.h => par.h,
+        model.bg_sim.th.Yp => par.Yp
     ])
     aindex = variable_index(model.bg_sim, model.bg_sim.g.a)
-    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!) # stop when a == 1 today
+    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!) # stop when a == aend today # TODO: make some type of "callback library"
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; solver = Rodas5P(), reltol = 1e-6, kwargs...)
-    prob = ODEProblem(model.th_sim, [], (1e-5, 4.0), [
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
+    pars = Pair{Any, Any}[ # TODO: avoid Any
         model.bg.ph.Ω0 => par.Ωγ0,
         model.bg.neu.Ω0 => par.Ων0,
         model.bg.cdm.Ω0 => par.Ωc0,
         model.bg.bar.Ω0 => par.Ωb0,
         model.bg.g.h => par.h,
-        model.th_sim.Yp => par.Yp
-    ])
-    return solve(prob, solver; reltol, kwargs...)
-end
-
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
-    pars = Pair{Any, Any}[ # TODO: avoid Any
-        model.th.bg.ph.Ω0 => par.Ωγ0,
-        model.th.bg.neu.Ω0 => par.Ων0,
-        model.th.bg.cdm.Ω0 => par.Ωc0,
-        model.th.bg.bar.Ω0 => par.Ωb0,
-        model.th.bg.g.h => par.h,
-        model.th.Yp => par.Yp
+        model.bg.th.Yp => par.Yp
     ]
 
     if model.spline_th
         ts = exp.(range(log(1e-5 + 1e-10), log(4.0 - 1e-10), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
-        th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
-        dτs = th_sol[model.th.dτ] # TODO: interpolate directly from ODESolution?
-        dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuray during integration # TODO: extrapolate valid?
+        bg_sol = solve_background(model, par; saveat = ts) # TODO: forward kwargs...?
+        dτs = bg_sol[model.bg.th.dτ] # TODO: interpolate directly from ODESolution?
+        dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuracy during integration
         push!(pars, model.pt_sim.dτspline => dτspline)
     end
 
