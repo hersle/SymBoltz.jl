@@ -3,18 +3,9 @@ using DelimitedFiles
 using DataInterpolations
 using Plots; Plots.default(label=nothing)
 
-@kwdef struct Parameters
-    Ωγ0 = 5.5e-5
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # 0.0
-    Ωc0 = 0.267
-    Ωb0 = 0.03
-    h = 0.67
-    As = 2.1e-9
-    Yp = 0.245
-end
 lmax = 6
-
-par = Parameters()
+model = Symboltz.ΛCDM(; lmax)
+par = Symboltz.CosmologicalParameters()
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -30,7 +21,7 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     return run(`$exec $inpath`) # run
 end
 
-function output_class(par::Parameters, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
+function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
     in = Dict(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
@@ -81,48 +72,43 @@ kMpc = 1e0 # 1/Mpc # disagreement on smaller scales
 sol1 = output_class(par, kMpc)
 
 k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
-@named bg = Symboltz.background_ΛCDM()
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, lmax)
-pts = structural_simplify(pt)
-pt_prob = ODEProblem(pts, [], (1e-5, 4.0), [th.bg.ph.Ω0 => par.Ωγ0, th.bg.neu.Ω0 => par.Ων0, th.bg.cdm.Ω0 => par.Ωc0, th.bg.bar.Ω0 => par.Ωb0, th.bg.g.h => par.h, th.Yp => par.Yp, Symboltz.k => k])
-sol2 = solve(pt_prob, Rodas5P(); reltol=1e-6)
+sol2 = Symboltz.solve_perturbations(model, k, par)
 
 # map results from both codes to common convention
 results = Dict(
     # background
-    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2[bg.g.a])),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[bg.g.E]),
+    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2[model.bg.g.a])),
+    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[model.bg.g.E]),
 
     # thermodynamics
-    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2[bg.g.a])),
-    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2[th.dτ] * (Symboltz.k0 * par.h))),
+    "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2[model.bg.g.a])),
+    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2[model.th.dτ] * (Symboltz.k0 * par.h))),
     #"lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(sol2[th.cs²])), # TODO: becomes negative; fix
-    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[th.cs²]),
-    "Xe" => (reverse(sol1["th"]["x_e"]), sol2[th.Xe]),
-    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[th.Tb]),
+    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[model.th.cs²]),
+    "Xe" => (reverse(sol1["th"]["x_e"]), sol2[model.th.Xe]),
+    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[model.th.Tb]),
 
     # perturbations
-    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2[bg.g.a])),
-    "a_pt" => (sol1["pt"]["a"], sol2[bg.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2[pt.g1.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2[pt.g1.Ψ]), # TODO: same?
-    "δb" => (sol1["pt"]["delta_b"], -sol2[pt.bar.δ]), # TODO: sign?
-    "δc" => (sol1["pt"]["delta_cdm"], -sol2[pt.cdm.δ]), # TODO: sign?
-    "δγ" => (sol1["pt"]["delta_g"], -sol2[pt.ph.δ]),
-    "θb" => (sol1["pt"]["theta_b"], -sol2[pt.bar.u] * kMpc),
-    "θc" => (sol1["pt"]["theta_cdm"], -sol2[pt.cdm.u] * kMpc),
-    "θγ" => (sol1["pt"]["theta_g"], -sol2[pt.ph.Θ[1]] * 3 * kMpc),
-    "Π" => (sol1["pt"]["shear_g"], sol2[pt.ph.Θ[2]] * -2),
-    "P0" => (sol1["pt"]["pol0_g"], sol2[pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
-    "P1" => (sol1["pt"]["pol1_g"], sol2[pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
-    "P2" => (sol1["pt"]["pol2_g"], sol2[pt.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
+    "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2[model.bg.g.a])),
+    "a_pt" => (sol1["pt"]["a"], sol2[model.bg.g.a]),
+    "Φ" => (sol1["pt"]["phi"], sol2[model.pt.g1.Φ]), # TODO: same?
+    "Ψ" => (sol1["pt"]["psi"], -sol2[model.pt.g1.Ψ]), # TODO: same?
+    "δb" => (sol1["pt"]["delta_b"], -sol2[model.pt.bar.δ]), # TODO: sign?
+    "δc" => (sol1["pt"]["delta_cdm"], -sol2[model.pt.cdm.δ]), # TODO: sign?
+    "δγ" => (sol1["pt"]["delta_g"], -sol2[model.pt.ph.δ]),
+    "θb" => (sol1["pt"]["theta_b"], -sol2[model.pt.bar.u] * kMpc),
+    "θc" => (sol1["pt"]["theta_cdm"], -sol2[model.pt.cdm.u] * kMpc),
+    "θγ" => (sol1["pt"]["theta_g"], -sol2[model.pt.ph.Θ[1]] * 3 * kMpc),
+    "Π" => (sol1["pt"]["shear_g"], sol2[model.pt.ph.Θ[2]] * -2),
+    "P0" => (sol1["pt"]["pol0_g"], sol2[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
+    "P1" => (sol1["pt"]["pol1_g"], sol2[model.pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
+    "P2" => (sol1["pt"]["pol2_g"], sol2[model.pt.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
 xlabels, ylabels = ["lg(a_th)", "lg(a_pt)"], ["Xe", "Φ"]
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
-title = join(["$s = $(getfield(par, s))" for s in fieldnames(Parameters)], ", ") * ", k = $(kMpc) / Mpc"
+title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
 for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     x1, x2 = results[xlabel]

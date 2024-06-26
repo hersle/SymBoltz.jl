@@ -4,7 +4,6 @@ using ModelingToolkit
 using SymbolicIndexingInterface: variable_index
 using DifferentialEquations
 
-# TODO: make simpler Cosmology interface
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
 # TODO: baryons: Recfast -> Recfast++ -> CosmoRec -> HyRec -> HyRec-2: call out, or integrate equations into my code to make use of my background calculation?
 # TODO: composable models, generate equations
@@ -18,6 +17,7 @@ using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in u
 @parameters k # perturbation wavenumber
 k = GlobalScope(k)
 
+include("Cosmology.jl")
 include("Constants.jl")
 include("Background.jl")
 include("Thermodynamics.jl")

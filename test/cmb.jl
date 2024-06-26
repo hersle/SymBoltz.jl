@@ -2,26 +2,13 @@ using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
 
-@kwdef struct Parameters
-    Ωγ0 = 5.5e-5
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
-    Ωc0 = 0.267
-    Ωb0 = 0.05
-    h = 0.67
-    As = 2.1e-9
-    Yp = 0.245 # TODO: fix, make work with 0.245
-end
-
-par = Parameters()
-@named bg = Symboltz.background_ΛCDM()
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, 6)
-
+model = Symboltz.ΛCDM()
+par = Symboltz.CosmologicalParameters()
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
 
 # differentiated CMB power spectrum
-lgDl(lgθ) = log10.(Symboltz.Dl(pt, ls, (10 .^ lgθ)...))
+lgDl(lgθ) = log10.(Symboltz.Dl(model, ls, (10 .^ lgθ)...))
 lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
 lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)

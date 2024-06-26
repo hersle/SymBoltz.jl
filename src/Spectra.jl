@@ -5,20 +5,17 @@ using ForwardDiff
 using Base.Threads
 
 # primordial power spectrum
-P0(k, As) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
+P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function P(pt::ODESystem, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; solver = Rodas5P(), reltol=1e-7, verbose=true)
-    pts = structural_simplify(pt)
-    th = pts.th
-    bg = th.bg
+function P(model::CosmologicalModel, k, par::CosmologicalParameters; solver = Rodas5P(), reltol=1e-7, verbose=true)
+    sols = solve_perturbations(model, k, par; solver, reltol, verbose)
+    return P0(k, par) .* sols(4.0, idxs=model.pt.Δm) .^ 2
+end
 
-    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (_, i, _) -> begin
-        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(pts, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, th.Yp => Yp, k => ks[i]])
-    end)
-    sols = solve(probs, solver, EnsembleSerial(), trajectories = length(ks); reltol) # TODO: test GPU parallellization
-    return P0(ks, As) .* sols(4.0, idxs=pt.Δm) .^ 2
+function P(model::CosmologicalModel, k, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; kwargs...)
+    par = CosmologicalParameters(Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp)
+    return P(model, k, par; kwargs...)
 end
 
 #= # TODO: make work again?
@@ -36,22 +33,12 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(pt::ODESystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver=Rodas5P(), reltol=1e-7, verbose=true)
-    pts = structural_simplify(pt)
-    th = pts.th
-    bg = th.bg
+function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; solver=Rodas5P(), reltol=1e-7, verbose=true)
+    th = model.th
+    pt = model.pt
 
-    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (nothing, i, _) -> begin
-        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(pts, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, th.Yp => Yp, k => ks[i]])
-    end)
-    sols = solve(probs, solver, EnsembleSerial(), trajectories = length(ks); saveat = ts, reltol) # TODO: test GPU parallellization
-
-    th = pt.th
-    ths = structural_simplify(th)
-    bg = ths.bg
-    prob = ODEProblem(ths, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, ths.Yp => Yp])
-    sol = solve(prob, solver; saveat = ts, reltol)
+    sols = solve_perturbations(model, ks, par; saveat = ts, solver, reltol, verbose)
+    sol = solve_thermodynamics(model, par; saveat = ts, reltol)
     τ = sol[th.τ] .- sol[th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
@@ -59,7 +46,7 @@ function S_splined(pt::ODESystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, �
     g′ = @. (τ′^2 - τ″) * exp(-τ)
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-    Ss = zeros(eltype([Ωγ0, Ων0, Ωc0, Ωb0, h, Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         sol = sols[ik]
         k = ks[ik]
@@ -78,8 +65,8 @@ function S_splined(pt::ODESystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, �
     return Ss
 end
 
-function S(pt::ODESystem, ts::AbstractArray, ksfine::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
-    Sscoarse = S_splined(pt, ts, kscoarse, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # TODO: restore S_observed
+function S(model, ts::AbstractArray, ksfine::AbstractArray, par::CosmologicalParameters, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
+    Sscoarse = S_splined(model, ts, kscoarse, par) # TODO: restore S_observed
     Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
     for it in eachindex(ts)
         Sscoarset = @view Sscoarse[it,:]
@@ -140,9 +127,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(pt::ODESystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
+function Θl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, args...; kwargs...)
     ts = exp.(lnts)
-    Ss = S(pt, ts, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
+    Ss = S(model, ts, ks, par, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
 end
 
@@ -161,18 +148,14 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(pt::ODESystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
-    Θls = Θl(pt, ls, ks, lnts, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, ks_S; kwargs...)
-    P0s = P0(ks, As)
+function Cl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, ks_S::AbstractArray; kwargs...)
+    Θls = Θl(model, ls, ks, lnts, par, ks_S; kwargs...)
+    P0s = P0(ks, par)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(pt::ODESystem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bgs = structural_simplify(pt.th.bg)
-    bg_prob = ODEProblem(bgs, [], (1e-5, 4.0), [bgs.ph.Ω0 => Ωγ0, bgs.neu.Ω0 => Ων0, bgs.cdm.Ω0 => Ωc0, bgs.bar.Ω0 => Ωb0, bgs.g.h => NaN])
-    aindex = variable_index(bgs, bgs.g.a)
-    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - 1.0), terminate!) # stop when a == 1 today
-    bg_sol = solve(bg_prob, Tsit5(); callback)
+function Cl(model::CosmologicalModel, ls::AbstractArray, par::CosmologicalParameters; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+    bg_sol = solve_background(model, par)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
@@ -182,10 +165,12 @@ function Cl(pt::ODESystem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Y
     ks_Cl = range_until(0, kt0max, Δkt0; skip_start=true) ./ t0
     ks_S = range_until(0, kt0max, Δkt0_S; skip_start=true) ./ t0 # Δk = 50/t0
 
-    return Cl(pt, ls, ks_Cl, lnts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp, ks_S; observe)
+    return Cl(model, ls, ks_Cl, lnts, par, ks_S; observe)
 end
 
-Dl(pt::ODESystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
+Dl(model::CosmologicalModel, ls::AbstractArray, args...; kwargs...) = Cl(model, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
+
+Dl(model::CosmologicalModel, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; kwargs...) = Dl(model, ls, CosmologicalParameters(Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp); kwargs...)
 
 #Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
