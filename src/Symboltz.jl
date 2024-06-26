@@ -2,6 +2,7 @@ module Symboltz
 
 using ModelingToolkit
 using SymbolicIndexingInterface: variable_index
+using DifferentialEquations
 
 # TODO: make simpler Cosmology interface
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?

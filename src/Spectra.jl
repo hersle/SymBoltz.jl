@@ -1,5 +1,6 @@
 using NumericalIntegration
 using Bessels: besselj!, sphericalbesselj
+using DataInterpolations
 using ForwardDiff
 using Base.Threads
 
@@ -16,11 +17,11 @@ function P(pt::ODESystem, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; solver = Roda
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
         return ODEProblem(pts, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, th.Yp => Yp, k => ks[i]])
     end)
-    sols = solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol) # TODO: test GPU parallellization
+    sols = solve(probs, solver, EnsembleSerial(), trajectories = length(ks); reltol) # TODO: test GPU parallellization
     return P0(ks, As) .* sols(4.0, idxs=pt.Δm) .^ 2
 end
 
-#=
+#= # TODO: make work again?
 # source function
 # this one is more elegant, but a little numerically unstable (would really like to use this one)
 function S_observed(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
@@ -32,28 +33,41 @@ function S_observed(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArra
     end
     return Ss
 end
+=#
 
 # this one is less elegant, but more numerically stable
-function S_splined(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
+function S_splined(pt::ODESystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; solver=Rodas5P(), reltol=1e-7, verbose=true)
+    pts = structural_simplify(pt)
+    th = pts.th
+    bg = th.bg
+
+    probs = EnsembleProblem(; safetycopy = false, prob = nothing, prob_func = (nothing, i, _) -> begin
+        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
+        return ODEProblem(pts, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, th.Yp => Yp, k => ks[i]])
+    end)
+    sols = solve(probs, solver, EnsembleSerial(), trajectories = length(ks); saveat = ts, reltol) # TODO: test GPU parallellization
+
     th = pt.th
-    th_sol = solve(th, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; saveat = ts)
-    τ = th_sol[th.sys.τ] .- th_sol[th.sys.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+    ths = structural_simplify(th)
+    bg = ths.bg
+    prob = ODEProblem(ths, [], (1e-5, 4.0), [bg.ph.Ω0 => Ωγ0, bg.neu.Ω0 => Ων0, bg.cdm.Ω0 => Ωc0, bg.bar.Ω0 => Ωb0, bg.g.h => h, ths.Yp => Yp])
+    sol = solve(prob, solver; saveat = ts, reltol)
+    τ = sol[th.τ] .- sol[th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)
     g′ = @. (τ′^2 - τ″) * exp(-τ)
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-    pt_sols = solve(pt, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; saveat = ts)
     Ss = zeros(eltype([Ωγ0, Ων0, Ωc0, Ωb0, h, Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
-        pt_sol = pt_sols[ik]
+        sol = sols[ik]
         k = ks[ik]
-        Θ0 = pt_sol[pt.sys.ph.Θ0]
-        Ψ = pt_sol[pt.sys.gravpt.Ψ]
-        Φ = pt_sol[pt.sys.gravpt.Φ]
-        Π = pt_sol[pt.sys.ph.Π]
-        ub = pt_sol[pt.sys.bar.u]
+        Θ0 = sol[pt.ph.Θ0]
+        Ψ = sol[pt.grav.Ψ]
+        Φ = sol[pt.grav.Φ]
+        Π = sol[pt.ph.Π]
+        ub = sol[pt.bar.u]
         Ψ′ = D_spline(Ψ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ts)
         ub′ = D_spline(ub, ts)
@@ -64,8 +78,8 @@ function S_splined(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArray
     return Ss
 end
 
-function S(pt::PerturbationsSystem, ts::AbstractArray, ksfine::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
-    Sscoarse = S_observed(pt, ts, kscoarse, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # TODO: restore observed
+function S(pt::ODESystem, ts::AbstractArray, ksfine::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
+    Sscoarse = S_splined(pt, ts, kscoarse, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp) # TODO: restore S_observed
     Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
     for it in eachindex(ts)
         Sscoarset = @view Sscoarse[it,:]
@@ -126,7 +140,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
+function Θl(pt::ODESystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
     ts = exp.(lnts)
     Ss = S(pt, ts, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
@@ -147,16 +161,20 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
+function Cl(pt::ODESystem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp, ks_S::AbstractArray; kwargs...)
     Θls = Θl(pt, ls, ks, lnts, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp, ks_S; kwargs...)
     P0s = P0(ks, As)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve(pt.bg, Ωγ0, Ων0, Ωc0, Ωb0)
+function Cl(pt::ODESystem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+    bgs = structural_simplify(pt.th.bg)
+    bg_prob = ODEProblem(bgs, [], (1e-5, 4.0), [bgs.ph.Ω0 => Ωγ0, bgs.neu.Ω0 => Ων0, bgs.cdm.Ω0 => Ωc0, bgs.bar.Ω0 => Ωb0, bgs.g.h => NaN])
+    aindex = variable_index(bgs, bgs.g.a)
+    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - 1.0), terminate!) # stop when a == 1 today
+    bg_sol = solve(bg_prob, Tsit5(); callback)
 
-    ti, t0 = max(bg_sol[t][begin], 1e-4), bg_sol[t][end]
+    ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
     lnts = range(log(ti), log(t0), step=Δlnt) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
@@ -167,7 +185,7 @@ function Cl(pt::PerturbationsSystem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0
     return Cl(pt, ls, ks_Cl, lnts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp, ks_S; observe)
 end
 
-Dl(pt::PerturbationsSystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
+Dl(pt::ODESystem, ls::AbstractArray, args...; kwargs...) = Cl(pt, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
 
 #Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
@@ -179,4 +197,3 @@ function D_spline(y, x; Spline = CubicSpline, order = 1)
 end
 
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
-=#
