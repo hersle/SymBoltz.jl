@@ -8,8 +8,8 @@ using Base.Threads
 P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function P(model::CosmologicalModel, k, par::CosmologicalParameters; solver = Rodas5P(), reltol=1e-7, verbose=true)
-    sols = solve_perturbations(model, k, par; solver, reltol, verbose)
+function P(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
+    sols = solve_perturbations(model, k, par; kwargs...)
     return P0(k, par) .* sols(4.0, idxs=model.pt.Δm) .^ 2
 end
 
@@ -33,12 +33,12 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; solver=Rodas5P(), reltol=1e-7, verbose=true)
+function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
     th = model.th
     pt = model.pt
 
-    sols = solve_perturbations(model, ks, par; saveat = ts, solver, reltol, verbose)
-    sol = solve_thermodynamics(model, par; saveat = ts, reltol)
+    sols = solve_perturbations(model, ks, par; saveat = ts, kwargs...)
+    sol = solve_thermodynamics(model, par; saveat = ts)
     τ = sol[th.τ] .- sol[th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
