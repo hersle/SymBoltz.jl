@@ -86,7 +86,7 @@ results = Dict(
     "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2_th[model.th.rec.dτ] * (Symboltz.k0 * par.h))),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2_th[model.th.rec.cs²]), # TODO: becomes negative; fix
     "lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(abs.(sol2_th[model.th.rec.cs²]))), # TODO: becomes negative; fix
-    #"Xe" => (reverse(sol1["th"]["x_e"]), sol2_th[model.th.Xe]),
+    "Xe" => (reverse(sol1["th"]["x_e"]), sol2_th[model.th.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2_th[model.th.rec.Tb]),
     "Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2_th[model.th.rec.DTb] ./ -sol2_th[model.bg.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
 
@@ -108,7 +108,7 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²"]
+xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
