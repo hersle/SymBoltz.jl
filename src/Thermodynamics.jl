@@ -13,7 +13,7 @@ end
 
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
-function thermodynamics_recfast(g; kwargs...)
+function thermodynamics_recombination_recfast(g; kwargs...)
     @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
@@ -98,16 +98,21 @@ function thermodynamics_recfast(g; kwargs...)
     ], t; initialization_eqs, kwargs...)
 end
 
-function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
-    @named rec = thermodynamics_recfast(bg.g)
-    defaults = [rec.Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB]
-    th = ODESystem([
-        rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
-     ], t; defaults, kwargs...)
+function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
+    if spline
+        @named rec = thermodynamics_recombination_splined(bg.g)
+        eqs = []
+        defaults = Pair{}[]
+    else
+        @named rec = thermodynamics_recombination_recfast(bg.g)
+        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G] # kg/m³ (convert from H0=1 units to SI units)
+        defaults =[rec.Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB]
+    end
+    th = ODESystem(eqs, t; defaults, kwargs...)
     return compose(th, rec, bg)
 end
 
-function thermodynamics_splined(; kwargs...)
+function thermodynamics_recombination_splined(bg::ODESystem; kwargs...)
     @variables dτ(t)
     @parameters dτspline::CubicSpline
     return ODESystem([

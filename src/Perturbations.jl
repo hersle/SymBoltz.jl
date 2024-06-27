@@ -83,7 +83,8 @@ end
 
 # TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
-function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs...)
+function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs...)
+    bg = th.bg
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
     @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
@@ -115,25 +116,14 @@ function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs..
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
-        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        bar.uinteraction ~ #=g.k*csb²*bar.δ +=# th.rec.dτ/R * (bar.u - 3*ph.Θ[1]) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.ub ~ bar.u
-        ph.dτ ~ dτ
+        ph.dτ ~ th.rec.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
     ]
-
-    comps = [g1, grav, ph, neu, bar, cdm] # components
-    # TODO: want to pass one single th directly to this function
-    if spline_th
-        @named th = thermodynamics_splined()
-        push!(comps, bg, th) # add background (without thermodynamics)
-        push!(eqs, dτ ~ th.dτ)
-    else
-        push!(eqs, dτ ~ bg.th.dτ) # connect perturbation dτ with full thermodynamics solution
-        push!(comps, bg) # add background (with thermodynamics)
-    end
-
+    
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
-    return compose(connections, comps...)
+    return compose(connections, g1, grav, ph, neu, bar, cdm, th)
 end

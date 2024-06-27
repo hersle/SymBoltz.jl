@@ -20,10 +20,13 @@ end
     Yp = 0.245
 end
 
+# TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
+
 function ΛCDM(; lmax=6, spline_th = true)
     @named bg = background_ΛCDM()
-    @named th = thermodynamics_ΛCDM(bg)
-    @named pt = perturbations_ΛCDM(bg, lmax; spline_th) # TODO: spline full background OR select quantities
+    @named th = thermodynamics_ΛCDM(bg; spline=true) # just for constructing perturbation system
+    @named pt = perturbations_ΛCDM(th, lmax; spline_th) # TODO: spline full background OR select quantities
+    @named th = thermodynamics_ΛCDM(bg; spline=false)
     bg_sim = structural_simplify(bg)
     th_sim = structural_simplify(th)
     pt_sim = structural_simplify(pt)
@@ -59,11 +62,11 @@ end
 
 function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
-        model.bg.ph.Ω0 => par.Ωγ0,
-        model.bg.neu.Ω0 => par.Ων0,
-        model.bg.cdm.Ω0 => par.Ωc0,
-        model.bg.bar.Ω0 => par.Ωb0,
-        model.bg.g.h => par.h,
+        model.th.bg.ph.Ω0 => par.Ωγ0,
+        model.th.bg.neu.Ω0 => par.Ων0,
+        model.th.bg.cdm.Ω0 => par.Ωc0,
+        model.th.bg.bar.Ω0 => par.Ωb0,
+        model.th.bg.g.h => par.h,
     ]
 
     if model.spline_th
@@ -71,7 +74,7 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
         th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
         dτs = th_sol[model.th.rec.dτ] # TODO: interpolate directly from ODESolution?
         dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuracy during integration
-        push!(pars, model.pt_sim.th.dτspline => dτspline)
+        push!(pars, model.pt_sim.th.rec.dτspline => dτspline)
     end
 
     prob_dummy = ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => 1.0]) # TODO: why do I need this???
