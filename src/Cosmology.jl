@@ -47,7 +47,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-6, kwargs...)
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-12, kwargs...) # need very small tolerance to get good csb²
     prob = ODEProblem(model.th_sim, [], (1e-5, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
         model.th_sim.bg.neu.Ω0 => par.Ων0,
