@@ -47,7 +47,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-12, kwargs...) # need very small tolerance to get good csb²
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
     prob = ODEProblem(model.th_sim, [], (1e-5, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
         model.th_sim.bg.neu.Ω0 => par.Ων0,
@@ -72,9 +72,11 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
     if model.spline_th
         ts = exp.(range(log(1e-5 + 1e-10), log(4.0 - 1e-10), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
-        dτs = th_sol[model.th.rec.dτ] # TODO: interpolate directly from ODESolution?
-        dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuracy during integration
-        push!(pars, model.pt_sim.th.rec.dτspline => dτspline)
+        push!(pars,
+            model.pt_sim.th.rec.dτspline => CubicSpline(log.(.-th_sol[model.th.rec.dτ]), log.(ts); extrapolate=true), # TODO: improve spline accuracy
+            model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
+            model.pt_sim.th.rec.cs²spline => CubicSpline(log.(th_sol[model.th.rec.Tb]), log.(ts); extrapolate=true),
+        )
     end
 
     prob_dummy = ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => 1.0]) # TODO: why do I need this???

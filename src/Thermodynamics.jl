@@ -114,9 +114,11 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
 end
 
 function thermodynamics_recombination_splined(bg::ODESystem; kwargs...)
-    @variables dτ(t)
-    @parameters dτspline::CubicSpline
+    @variables dτ(t) cs²(t) Tb(t)
+    @parameters dτspline::CubicSpline cs²spline::CubicSpline Tbspline::CubicSpline
     return ODESystem([
         dτ ~ -exp(spleval(log(t), dτspline))
+        cs² ~ exp(spleval(log(t), cs²spline))
+        Tb ~ exp(spleval(log(t), Tbspline))
     ], t; kwargs...) # connect perturbation dτ with spline evaluation
 end
