@@ -136,7 +136,3 @@ function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs..
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
     return compose(connections, comps...)
 end
-
-# proxy function for evaluating a spline # TODO: move to Utils.jl or similar
-@register_symbolic spleval(x, spline::CubicSpline)
-spleval(x, spline) = spline(x)

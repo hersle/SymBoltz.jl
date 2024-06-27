@@ -174,11 +174,3 @@ Dl(model::CosmologicalModel, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As,
 
 #Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
-
-function D_spline(y, x; Spline = CubicSpline, order = 1)
-    y_spline = Spline(y, x; extrapolate=true)
-    y′ = DataInterpolations.derivative.(Ref(y_spline), x, order)
-    return y′
-end
-
-range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))

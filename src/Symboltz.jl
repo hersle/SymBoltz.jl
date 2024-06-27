@@ -1,7 +1,6 @@
 module Symboltz
 
 using ModelingToolkit
-using SymbolicIndexingInterface: variable_index
 using DifferentialEquations
 using DataInterpolations
 
@@ -18,6 +17,7 @@ using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in u
 @parameters k # perturbation wavenumber
 k = GlobalScope(k)
 
+include("Utils.jl")
 include("Cosmology.jl")
 include("Constants.jl")
 include("Background.jl")

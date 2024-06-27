@@ -38,8 +38,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
         model.bg_sim.g.h => par.h,
         model.bg_sim.th.Yp => par.Yp
     ])
-    aindex = variable_index(model.bg_sim, model.bg_sim.g.a)
-    callback = ContinuousCallback((u, _, _) -> (a = u[aindex]; a - aend), terminate!) # stop when a == aend today # TODO: make some type of "callback library"
+    callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
