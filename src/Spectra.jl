@@ -34,12 +34,12 @@ end
 
 # this one is less elegant, but more numerically stable
 function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
-    bg = model.bg
+    th = model.th_sim
     pt = model.pt
 
     pt_sols = solve_perturbations(model, ks, par; saveat = ts, kwargs...)
-    bg_sol = solve_background(model, par; saveat = ts)
-    τ = bg_sol[bg.th.τ] .- bg_sol[bg.th.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+    th_sol = solve_thermodynamics(model, par; saveat = ts)
+    τ = th_sol[th.rec.τ] .- th_sol[th.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)

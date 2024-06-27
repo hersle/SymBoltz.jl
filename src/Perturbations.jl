@@ -124,6 +124,7 @@ function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs..
     ]
 
     comps = [g1, grav, ph, neu, bar, cdm] # components
+    # TODO: want to pass one single th directly to this function
     if spline_th
         @named th = thermodynamics_splined()
         push!(comps, bg, th) # add background (without thermodynamics)

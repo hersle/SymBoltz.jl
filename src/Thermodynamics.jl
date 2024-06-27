@@ -98,6 +98,15 @@ function thermodynamics_recfast(g; kwargs...)
     ], t; initialization_eqs, kwargs...)
 end
 
+function thermodynamics_ΛCDM(bg::ODESystem; kwargs...)
+    @named rec = thermodynamics_recfast(bg.g)
+    defaults = [rec.Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB]
+    th = ODESystem([
+        rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G # kg/m³ (convert from H0=1 units to SI units)
+     ], t; defaults, kwargs...)
+    return compose(th, rec, bg)
+end
+
 function thermodynamics_splined(; kwargs...)
     @variables dτ(t)
     @parameters dτspline::CubicSpline
