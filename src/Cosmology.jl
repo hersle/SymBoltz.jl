@@ -58,7 +58,7 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
         bg_sol = solve_background(model, par; saveat = ts) # TODO: forward kwargs...?
         dτs = bg_sol[model.bg.th.dτ] # TODO: interpolate directly from ODESolution?
         dτspline = CubicSpline(log.(.-dτs), log.(ts); extrapolate=true) # spline this logarithmically for accuracy during integration
-        push!(pars, model.pt_sim.dτspline => dτspline)
+        push!(pars, model.pt_sim.th.dτspline => dτspline)
     end
 
     prob_dummy = ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => 1.0]) # TODO: why do I need this???

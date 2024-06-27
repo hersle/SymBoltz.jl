@@ -125,10 +125,9 @@ function perturbations_ΛCDM(bg::ODESystem, lmax::Int; spline_th=false, kwargs..
 
     comps = [g1, grav, ph, neu, bar, cdm] # components
     if spline_th
-        @parameters dτspline::CubicSpline
-        push!(pars, dτspline) # add parameter for spline of dτ
-        push!(eqs, dτ ~ -exp(spleval(log(t), dτspline))) # connect perturbation dτ with spline evaluation
-        push!(comps, bg) # add background (without thermodynamics)
+        @named th = thermodynamics_splined()
+        push!(comps, bg, th) # add background (without thermodynamics)
+        push!(eqs, dτ ~ th.dτ)
     else
         push!(eqs, dτ ~ bg.th.dτ) # connect perturbation dτ with full thermodynamics solution
         push!(comps, bg) # add background (with thermodynamics)

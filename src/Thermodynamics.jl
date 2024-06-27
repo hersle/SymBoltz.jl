@@ -97,3 +97,11 @@ function thermodynamics_recfast(g; kwargs...)
         D(τ) ~ dτ
     ], t; initialization_eqs, kwargs...)
 end
+
+function thermodynamics_splined(; kwargs...)
+    @variables dτ(t)
+    @parameters dτspline::CubicSpline
+    return ODESystem([
+        dτ ~ -exp(spleval(log(t), dτspline))
+    ], t; kwargs...) # connect perturbation dτ with spline evaluation
+end
