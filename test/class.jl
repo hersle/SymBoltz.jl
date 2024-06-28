@@ -2,6 +2,7 @@ using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Plots; Plots.default(label=nothing)
+using Printf
 
 lmax = 6
 model = Symboltz.ΛCDM(; lmax)
@@ -109,9 +110,9 @@ results = Dict(
 
 # TODO: relative or absolute comparison (of quantities close to 0)
 xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
-title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
-plot!(p[1]; title, titlefontsize = 9)
+p = plot(; layout = (length(ylabels)+1, 1), size = (900, 1100))
+title = join([(@sprintf "%s = %.2e" s getfield(par, s)) for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * (@sprintf ", k = %.2e / Mpc" kMpc)
+plot!(p[1]; title, titlefontsize = 8)
 for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     x1, x2 = results[xlabel]
     x1min, x1max = extrema(x1)
