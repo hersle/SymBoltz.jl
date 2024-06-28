@@ -37,39 +37,44 @@ function background_photons(g; kwargs...)
     ], t; name=:ph))
 end
 
+Iρmν(y) = ∫(x -> x^2 * √(x^2+y^2) / (exp(x) + 1), 0, Inf) # Iρ(0) = 7π^4 / 120 # TODO: exp with x or √(x^2+y^2)?
+IPmν(y) = ∫(x -> x^4 / √(x^2+y^2) / (exp(x) + 1), 0, Inf) # IP(0) = Iρ(0) # TODO: exp with x or √(x^2+y^2)?
+@register_symbolic Iρmν(y)
+@register_symbolic IPmν(y)
 function background_massive_neutrinos(g; kwargs...)
-    mν = 0.06 * eV/c^2 # TODO: make parameter
-    T0 = 
-    @parameters Ω0 ρ0 = 3/8π*Ω0 m T0
-    @variables ρ(t) T(t) # TODO: P(t)
-
-    T0 =    
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
-
-    y0 = # TODO: what is y0?
-    J(x, y) = x^2 * √(x^2+y^2) / (exp(√(x^2+y^2)) + 1)
-    I(y) = quadgk(x -> J(x, y), 0, Inf) # I(0) = 7π^4 / 120
-
+    pars = @parameters Ω0 ρ0 m T0 y0
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t)
     eqs = [
-        ρ ~ 1/g.a^4 * I(y) / I(y0)
+        T ~ T0 / g.a
+        y ~ m*c^2 / (kB*T)
+        ρ ~ ρ0/g.a^4 * Iρmν(y) / Iρmν(y0) # have ρ = Cρ * Iρ(y) / a⁴, so Cρ = ρ0 * 1⁴ / Iρ(y0)
+        P ~ 1/3 * ρ0/g.a^4 * IPmν(y) / Iρmν(y0) # have P = CP * IP(y) / a⁴, and in the early universe Iρ(y→0) → IP(y→0) and P/ρ = CP * IP(y) / (Cρ * Iρ(y)) → CP/Cρ → 1/3, so CP = Cρ/3
+        w ~ P / ρ
     ]
-    return ODESystem(eqs, t; kwargs...)
+    defaults = [
+        ρ0 => 3/8π * Ω0,
+        m => 0.06 * eV/c^2, # TODO: make parameter
+        y0 => m*c^2 / (kB*T0),
+    ]
+    return ODESystem(eqs, t, vars, pars; defaults, kwargs...)
 end
-=#
 
 function background_ΛCDM(; thermo=true, kwargs...)
     @named g = background_metric()
     @named grav = background_gravity_GR(g)
     @named ph = background_photons(g)
     @named neu = background_radiation(g)
+    @named mneu = background_massive_neutrinos(g)
     @named cdm = background_matter(g)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
-    species = [ph, neu, cdm, bar, de]
-    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0) * t] # analytical radiation-dominated solution
+    species = [ph, neu, mneu, cdm, bar, de]
+    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos
     defaults = [
-        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]),
-        ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system
+        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]), # TODO: solve nonlinear system
+        ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB, # TODO: move to photon system
+        mneu.T0 => (3.046/3.0)^(1/4) * (4/11)^(1/3) * ph.T0, # TODO: make Neff parameter etc.
+        mneu.Ω0 => neu.Ω0 * Iρmν(mneu.y0) / Iρmν(0), # (3ζ(3)/2) / (7π^4/120) * y0 ≈ Iρmν(y0) / Iρmν(0)
     ]
     eqs = [grav.ρ ~ sum(s.ρ for s in species)]
     comps = [g; grav; species]

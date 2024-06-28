@@ -1,4 +1,8 @@
+import SpecialFunctions: zeta as ζ
 using SymbolicIndexingInterface: variable_index
+using QuadGK
+
+∫(f, a, b) = quadgk(f, a, b)[1] # TODO: use integrator that supports dual numbers
 
 # callback for terminating an integrator when var == val0
 function callback_terminator(sys, var, val0)

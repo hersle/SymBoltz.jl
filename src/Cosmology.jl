@@ -41,7 +41,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
         model.bg_sim.neu.Ω0 => par.Ων0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
-        model.bg_sim.g.h => NaN
+        model.th.bg.g.h => par.h
     ])
     callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
