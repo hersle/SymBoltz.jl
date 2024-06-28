@@ -98,6 +98,7 @@ results = Dict(
     "Ψ" => (sol1["pt"]["psi"], -sol2_pt[model.pt.g1.Ψ]), # TODO: same?
     "δb" => (sol1["pt"]["delta_b"], -sol2_pt[model.pt.bar.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[model.pt.cdm.δ]), # TODO: sign?
+    "lg(|δc|)" => (log10.(abs.(sol1["pt"]["delta_cdm"])), log10.(abs.(-sol2_pt[model.pt.cdm.δ]))), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[model.pt.ph.δ]),
     "θb" => (sol1["pt"]["theta_b"], -sol2_pt[model.pt.bar.u] * kMpc),
     "θc" => (sol1["pt"]["theta_cdm"], -sol2_pt[model.pt.cdm.u] * kMpc),
@@ -109,8 +110,10 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-p = plot(; layout = (length(ylabels)+1, 1), size = (900, 1100))
+#xlabels, ylabels = ["lg(a_bg)"], ["E"] # compare background
+xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"] # compare thermo
+#xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Φ", "Ψ", "δγ", "lg(|δc|)"] # compare thermodynamics
+p = plot(; layout = (length(ylabels)+1, 1), size = (1200, 1200))
 title = join([(@sprintf "%s = %.2e" s getfield(par, s)) for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * (@sprintf ", k = %.2e / Mpc" kMpc)
 plot!(p[1]; title, titlefontsize = 8)
 for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
