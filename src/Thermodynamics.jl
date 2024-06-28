@@ -14,7 +14,7 @@ end
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
-    @parameters Tγ0 Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
+    @parameters Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
     @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
@@ -43,7 +43,6 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
-        Tγ ~ Tγ0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
         D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         DTb ~ D(Tb)
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
@@ -103,13 +102,11 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
     if spline
         @named rec = thermodynamics_recombination_splined(bg.g)
         eqs = []
-        defaults = Pair{}[]
     else
         @named rec = thermodynamics_recombination_recfast(bg.g)
-        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G] # kg/m³ (convert from H0=1 units to SI units)
-        defaults =[rec.Tγ0 => (bg.ph.ρ0 * 15/π^2 * bg.g.H0^2/G * ħ^3*c^5)^(1/4) / kB]
+        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H0=1 units to SI units)
     end
-    th = ODESystem(eqs, t; defaults, kwargs...)
+    th = ODESystem(eqs, t; kwargs...)
     return compose(th, rec, bg)
 end
 
