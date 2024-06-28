@@ -37,26 +37,6 @@ function background_photons(g; kwargs...)
     ], t; name=:ph))
 end
 
-function background_massive_neutrinos(g; kwargs...)
-    mν = 0.06 * eV/c^2 # TODO: make parameter
-    T0 = 
-    @parameters Ω0 ρ0 = 3/8π*Ω0 m T0
-    @variables ρ(t) T(t) # TODO: P(t)
-
-    T0 =    
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
-
-    y0 = # TODO: what is y0?
-    J(x, y) = x^2 * √(x^2+y^2) / (exp(√(x^2+y^2)) + 1)
-    I(y) = quadgk(x -> J(x, y), 0, Inf) # I(0) = 7π^4 / 120
-
-    eqs = [
-        ρ ~ 1/g.a^4 * I(y) / I(y0)
-    ]
-    return ODESystem(eqs, t; kwargs...)
-end
-=#
-
 function background_ΛCDM(; thermo=true, kwargs...)
     @named g = background_metric()
     @named grav = background_gravity_GR(g)
