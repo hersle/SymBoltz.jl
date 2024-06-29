@@ -73,6 +73,23 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
     return ODESystem(eqs, t; initialization_eqs, kwargs...)
 end
 
+# TODO: add δρ etc. to Einstein equations
+# TODO: don't duplicate things in background neutrinos
+function perturbations_massive_neutrino_hierarchy(g0, g1; kwargs...)
+    x = 1.0 # x = q*c / (kB*T0) # TODO: more xs
+    vars = @variables T(t) y(t) ψ0(t) ψ1(t) ψ2(t) f0(t) dlnf0_dlnx(t) ϵ(t)
+    return ODESystem([
+        ϵ ~ √(x^2 + y^2)
+        dlnf0_dlnx ~ -x / (1 + exp(-x)) # f0 ∝ 1 / (exp(x) + 1)
+        D(ψ0) ~ -k * x/ϵ * ψ1 - D(g1.Φ) * dlnf0_dlnx
+        D(ψ1) ~ +k/3 * x/ϵ * (ψ0 - 2ψ2) - k/3 * ϵ/x * g1.Ψ * dlnf0_dlnx
+        ψ2 ~ 0 # TODO: l ≥ 2, proper cutoff
+    ], t, vars, []; initialization_eqs = [
+        ψ0 ~ +1/2 * g1.Ψ * dlnf0_dlnx
+        ψ1 ~ 0 # TODO: proper IC
+    ], kwargs...)
+end
+
 function perturbations_gravity(g0, g1; kwargs...)
     @variables δρ(t) Π(t)
     return ODESystem([
@@ -88,6 +105,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
     @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
+    @named mneu = perturbations_massive_neutrino_hierarchy(bg.g, g1)
     @named cdm = perturbations_matter(bg.g, g1; uinteract=false)
     @named bar = perturbations_matter(bg.g, g1; uinteract=true)
     @named grav = perturbations_gravity(bg.g, g1)
@@ -122,8 +140,12 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
 
         # gauge-independent matter overdensity for matter power spectrum
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
+
+        # TODO: combine bg+pt systems
+        mneu.T ~ bg.mneu.T
+        mneu.y ~ bg.mneu.y
     ]
     
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
-    return compose(connections, g1, grav, ph, neu, bar, cdm, th)
+    return compose(connections, g1, grav, ph, neu, mneu, bar, cdm, th)
 end
