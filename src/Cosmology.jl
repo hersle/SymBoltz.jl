@@ -12,7 +12,6 @@ end
 
 @kwdef struct CosmologicalParameters
     Ωγ0 = 5.5e-5
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
     Ωc0 = 0.267
     Ωb0 = 0.05
     h = 0.67
@@ -38,7 +37,6 @@ end
 function solve_background(model::CosmologicalModel, par::CosmologicalParameters; aend = 1e0, solver = Vern8(), reltol = 1e-8, kwargs...)
     prob = ODEProblem(model.bg_sim, [], (1e-5, 4.0), [
         model.bg_sim.ph.Ω0 => par.Ωγ0,
-        model.bg_sim.neu.Ω0 => par.Ων0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
         model.th.bg.g.h => par.h
@@ -50,7 +48,6 @@ end
 function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
     prob = ODEProblem(model.th_sim, [], (1e-5, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
-        model.th_sim.bg.neu.Ω0 => par.Ων0,
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
         model.th_sim.bg.bar.Ω0 => par.Ωb0,
         model.th_sim.bg.g.h => par.h,
@@ -63,7 +60,6 @@ end
 function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
-        model.th.bg.neu.Ω0 => par.Ων0,
         model.th.bg.cdm.Ω0 => par.Ωc0,
         model.th.bg.bar.Ω0 => par.Ωb0,
         model.th.bg.g.h => par.h,
