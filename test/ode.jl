@@ -15,14 +15,14 @@ if true
     display(p)
 end
 
-if false
+if true
     th_sol = Symboltz.solve_thermodynamics(model, par)
     plot!(p[2,1], log10.(th_sol[model.th_sim.bg.g.a]), log10.(abs.(stack(th_sol[[model.th_sim.rec.Xe, model.th_sim.rec.XH⁺, model.th_sim.rec.XHe⁺, model.th_sim.rec.XHe⁺⁺]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["Xe" "XH⁺" "XHe⁺" "XHe⁺⁺"], legend=:bottomleft)
     plot!(p[2,2], log10.(th_sol[model.th_sim.bg.g.a]), log10.(stack(th_sol[[model.th_sim.rec.Tγ, model.th_sim.rec.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["Tγ" "Tb"])
     display(p)
 end
 
-if false
+if true
     pt_sol = Symboltz.solve_perturbations(model, 1.0 / Symboltz.k0, par)
     i = 1 #for (i, pt_sol) in enumerate(pt_sols)
         plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ] / pt_sol[model.pt.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
