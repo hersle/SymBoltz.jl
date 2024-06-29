@@ -24,12 +24,11 @@ end
 
 if true
     pt_sol = Symboltz.solve_perturbations(model, 1.0 / Symboltz.k0, par)
-    i = 1 #for (i, pt_sol) in enumerate(pt_sols)
-        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ] / pt_sol[model.pt.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); color=i, xlabel="lg(a)", ylabel="lg(|δb|), lg(|δc|), lg(|δγ|), lg(|δν|)")
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); color=i, xlabel="lg(a)")
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  color=i, xlabel="lg(a)")
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); color=i, xlabel="lg(a)")
-    #end
+    plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ] / pt_sol[model.pt.g1.Φ][begin]; xlabel="lg(a)", ylabel="Φ/Φᵢ")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); label="δ = δc", xlabel="lg(a)", ylabel="lg(|δ|)")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); label="δ = δb", xlabel="lg(a)")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  label="δ = δγ", xlabel="lg(a)")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); label="δ = δν", xlabel="lg(a)")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); label="δ = δmν", xlabel="lg(a)")
     display(p)
 end

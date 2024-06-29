@@ -77,13 +77,14 @@ end
 # TODO: don't duplicate things in background neutrinos
 function perturbations_massive_neutrino_hierarchy(g0, g1; kwargs...)
     x = 1.0 # x = q*c / (kB*T0) # TODO: more xs
-    vars = @variables T(t) y(t) ψ0(t) ψ1(t) ψ2(t) f0(t) dlnf0_dlnx(t) ϵ(t)
+    vars = @variables T(t) y(t) δ(t) ψ0(t) ψ1(t) ψ2(t) f0(t) dlnf0_dlnx(t) ϵ(t)
     return ODESystem([
         ϵ ~ √(x^2 + y^2)
         dlnf0_dlnx ~ -x / (1 + exp(-x)) # f0 ∝ 1 / (exp(x) + 1)
         D(ψ0) ~ -k * x/ϵ * ψ1 - D(g1.Φ) * dlnf0_dlnx
         D(ψ1) ~ +k/3 * x/ϵ * (ψ0 - 2ψ2) - k/3 * ϵ/x * g1.Ψ * dlnf0_dlnx
         ψ2 ~ 0 # TODO: l ≥ 2, proper cutoff
+        δ ~ 4*ψ0 # TODO: correct?
     ], t, vars, []; initialization_eqs = [
         ψ0 ~ +1/2 * g1.Ψ * dlnf0_dlnx
         ψ1 ~ 0 # TODO: proper IC
