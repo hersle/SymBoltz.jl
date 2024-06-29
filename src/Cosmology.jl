@@ -70,7 +70,7 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
         th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
         push!(pars,
             model.pt_sim.th.rec.dτspline => CubicSpline(log.(.-th_sol[model.th.rec.dτ]), log.(ts); extrapolate=true), # TODO: improve spline accuracy
-            model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
+            #model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
             model.pt_sim.th.rec.cs²spline => CubicSpline(log.(th_sol[model.th.rec.Tb]), log.(ts); extrapolate=true),
         )
     end
