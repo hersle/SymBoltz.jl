@@ -87,7 +87,7 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; kwargs...)
         δ ~ 4*ψ0 # TODO: correct?
     ], t, vars, []; initialization_eqs = [
         ψ0 ~ +1/2 * g1.Ψ * dlnf0_dlnx
-        ψ1 ~ 0 # TODO: proper IC
+        ψ1 ~ -1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
     ], kwargs...)
 end
 
