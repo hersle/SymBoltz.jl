@@ -42,7 +42,7 @@ IPmν(y) = ∫(x -> x^4 / √(x^2+y^2) / (exp(x) + 1), 0, Inf) # IP(0) = Iρ(0) 
 @register_symbolic Iρmν(y)
 @register_symbolic IPmν(y)
 function background_massive_neutrinos(g; kwargs...)
-    pars = @parameters Ω0 ρ0 m T0 y0
+    pars = @parameters Ω0 ρ0 m ∑m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t)
     eqs = [
         T ~ T0 / g.a
@@ -53,7 +53,8 @@ function background_massive_neutrinos(g; kwargs...)
     ]
     defaults = [
         ρ0 => 3/8π * Ω0,
-        m => 0.06 * eV/c^2, # TODO: make parameter
+        ∑m => 0.06 * eV/c^2, # total mass
+        m => ∑m / 3, # single mass
         y0 => m*c^2 / (kB*T0),
     ]
     return ODESystem(eqs, t, vars, pars; defaults, kwargs...)
