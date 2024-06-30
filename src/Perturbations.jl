@@ -75,22 +75,30 @@ end
 
 # TODO: add δρ etc. to Einstein equations
 # TODO: don't duplicate things in background neutrinos
+# TODO: use vector equations?
 function perturbations_massive_neutrino_hierarchy(g0, g1; lmax=6, kwargs...)
-    x = 1.0 # x = q*c / (kB*T0) # TODO: more xs
-    vars = @variables T(t) y(t) δ(t) ψ0(t) ψ(t)[1:lmax] f0(t) dlnf0_dlnx(t) ϵ(t)
-    return ODESystem([
-        ϵ ~ √(x^2 + y^2)
-        dlnf0_dlnx ~ -x / (1 + exp(-x)) # f0 ∝ 1 / (exp(x) + 1)
-        D(ψ0) ~ -k * x/ϵ * ψ[1] - D(g1.Φ) * dlnf0_dlnx
-        D(ψ[1]) ~ +k/3 * x/ϵ * (ψ0 - 2ψ[2]) - k/3 * ϵ/x * g1.Ψ * dlnf0_dlnx
-        [D(ψ[l]) ~ k/(2l+1) * x/ϵ * (l*ψ[l-1] - (l+1)*ψ[l+1]) for l in 2:lmax-1]...
-        ψ[lmax] ~ 0 # TODO: proper cutoff
-        δ ~ 4*ψ0 # TODO: correct?
-    ], t, vars, []; initialization_eqs = [
-        ψ0 ~ +1/2 * g1.Ψ * dlnf0_dlnx
-        ψ[1] ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
-        [ψ[l] ~ 0 for l in 2:lmax] # TODO: proper ICs
-    ], kwargs...)
+    #xs, ws = gauss(30, 0.0, 50.0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
+    x = [1.0, 2.0, 3.0] # x = q*c / (kB*T0)
+    nx = length(x)
+    vars = @variables T(t) y(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+    eqs = Equation[]
+    initialization_eqs = []
+    for i in 1:nx
+        push!(eqs, [
+            ϵ[i] ~ √(x[i]^2 + y^2)
+            dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i])) # f0 ∝ 1 / (exp(x) + 1)
+            D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
+            D(ψ[i,1]) ~ +k/3 * x[i]/ϵ[i] * (ψ0[i] - 2ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
+            [D(ψ[i,l]) ~ k/(2l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax-1]...
+            ψ[i,lmax] ~ 0 # TODO: proper cutoff
+        ]...)
+        push!(initialization_eqs, [
+            ψ0[i] ~ +1/2 * g1.Ψ * dlnf0_dlnx[i]
+            ψ[i,1] ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
+            [ψ[i,l] ~ 0 for l in 2:lmax] # TODO: proper ICs    
+        ]...)
+    end
+    return ODESystem(eqs, t, vars, []; initialization_eqs, kwargs...)
 end
 
 function perturbations_gravity(g0, g1; kwargs...)

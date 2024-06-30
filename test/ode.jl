@@ -29,6 +29,6 @@ if true
     plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); label="δ = δb", xlabel="lg(a)")
     plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  label="δ = δγ", xlabel="lg(a)")
     plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); label="δ = δν", xlabel="lg(a)")
-    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); label="δ = δmν", xlabel="lg(a)")
+    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.ψ0[1]])); label="δ = δmν", xlabel="lg(a)")
     display(p)
 end
