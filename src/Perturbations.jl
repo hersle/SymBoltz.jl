@@ -73,7 +73,6 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
     return ODESystem(eqs, t; initialization_eqs, kwargs...)
 end
 
-# TODO: add δρ etc. to Einstein equations
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
 function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax=6, kwargs...)
@@ -85,6 +84,7 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax
         ρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0), w) # TODO: don't duplicate background
         δρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0 .* ψ0), w)
         δ ~ δρ / ρ
+        # TODO: shear stress
     ]
     initialization_eqs = []
     for i in 1:nx
@@ -95,12 +95,12 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
             D(ψ[i,1]) ~ +k/3 * x[i]/ϵ[i] * (ψ0[i] - 2ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
             [D(ψ[i,l]) ~ k/(2l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax-1]...
-            ψ[i,lmax] ~ 0 # TODO: proper cutoff
+            ψ[i,lmax] ~ (2lmax-1) * ϵ[i]/x[i] * ψ[i,lmax-1] / (k*t) - ψ[i,lmax-2]
         ]...)
         push!(initialization_eqs, [
             ψ0[i] ~ +1/2 * g1.Ψ * dlnf0_dlnx[i]
             ψ[i,1] ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
-            [ψ[i,l] ~ 0 for l in 2:lmax] # TODO: proper ICs    
+            [ψ[i,l] ~ 0 for l in 2:lmax-1] # TODO: proper ICs    
         ]...)
     end
     return ODESystem(eqs, t, vars, []; initialization_eqs, kwargs...)
