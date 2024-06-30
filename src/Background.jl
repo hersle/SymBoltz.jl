@@ -52,10 +52,10 @@ function background_massive_neutrinos(g; kwargs...)
         w ~ P / ρ
     ]
     defaults = [
-        ρ0 => 3/8π * Ω0,
-        ∑m => 0.06 * eV/c^2, # total mass
-        m => ∑m / 3, # single mass
-        y0 => m*c^2 / (kB*T0),
+        ρ0 => 3/8π * Ω0
+        ∑m => 0.06 * eV/c^2 # total mass
+        m => ∑m / 3 # single mass
+        y0 => m*c^2 / (kB*T0)
     ]
     return ODESystem(eqs, t, vars, pars; defaults, kwargs...)
 end
@@ -72,11 +72,11 @@ function background_ΛCDM(; thermo=true, kwargs...)
     species = [ph, neu, mneu, cdm, bar, de]
     initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0 * Iρmν(0)/Iρmν(mneu.y0)) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos
     defaults = [
-        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]), # TODO: solve nonlinear system
-        ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB, # TODO: move to photon system
-        neu.Ω0 => (3.046/3) * (4/11)^(4/3) * ph.Ω0, # TODO: make Neff parameter
-        mneu.T0 => (3.046/3)^(1/4) * (4/11)^(1/3) * ph.T0, # same as for massless neutrinos # TODO: make Neff parameter etc.
-        mneu.Ω0 => neu.Ω0 * Iρmν(mneu.y0)/Iρmν(0), # (3ζ(3)/2) / (7π^4/120) * y0 ≈ Iρmν(y0) / Iρmν(0)
+        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
+        ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system
+        neu.Ω0 => (3.046/3) * (4/11)^(4/3) * ph.Ω0 # TODO: make Neff parameter
+        mneu.T0 => (3.046/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: make Neff parameter etc.
+        mneu.Ω0 => neu.Ω0 * Iρmν(mneu.y0)/Iρmν(0) # (3ζ(3)/2) / (7π^4/120) * y0 ≈ Iρmν(y0) / Iρmν(0)
     ]
     eqs = [grav.ρ ~ sum(s.ρ for s in species)]
     comps = [g; grav; species]
