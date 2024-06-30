@@ -60,7 +60,7 @@ function background_massive_neutrinos(g; kwargs...)
     return ODESystem(eqs, t, vars, pars; defaults, kwargs...)
 end
 
-function background_ΛCDM(; thermo=true, kwargs...)
+function background_ΛCDM(; kwargs...)
     @named g = background_metric()
     @named grav = background_gravity_GR(g)
     @named ph = background_photons(g)
@@ -70,7 +70,7 @@ function background_ΛCDM(; thermo=true, kwargs...)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
     species = [ph, neu, mneu, cdm, bar, de]
-    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0 * Iρmν(0)/Iρmν(mneu.y0)) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos
+    initialization_eqs = [g.a ~ (2t)^(1/2) * (ph.Ω0 + neu.Ω0 + mneu.Ω0 * Iρmν(0)/Iρmν(mneu.y0))^(1/4)] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
         ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system
