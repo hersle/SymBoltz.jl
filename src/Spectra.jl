@@ -93,6 +93,7 @@ end
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(t0-tini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
+# TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::AbstractArray; integrator = SimpsonEven())
     ts = exp.(lnts)

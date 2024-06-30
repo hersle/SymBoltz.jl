@@ -81,15 +81,15 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax
     x, w = gauss(nx, 0.0, xmax) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
 
     eqs = [
-        ρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0), w) # TODO: don't duplicate background
-        δρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0 .* ψ0), w)
+        ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0), w) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
+        δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0 * ψ0), w) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
         δ ~ δρ / ρ
         # TODO: shear stress
     ]
     initialization_eqs = []
     for i in 1:nx
         push!(eqs, [ # TODO: write shorter with vector equations and collect
-            ϵ[i] ~ √(x[i]^2 + y^2)
+            ϵ[i] ~ √(x[i]^2 + y^2) # TODO: use z to match reduced x and y?
             f0[i] ~ 1 / (exp(x[i]) + 1) # TODO: proportionality?
             dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i]))
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
