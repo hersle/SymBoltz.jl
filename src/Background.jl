@@ -37,17 +37,28 @@ function background_photons(g; kwargs...)
     ], t; name=:ph))
 end
 
-function background_massive_neutrinos(g; nx=20, xmax=50.0, kwargs...)
+f0(x) = 1 / (exp(x) + 1) # TODO: exp(x) or exp(ϵ)?
+ϵ(x, y) = √(x^2 + y^2)
+dρ_dx(x, y) = x^2 * ϵ(x, y) * f0(x)
+dP_dx(x, y) = x^4 / ϵ(x, y) * f0(x)
+Iρ_adaptive(y) = ∫(x -> dρ_dx(x, y), 0, Inf)
+IP_adaptive(y) = ∫(x -> dP_dx(x, y), 0, Inf)
+@register_symbolic Iρ_adaptive(y)
+@register_symbolic IP_adaptive(y)
+# TODO: weight quadrature by f0 in fixed case
+function background_massive_neutrinos(g; nx=:adaptive, kwargs...)
     pars = @parameters Ω0_massless Ω0 ρ0 m ∑m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t)
 
-    # TODO: also allow adaptive quadgk
-    x, W = gauss(nx, 0.0, xmax)
-    f0(x) = 1 / (exp(x) + 1) # TODO: exp(x) or exp(ϵ)
-    ϵ(x, y) = √(x^2 + y^2)
-    Iρ(y) = ∫((@. x^2 * ϵ(x, y) * f0(x)), W) # Iρ(0) = 7π^4/120
-    IP(y) = ∫((@. x^4 / ϵ(x, y) * f0(x)), W) # IP(0) = Iρ(0)
-
+    if nx == :adaptive
+        Iρ = Iρ_adaptive
+        IP = IP_adaptive
+    else
+        x, W = gauss(nx, 0.0, 20.0) # get Gaussian quadrature weights
+        Iρ = y -> ∫((dρ_dx.(x, y)), W) # Iρ(0) = 7π^4/120
+        IP = y -> ∫((dP_dx.(x, y)), W) # IP(0) = Iρ(0)
+    end
+    
     eqs = [
         T ~ T0 / g.a
         y ~ m*c^2 / (kB*T)

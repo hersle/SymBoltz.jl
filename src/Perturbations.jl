@@ -75,11 +75,9 @@ end
 
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
-function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax=6, kwargs...)
+function perturbations_massive_neutrino_hierarchy(g0, g1; nx=10, lmax=4, kwargs...)
+    x, w = gauss(nx, 0.0, 20.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
     vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] f0(t)[1:nx] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
-
-    x, w = gauss(nx, 0.0, xmax) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
-
     eqs = [
         ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0), w) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
         δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0 * ψ0), w) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
