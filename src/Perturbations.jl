@@ -75,19 +75,21 @@ end
 
 # TODO: add δρ etc. to Einstein equations
 # TODO: don't duplicate things in background neutrinos
-function perturbations_massive_neutrino_hierarchy(g0, g1; kwargs...)
+function perturbations_massive_neutrino_hierarchy(g0, g1; lmax=6, kwargs...)
     x = 1.0 # x = q*c / (kB*T0) # TODO: more xs
-    vars = @variables T(t) y(t) δ(t) ψ0(t) ψ1(t) ψ2(t) f0(t) dlnf0_dlnx(t) ϵ(t)
+    vars = @variables T(t) y(t) δ(t) ψ0(t) ψ(t)[1:lmax] f0(t) dlnf0_dlnx(t) ϵ(t)
     return ODESystem([
         ϵ ~ √(x^2 + y^2)
         dlnf0_dlnx ~ -x / (1 + exp(-x)) # f0 ∝ 1 / (exp(x) + 1)
-        D(ψ0) ~ -k * x/ϵ * ψ1 - D(g1.Φ) * dlnf0_dlnx
-        D(ψ1) ~ +k/3 * x/ϵ * (ψ0 - 2ψ2) - k/3 * ϵ/x * g1.Ψ * dlnf0_dlnx
-        ψ2 ~ 0 # TODO: l ≥ 2, proper cutoff
+        D(ψ0) ~ -k * x/ϵ * ψ[1] - D(g1.Φ) * dlnf0_dlnx
+        D(ψ[1]) ~ +k/3 * x/ϵ * (ψ0 - 2ψ[2]) - k/3 * ϵ/x * g1.Ψ * dlnf0_dlnx
+        [D(ψ[l]) ~ k/(2l+1) * x/ϵ * (l*ψ[l-1] - (l+1)*ψ[l+1]) for l in 2:lmax-1]...
+        ψ[lmax] ~ 0 # TODO: proper cutoff
         δ ~ 4*ψ0 # TODO: correct?
     ], t, vars, []; initialization_eqs = [
         ψ0 ~ +1/2 * g1.Ψ * dlnf0_dlnx
-        ψ1 ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
+        ψ[1] ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
+        [ψ[l] ~ 0 for l in 2:lmax] # TODO: proper ICs
     ], kwargs...)
 end
 
