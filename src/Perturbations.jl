@@ -76,17 +76,22 @@ end
 # TODO: add δρ etc. to Einstein equations
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
-function perturbations_massive_neutrino_hierarchy(g0, g1; lmax=6, kwargs...)
-    #xs, ws = gauss(30, 0.0, 50.0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
-    x = [1.0, 2.0, 3.0] # x = q*c / (kB*T0)
-    nx = length(x)
-    vars = @variables T(t) y(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
-    eqs = Equation[]
+function perturbations_massive_neutrino_hierarchy(g0, g1; nx=20, xmax=50.0, lmax=6, kwargs...)
+    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] f0(t)[1:nx] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+
+    x, w = gauss(nx, 0.0, xmax) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
+
+    eqs = [
+        ρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0), w) # TODO: don't duplicate background
+        δρ ~ 1/g0.a^4 * ∫(collect(x.^2 .* ϵ .* f0 .* ψ0), w)
+        δ ~ δρ / ρ
+    ]
     initialization_eqs = []
     for i in 1:nx
-        push!(eqs, [
+        push!(eqs, [ # TODO: write shorter with vector equations and collect
             ϵ[i] ~ √(x[i]^2 + y^2)
-            dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i])) # f0 ∝ 1 / (exp(x) + 1)
+            f0[i] ~ 1 / (exp(x[i]) + 1) # TODO: proportionality?
+            dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i]))
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
             D(ψ[i,1]) ~ +k/3 * x[i]/ϵ[i] * (ψ0[i] - 2ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
             [D(ψ[i,l]) ~ k/(2l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax-1]...
@@ -123,7 +128,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
 
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     pars = convert(Vector{Any}, @parameters fν)
-    vars = @variables δργ(t) δρν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t)
+    vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t)
     defaults = [
         fν => bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0)
         g1.Ψ => -1 / (3/2 + 2*fν/5) # Φ found from solving initialization system
@@ -138,9 +143,10 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         # gravity density and shear stress
         δργ ~ ph.δ * bg.ph.ρ
         δρν ~ neu.δ * bg.neu.ρ
+        δρmν ~ mneu.δ * bg.mneu.ρ
         δρc ~ cdm.δ * bg.cdm.ρ
         δρb ~ bar.δ * bg.bar.ρ
-        grav.δρ ~ δργ + δρν + δρc + δρb # total energy density perturbation
+        grav.δρ ~ δργ + δρν + δρc + δρb + δρmν # total energy density perturbation
         grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2] + bg.neu.ρ*neu.Θ[2])
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
