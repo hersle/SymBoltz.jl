@@ -117,7 +117,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     bg = th.bg
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
-    #@named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
+    @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
     @named mneu = perturbations_massive_neutrino_hierarchy(bg.g, g1)
     @named cdm = perturbations_matter(bg.g, g1; uinteract=false)
     @named bar = perturbations_matter(bg.g, g1; uinteract=true)
@@ -127,24 +127,24 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     pars = convert(Vector{Any}, @parameters fν)
     vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t)
     defaults = [
-        fν => 0 # bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0)
+        fν => bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0)
         g1.Ψ => -1 / (3/2 + 2*fν/5) # Φ found from solving initialization system
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5) # Ψ found from solving initialization system
     ]
     guesses = [
         g1.Ψ => 1.0;
         collect(ph.Θ .=> 0.0);
-        #collect(neu.Θ .=> 0.0)
+        collect(neu.Θ .=> 0.0)
     ]
     eqs = [
         # gravity density and shear stress
         δργ ~ ph.δ * bg.ph.ρ
-        δρν ~ 0 # neu.δ * bg.neu.ρ
-        δρmν ~ 0 # mneu.δ * bg.mneu.ρ
+        δρν ~ neu.δ * bg.neu.ρ
+        δρmν ~ mneu.δ * bg.mneu.ρ
         δρc ~ cdm.δ * bg.cdm.ρ
         δρb ~ bar.δ * bg.bar.ρ
         grav.δρ ~ δργ + δρν + δρc + δρb + δρmν # total energy density perturbation
-        grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2]) # + bg.neu.ρ*neu.Θ[2])
+        grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2] + bg.neu.ρ*neu.Θ[2]) # TODO: add massive neutrino contribution
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
@@ -156,10 +156,10 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
 
         # TODO: combine bg+pt systems
-        #mneu.T ~ bg.mneu.T
-        #mneu.y ~ bg.mneu.y
+        mneu.T ~ bg.mneu.T
+        mneu.y ~ bg.mneu.y
     ]
     
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
-    return compose(connections, g1, grav, ph, #=neu, mneu,=# bar, cdm, th)
+    return compose(connections, g1, grav, ph, neu, mneu, bar, cdm, th)
 end

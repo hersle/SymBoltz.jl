@@ -118,8 +118,9 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
+#xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
+xlabels, ylabels = ["lg(a_pt)"], ["Φ"]
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
