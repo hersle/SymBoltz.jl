@@ -144,7 +144,7 @@ for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     y1 = y1[i1s]
     y2 = y2[i2s]
     color = i
-    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS (y₁)", xlabel, ylabel)
+    plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS (y₁)", xlabel, ylabel, legend_position = :topright)
     plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz (y₂)")
     y1 = CubicSpline(y1, x1; extrapolate=true).(x)
     y2 = CubicSpline(y2, x2; extrapolate=true).(x)
