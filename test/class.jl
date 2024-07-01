@@ -34,7 +34,7 @@ function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class
         "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
         "Omega_cdm" => par.Ωc0,
-        "Omega_ur" => par.Ων0, # massless neutrinos
+        "Omega_ur" => (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
@@ -78,8 +78,8 @@ sol2_pt = Symboltz.solve_perturbations(model, k, par)
 # map results from both codes to common convention
 results = Dict(
     # background
-    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_pt[model.bg.g.a])),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_pt[model.bg.g.E]),
+    "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_th[model.bg.g.a])),
+    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
 
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[model.bg.g.a])),
