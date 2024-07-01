@@ -108,9 +108,13 @@ results = Dict(
     "δb" => (sol1["pt"]["delta_b"], -sol2_pt[model.pt.bar.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[model.pt.cdm.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[model.pt.ph.δ]),
+    "δν" => (sol1["pt"]["delta_ur"], -sol2_pt[model.pt.neu.δ]),
+    "δmν" => (sol1["pt"]["delta_ncdm[0]"], -sol2_pt[model.pt.mneu.δ]),
     "θb" => (sol1["pt"]["theta_b"], -sol2_pt[model.pt.bar.u] * kMpc),
     "θc" => (sol1["pt"]["theta_cdm"], -sol2_pt[model.pt.cdm.u] * kMpc),
     "θγ" => (sol1["pt"]["theta_g"], -sol2_pt[model.pt.ph.Θ[1]] * 3 * kMpc),
+    "θν" => (sol1["pt"]["theta_ur"], -sol2_pt[model.pt.neu.Θ[1]] * 3 * kMpc), # TODO: is *3 correct?
+    # TODO: "θmν" => (sol1["pt"]["theta_ur"], -sol2_pt[model.pt.mneu.Θ[1]] * 3 * kMpc), # TODO: is *3 correct?
     "Π" => (sol1["pt"]["shear_g"], sol2_pt[model.pt.ph.Θ[2]] * -2),
     "P0" => (sol1["pt"]["pol0_g"], sol2_pt[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
     "P1" => (sol1["pt"]["pol1_g"], sol2_pt[model.pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
@@ -120,7 +124,7 @@ results = Dict(
 # TODO: relative or absolute comparison (of quantities close to 0)
 #xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-xlabels, ylabels = ["lg(a_pt)"], ["Φ"]
+xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Φ", "δν", "θν", "δmν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
