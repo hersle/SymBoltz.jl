@@ -34,8 +34,8 @@ end
 
 # TODO: add aini, aend
 
-function solve_background(model::CosmologicalModel, par::CosmologicalParameters; aend = 1e0, solver = Vern8(), reltol = 1e-8, kwargs...)
-    prob = ODEProblem(model.bg_sim, [], (1e-15, 4.0), [
+function solve_background(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-12, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
+    prob = ODEProblem(model.bg_sim, [], (tini, 4.0), [
         model.bg_sim.ph.Ω0 => par.Ωγ0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
@@ -45,8 +45,8 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
-    prob = ODEProblem(model.th_sim, [], (1e-12, 4.0), [
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-12, aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
+    prob = ODEProblem(model.th_sim, [], (tini, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
         model.th_sim.bg.bar.Ω0 => par.Ωb0,
@@ -57,7 +57,7 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-12, solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
         model.th.bg.cdm.Ω0 => par.Ωc0,
@@ -66,8 +66,8 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
     ]
 
     if model.spline_th
-        ts = exp.(range(log(1e-12 + 1e-20), log(4.0 - 1e-20), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
-        th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
+        ts = exp.(range(log(tini + 1e-20), log(4.0 - 1e-20), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
+        th_sol = solve_thermodynamics(model, par; tini, saveat = ts) # TODO: forward kwargs...?
         push!(pars,
             model.pt_sim.th.rec.dτspline => CubicSpline(log.(.-th_sol[model.th.rec.dτ]), log.(ts); extrapolate=true), # TODO: improve spline accuracy
             #model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
@@ -75,10 +75,10 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
         )
     end
 
-    prob_dummy = ODEProblem(model.pt_sim, [], (1e-12, 4.0), [pars; k => 1.0]) # TODO: why do I need this???
+    prob_dummy = ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => 1.0]) # TODO: why do I need this???
     probs = EnsembleProblem(; safetycopy = false, prob = prob_dummy, prob_func = (_, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(model.pt_sim, [], (1e-12, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
     end)
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
