@@ -34,7 +34,7 @@ end
 
 # TODO: add aini, aend
 
-function solve_background(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-12, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
+function solve_background(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
     prob = ODEProblem(model.bg_sim, [], (tini, 4.0), [
         model.bg_sim.ph.Ω0 => par.Ωγ0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
@@ -45,7 +45,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-12, aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
     prob = ODEProblem(model.th_sim, [], (tini, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
@@ -57,7 +57,7 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-12, solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
         model.th.bg.cdm.Ω0 => par.Ωc0,

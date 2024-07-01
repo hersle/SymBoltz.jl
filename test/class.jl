@@ -79,6 +79,7 @@ sol2_pt = Symboltz.solve_perturbations(model, k, par)
 results = Dict(
     # background
     "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_th[model.bg.g.a])),
+    "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[Symboltz.t] / (par.h * Symboltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
 
     # thermodynamics
