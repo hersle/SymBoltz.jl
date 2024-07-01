@@ -46,7 +46,7 @@ IP_adaptive(y) = ∫(x -> dP_dx(x, y), 0, Inf)
 @register_symbolic Iρ_adaptive(y)
 @register_symbolic IP_adaptive(y)
 # TODO: weight quadrature by f0 in fixed case
-function background_massive_neutrinos(g; nx=:adaptive, kwargs...)
+function background_massive_neutrinos(g; nx=5, kwargs...)
     pars = @parameters Ω0_massless Ω0 ρ0 m ∑m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t)
 
@@ -54,9 +54,9 @@ function background_massive_neutrinos(g; nx=:adaptive, kwargs...)
         Iρ = Iρ_adaptive
         IP = IP_adaptive
     else
-        x, W = gauss(nx, 0.0, 20.0) # get Gaussian quadrature weights
-        Iρ = y -> ∫((dρ_dx.(x, y)), W) # Iρ(0) = 7π^4/120
-        IP = y -> ∫((dP_dx.(x, y)), W) # IP(0) = Iρ(0)
+        x, W = gauss(f0, nx, 0.0, 1000.0) # get Gaussian quadrature weights
+        Iρ = y -> ∫(x.^2 .* ϵ.(x, y), W) # Iρ(0) = 7π^4/120
+        IP = y -> ∫(x.^4 ./ ϵ.(x, y), W) # IP(0) = Iρ(0)
     end
     
     eqs = [

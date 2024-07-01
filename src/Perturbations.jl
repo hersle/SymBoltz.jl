@@ -75,12 +75,12 @@ end
 
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
-function perturbations_massive_neutrino_hierarchy(g0, g1; nx=10, lmax=4, kwargs...)
-    x, w = gauss(nx, 0.0, 20.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
-    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] f0(t)[1:nx] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs...)
+    x, W = gauss(f0, nx, 0.0, 1000.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
+    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
     eqs = [
-        ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0), w) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
-        δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * f0 * ψ0), w) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
+        ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ), W) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
+        δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * ψ0), W) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
         δ ~ δρ / ρ
         # TODO: shear stress
     ]
@@ -88,7 +88,6 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=10, lmax=4, kwargs.
     for i in 1:nx
         push!(eqs, [ # TODO: write shorter with vector equations and collect
             ϵ[i] ~ √(x[i]^2 + y^2) # TODO: use z to match reduced x and y?
-            f0[i] ~ 1 / (exp(x[i]) + 1) # TODO: proportionality?
             dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i]))
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
             D(ψ[i,1]) ~ +k/3 * x[i]/ϵ[i] * (ψ0[i] - 2ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
