@@ -86,8 +86,8 @@ function background_ΛCDM(; kwargs...)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
     Neff = 3.046 # TODO: proper parameter
-    species = [ph, #=neu,=# mneu, cdm, bar, de]
-    initialization_eqs = [g.a ~ √(ph.Ω0 #=+ neu.Ω0=# + mneu.Ω0_massless) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
+    species = [ph, neu, mneu, cdm, bar, de]
+    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0_massless) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
         ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system

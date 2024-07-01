@@ -34,7 +34,7 @@ function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class
         "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
         "Omega_cdm" => par.Ωc0,
-        "Omega_ur" => 0, # (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff # TODO: restore
+        "Omega_ur" => 7/8 * (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff # TODO: restore
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
@@ -118,7 +118,7 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-xlabels, ylabels = ["lg(a_bg)"], ["ρmν"]
+xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
