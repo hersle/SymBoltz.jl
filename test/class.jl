@@ -34,13 +34,13 @@ function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class
         "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
         "Omega_cdm" => par.Ωc0,
-        "Omega_ur" => 7/8 * (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff # TODO: restore
+        "Omega_ur" => 0, # 7/8 * (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff # TODO: restore
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
-        "N_ncdm" => 1,
-        "m_ncdm" => 0.02,
+        "N_ncdm" => 0, # 1,
+        "m_ncdm" => 0, # 0.02,
         "T_ncdm" => (3.046/3)^(1/4) * (4/11)^(1/3),
         "YHe" => par.Yp, # TODO: disable recombination and reionization?
         "recombination" => "recfast", # or HyREC
@@ -85,11 +85,11 @@ results = Dict(
     "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[Symboltz.t] / (par.h * Symboltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.ph.ρ] / (3/8π)),
-    "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
+    #"ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
     "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.cdm.ρ] / (3/8π)),
     "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.bar.ρ] / (3/8π)),
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.de.ρ] / (3/8π)),
-    "ρmν" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.mneu.ρ] / (3/8π)),
+    #"ρmν" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.mneu.ρ] / (3/8π)),
 
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[model.bg.g.a])),
@@ -104,27 +104,27 @@ results = Dict(
     "lg(a_pt)" => (log10.(sol1["pt"]["a"]), log10.(sol2_pt[model.bg.g.a])),
     "a_pt" => (sol1["pt"]["a"], sol2_pt[model.bg.g.a]),
     "Φ" => (sol1["pt"]["phi"], sol2_pt[model.pt.g1.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], -sol2_pt[model.pt.g1.Ψ]), # TODO: same?
-    "δb" => (sol1["pt"]["delta_b"], -sol2_pt[model.pt.bar.δ]), # TODO: sign?
-    "δc" => (sol1["pt"]["delta_cdm"], -sol2_pt[model.pt.cdm.δ]), # TODO: sign?
-    "δγ" => (sol1["pt"]["delta_g"], -sol2_pt[model.pt.ph.δ]),
-    "δν" => (sol1["pt"]["delta_ur"], -sol2_pt[model.pt.neu.δ]),
-    "δmν" => (sol1["pt"]["delta_ncdm[0]"], -sol2_pt[model.pt.mneu.δ]),
-    "θb" => (sol1["pt"]["theta_b"], -sol2_pt[model.pt.bar.u] * kMpc),
-    "θc" => (sol1["pt"]["theta_cdm"], -sol2_pt[model.pt.cdm.u] * kMpc),
-    "θγ" => (sol1["pt"]["theta_g"], -sol2_pt[model.pt.ph.u] * kMpc),
-    "θν" => (sol1["pt"]["theta_ur"], -sol2_pt[model.pt.neu.u] * kMpc), # TODO: is *3 correct?
-    "θmν" => (sol1["pt"]["theta_ncdm[0]"], -sol2_pt[model.pt.mneu.u] * kMpc), # TODO: correct???
-    "Π" => (sol1["pt"]["shear_g"], sol2_pt[model.pt.ph.Θ[2]] * -2),
-    "P0" => (sol1["pt"]["pol0_g"], sol2_pt[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
-    "P1" => (sol1["pt"]["pol1_g"], sol2_pt[model.pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
-    "P2" => (sol1["pt"]["pol2_g"], sol2_pt[model.pt.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
+    "Ψ" => (sol1["pt"]["psi"], sol2_pt[model.pt.g1.Ψ]), # TODO: same?
+    "δb" => (sol1["pt"]["delta_b"], sol2_pt[model.pt.bar.δ]), # TODO: sign?
+    "δc" => (sol1["pt"]["delta_cdm"], sol2_pt[model.pt.cdm.δ]), # TODO: sign?
+    "δγ" => (sol1["pt"]["delta_g"], sol2_pt[model.pt.ph.δ]),
+    #"δν" => (sol1["pt"]["delta_ur"], -sol2_pt[model.pt.neu.δ]),
+    #"δmν" => (sol1["pt"]["delta_ncdm[0]"], -sol2_pt[model.pt.mneu.δ]),
+    "θb" => (sol1["pt"]["theta_b"], sol2_pt[model.pt.bar.θ] * (par.h*Symboltz.k0)),
+    "θc" => (sol1["pt"]["theta_cdm"], sol2_pt[model.pt.cdm.θ] * (par.h*Symboltz.k0)),
+    "θγ" => (sol1["pt"]["theta_g"], sol2_pt[model.pt.ph.θ] * (par.h*Symboltz.k0)),
+    #"θν" => (sol1["pt"]["theta_ur"], -sol2_pt[model.pt.neu.u] * kMpc), # TODO: is *3 correct?
+    #"θmν" => (sol1["pt"]["theta_ncdm[0]"], -sol2_pt[model.pt.mneu.u] * kMpc), # TODO: correct???
+    #"Π" => (sol1["pt"]["shear_g"], sol2_pt[model.pt.ph.Θ[2]] * -2),
+    #"P0" => (sol1["pt"]["pol0_g"], sol2_pt[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
+    #"P1" => (sol1["pt"]["pol1_g"], sol2_pt[model.pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
+    #"P2" => (sol1["pt"]["pol2_g"], sol2_pt[model.pt.ph.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
 #xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "ρν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "θc", "θb", "θmν"] # TODO: θmν
+xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "θc"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)
@@ -149,6 +149,6 @@ for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     y1 = CubicSpline(y1, x1; extrapolate=true).(x)
     y2 = CubicSpline(y2, x2; extrapolate=true).(x)
     r = @. abs(y2-y1) / max(abs(y1), abs(y2))
-    plot!(p[end], x, r * 100; yminorticks = 10, yminorgrid = true, color)
+    plot!(p[end], x, r * 100; yminorticks = 10, yminorgrid = true, color, ylims=(0, 10))
 end
 hline!(p[end], [0.0]; color = :black, linestyle = :dash, ylabel = "|y₂-y₁| / max(|y₁|, |y₂|) / %", z_order = 1)
