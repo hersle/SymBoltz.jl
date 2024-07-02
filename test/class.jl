@@ -85,7 +85,7 @@ results = Dict(
     "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[Symboltz.t] / (par.h * Symboltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.ph.ρ] / (3/8π)),
-    #"ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
+    "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
     "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.cdm.ρ] / (3/8π)),
     "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.bar.ρ] / (3/8π)),
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.de.ρ] / (3/8π)),
@@ -122,7 +122,7 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-#xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
+xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "ρν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
 xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δν", "θν", "δmν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
