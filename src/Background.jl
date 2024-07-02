@@ -86,13 +86,13 @@ function background_ΛCDM(; kwargs...)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
     Neff = 3.046 # TODO: proper parameter
-    species = [ph, #=neu, mneu,=# cdm, bar, de]
-    initialization_eqs = [g.a ~ √(ph.Ω0 #=+ neu.Ω0 + mneu.Ω0_massless=#) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
+    species = [ph, neu, #=mneu,=# cdm, bar, de]
+    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 #=+ mneu.Ω0_massless=#) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
         ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system
+        neu.Ω0 => (Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
         mneu.T0 => (Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        neu.Ω0 => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0
         mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
     ]
     eqs = [grav.ρ ~ sum(s.ρ for s in species)]

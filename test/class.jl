@@ -34,7 +34,7 @@ function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class
         "Omega_g" => par.Ωγ0,
         "Omega_b" => par.Ωb0,
         "Omega_cdm" => par.Ωc0,
-        "Omega_ur" => 0, # 7/8 * (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff # TODO: restore
+        "Omega_ur" => 7/8 * (3.046/3) * (4/11)^(4/3) * par.Ωγ0, # massless neutrinos # TODO: proper Neff
         "Omega_dcdmdr" => 0.0,
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
@@ -108,12 +108,12 @@ results = Dict(
     "δb" => (sol1["pt"]["delta_b"], sol2_pt[model.pt.bar.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], sol2_pt[model.pt.cdm.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], sol2_pt[model.pt.ph.δ]),
-    #"δν" => (sol1["pt"]["delta_ur"], -sol2_pt[model.pt.neu.δ]),
+    "δν" => (sol1["pt"]["delta_ur"], sol2_pt[model.pt.neu.δ]),
     #"δmν" => (sol1["pt"]["delta_ncdm[0]"], -sol2_pt[model.pt.mneu.δ]),
     "θb" => (sol1["pt"]["theta_b"], sol2_pt[model.pt.bar.θ] * (par.h*Symboltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2_pt[model.pt.cdm.θ] * (par.h*Symboltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2_pt[model.pt.ph.θ] * (par.h*Symboltz.k0)),
-    #"θν" => (sol1["pt"]["theta_ur"], -sol2_pt[model.pt.neu.u] * kMpc), # TODO: is *3 correct?
+    "θν" => (sol1["pt"]["theta_ur"], sol2_pt[model.pt.neu.θ] * (par.h*Symboltz.k0)), # TODO: is *3 correct?
     #"θmν" => (sol1["pt"]["theta_ncdm[0]"], -sol2_pt[model.pt.mneu.u] * kMpc), # TODO: correct???
     #"Π" => (sol1["pt"]["shear_g"], sol2_pt[model.pt.ph.Θ[2]] * -2),
     #"P0" => (sol1["pt"]["pol0_g"], sol2_pt[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
@@ -124,7 +124,7 @@ results = Dict(
 # TODO: relative or absolute comparison (of quantities close to 0)
 #xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "ρν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "θc"] # TODO: θmν
+xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δν", "θν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)

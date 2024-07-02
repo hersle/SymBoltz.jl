@@ -14,7 +14,7 @@ function perturbations_species(g0, g1, w, cs² = w, ẇ = 0, σ = 0; θinteract 
     ]
     initialization_eqs = [
         δ ~ -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 0 # 1/2 * (k^2*t) * g1.Ψ # # TODO: fix with θ: -1/2 * k*t * g1.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        θ ~ 1/2 * (k^2*t) * g1.Ψ # # TODO: fix with θ: -1/2 * k*t * g1.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !θinteract && push!(eqs, θinteraction ~ 0)
     return ODESystem(eqs, t; initialization_eqs, kwargs...)
@@ -46,8 +46,8 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
         ])...
     ]
     initialization_eqs = [
-        F0 ~ -2 * g1.Ψ # Dodelson (7.89)
-        F[1] ~ 0 # 1/6 * k*t * g1.Ψ, # Dodelson (7.95)
+        δ ~ -2 * g1.Ψ # Dodelson (7.89)
+        θ ~ 1/2 * (k^2*t) * g1.Ψ # Dodelson (7.95)
         F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
         G0 ~ 0 #5/4 * Θ[2],
@@ -62,17 +62,18 @@ function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kw
     @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t)
     eqs = [
         D(F0) ~ -k*F[1] + 4*D(g1.Φ)
-        D(F[1]) ~ 4/3*k * (F0 - F[2]/2 + g1.Ψ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g1.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
-        F[lmax] ~ (2*lmax-1) / (k*t) * F[lmax-1] - F[lmax-2]
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] # this is the same cutoff as for photons; gives best agreement with CLASS
+        #F[lmax] ~ (2*lmax-1) / (k*t) * F[lmax-1] - F[lmax-2] # Bertschinger & Ma say they use this cutoff, which is different from the photon cutoff; it gives results somewhat different from CLASS
         δ ~ F0
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
     ]
     initialization_eqs = [
-        F0 ~ -2 * g1.Ψ
-        F[1] ~ 0 #=1/6 * k*t * g1.Ψ=#
-        F[2] ~ 0 #=1/30 * (k*t)^2 * g1.Ψ=# # Dodelson (7.122) and (7.123), # (k*g0.a)^2 / (80π*ρr0) * g1.Ψ, # 2/15 * (k*t)^2 * g1.Ψ, # -k^2*g0.a^2 / (32π * (15/4*ρr0 + ρν0)), # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        δ ~ -2 * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        θ ~ 1/2 * (k^2*t) * g1.Ψ
+        σ ~ 1/15 * (k*t)^2 * g1.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ]
     return ODESystem(eqs, t; initialization_eqs, kwargs...)
@@ -127,7 +128,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     bg = th.bg
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
-    #@named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
+    @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
     #@named mneu = perturbations_massive_neutrino_hierarchy(bg.g, g1)
     @named cdm = perturbations_matter(bg.g, g1; θinteract=false)
     @named bar = perturbations_matter(bg.g, g1; θinteract=true)
@@ -138,19 +139,19 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) πν(t)
     defaults = [
         C => +1/2 # TODO: +1/2?
-        fν => 0 # TODO: bg.neu.Ω0 / (bg.neu.Ω0 + bg.ph.Ω0)
+        fν => bg.neu.Ω0 / (bg.neu.Ω0 + bg.ph.Ω0)
         g1.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5) # Ψ found from solving initialization system
     ]
     guesses = [
         g1.Ψ => 1.0;
         collect(ph.F .=> 0.0);
-        #collect(neu.F .=> 0.0)
+        collect(neu.F .=> 0.0)
     ]
     eqs = [
         # gravity density and shear stress
-        grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ # neu.δ*bg.neu.ρ + mneu.δ*bg.mneu.ρ # total energy density perturbation
-        grav.Π ~ (bg.ph.ρ+bg.ph.P)*ph.σ # + (bg.neu.ρ+bg.neu.P)*neu.σ # + (bg.mneu.ρ+bg.mneu.P)*mneu.σ
+        grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ + neu.δ*bg.neu.ρ # + mneu.δ*bg.mneu.ρ # total energy density perturbation
+        grav.Π ~ (bg.ph.ρ+bg.ph.P)*ph.σ + (bg.neu.ρ+bg.neu.P)*neu.σ # + (bg.mneu.ρ+bg.mneu.P)*mneu.σ
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 4*bg.ph.ρ / (3*bg.bar.ρ)
@@ -167,5 +168,5 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     ]
     
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
-    return compose(connections, g1, grav, ph, #=neu, mneu,=# bar, cdm, th)
+    return compose(connections, g1, grav, ph, neu, #=mneu,=# bar, cdm, th)
 end
