@@ -130,11 +130,12 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     @named grav = perturbations_gravity(bg.g, g1)
 
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    pars = convert(Vector{Any}, @parameters fν)
+    pars = convert(Vector{Any}, @parameters fν C)
     vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) πν(t)
     defaults = [
+        C => -1/2
         fν => bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0)
-        g1.Ψ => -1 / (3/2 + 2*fν/5) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+        g1.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5) # Ψ found from solving initialization system
     ]
     guesses = [
