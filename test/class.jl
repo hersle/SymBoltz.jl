@@ -50,7 +50,7 @@ function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
         "l_max_ur" => lmax,
-        "l_max_ncdm" => lmax,
+        "l_max_ncdm" => 4, # TODO: parameter
         "background_verbose" => 2,
     )
 
@@ -124,7 +124,7 @@ results = Dict(
 # TODO: relative or absolute comparison (of quantities close to 0)
 #xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "E", "t"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Φ", "δν", "θν", "δmν"] # TODO: θmν
+xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δν", "θν", "δmν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)

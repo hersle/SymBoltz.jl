@@ -77,12 +77,14 @@ end
 # TODO: use vector equations?
 function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs...)
     x, W = gauss(f0, nx, 0.0, 1000.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
-    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) P(t) σ(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
     eqs = [
         ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ), W) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
         δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * ψ0), W) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
         δ ~ δρ / ρ
-        # TODO: shear stress
+
+        P ~ 1/3 / g0.a^4 * ∫(collect(@. x^4 / ϵ), W)
+        σ ~ 8π/3 / g0.a^4 * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (ρ + P)
     ]
     initialization_eqs = []
     for i in 1:nx
@@ -125,7 +127,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
 
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     pars = convert(Vector{Any}, @parameters fν)
-    vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t)
+    vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) πν(t)
     defaults = [
         fν => bg.neu.Ω0 / (bg.ph.Ω0 + bg.neu.Ω0)
         g1.Ψ => -1 / (3/2 + 2*fν/5) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
@@ -144,7 +146,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         δρc ~ cdm.δ * bg.cdm.ρ
         δρb ~ bar.δ * bg.bar.ρ
         grav.δρ ~ δργ + δρν + δρc + δρb + δρmν # total energy density perturbation
-        grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2] + bg.neu.ρ*neu.Θ[2]) # TODO: add massive neutrino contribution
+        grav.Π ~ -32π*bg.g.a^2 * (bg.ph.ρ*ph.Θ[2] + bg.neu.ρ*neu.Θ[2] + bg.mneu.ρ*mneu.σ/8π) # TODO: add massive neutrino contribution
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 3/4 * bg.bar.ρ / bg.ph.ρ # Dodelson (5.74)
