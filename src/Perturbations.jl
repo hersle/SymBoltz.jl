@@ -25,13 +25,14 @@ perturbations_radiation(g0, g1; kwargs...) = perturbations_species(g0, g1, 1//3;
 perturbations_cosmological_constant(g0, g1; kwargs...) = perturbations_species(g0, g1, -1; kwargs...) # TODO: ill-defined?
 
 function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwargs...)
-    @variables Θ0(t) Θ(t)[1:lmax] δ(t) dτ(t) ub(t) Π(t) ΘP0(t) ΘP(t)[1:lmax]
+    @variables Θ0(t) Θ(t)[1:lmax] δ(t) u(t) dτ(t) ub(t) Π(t) ΘP0(t) ΘP(t)[1:lmax]
     eqs = [
         D(Θ0) + k*Θ[1] ~ -D(g1.Φ)
         D(Θ[1]) - k/3*(Θ0-2*Θ[2]) ~ k/3*g1.Ψ - dτ/3 * (ub - 3*Θ[1])
         [D(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) + dτ * (Θ[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: Π in last term here?
         D(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1) * Θ[lmax] / t + dτ * (Θ[lmax] - Π/10*δkron(lmax,2))
         δ ~ 4*Θ0
+        u ~ 3*Θ[1]
         Π ~ Θ[2] + ΘP[2] + ΘP0
         (polarization ? [
             D(ΘP0) + k*ΘP[1] ~ dτ * (ΘP0 - Π/2)
@@ -56,13 +57,14 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
 end
 
 function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kwargs...)
-    @variables Θ0(t) Θ(t)[1:lmax] δ(t)
+    @variables Θ0(t) Θ(t)[1:lmax] δ(t) u(t)
     eqs = [
         D(Θ0) ~ -k*Θ[1] - D(g1.Φ)
         D(Θ[1]) ~ k/3 * (Θ0 - 2*Θ[2] + g1.Ψ)
         [D(Θ[l]) ~ k/(2*l+1) * (l*Θ[l-1] - (l+1)*Θ[l+1]) for l in 2:lmax-1]...
         D(Θ[lmax]) ~ k*Θ[lmax-1] - (lmax+1)/t*Θ[lmax]
         δ ~ 4*Θ0
+        u ~ 3*Θ[1]
     ]
     initialization_eqs = [
         Θ0 ~ -1/2 * g1.Ψ
