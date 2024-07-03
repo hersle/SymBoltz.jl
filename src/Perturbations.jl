@@ -81,19 +81,12 @@ end
 
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
-# TODO: check with MB
 function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs...)
     x, W = gauss(f0, nx, 0.0, 1000.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
-    vars = @variables T(t) y(t) ρ(t) δρ(t) δ(t) P(t) σ(t) u(t) ψ0(t)[1:nx] ψ(t)[1:nx, 1:lmax] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+    vars = @variables T(t) y(t) δ(t) P(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
     eqs = [
-        ρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ), W) # analytical solution with initial y≈0 is 7/120*π^4 / a^4 # TODO: don't duplicate background
-        δρ ~ 1/g0.a^4 * ∫(collect(@. x^2 * ϵ * ψ0), W) # analytical solution with initial y≈0 and ψ0 below is -7/60*π^4 * Ψ/a^4
-        δ ~ δρ / ρ
-
-        P ~ 1/3 / g0.a^4 * ∫(collect(@. x^4 / ϵ), W)
-        σ ~ 8π/3 / g0.a^4 * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (ρ + P)
-
-        u ~ 4π / g0.a^4 * ∫(collect(@. x^3 * ψ[:, 1]), W) / (ρ + P)
+        δ ~ ∫(collect(@. x^2 * ϵ * ψ0), W) / ∫(collect(@. x^2 * ϵ), W)
+        σ ~ (2/3) * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (∫(collect(@. x^2 * ϵ), W) + 1/3 * ∫(collect(@. x^4 / ϵ), W)) # 2/3 * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (ρ + P)
     ]
     initialization_eqs = []
     for i in 1:nx
@@ -101,14 +94,15 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs..
             ϵ[i] ~ √(x[i]^2 + y^2) # TODO: use z to match reduced x and y?
             dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i]))
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
-            D(ψ[i,1]) ~ +k/3 * x[i]/ϵ[i] * (ψ0[i] - 2ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
-            [D(ψ[i,l]) ~ k/(2l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax-1]...
-            ψ[i,lmax] ~ (2lmax-1) * ϵ[i]/x[i] * ψ[i,lmax-1] / (k*t) - ψ[i,lmax-2]
+            D(ψ[i,1]) ~ k/3 * x[i]/ϵ[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
+            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
+            ψ[i,lmax+1] ~ (2*lmax+1) * ϵ[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1] # TODO: use photon-like truncation?
         ]...)
         push!(initialization_eqs, [
-            ψ0[i] ~ +1/2 * g1.Ψ * dlnf0_dlnx[i]
-            ψ[i,1] ~ 0 #-1/6 * k*t * g1.Ψ * ϵ/x * dlnf0_dlnx
-            [ψ[i,l] ~ 0 for l in 2:lmax-1] # TODO: proper ICs    
+            ψ0[i] ~ -1/4 * (-2*g1.Ψ) * dlnf0_dlnx[i]
+            ψ[i,1] ~ -1/(3*k) * ϵ[i]/x[i] * (1/2*(k^2*t)*g1.Ψ) * dlnf0_dlnx[i]
+            ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g1.Ψ) * dlnf0_dlnx[i]
+            [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: proper ICs    
         ]...)
     end
     return ODESystem(eqs, t, vars, []; initialization_eqs, kwargs...)
@@ -129,7 +123,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     @named g1 = perturbations_metric()
     @named ph = perturbations_photon_hierarchy(bg.g, g1, lmax, true)
     @named neu = perturbations_massless_neutrino_hierarchy(bg.g, g1, bg.neu, bg.ph, lmax)
-    #@named mneu = perturbations_massive_neutrino_hierarchy(bg.g, g1)
+    @named mneu = perturbations_massive_neutrino_hierarchy(bg.g, g1)
     @named cdm = perturbations_matter(bg.g, g1; θinteract=false)
     @named bar = perturbations_matter(bg.g, g1; θinteract=true)
     @named grav = perturbations_gravity(bg.g, g1)
@@ -138,8 +132,8 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     pars = convert(Vector{Any}, @parameters fν C)
     vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) πν(t)
     defaults = [
-        C => +1/2 # TODO: +1/2?
-        fν => bg.neu.Ω0 / (bg.neu.Ω0 + bg.ph.Ω0)
+        fν => bg.neu.ρ0 / (bg.neu.ρ0 + bg.ph.ρ0)
+        C => 1/2 # TODO: why does ≈ 0.475 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
         g1.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5) # Ψ found from solving initialization system
     ]
@@ -150,8 +144,8 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     ]
     eqs = [
         # gravity density and shear stress
-        grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ + neu.δ*bg.neu.ρ # + mneu.δ*bg.mneu.ρ # total energy density perturbation
-        grav.Π ~ (bg.ph.ρ+bg.ph.P)*ph.σ + (bg.neu.ρ+bg.neu.P)*neu.σ # + (bg.mneu.ρ+bg.mneu.P)*mneu.σ
+        grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ + neu.δ*bg.neu.ρ + mneu.δ*bg.mneu.ρ # total energy density perturbation
+        grav.Π ~ (bg.ph.ρ+bg.ph.P)*ph.σ + (bg.neu.ρ+bg.neu.P)*neu.σ + (bg.mneu.ρ+bg.mneu.P)*mneu.σ
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
         R ~ 4*bg.ph.ρ / (3*bg.bar.ρ)
@@ -163,10 +157,10 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         #Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
 
         # TODO: combine bg+pt systems
-        #mneu.T ~ bg.mneu.T
-        #mneu.y ~ bg.mneu.y
+        mneu.T ~ bg.mneu.T
+        mneu.y ~ bg.mneu.y
     ]
     
     connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
-    return compose(connections, g1, grav, ph, neu, #=mneu,=# bar, cdm, th)
+    return compose(connections, g1, grav, ph, neu, mneu, bar, cdm, th)
 end
