@@ -10,7 +10,7 @@ function perturbations_species(g0, g1, w, cs² = w, ẇ = 0, σ = 0; θinteract 
     eqs = [
         D(δ) ~ -(1+w)*(θ-3*D(g1.Φ)) - 3*g0.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g0.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cs²/(1+w)*k^2*δ - k^2*σ + k^2*g1.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
-        # TODO: Δ ~ δ + 3(1+w) * g0.ℰ/θ # Baumann (4.2.144) with v -> -u
+        Δ ~ δ + 3(1+w) * g0.ℰ/θ # Baumann (4.2.144) with v -> -u
     ]
     initialization_eqs = [
         δ ~ -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
@@ -154,7 +154,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         ph.τ̇ ~ th.rec.dτ
 
         # gauge-independent matter overdensity for matter power spectrum
-        #Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ)
+        Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ) # TODO: correct? # TODO: include massive neutrinos
 
         # TODO: combine bg+pt systems
         mneu.T ~ bg.mneu.T

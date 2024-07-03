@@ -4,7 +4,7 @@ using ForwardDiff, DiffResults, FiniteDiff
 
 model = Symboltz.ΛCDM()
 par = Symboltz.CosmologicalParameters()
-ks = 10 .^ range(-4, +1, length=200) / Symboltz.k0
+ks = 10 .^ range(-3, +1, length=100) / Symboltz.k0
 θ0 = [par.Ωγ0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go

@@ -57,7 +57,7 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, solver = Rodas5P(), reltol = 1e-6, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, solver = KenCarp47(), reltol = 1e-5, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
         model.th.bg.cdm.Ω0 => par.Ωc0,
