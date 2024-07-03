@@ -23,18 +23,22 @@ if true
 end
 
 if true
-    pt_sol = Symboltz.solve_perturbations(model, 1.0 / Symboltz.k0, par)
-    plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ] / pt_sol[model.pt.g1.Φ][begin]; xlabel="lg(a)", label="Φ/Φᵢ")
-    plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Ψ] / pt_sol[model.pt.g1.Φ][begin]; xlabel="lg(a)", label="Ψ/Φᵢ")
-    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); label="δ = δc", xlabel="lg(a)", ylabel="lg(|δ|)")
-    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); label="δ = δb", xlabel="lg(a)")
-    plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  label="δ = δγ", xlabel="lg(a)")
-    #plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); label="δ = δν", xlabel="lg(a)")
-    #plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); label="δ = δmν", xlabel="lg(a)")
-    plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.cdm.θ]; label="θ = θc", ylabel="θ")
-    plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.bar.θ]; label="θ = θb")
-    plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.ph.θ]; label="θ = θγ")
-    #plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.neu.θ]; label="θ = θν")
-    #plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.mneu.θ]; label="θ = θmν")
+    ks = 10 .^ range(-1, 1, length=3) ./ Symboltz.k0
+    pt_sols = Symboltz.solve_perturbations(model, ks, par)
+    for (i, pt_sol) in enumerate(pt_sols)
+        color = i
+        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ]; xlabel="lg(a)", label="Φ", color)
+        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Ψ]; xlabel="lg(a)", label="Ψ", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); label="δ = δc", xlabel="lg(a)", ylabel="lg(|δ|)", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); label="δ = δb", xlabel="lg(a)", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  label="δ = δγ", xlabel="lg(a)", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); label="δ = δν", xlabel="lg(a)")
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); label="δ = δmν", xlabel="lg(a)")
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.cdm.θ]; label="θ = θc", ylabel="θ", color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.bar.θ]; label="θ = θb", color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.ph.θ]; label="θ = θγ", color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.neu.θ]; label="θ = θν")
+        #plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.mneu.θ]; label="θ = θmν")
+    end
     display(p)
 end
