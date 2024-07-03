@@ -85,11 +85,11 @@ results = Dict(
     "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[Symboltz.t] / (par.h * Symboltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.ph.ρ] / (3/8π)),
-    #"ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
+    "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
     "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.cdm.ρ] / (3/8π)),
     "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.bar.ρ] / (3/8π)),
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.de.ρ] / (3/8π)),
-    #"ρmν" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.mneu.ρ] / (3/8π)),
+    "ρmν" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.mneu.ρ] / (3/8π)),
 
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[model.bg.g.a])),
@@ -109,7 +109,7 @@ results = Dict(
     "δc" => (sol1["pt"]["delta_cdm"], sol2_pt[model.pt.cdm.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], sol2_pt[model.pt.ph.δ]),
     "δν" => (sol1["pt"]["delta_ur"], sol2_pt[model.pt.neu.δ]),
-    #"δmν" => (sol1["pt"]["delta_ncdm[0]"], -sol2_pt[model.pt.mneu.δ]),
+    "δmν" => (sol1["pt"]["delta_ncdm[0]"], sol2_pt[model.pt.mneu.δ]),
     "θb" => (sol1["pt"]["theta_b"], sol2_pt[model.pt.bar.θ] * (par.h*Symboltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2_pt[model.pt.cdm.θ] * (par.h*Symboltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2_pt[model.pt.ph.θ] * (par.h*Symboltz.k0)),
@@ -122,9 +122,9 @@ results = Dict(
 )
 
 # TODO: relative or absolute comparison (of quantities close to 0)
-#xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "ρν", "E", "t"]
+#xlabels, ylabels = ["lg(a_bg)", "lg(a_bg)", "lg(a_bg)"], ["ρmν", "ρν", "E"]
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
-xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δν", "θν"] # TODO: θmν
+xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δmν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
 title = join(["$s = $(getfield(par, s))" for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * ", k = $(kMpc) / Mpc"
 plot!(p[1]; title, titlefontsize = 9)

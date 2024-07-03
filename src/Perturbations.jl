@@ -59,13 +59,12 @@ function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwarg
 end
 
 function perturbations_massless_neutrino_hierarchy(g0, g1, neu0, ph0, lmax=6; kwargs...)
-    @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t)
+    @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     eqs = [
         D(F0) ~ -k*F[1] + 4*D(g1.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g1.Ψ)
-        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] # this is the same cutoff as for photons; gives best agreement with CLASS
-        #F[lmax] ~ (2*lmax-1) / (k*t) * F[lmax-1] - F[lmax-2] # Bertschinger & Ma say they use this cutoff, which is different from the photon cutoff; it gives results somewhat different from CLASS
+        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax]...
+        F[lmax+1] ~ (2*lmax+1) / (k*t) * F[lmax] - F[lmax-1]
         δ ~ F0
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
