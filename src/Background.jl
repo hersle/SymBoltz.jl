@@ -54,9 +54,10 @@ function background_massive_neutrinos(g; nx=5, kwargs...)
         Iρ = Iρ_adaptive
         IP = IP_adaptive
     else
-        x, W = gauss(f0, nx, 0.0, 1000.0) # get Gaussian quadrature weights
-        Iρ = y -> ∫(x.^2 .* ϵ.(x, y), W) # Iρ(0) = 7π^4/120
-        IP = y -> ∫(x.^4 ./ ϵ.(x, y), W) # IP(0) = Iρ(0)
+        x, W = gauss(x -> x^2*f0(x), nx, 0.0, 1e3) # get Gaussian quadrature weights
+        ∫dx_x²_f0(f) = sum(@. f(x) * W) # ≈ ∫dx*x^2*f(x)*f0(x)
+        Iρ = y -> ∫dx_x²_f0(x -> ϵ(x, y)) # Iρ(0) = 7π^4/120
+        IP = y -> ∫dx_x²_f0(x -> x^2 / ϵ(x, y)) # IP(0) = Iρ(0)
     end
     
     eqs = [

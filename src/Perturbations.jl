@@ -81,11 +81,12 @@ end
 # TODO: don't duplicate things in background neutrinos
 # TODO: use vector equations?
 function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs...)
-    x, W = gauss(f0, nx, 0.0, 1000.0) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
+    x, W = gauss(x -> x^2*f0(x), nx, 0.0, 1e3) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
+    ∫dx_x²_f0(f) = sum(collect(f) .* W) # ≈ ∫dx*x^2*f(x)*f0(x)
     vars = @variables T(t) y(t) δ(t) P(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
     eqs = [
-        δ ~ ∫(collect(@. x^2 * ϵ * ψ0), W) / ∫(collect(@. x^2 * ϵ), W)
-        σ ~ (2/3) * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (∫(collect(@. x^2 * ϵ), W) + 1/3 * ∫(collect(@. x^4 / ϵ), W)) # 2/3 * ∫(collect(@. x^4 / ϵ * ψ[:,2]), W) / (ρ + P)
+        δ ~ ∫dx_x²_f0(@. ϵ*ψ0) / ∫dx_x²_f0(ϵ)
+        σ ~ (2/3) * ∫dx_x²_f0(@. x^2/ϵ*ψ[:,2]) / (∫dx_x²_f0(ϵ) + 1/3*∫dx_x²_f0(@. x^2/ϵ))
     ]
     initialization_eqs = []
     for i in 1:nx
