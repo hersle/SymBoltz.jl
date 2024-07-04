@@ -99,7 +99,6 @@ function background_ΛCDM(; kwargs...)
         mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
     ]
     eqs = [grav.ρ ~ sum(s.ρ for s in species)]
-    comps = [g; grav; species]
     bg = ODESystem(eqs, t; initialization_eqs, defaults, kwargs...)
-    return compose(bg, comps...)
+    return compose(bg, g, grav, species...)
 end

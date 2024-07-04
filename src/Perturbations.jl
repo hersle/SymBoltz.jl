@@ -4,13 +4,14 @@ function perturbations_metric(; kwargs...)
     return ODESystem(Equation[], t, [Φ, Ψ], [k]; kwargs...)
 end
 
-function perturbations_species(g0, g1, w, cs² = w, ẇ = 0, σ = 0; θinteract = false, kwargs...)
-    @assert ẇ == 0 && σ == 0 # TODO: relax (need to include in ICs)
-    @variables δ(t) θ(t) Δ(t) θinteraction(t)
+function perturbations_species(g0, g1, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
+    @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
+    @variables δ(t) θ(t) Δ(t) θinteraction(t) σ(t)
     eqs = [
         D(δ) ~ -(1+w)*(θ-3*D(g1.Φ)) - 3*g0.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g0.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cs²/(1+w)*k^2*δ - k^2*σ + k^2*g1.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
         Δ ~ δ + 3(1+w) * g0.ℰ/θ # Baumann (4.2.144) with v -> -u
+        σ ~ _σ
     ]
     initialization_eqs = [
         δ ~ -3/2 * (1+w) * g1.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
@@ -24,11 +25,11 @@ perturbations_matter(g0, g1; kwargs...) = perturbations_species(g0, g1, 0; kwarg
 perturbations_radiation(g0, g1; kwargs...) = perturbations_species(g0, g1, 1//3; kwargs...)
 perturbations_cosmological_constant(g0, g1; kwargs...) = perturbations_species(g0, g1, -1; kwargs...) # TODO: ill-defined?
 
-function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwargs...) # TODO: enable polarization
+function perturbations_photon_hierarchy(g0, g1, lmax=6, polarization=true; kwargs...)
     @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
     eqs = [
         D(F0) ~ -k*F[1] + 4*D(g1.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g1.Ψ) - 4/3 * τ̇/k * (θb - θ) # TODO: ±τ̇ here and elsewhere ? # TODO: factor k in last term?
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g1.Ψ) - 4/3 * τ̇/k * (θb - θ)
         D(F[2]) ~ 2/5*k*F[1] - 3/5*k*F[3] + 9/10*τ̇*F[2] - 1/10*τ̇*(G0+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]... # TODO: Π in last term here?
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax] # TODO: assumes lmax ≥ ???
@@ -96,7 +97,7 @@ function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs..
             D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
             D(ψ[i,1]) ~ k/3 * x[i]/ϵ[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
-            ψ[i,lmax+1] ~ (2*lmax+1) * ϵ[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1] # TODO: use photon-like truncation?
+            ψ[i,lmax+1] ~ (2*lmax+1) * ϵ[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ]...)
         push!(initialization_eqs, [
             ψ0[i] ~ -1/4 * (-2*g1.Ψ) * dlnf0_dlnx[i]
@@ -112,11 +113,10 @@ function perturbations_gravity(g0, g1; kwargs...)
     @variables δρ(t) Π(t)
     return ODESystem([
         D(g1.Φ) ~ -4π/3*g0.a^2/g0.ℰ*δρ - k^2/(3*g0.ℰ)*g1.Φ - g0.ℰ*g1.Ψ
-        k^2 * (g1.Φ - g1.Ψ) ~ 12π * g0.a^2 * Π # TODO: Π = (ρ+P)*σ # anisotropic stress
+        k^2 * (g1.Φ - g1.Ψ) ~ 12π * g0.a^2 * Π
     ], t; kwargs...)
 end
 
-# TODO: take list of species, each of which "exposes" contributions to δρ and Π
 # TODO: support nicer and more general spline input interface
 function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs...)
     bg = th.bg
@@ -127,6 +127,9 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     @named cdm = perturbations_matter(bg.g, g1; θinteract=false)
     @named bar = perturbations_matter(bg.g, g1; θinteract=true)
     @named grav = perturbations_gravity(bg.g, g1)
+
+    species0 = [bg.ph, bg.neu, bg.mneu, bg.cdm, bg.bar] # TODO: generally include dark energy
+    species1 = [ph, neu, mneu, cdm, bar] # TODO: generally include dark energy
 
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     pars = convert(Vector{Any}, @parameters fν C)
@@ -139,12 +142,11 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     ]
     eqs = [
         # gravity density and shear stress
-        grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ + neu.δ*bg.neu.ρ + mneu.δ*bg.mneu.ρ # total energy density perturbation
-        grav.Π ~ (bg.ph.ρ+bg.ph.P)*ph.σ + (bg.neu.ρ+bg.neu.P)*neu.σ + (bg.mneu.ρ+bg.mneu.P)*mneu.σ
+        grav.δρ ~ sum(s1.δ * s0.ρ for (s0, s1) in zip(species0, species1)) # total energy density perturbation
+        grav.Π ~ sum((s0.ρ + s0.P) * s1.σ for (s0, s1) in zip(species0, species1))
     
         # baryon-photon interactions: Compton (Thomson) scattering # TODO: define connector type?
-        R ~ 4*bg.ph.ρ / (3*bg.bar.ρ)
-        bar.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -th.rec.dτ * R * (ph.θ - bar.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        bar.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -th.rec.dτ * 4*bg.ph.ρ/(3*bg.bar.ρ) * (ph.θ - bar.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.θb ~ bar.θ
         ph.τ̇ ~ th.rec.dτ
 
@@ -154,5 +156,5 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
     ]
     
     connections = ODESystem(eqs, t, vars, pars; defaults, kwargs...)
-    return compose(connections, g1, grav, ph, neu, mneu, bar, cdm, th)
+    return compose(connections, g1, grav, th, species1...)
 end
