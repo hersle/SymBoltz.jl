@@ -130,7 +130,7 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
 
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     pars = convert(Vector{Any}, @parameters fν C)
-    vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) Δm(t) dτ(t) πν(t)
+    vars = @variables δργ(t) δρν(t) δρmν(t) δρc(t) δρb(t) R(t) dτ(t) πν(t)
     defaults = [
         fν => bg.neu.ρ0 / (bg.neu.ρ0 + bg.ph.ρ0)
         C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
@@ -147,9 +147,6 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         bar.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -th.rec.dτ * R * (ph.θ - bar.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
         ph.θb ~ bar.θ
         ph.τ̇ ~ th.rec.dτ
-
-        # gauge-independent matter overdensity for matter power spectrum
-        Δm ~ (bg.cdm.ρ * cdm.Δ + bg.bar.ρ * bar.Δ) / (bg.cdm.ρ + bg.bar.ρ) # TODO: correct? # TODO: include massive neutrinos
 
         # TODO: combine bg+pt systems
         mneu.T ~ bg.mneu.T

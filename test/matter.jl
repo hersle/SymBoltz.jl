@@ -9,7 +9,7 @@ ks = 10 .^ range(-3, +1, length=100) / Symboltz.k0
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
 Pres = DiffResults.JacobianResult(ks, θ0)
-log10Ph3(log10θ) = log10.(Symboltz.P(model, ks, (10 .^ log10θ)...) / Symboltz.k0^3)
+log10Ph3(log10θ) = log10.(Symboltz.Pc(model, ks, (10 .^ log10θ)...) / Symboltz.k0^3)
 ForwardDiff.jacobian!(Pres, log10Ph3, log10.(θ0))
 lgPs, dlgP_dθs_ad = DiffResults.value(Pres), DiffResults.jacobian(Pres)
 

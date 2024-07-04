@@ -8,14 +8,14 @@ using Base.Threads
 P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function P(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
+function Pc(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
     sols = solve_perturbations(model, k, par; kwargs...)
-    return P0(k, par) .* sols(4.0, idxs=model.pt.Δm) .^ 2
+    return P0(k, par) .* sols(4.0, idxs=model.pt.cdm.Δ) .^ 2 # TODO: today!
 end
 
-function P(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, As, Yp; kwargs...)
+function Pc(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, As, Yp; kwargs...)
     par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, As, Yp)
-    return P(model, k, par; kwargs...)
+    return Pc(model, k, par; kwargs...)
 end
 
 #= # TODO: make work again?
