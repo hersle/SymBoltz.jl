@@ -35,8 +35,8 @@ function thermodynamics_recombination_recfast(g; kwargs...)
     KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
     KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
     initialization_eqs = [
-        XHe⁺ ~ 1, # TODO: add first order correction?
-        XH⁺ ~ 1 - αH/βH, # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
+        XHe⁺ ~ 1 # TODO: add first order correction?
+        XH⁺ ~ 1 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
     ]
     return ODESystem([
@@ -111,11 +111,11 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
 end
 
 function thermodynamics_recombination_splined(bg::ODESystem; kwargs...)
-    @variables dτ(t) cs²(t) Tb(t)
+    @variables dτ(t) cs²(t) #Tb(t)
     @parameters dτspline::CubicSpline cs²spline::CubicSpline Tbspline::CubicSpline
     return ODESystem([
         dτ ~ -exp(spleval(log(t), dτspline))
         cs² ~ exp(spleval(log(t), cs²spline))
-        Tb ~ exp(spleval(log(t), Tbspline))
+        #Tb ~ exp(spleval(log(t), Tbspline))
     ], t; kwargs...) # connect perturbation dτ with spline evaluation
 end

@@ -1,4 +1,9 @@
+import SpecialFunctions: zeta as ζ
 using SymbolicIndexingInterface: variable_index
+using QuadGK
+
+∫(f, a, b) = quadgk(f, a, b)[1] # TODO: use integrator that supports dual numbers
+∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
 # callback for terminating an integrator when var == val0
 function callback_terminator(sys, var, val0)

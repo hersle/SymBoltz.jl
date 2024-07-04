@@ -13,8 +13,8 @@ function P(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
     return P0(k, par) .* sols(4.0, idxs=model.pt.Δm) .^ 2
 end
 
-function P(model::CosmologicalModel, k, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; kwargs...)
-    par = CosmologicalParameters(Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp)
+function P(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, As, Yp; kwargs...)
+    par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, As, Yp)
     return P(model, k, par; kwargs...)
 end
 
@@ -93,6 +93,7 @@ end
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(t0-tini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
+# TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::AbstractArray; integrator = SimpsonEven())
     ts = exp.(lnts)

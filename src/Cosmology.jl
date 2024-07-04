@@ -12,7 +12,6 @@ end
 
 @kwdef struct CosmologicalParameters
     Ωγ0 = 5.5e-5
-    Ων0 = 3.046 * 7/8 * (4/11)^(4/3) * 5.5e-5 # TODO: handle more elegantly with Neff/Tν0
     Ωc0 = 0.267
     Ωb0 = 0.05
     h = 0.67
@@ -35,22 +34,20 @@ end
 
 # TODO: add aini, aend
 
-function solve_background(model::CosmologicalModel, par::CosmologicalParameters; aend = 1e0, solver = Vern8(), reltol = 1e-8, kwargs...)
-    prob = ODEProblem(model.bg_sim, [], (1e-5, 4.0), [
+function solve_background(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
+    prob = ODEProblem(model.bg_sim, [], (tini, 4.0), [
         model.bg_sim.ph.Ω0 => par.Ωγ0,
-        model.bg_sim.neu.Ω0 => par.Ων0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
-        model.bg_sim.g.h => NaN
+        model.th.bg.g.h => par.h
     ])
     callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
-    prob = ODEProblem(model.th_sim, [], (1e-5, 4.0), [
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
+    prob = ODEProblem(model.th_sim, [], (tini, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
-        model.th_sim.bg.neu.Ω0 => par.Ων0,
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
         model.th_sim.bg.bar.Ω0 => par.Ωb0,
         model.th_sim.bg.g.h => par.h,
@@ -60,29 +57,44 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; solver = KenCarp47(), reltol = 1e-6, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, solver = KenCarp47(), reltol = 1e-5, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
-        model.th.bg.neu.Ω0 => par.Ων0,
         model.th.bg.cdm.Ω0 => par.Ωc0,
         model.th.bg.bar.Ω0 => par.Ωb0,
         model.th.bg.g.h => par.h,
     ]
 
     if model.spline_th
-        ts = exp.(range(log(1e-5 + 1e-10), log(4.0 - 1e-10), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
-        th_sol = solve_thermodynamics(model, par; saveat = ts) # TODO: forward kwargs...?
+        ts = exp.(range(log(tini + 1e-20), log(4.0 - 1e-20), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
+        th_sol = solve_thermodynamics(model, par; tini, saveat = ts) # TODO: forward kwargs...?
         push!(pars,
             model.pt_sim.th.rec.dτspline => CubicSpline(log.(.-th_sol[model.th.rec.dτ]), log.(ts); extrapolate=true), # TODO: improve spline accuracy
-            model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.Tb]), log.(ts); extrapolate=true),
-            model.pt_sim.th.rec.cs²spline => CubicSpline(log.(th_sol[model.th.rec.cs²] .+ 1e-5), log.(ts); extrapolate=true), # TODO: investigate when cs² < 0 and improve positivity enforcement
+            #model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
+            model.pt_sim.th.rec.cs²spline => CubicSpline(log.(th_sol[model.th.rec.Tb]), log.(ts); extrapolate=true),
         )
     end
 
-    prob_dummy = ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => 1.0]) # TODO: why do I need this???
-    probs = EnsembleProblem(; safetycopy = false, prob = prob_dummy, prob_func = (_, i, _) -> begin
+    ki = 1.0
+    prob0 = ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => ki]) # TODO: why do I need this???
+    #sol0 = solve(prob0, solver; reltol, kwargs...)
+    probs = EnsembleProblem(; safetycopy = false, prob = prob0, prob_func = (prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(model.pt_sim, [], (1e-5, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
+        prob_new = remake(prob, u0 = [
+            model.pt_sim.th.bg.g.a => sol0[model.pt_sim.th.bg.g.a][begin]
+            model.pt_sim.g1.Φ => sol0[model.pt_sim.g1.Φ][begin]
+            model.pt_sim.cdm.θ => (ks[i]/ki)^2 * sol0[model.pt_sim.cdm.θ][begin]
+            model.pt_sim.bar.θ => (ks[i]/ki)^2 * sol0[model.pt_sim.bar.θ][begin]
+            model.pt_sim.ph.F[1] => (ks[i]/ki)^1 * sol0[model.pt_sim.ph.F[1]][begin]
+            model.pt_sim.neu.F[1] => (ks[i]/ki)^1 * sol0[model.pt_sim.neu.F[1]][begin]
+            model.pt_sim.neu.F[2] => (ks[i]/ki)^2 * sol0[model.pt_sim.neu.F[2]][begin]
+            collect(model.pt_sim.mneu.ψ[:,1] .=> (ks[i]/ki)^1 * sol0[model.pt_sim.mneu.ψ[:,1]][begin])...
+            collect(model.pt_sim.mneu.ψ[:,2] .=> (ks[i]/ki)^2 * sol0[model.pt_sim.mneu.ψ[:,2]][begin])...
+        ], tspan = (tini, 4.0), p = [k => ks[i]], use_defaults = true)
+        return prob_new # BUG: prob_new's u0 does not match solution[begin]
+        =#
     end)
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
