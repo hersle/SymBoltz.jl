@@ -22,7 +22,7 @@ function background_species(g, w; kwargs...)
     @variables ρ(t) P(t)
     return ODESystem([
         P ~ w * ρ # equation of state
-        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P) 
+        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
     ], t; kwargs...)
 end
 background_radiation(g; kwargs...) = background_species(g, 1//3; kwargs...)
@@ -31,10 +31,13 @@ background_cosmological_constant(g; kwargs...) = background_species(g, -1; kwarg
 
 function background_photons(g; kwargs...)
     @parameters T0
-    @variables T(t)    
-    return extend(background_radiation(g; kwargs...), ODESystem([
+    @variables T(t)
+    ph = background_radiation(g; kwargs...)
+    return extend(ph, ODESystem([
         T ~ T0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
-    ], t; name=:ph))
+    ], t; defaults = [
+        T0 => (ParentScope(ph.ρ0) * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: get rid of ParentScope?
+    ], name=:ph))
 end
 
 f0(x) = 1 / (exp(x) + 1) # TODO: exp(x) or exp(ϵ)?
@@ -91,7 +94,6 @@ function background_ΛCDM(; kwargs...)
     initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0_massless) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
-        ph.T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: move to photon system
         neu.Ω0 => (Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
         mneu.T0 => (Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
