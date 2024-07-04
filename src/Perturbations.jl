@@ -137,11 +137,6 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         g1.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
         #g1.Φ => (1 + 2/5*fν) / (3/2 + 2*fν/5) # Ψ found from solving initialization system
     ]
-    guesses = [
-        g1.Ψ => 1.0;
-        collect(ph.F .=> 0.0);
-        collect(neu.F .=> 0.0)
-    ]
     eqs = [
         # gravity density and shear stress
         grav.δρ ~ ph.δ*bg.ph.ρ + cdm.δ*bg.cdm.ρ + bar.δ*bg.bar.ρ + neu.δ*bg.neu.ρ + mneu.δ*bg.mneu.ρ # total energy density perturbation
@@ -161,6 +156,6 @@ function perturbations_ΛCDM(th::ODESystem, lmax::Int; spline_th=false, kwargs..
         mneu.y ~ bg.mneu.y
     ]
     
-    connections = ODESystem(eqs, t, vars, pars; defaults, guesses, kwargs...)
+    connections = ODESystem(eqs, t, vars, pars; defaults, kwargs...)
     return compose(connections, g1, grav, ph, neu, mneu, bar, cdm, th)
 end
