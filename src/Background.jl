@@ -40,7 +40,13 @@ function background_photons(g; kwargs...)
     ], name=:ph))
 end
 
-f0(x) = 1 / (exp(x) + 1) # TODO: exp(x) or exp(ϵ)?
+function background_massless_neutrinos(g; kwargs...)
+    @parameters Neff
+    neu = background_radiation(g; kwargs...)
+    return extend(neu, ODESystem(Equation[], t, [], [Neff]; defaults = [Neff => 3.046], name=:neu))
+end
+
+f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(ϵ)?
 ϵ(x, y) = √(x^2 + y^2)
 dρ_dx(x, y) = x^2 * ϵ(x, y) * f0(x)
 dP_dx(x, y) = x^4 / ϵ(x, y) * f0(x)
@@ -48,7 +54,6 @@ Iρ_adaptive(y) = ∫(x -> dρ_dx(x, y), 0, Inf)
 IP_adaptive(y) = ∫(x -> dP_dx(x, y), 0, Inf)
 @register_symbolic Iρ_adaptive(y)
 @register_symbolic IP_adaptive(y)
-# TODO: weight quadrature by f0 in fixed case
 function background_massive_neutrinos(g; nx=5, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t)
@@ -84,18 +89,17 @@ function background_ΛCDM(; kwargs...)
     @named g = background_metric()
     @named grav = background_gravity_GR(g)
     @named ph = background_photons(g)
-    @named neu = background_radiation(g)
+    @named neu = background_massless_neutrinos(g)
     @named mneu = background_massive_neutrinos(g)
     @named cdm = background_matter(g)
     @named bar = background_matter(g)
     @named de = background_cosmological_constant(g)
-    Neff = 3.046 # TODO: proper parameter
     species = [ph, neu, mneu, cdm, bar, de]
-    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0_massless) * t] # analytical radiation-dominated solution # TODO: add effect from massive neutrinos # TODO: write t ~ 1/g.ℰ ?
+    initialization_eqs = [g.a ~ √(ph.Ω0 + neu.Ω0 + mneu.Ω0_massless) * t] # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system
-        neu.Ω0 => (Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
-        mneu.T0 => (Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
+        neu.Ω0 => (neu.Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
+        mneu.T0 => (neu.Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
     ]
     eqs = [grav.ρ ~ sum(s.ρ for s in species)]

@@ -14,8 +14,8 @@ function Pc(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
     return P0(k, par) .* Δ .^ 2
 end
 
-function Pc(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, As, Yp; kwargs...)
-    par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, As, Yp)
+function Pc(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp; kwargs...)
+    par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp)
     return Pc(model, k, par; kwargs...)
 end
 

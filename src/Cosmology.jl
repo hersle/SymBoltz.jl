@@ -15,6 +15,7 @@ end
     Ωc0 = 0.267
     Ωb0 = 0.05
     h = 0.67
+    Neff = 3.046
     As = 2.1e-9
     Yp = 0.245
 end
@@ -39,6 +40,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
         model.bg_sim.ph.Ω0 => par.Ωγ0,
         model.bg_sim.cdm.Ω0 => par.Ωc0,
         model.bg_sim.bar.Ω0 => par.Ωb0,
+        model.bg_sim.neu.Neff => par.Neff,
         model.th.bg.g.h => par.h
     ])
     callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
@@ -51,6 +53,7 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
         model.th_sim.bg.bar.Ω0 => par.Ωb0,
         model.th_sim.bg.g.h => par.h,
+        model.th_sim.bg.neu.Neff => par.Neff,
         model.th_sim.rec.Yp => par.Yp
     ])
     callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
@@ -63,6 +66,7 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
         model.th.bg.cdm.Ω0 => par.Ωc0,
         model.th.bg.bar.Ω0 => par.Ωb0,
         model.th.bg.g.h => par.h,
+        model.th.bg.neu.Neff => par.Neff,
     ]
 
     if model.spline_th
