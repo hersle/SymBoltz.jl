@@ -15,9 +15,15 @@ end
 @register_symbolic spleval(x, spline::CubicSpline)
 spleval(x, spline) = spline(x)
 
+function spline(y, x)
+    i = unique(i -> x[i], eachindex(x)) # get indices of unique x values
+    x, y = x[i], y[i] # remove duplicate x values
+    return CubicSpline(y, x; extrapolate=true)
+end
+
 # compute dy/dx by splining y(x)
-function D_spline(y, x; Spline = CubicSpline, order = 1)
-    y_spline = Spline(y, x; extrapolate=true)
+function D_spline(y, x; order = 1)
+    y_spline = spline(y, x)
     y′ = DataInterpolations.derivative.(Ref(y_spline), x, order)
     return y′
 end

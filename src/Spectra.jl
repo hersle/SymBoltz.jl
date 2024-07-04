@@ -10,7 +10,8 @@ P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot
 # total matter power spectrum
 function Pc(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
     sols = solve_perturbations(model, k, par; kwargs...)
-    return P0(k, par) .* sols(4.0, idxs=model.pt.cdm.Δ) .^ 2 # TODO: today!
+    Δ = [sol[model.pt.cdm.Δ][end] for sol in sols]
+    return P0(k, par) .* Δ .^ 2
 end
 
 function Pc(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, As, Yp; kwargs...)
@@ -65,12 +66,12 @@ function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArra
     return Ss
 end
 
-function S(model, ts::AbstractArray, ksfine::AbstractArray, par::CosmologicalParameters, kscoarse::AbstractArray; Spline = CubicSpline, kwargs...) 
+function S(model, ts::AbstractArray, ksfine::AbstractArray, par::CosmologicalParameters, kscoarse::AbstractArray; kwargs...) 
     Sscoarse = S_splined(model, ts, kscoarse, par) # TODO: restore S_observed
     Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
     for it in eachindex(ts)
         Sscoarset = @view Sscoarse[it,:]
-        Ssfine[it,:] .= Spline(Sscoarset, kscoarse)(ksfine)
+        Ssfine[it,:] .= spline(Sscoarset, kscoarse)(ksfine)
     end
     return Ssfine
 end
@@ -134,7 +135,7 @@ function Θl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnt
     return Θl(ls, ks, lnts, Ss)
 end
 
-# TODO: integrate CubicSplines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+# TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::AbstractArray; integrator = SimpsonEven())
     Cls = similar(Θls, length(ls))
     ks_with0 = [0.0; ks]

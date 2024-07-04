@@ -45,7 +45,7 @@ function solve_background(model::CosmologicalModel, par::CosmologicalParameters;
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = NaN, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
+function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
     prob = ODEProblem(model.th_sim, [], (tini, 4.0), [
         model.th_sim.bg.ph.Ω0 => par.Ωγ0,
         model.th_sim.bg.cdm.Ω0 => par.Ωc0,
@@ -53,11 +53,11 @@ function solve_thermodynamics(model::CosmologicalModel, par::CosmologicalParamet
         model.th_sim.bg.g.h => par.h,
         model.th_sim.rec.Yp => par.Yp
     ])
-    callback = nothing # callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
+    callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, solver = KenCarp47(), reltol = 1e-5, verbose = false, kwargs...)
+function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-5, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         model.th.bg.ph.Ω0 => par.Ωγ0,
         model.th.bg.cdm.Ω0 => par.Ωc0,
@@ -66,21 +66,22 @@ function solve_perturbations(model::CosmologicalModel, ks::AbstractArray, par::C
     ]
 
     if model.spline_th
-        ts = exp.(range(log(tini + 1e-20), log(4.0 - 1e-20), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
-        th_sol = solve_thermodynamics(model, par; tini, saveat = ts) # TODO: forward kwargs...?
+        th_sol = solve_thermodynamics(model, par; tini, aend) # TODO: forward kwargs...?
+        tend = th_sol[t][end]
+        ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         push!(pars,
-            model.pt_sim.th.rec.dτspline => CubicSpline(log.(.-th_sol[model.th.rec.dτ]), log.(ts); extrapolate=true), # TODO: improve spline accuracy
-            #model.pt_sim.th.rec.Tbspline => CubicSpline(log.(th_sol[model.th.rec.cs²]), log.(ts); extrapolate=true),
-            model.pt_sim.th.rec.cs²spline => CubicSpline(log.(th_sol[model.th.rec.Tb]), log.(ts); extrapolate=true),
+            model.pt_sim.th.rec.dτspline => spline(log.(.-th_sol(ts, idxs=model.th.rec.dτ).u), log.(ts)), # TODO: improve spline accuracy
+            #model.pt_sim.th.rec.Tbspline => spline(log.(th_sol[model.th.rec.cs²]), log.(ts)),
+            model.pt_sim.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=model.th.rec.Tb).u), log.(ts)),
         )
     end
 
     ki = 1.0
-    prob0 = ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => ki]) # TODO: why do I need this???
+    prob0 = ODEProblem(model.pt_sim, [], (tini, tend), [pars; k => ki]) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     probs = EnsembleProblem(; safetycopy = false, prob = prob0, prob_func = (prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(model.pt_sim, [], (tini, 4.0), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(model.pt_sim, [], (tini, tend), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             model.pt_sim.th.bg.g.a => sol0[model.pt_sim.th.bg.g.a][begin]
