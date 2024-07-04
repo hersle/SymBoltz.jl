@@ -1,5 +1,6 @@
 using ModelingToolkit
 using Plots; Plots.default(label=nothing)
+using Printf
 
 # TODO: make plot recipes
 
@@ -25,20 +26,24 @@ end
 if true
     ks = 10 .^ range(-1, 1, length=3) ./ Symboltz.k0
     pt_sols = Symboltz.solve_perturbations(model, ks, par)
-    for (i, pt_sol) in enumerate(pt_sols)
+    for (i, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         color = i
-        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ]; xlabel="lg(a)", label="Φ", color)
-        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Ψ]; xlabel="lg(a)", label="Ψ", color)
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); label="δ = δc", xlabel="lg(a)", ylabel="lg(|δ|)", color)
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); label="δ = δb", xlabel="lg(a)", color)
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  label="δ = δγ", xlabel="lg(a)", color)
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); label="δ = δν", xlabel="lg(a)")
-        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); label="δ = δmν", xlabel="lg(a)")
-        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.cdm.θ]; label="θ = θc", ylabel="θ", color)
-        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.bar.θ]; label="θ = θb", color)
-        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.ph.θ]; label="θ = θγ", color)
-        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.neu.θ]; label="θ = θν")
+        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Φ]; linestyle=:solid, xlabel="lg(a)", color)
+        plot!(p[3,1], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.g1.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.ph.δ]));  linestyle=:solid, color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.cdm.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.bar.δ])); linestyle=:dot, color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.neu.δ])); linestyle=:dashdot, color)
+        plot!(p[3,2], log10.(pt_sol[model.bg.g.a]), log10.(abs.(pt_sol[model.pt.mneu.δ])); linestyle=:dashdotdot, color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.cdm.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.bar.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.ph.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.neu.θ] ./ k; color)
         #plot!(p[3,3], log10.(pt_sol[model.bg.g.a]), pt_sol[model.pt.mneu.θ]; label="θ = θmν")
     end
+    hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)
+    hline!(p[3,1], fill(NaN, 1, length(ks)), color=permutedims(eachindex(ks)), label=permutedims([(@sprintf "k = %f h/Mpc" k * Symboltz.k0) for k in ks]))
+    hline!(p[3,2], [NaN NaN NaN NaN NaN], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="δ = δ" .* ["γ" "c" "b" "ν" "mν"], color=:black, legend_position=:topleft)
+    hline!(p[3,3], [NaN NaN NaN NaN NaN], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="θ = θ" .* ["γ" "c" "b" "ν" "mν"], color=:black, legend_position=:topleft)
     display(p)
 end
