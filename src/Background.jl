@@ -33,10 +33,11 @@ function background_photons(g; kwargs...)
     @parameters T0
     @variables T(t)
     ph = background_radiation(g; kwargs...)
+    ph = complete(ph) # prevent namespacing in extension below
     return extend(ph, ODESystem([
         T ~ T0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
     ], t; defaults = [
-        T0 => (ParentScope(ph.ρ0) * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB # TODO: get rid of ParentScope?
+        T0 => (ph.ρ0 * 15/π^2 * g.H0^2/G * ħ^3*c^5)^(1/4) / kB
     ], name=:ph))
 end
 
