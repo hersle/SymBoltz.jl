@@ -47,10 +47,10 @@ function background_massless_neutrinos(g; kwargs...)
     return extend(neu, ODESystem(Equation[], t, [], [Neff]; defaults = [Neff => 3.046], name=:neu))
 end
 
-f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(ϵ)?
-ϵ(x, y) = √(x^2 + y^2)
-dρ_dx(x, y) = x^2 * ϵ(x, y) * f0(x)
-dP_dx(x, y) = x^4 / ϵ(x, y) * f0(x)
+f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
+E(x, y) = √(x^2 + y^2)
+dρ_dx(x, y) = x^2 * E(x, y) * f0(x)
+dP_dx(x, y) = x^4 / E(x, y) * f0(x)
 Iρ_adaptive(y) = ∫(x -> dρ_dx(x, y), 0, Inf)
 IP_adaptive(y) = ∫(x -> dP_dx(x, y), 0, Inf)
 @register_symbolic Iρ_adaptive(y)
@@ -65,8 +65,8 @@ function background_massive_neutrinos(g; nx=5, kwargs...)
     else
         x, W = gauss(x -> x^2*f0(x), nx, 0.0, 1e3) # get Gaussian quadrature weights
         ∫dx_x²_f0(f) = sum(@. f(x) * W) # ≈ ∫dx*x^2*f(x)*f0(x)
-        Iρ = y -> ∫dx_x²_f0(x -> ϵ(x, y)) # Iρ(0) = 7π^4/120
-        IP = y -> ∫dx_x²_f0(x -> x^2 / ϵ(x, y)) # IP(0) = Iρ(0)
+        Iρ = y -> ∫dx_x²_f0(x -> E(x, y)) # Iρ(0) = 7π^4/120
+        IP = y -> ∫dx_x²_f0(x -> x^2 / E(x, y)) # IP(0) = Iρ(0)
     end
     
     eqs = [

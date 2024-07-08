@@ -84,24 +84,24 @@ end
 function perturbations_massive_neutrino_hierarchy(g0, g1; nx=5, lmax=4, kwargs...)
     x, W = gauss(x -> x^2*f0(x), nx, 0.0, 1e3) # reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
     ∫dx_x²_f0(f) = sum(collect(f) .* W) # ≈ ∫dx*x^2*f(x)*f0(x)
-    vars = @variables T(t) y(t) δ(t) P(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1] dlnf0_dlnx(t)[1:nx] ϵ(t)[1:nx]
+    vars = @variables T(t) y(t) δ(t) P(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1] dlnf0_dlnx(t)[1:nx] E(t)[1:nx]
     eqs = [
-        δ ~ ∫dx_x²_f0(@. ϵ*ψ0) / ∫dx_x²_f0(ϵ)
-        σ ~ (2/3) * ∫dx_x²_f0(@. x^2/ϵ*ψ[:,2]) / (∫dx_x²_f0(ϵ) + 1/3*∫dx_x²_f0(@. x^2/ϵ))
+        δ ~ ∫dx_x²_f0(@. E*ψ0) / ∫dx_x²_f0(E)
+        σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E*ψ[:,2]) / (∫dx_x²_f0(E) + 1/3*∫dx_x²_f0(@. x^2/E))
     ]
     initialization_eqs = []
     for i in 1:nx
         push!(eqs, [ # TODO: write shorter with vector equations and collect
-            ϵ[i] ~ √(x[i]^2 + y^2) # TODO: use z to match reduced x and y?
+            E[i] ~ √(x[i]^2 + y^2) # TODO: use z to match reduced x and y?
             dlnf0_dlnx[i] ~ -x[i] / (1 + exp(-x[i]))
-            D(ψ0[i]) ~ -k * x[i]/ϵ[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
-            D(ψ[i,1]) ~ k/3 * x[i]/ϵ[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * ϵ[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
-            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/ϵ[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
-            ψ[i,lmax+1] ~ (2*lmax+1) * ϵ[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
+            D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g1.Φ) * dlnf0_dlnx[i]
+            D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g1.Ψ * dlnf0_dlnx[i]
+            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
+            ψ[i,lmax+1] ~ (2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ]...)
         push!(initialization_eqs, [
             ψ0[i] ~ -1/4 * (-2*g1.Ψ) * dlnf0_dlnx[i]
-            ψ[i,1] ~ -1/(3*k) * ϵ[i]/x[i] * (1/2*(k^2*t)*g1.Ψ) * dlnf0_dlnx[i]
+            ψ[i,1] ~ -1/(3*k) * E[i]/x[i] * (1/2*(k^2*t)*g1.Ψ) * dlnf0_dlnx[i]
             ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g1.Ψ) * dlnf0_dlnx[i]
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: proper ICs    
         ]...)
