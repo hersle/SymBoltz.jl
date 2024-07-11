@@ -4,7 +4,7 @@ const c  = PhysicalConstants.CODATA2018.c_0 / u"m/s"
 const h  = PhysicalConstants.CODATA2018.h / u"J*s"
 const ħ  = PhysicalConstants.CODATA2018.ħ / u"J*s"
 const kB = PhysicalConstants.CODATA2018.k_B / u"J/K"
-const G  = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2"
+const GN = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2" # TODO: nicer naming
 const α  = PhysicalConstants.CODATA2018.α # fine structure constant, ≈ 1/137
 
 const σ  = PhysicalConstants.CODATA2018.σ / u"W*K^-4*m^-2" # Stefan-Boltzmann constant ("radiation constant"?)

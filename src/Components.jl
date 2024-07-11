@@ -95,7 +95,7 @@ function extract_order(sys::ODESystem, orders)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.parameters(sys)
     defs = ModelingToolkit.get_defaults(sys)
-    # TODO: also forward defaults etc.
+    guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
     eqs = vcat((extract_order.(eqs, order) for order in orders)...)
@@ -105,7 +105,7 @@ function extract_order(sys::ODESystem, orders)
     eqs = filter(eq -> eq != (0 ~ 0), eqs)
     ieqs = filter(eq -> eq != (0 ~ 0), ieqs)
 
-    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, name=sys.name)
+    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
     return sys0
 end
 
@@ -122,17 +122,22 @@ function ΛCDM(; kwargs...)
     initialization_eqs = [
         g.a ~ √(r.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
+    @parameters C
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
         #neu.Ω0 => (neu.Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
         #mneu.T0 => (neu.Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         #mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        k => NaN # make background shut up # TODO: avoid
+        # # TODO: fν => bg.neu.ρ0 / (bg.neu.ρ0 + bg.ph.ρ0)
+        C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
+        g.Ψ => 20C / (15 #=+ 4fν=#) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
     ]
     connections = ODESystem([
         G.ρ ~ sum(s.ρ for s in species)
         ϵ*G.δρ ~ ϵ*sum(s.δ * s.ρ for s in species) # total energy density perturbation
         ϵ*G.Π ~ ϵ*sum((s.ρ + s.P) * s.σ for s in species)
-    ], t, [], []; initialization_eqs, defaults, kwargs...)
+    ], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
     return compose(connections, g, G, species...)
 end
 
