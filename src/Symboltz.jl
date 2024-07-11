@@ -23,6 +23,7 @@ include("Constants.jl")
 include("Background.jl")
 include("Thermodynamics.jl")
 include("Perturbations.jl")
+include("Components.jl")
 include("Spectra.jl")
 
 export background_ΛCDM, thermodynamics_ΛCDM, perturbations_ΛCDM
