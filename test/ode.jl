@@ -13,14 +13,9 @@ p = plot(layout=(3,3), size=(1600, 1200), margin=5*Plots.mm)
 if true
     bg_sol = Symboltz.solve_background(M, par)
     plot!(p[1,1], bg_sol[Symboltz.t], bg_sol[M.bg_sim.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
-    plot!(p[1,2], log10.(bg_sol[M.bg_sim.g.a]), stack(bg_sol[[M.bg_sim.#=ph=#r.ρ, #=M.bg_sim.neu.ρ, M.bg_sim.mneu.ρ,=# M.bg_sim.#=cd=#m.ρ, #=M.bg_sim.bar.ρ,=# M.bg_sim.Λ.ρ]] ./ bg_sol[M.bg_sim.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωr" "Ω = Ωm" "Ω = ΩΛ"#="Ω = Ωγ" "Ω = Ων" "Ω = Ωmν" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"=#], legend=:left)
-    display(p)
-end
-
-if false
-    th_sol = Symboltz.solve_thermodynamics(model, par)
-    plot!(p[2,1], log10.(th_sol[model.th_sim.bg.g.a]), log10.(abs.(stack(th_sol[[model.th_sim.rec.Xe, model.th_sim.rec.XH⁺, model.th_sim.rec.XHe⁺, model.th_sim.rec.XHe⁺⁺]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"], legend=:bottomleft)
-    plot!(p[2,2], log10.(th_sol[model.th_sim.bg.g.a]), log10.(stack(th_sol[[model.th_sim.rec.Tγ, model.th_sim.rec.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["T = Tγ" "T = Tb"])
+    plot!(p[1,2], log10.(bg_sol[M.bg_sim.g.a]), stack(bg_sol[[M.bg_sim.γ.ρ, #=M.bg_sim.neu.ρ, M.bg_sim.mneu.ρ,=# M.bg_sim.c.ρ, #=M.bg_sim.bar.ρ,=# M.bg_sim.Λ.ρ]] ./ bg_sol[M.bg_sim.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωr" "Ω = Ωm" "Ω = ΩΛ"#="Ω = Ωγ" "Ω = Ων" "Ω = Ωmν" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"=#], legend=:left)
+    plot!(p[2,1], log10.(bg_sol[M.bg_sim.g.a]), log10.(abs.(stack(bg_sol[[M.bg_sim.b.rec.Xe, M.bg_sim.b.rec.XH⁺, M.bg_sim.b.rec.XHe⁺, M.bg_sim.b.rec.XHe⁺⁺]])')); xlabel="lg(a)", ylabel="X", ylims=(-5, 1), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"], legend=:bottomleft)
+    plot!(p[2,2], log10.(bg_sol[M.bg_sim.g.a]), log10.(stack(bg_sol[[M.bg_sim.b.rec.Tγ, M.bg_sim.b.rec.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["T = Tγ" "T = Tb"])
     display(p)
 end
 
@@ -32,13 +27,13 @@ if true
         color = i
         plot!(p[3,1], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
         plot!(p[3,1], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.#=ph=#r.δ]));  linestyle=:solid, color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.#=cd=#m.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
+        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.γ.δ]));  linestyle=:solid, color)
+        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.c.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
         #plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.bar.δ])); linestyle=:dot, color)
         #plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.neu.δ])); linestyle=:dashdot, color)
         #plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.mneu.δ])); linestyle=:dashdotdot, color)
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.#=ph=#r.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.#=cdm=#m.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.γ.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
+        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.c.θ] ./ k; color)
         #plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.bar.θ] ./ k; color)
         #plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.neu.θ] ./ k; color)
         #plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.mneu.θ]; label="θ = θmν")

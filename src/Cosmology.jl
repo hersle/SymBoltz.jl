@@ -28,43 +28,31 @@ end
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: just one solve(), but dispatch on whether or not k is specified to determine whether perturbations are solved (and recombination, in a different way)?
 
-function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
+function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     prob = ODEProblem(M.bg_sim, [], (tini, 4.0), [
-        M.bg_sim.r.Ω0 => par.Ωγ0,
-        M.bg_sim.m.Ω0 => par.Ωc0,
-        #M.bg_sim.bar.Ω0 => par.Ωb0,
-        #M.bg_sim.neu.Neff => par.Neff,
-        #M.th.bg.g.h => par.h
+        M.bg_sim.γ.Ω0 => par.Ωγ0
+        M.bg_sim.c.Ω0 => par.Ωc0
+        M.bg_sim.b.Ω0 => par.Ωb0
+        #M.bg_sim.neu.Neff => par.Neff
+        M.bg_sim.g.h => par.h
+        M.bg_sim.b.rec.Yp => par.Yp
     ])
     callback = callback_terminator(M.bg_sim, M.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_thermodynamics(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...) # need very small tolerance to get good csb²
-    return solve_background(M, par; tini, aend, solver, reltol, kwargs...) # TODO: reenable true thermodynamics solution
-    prob = ODEProblem(model.th_sim, [], (tini, 4.0), [
-        model.th_sim.bg.ph.Ω0 => par.Ωγ0,
-        model.th_sim.bg.cdm.Ω0 => par.Ωc0,
-        model.th_sim.bg.bar.Ω0 => par.Ωb0,
-        model.th_sim.bg.g.h => par.h,
-        model.th_sim.bg.neu.Neff => par.Neff,
-        model.th_sim.rec.Yp => par.Yp
-    ])
-    callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
-    return solve(prob, solver; callback, reltol, kwargs...)
-end
-
-function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters;  tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-8, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
-        M.pt_sim.r.Ω0 => par.Ωγ0,
-        M.pt_sim.m.Ω0 => par.Ωc0,
-        #M.th.bg.bar.Ω0 => par.Ωb0,
-        #M.th.bg.g.h => par.h,
+        M.pt_sim.γ.Ω0 => par.Ωγ0
+        M.pt_sim.c.Ω0 => par.Ωc0
+        M.pt_sim.b.Ω0 => par.Ωb0
+        M.pt_sim.g.h => par.h
         #M.th.bg.neu.Neff => par.Neff,
+        M.pt_sim.b.rec.Yp => par.Yp
     ]
 
-    if true # TODO: reenable
-        th_sol = solve_thermodynamics(M, par; tini, aend) # TODO: forward kwargs...?
+    if true # TODO: reenable splined thermodynamics
+        th_sol = solve_background(M, par; tini, aend) # TODO: forward kwargs...?
         tend = th_sol[t][end]
         #=
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!

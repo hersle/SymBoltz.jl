@@ -6,9 +6,9 @@ function metric(; kwargs...)
     return ODESystem([
         ℰ ~ D(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
-        #ℋ ~ ℰ * H0
-        #H ~ E * H0
-    ], t, [a, ℰ, E, #=H, ℋ,=# Φ, Ψ], [#=H0, h=#]; defaults = [H0 => H100 * h], kwargs...)
+        ℋ ~ ℰ * H0
+        H ~ E * H0
+    ], t, [a, ℰ, E, H, ℋ, Φ, Ψ], [H0, h]; defaults = [H0 => H100 * h], kwargs...)
 end
 
 function gravity(g; kwargs...)
@@ -60,6 +60,27 @@ function cosmological_constant(g; kwargs...)
     defaults = [ρ0 => 3/8π*Ω0]
     Λ = extend(ODESystem([ϵ*δ ~ 0, ϵ*σ ~ 0], t, [δ, σ], [ρ0, Ω0]; defaults, name=:Λ), complete(Λ)) # no perturbations
     return Λ
+end
+
+function photons(g; kwargs...)
+    @parameters T0
+    @variables T(t)
+    γ = radiation(g; kwargs...)
+    γ = complete(γ) # prevent namespacing in extension below
+    return extend(γ, ODESystem([
+        T ~ T0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
+    ], t, [T], [T0]; defaults = [
+        T0 => (15/π^2 * γ.ρ0 * g.H0^2/GN * ħ^3*c^5)^(1/4) / kB
+    ], name=:γ))
+end
+
+function baryons(g; recombination=true, kwargs...)
+    b = matter(g; kwargs...)
+    if recombination
+        @named rec = thermodynamics_recombination_recfast(g)
+        b = compose(b, rec)
+    end
+    return b
 end
 
 function transform(f::Function, sys::ODESystem)
@@ -115,12 +136,13 @@ perturbations(sys) = transform(sys -> extract_order(sys, [0, 1]), sys) # TODO: w
 function ΛCDM(; kwargs...)
     @named g = metric()
     @named G = gravity(g)
-    @named r = radiation(g)
-    @named m = matter(g)
+    @named γ = photons(g)
+    @named c = matter(g)
+    @named b = baryons(g)
     @named Λ = cosmological_constant(g)
-    species = [r, m, Λ]
+    species = [γ, c, b, Λ]
     initialization_eqs = [
-        g.a ~ √(r.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a ~ √(γ.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     @parameters C
     defaults = [
@@ -137,6 +159,9 @@ function ΛCDM(; kwargs...)
         G.ρ ~ sum(s.ρ for s in species)
         ϵ*G.δρ ~ ϵ*sum(s.δ * s.ρ for s in species) # total energy density perturbation
         ϵ*G.Π ~ ϵ*sum((s.ρ + s.P) * s.σ for s in species)
+
+        b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
+        b.rec.Tγ ~ γ.T
     ], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
     return compose(connections, g, G, species...)
 end

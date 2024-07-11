@@ -14,7 +14,7 @@ end
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
-    @parameters Yp fHe = Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
+    @parameters Yp fHe # fHe = nHe/nH
     @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
@@ -38,6 +38,9 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         XHe⁺ ~ 1 # TODO: add first order correction?
         XH⁺ ~ 1 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         Tb ~ Tγ
+    ]
+    defaults = [
+        fHe => Yp / (mHe/mH*(1-Yp))
     ]
     return ODESystem([
         nH ~ (1-Yp) * ρb/mH # 1/m³
@@ -95,7 +98,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
 
         dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         D(τ) ~ dτ
-    ], t; initialization_eqs, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, Tb, Tγ], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
