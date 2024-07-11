@@ -1,13 +1,14 @@
 struct CosmologicalModel
     bg::ODESystem
-    th::ODESystem
-    pt::ODESystem
-
     bg_sim::ODESystem
-    th_sim::ODESystem
-    pt_sim::ODESystem
+    #pt::ODESystem
+    #pt_sim::ODESystem
+end
 
-    spline_th::Bool # TODO: what about a parametric CosmologicalModel?
+function CosmologicalModel(sys::ODESystem)
+    bg = background(sys)
+    bg_sim = structural_simplify(bg)
+    return CosmologicalModel(bg, bg_sim)
 end
 
 @kwdef struct CosmologicalParameters
@@ -21,29 +22,17 @@ end
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
+# TODO: just one solve(), but dispatch on whether or not k is specified to determine whether perturbations are solved (and recombination, in a different way)?
 
-function ΛCDM(; lmax=6, spline_th = true)
-    @named bg = background_ΛCDM()
-    @named th = thermodynamics_ΛCDM(bg; spline=true) # just for constructing perturbation system
-    @named pt = perturbations_ΛCDM(th, lmax; spline_th) # TODO: spline full background OR select quantities
-    @named th = thermodynamics_ΛCDM(bg; spline=false)
-    bg_sim = structural_simplify(bg)
-    th_sim = structural_simplify(th)
-    pt_sim = structural_simplify(pt)
-    return CosmologicalModel(bg, th, pt, bg_sim, th_sim, pt_sim, spline_th)
-end
-
-# TODO: add aini, aend
-
-function solve_background(model::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
-    prob = ODEProblem(model.bg_sim, [], (tini, 4.0), [
-        model.bg_sim.ph.Ω0 => par.Ωγ0,
-        model.bg_sim.cdm.Ω0 => par.Ωc0,
-        model.bg_sim.bar.Ω0 => par.Ωb0,
-        model.bg_sim.neu.Neff => par.Neff,
-        model.th.bg.g.h => par.h
+function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Vern8(), reltol = 1e-15, kwargs...)
+    prob = ODEProblem(M.bg_sim, [], (tini, 4.0), [
+        M.bg_sim.r.Ω0 => par.Ωγ0,
+        M.bg_sim.m.Ω0 => par.Ωc0,
+        #M.bg_sim.bar.Ω0 => par.Ωb0,
+        #M.bg_sim.neu.Neff => par.Neff,
+        #M.th.bg.g.h => par.h
     ])
-    callback = callback_terminator(model.bg_sim, model.bg_sim.g.a, aend)
+    callback = callback_terminator(M.bg_sim, M.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
