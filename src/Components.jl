@@ -125,9 +125,13 @@ end
 
 # for testing: transform(identity, sys) should do no harm to a system
 function identity(sys)
-    eqs = map(eq -> eq, ModelingToolkit.get_eqs(sys))
-    ieqs = map(eq -> eq, ModelingToolkit.get_initialization_eqs(sys))
-    return ODESystem(eqs, t; initialization_eqs=ieqs, name=sys.name)
+    eqs = ModelingToolkit.get_eqs(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    vars = ModelingToolkit.get_unknowns(sys)
+    pars = ModelingToolkit.parameters(sys)
+    defs = ModelingToolkit.get_defaults(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
 end
 
 function extract_order(expr, order)
