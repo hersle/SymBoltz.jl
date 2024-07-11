@@ -117,10 +117,24 @@ function baryons(g; recombination=true, kwargs...)
     return b
 end
 
-function transform(f::Function, sys::ODESystem)
-    subsystems = transform.(f, sys.systems)
-    sys = f(sys)
-    return compose(sys, subsystems)
+function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
+    subs = [transform(f, sub; fullname = fullname * "₊" * string(sub.name)) for sub in sys.systems]
+    sys = f(sys, fullname)
+    return compose(sys, subs)
+end
+
+#=
+function basename(sys::ODESystem)
+    name = ModelingToolkit.get_name(sys) |> string
+    prefix = ModelingToolkit.get_namespace(sys) * "₊"
+    return chopprefix(name, prefix) |> Symbol
+end
+=#
+
+function replace(sys::ODESystem, old_new_subsys::Pair{ODESystem, ODESystem})
+    old_subsys, new_subsys = old_new_subsys # unpack
+    fullname_target = ModelingToolkit.get_name(old_subsys) |> string
+    return transform((sys, fullname) -> (fullname == fullname_target ? new_subsys : identity(sys)), sys)
 end
 
 # for testing: transform(identity, sys) should do no harm to a system
@@ -168,8 +182,17 @@ function extract_order(sys::ODESystem, orders)
     return sys0
 end
 
-background(sys) = transform(sys -> extract_order(sys, [0]), sys)
-perturbations(sys) = transform(sys -> extract_order(sys, [0, 1]), sys) # TODO: why does this fail exactly when substituting ϵ=1, but not 0 or 2??? # TODO: spline stuff?
+function background(sys)
+    return transform((sys, _) -> extract_order(sys, [0]), sys)
+end
+
+function perturbations(sys; spline_thermo=true)
+    if spline_thermo
+        @named rec = thermodynamics_recombination_splined()
+        sys = replace(sys, sys.b.rec => rec)
+    end
+    return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
+end
 
 function ΛCDM(; kwargs...)
     @named g = metric()
@@ -200,9 +223,9 @@ function ΛCDM(; kwargs...)
 
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
         b.rec.Tγ ~ γ.T
-        ϵ*b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -D(b.rec.τ) * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) * ϵ # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        ϵ*b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) * ϵ # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
 
-        ϵ*γ.τ̇ ~ D(b.rec.τ) * ϵ
+        ϵ*γ.τ̇ ~ b.rec.dτ * ϵ
         ϵ*γ.θb ~ b.θ * ϵ
     ], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
     return compose(connections, g, G, species...)

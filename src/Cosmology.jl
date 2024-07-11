@@ -41,26 +41,26 @@ function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tin
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters;  tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-8, verbose = false, kwargs...)
+function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         M.pt_sim.γ.Ω0 => par.Ωγ0
         M.pt_sim.c.Ω0 => par.Ωc0
         M.pt_sim.b.Ω0 => par.Ωb0
         M.pt_sim.g.h => par.h
         #M.th.bg.neu.Neff => par.Neff,
-        M.pt_sim.b.rec.Yp => par.Yp
     ]
 
-    if true # TODO: reenable splined thermodynamics
+    tend = 4.0
+    if :b₊rec₊dτspline in Symbol.(parameters(M.pt_sim))
         th_sol = solve_background(M, par; tini, aend) # TODO: forward kwargs...?
         tend = th_sol[t][end]
-        #=
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         push!(pars,
-            M.pt_sim.th.rec.dτspline => spline(log.(.-th_sol(ts, idxs=M.th.rec.dτ).u), log.(ts)), # TODO: improve spline accuracy
-            M.pt_sim.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=M.th.rec.Tb).u), log.(ts)),
+            M.pt_sim.b.rec.dτspline => spline(log.(.-th_sol(ts, idxs=M.pt_sim.b.rec.dτ).u), log.(ts)), # TODO: improve spline accuracy
+            #M.pt_sim.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=M.th.rec.Tb).u), log.(ts)),
         )
-        =#
+    else
+        push!(pars, M.pt_sim.b.rec.Yp => par.Yp)
     end
 
     ki = 1.0

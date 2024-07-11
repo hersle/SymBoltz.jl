@@ -98,7 +98,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
 
         dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         D(τ) ~ dτ
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, Tb, Tγ], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, dτ, Tb, Tγ], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
@@ -113,12 +113,12 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
     return compose(th, rec, bg)
 end
 
-function thermodynamics_recombination_splined(bg::ODESystem; kwargs...)
-    @variables dτ(t) cs²(t) #Tb(t)
-    @parameters dτspline::CubicSpline cs²spline::CubicSpline Tbspline::CubicSpline
+function thermodynamics_recombination_splined(; kwargs...)
+    @variables dτ(t) #cs²(t) #Tb(t)
+    @parameters dτspline::CubicSpline #cs²spline::CubicSpline #Tbspline::CubicSpline
     return ODESystem([
         dτ ~ -exp(spleval(log(t), dτspline))
-        cs² ~ exp(spleval(log(t), cs²spline))
+        #cs² ~ exp(spleval(log(t), cs²spline))
         #Tb ~ exp(spleval(log(t), Tbspline))
-    ], t; kwargs...) # connect perturbation dτ with spline evaluation
+    ], t, [dτ], [dτspline]; kwargs...) # connect perturbation dτ with spline evaluation
 end
