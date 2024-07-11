@@ -71,15 +71,15 @@ function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::Cosmo
         return ODEProblem(M.pt_sim, [], (tini, tend), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
-            model.pt_sim.th.bg.g.a => sol0[model.pt_sim.th.bg.g.a][begin]
-            model.pt_sim.g1.Φ => sol0[model.pt_sim.g1.Φ][begin]
-            model.pt_sim.cdm.θ => (ks[i]/ki)^2 * sol0[model.pt_sim.cdm.θ][begin]
-            model.pt_sim.bar.θ => (ks[i]/ki)^2 * sol0[model.pt_sim.bar.θ][begin]
-            model.pt_sim.ph.F[1] => (ks[i]/ki)^1 * sol0[model.pt_sim.ph.F[1]][begin]
-            model.pt_sim.neu.F[1] => (ks[i]/ki)^1 * sol0[model.pt_sim.neu.F[1]][begin]
-            model.pt_sim.neu.F[2] => (ks[i]/ki)^2 * sol0[model.pt_sim.neu.F[2]][begin]
-            collect(model.pt_sim.mneu.ψ[:,1] .=> (ks[i]/ki)^1 * sol0[model.pt_sim.mneu.ψ[:,1]][begin])...
-            collect(model.pt_sim.mneu.ψ[:,2] .=> (ks[i]/ki)^2 * sol0[model.pt_sim.mneu.ψ[:,2]][begin])...
+            M.pt_sim.th.bg.g.a => sol0[M.pt_sim.th.bg.g.a][begin]
+            M.pt_sim.g1.Φ => sol0[M.pt_sim.g1.Φ][begin]
+            M.pt_sim.cdm.θ => (ks[i]/ki)^2 * sol0[M.pt_sim.cdm.θ][begin]
+            M.pt_sim.bar.θ => (ks[i]/ki)^2 * sol0[M.pt_sim.bar.θ][begin]
+            M.pt_sim.ph.F[1] => (ks[i]/ki)^1 * sol0[M.pt_sim.ph.F[1]][begin]
+            M.pt_sim.neu.F[1] => (ks[i]/ki)^1 * sol0[M.pt_sim.neu.F[1]][begin]
+            M.pt_sim.neu.F[2] => (ks[i]/ki)^2 * sol0[M.pt_sim.neu.F[2]][begin]
+            collect(M.pt_sim.mneu.ψ[:,1] .=> (ks[i]/ki)^1 * sol0[M.pt_sim.mneu.ψ[:,1]][begin])...
+            collect(M.pt_sim.mneu.ψ[:,2] .=> (ks[i]/ki)^2 * sol0[M.pt_sim.mneu.ψ[:,2]][begin])...
         ], tspan = (tini, 4.0), p = [k => ks[i]], use_defaults = true)
         return prob_new # BUG: prob_new's u0 does not match solution[begin]
         =#

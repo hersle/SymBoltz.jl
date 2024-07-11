@@ -62,20 +62,54 @@ function cosmological_constant(g; kwargs...)
     return Λ
 end
 
-function photons(g; kwargs...)
+function photons(g; polarization=true, lmax=6, kwargs...)
     @parameters T0
-    @variables T(t)
-    γ = radiation(g; kwargs...)
+    @variables T(t) F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
+
+    γ = background(radiation(g; kwargs...))
     γ = complete(γ) # prevent namespacing in extension below
-    return extend(γ, ODESystem([
+    γ = extend(γ, ODESystem([
         T ~ T0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
     ], t, [T], [T0]; defaults = [
         T0 => (15/π^2 * γ.ρ0 * g.H0^2/GN * ħ^3*c^5)^(1/4) / kB
     ], name=:γ))
+
+    # perturbations
+    eqs = [
+        ϵ*D(F0) ~ (-k*F[1] + 4*D(g.Φ)) * ϵ
+        ϵ*D(F[1]) ~ (k/3*(F0-2*F[2]+4*g.Ψ) - 4/3 * τ̇/k * (θb - θ)) * ϵ
+        ϵ*D(F[2]) ~ (2/5*k*F[1] - 3/5*k*F[3] + 9/10*τ̇*F[2] - 1/10*τ̇*(G0+G[2])) * ϵ
+        [ϵ*D(F[l]) ~ (k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l]) * ϵ for l in 3:lmax-1]... # TODO: Π in last term here?
+        ϵ*D(F[lmax]) ~ (k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]) * ϵ # TODO: assumes lmax ≥ ???
+        ϵ*δ ~ F0 * ϵ
+        ϵ*θ ~ 3/4*k*F[1] * ϵ
+        ϵ*σ ~ F[2]/2 * ϵ
+        ϵ*Π ~ (F[2] + G0 + G[2]) * ϵ
+        (polarization ? [
+            ϵ*D(G0) ~ (k * (-G[1]) - τ̇ * (-G0 + Π/2)) * ϵ
+            ϵ*D(G[1]) ~ (k/3 * (G0 - 2*G[2]) - τ̇ * (-G[1])) * ϵ
+            [ϵ*D(G[l]) ~ (k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2))) * ϵ for l in 2:lmax-1]... # TODO: collect all equations here once G[0] works
+            ϵ*D(G[lmax]) ~ (k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]) * ϵ
+        ] : [
+            ϵ*G0 ~ 0, collect(ϵ*G .~ 0)... # pin to zero
+        ])...
+    ]
+    initialization_eqs = [
+        ϵ*δ ~ -2 * g.Ψ * ϵ # Dodelson (7.89)
+        ϵ*θ ~ 1/2 * (k^2*t) * g.Ψ * ϵ # Dodelson (7.95)
+        ϵ*F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
+        [ϵ*F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
+        ϵ*G0 ~ 0 #5/4 * Θ[2],
+        ϵ*G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
+        ϵ*G[2] ~ 0 #1/4 * Θ[2],
+        [ϵ*G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...
+    ]
+    γ = extend(γ, ODESystem(eqs, t, [γ.ρ, δ, θ, σ, τ̇, θb], [T0]; initialization_eqs, kwargs...))
+    return γ
 end
 
 function baryons(g; recombination=true, kwargs...)
-    b = matter(g; kwargs...)
+    b = matter(g; θinteract=true, kwargs...)
     if recombination
         @named rec = thermodynamics_recombination_recfast(g)
         b = compose(b, rec)
@@ -162,6 +196,10 @@ function ΛCDM(; kwargs...)
 
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
         b.rec.Tγ ~ γ.T
+        ϵ*b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -D(b.rec.τ) * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) * ϵ # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+
+        ϵ*γ.τ̇ ~ D(b.rec.τ) * ϵ
+        ϵ*γ.θb ~ b.θ * ϵ
     ], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
     return compose(connections, g, G, species...)
 end
