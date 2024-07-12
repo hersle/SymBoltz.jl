@@ -60,10 +60,8 @@ end
 function cosmological_constant(g; kwargs...)
     Λ = species_constant_eos(g, -1; kwargs...)
     Λ = background(Λ) # discard nonexisting perturbations
-    @variables δ(t) σ(t)
-    @parameters ρ0 Ω0 # TODO: avoid re-creating
-    defs = [ρ0 => 3/8π*Ω0]
-    Λ = extend(ODESystem([δ ~ 0, σ ~ 0] .|> O(ϵ^1), t, [δ, σ], [ρ0, Ω0]; defaults=defs, name=:Λ), complete(Λ)) # no perturbations
+    @variables δ(t) θ(t) σ(t)
+    Λ = extend(ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, [δ, σ], []; name=:Λ), complete(Λ)) # no perturbations
     return Λ
 end
 
