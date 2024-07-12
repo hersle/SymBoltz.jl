@@ -12,10 +12,10 @@ p = plot(layout=(3,3), size=(1600, 1200), margin=5*Plots.mm)
 
 if true
     bg_sol = Symboltz.solve_background(M, par)
-    plot!(p[1,1], bg_sol[Symboltz.t], bg_sol[M.bg_sim.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
-    plot!(p[1,2], log10.(bg_sol[M.bg_sim.g.a]), stack(bg_sol[[M.bg_sim.γ.ρ, M.bg_sim.ν.ρ, M.bg_sim.h.ρ, M.bg_sim.c.ρ, M.bg_sim.b.ρ, M.bg_sim.Λ.ρ]] ./ bg_sol[M.bg_sim.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωγ" "Ω = Ων" "Ω = Ωh" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"], legend=:left)
-    plot!(p[2,1], log10.(bg_sol[M.bg_sim.g.a]), stack(bg_sol[[M.bg_sim.b.rec.Xe, M.bg_sim.b.rec.XH⁺, M.bg_sim.b.rec.XHe⁺, M.bg_sim.b.rec.XHe⁺⁺]])'; xlabel="lg(a)", ylabel="X", ylims=(0, 1.5), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"])
-    plot!(p[2,2], log10.(bg_sol[M.bg_sim.g.a]), log10.(stack(bg_sol[[M.bg_sim.b.rec.Tγ, M.bg_sim.b.rec.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["T = Tγ" "T = Tb"])
+    plot!(p[1,1], bg_sol[Symboltz.t], bg_sol[M.full.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
+    plot!(p[1,2], log10.(bg_sol[M.full.g.a]), stack(bg_sol[[M.full.γ.ρ, M.full.ν.ρ, M.full.h.ρ, M.full.c.ρ, M.full.b.ρ, M.full.Λ.ρ]] ./ bg_sol[M.full.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωγ" "Ω = Ων" "Ω = Ωh" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"], legend=:left)
+    plot!(p[2,1], log10.(bg_sol[M.full.g.a]), stack(bg_sol[[M.full.b.rec.Xe, M.full.b.rec.XH⁺, M.full.b.rec.XHe⁺, M.full.b.rec.XHe⁺⁺]])'; xlabel="lg(a)", ylabel="X", ylims=(0, 1.5), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"])
+    plot!(p[2,2], log10.(bg_sol[M.full.g.a]), log10.(stack(bg_sol[[M.full.b.rec.Tγ, M.full.b.rec.Tb]])'); xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["T = Tγ" "T = Tb"])
     display(p)
 end
 
@@ -25,18 +25,18 @@ if true
     pt_sols = Symboltz.solve_perturbations(M, ks, par)
     for (i, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         color = i
-        plot!(p[3,1], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
-        plot!(p[3,1], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.γ.δ]));  linestyle=:solid, color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.c.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.b.δ])); linestyle=:dot, color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.ν.δ])); linestyle=:dashdot, color)
-        plot!(p[3,2], log10.(pt_sol[M.bg.g.a]), log10.(abs.(pt_sol[M.pt.h.δ])); linestyle=:dashdotdot, color)
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.γ.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.c.θ] ./ k; color)
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.b.θ] ./ k; color)
-        plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.ν.θ] ./ k; color)
-        #plot!(p[3,3], log10.(pt_sol[M.bg.g.a]), pt_sol[M.pt.h.θ] ./ k; color) # TODO: compute
+        plot!(p[3,1], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
+        plot!(p[3,1], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
+        plot!(p[3,2], log10.(pt_sol[M.full.g.a]), log10.(abs.(pt_sol[M.full.γ.δ]));  linestyle=:solid, color)
+        plot!(p[3,2], log10.(pt_sol[M.full.g.a]), log10.(abs.(pt_sol[M.full.c.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
+        plot!(p[3,2], log10.(pt_sol[M.full.g.a]), log10.(abs.(pt_sol[M.full.b.δ])); linestyle=:dot, color)
+        plot!(p[3,2], log10.(pt_sol[M.full.g.a]), log10.(abs.(pt_sol[M.full.ν.δ])); linestyle=:dashdot, color)
+        plot!(p[3,2], log10.(pt_sol[M.full.g.a]), log10.(abs.(pt_sol[M.full.h.δ])); linestyle=:dashdotdot, color)
+        plot!(p[3,3], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.γ.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
+        plot!(p[3,3], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.c.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.b.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.ν.θ] ./ k; color)
+        #plot!(p[3,3], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.h.θ] ./ k; color) # TODO: compute
     end
     hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)
     hline!(p[3,1], fill(NaN, 1, length(ks)), color=permutedims(eachindex(ks)), label=permutedims([(@sprintf "k = %f h/Mpc" k * Symboltz.k0) for k in ks]))

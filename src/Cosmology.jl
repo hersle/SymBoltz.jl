@@ -1,4 +1,5 @@
 struct CosmologicalModel
+    full::ODESystem
     bg::ODESystem
     bg_sim::ODESystem
     pt::ODESystem
@@ -6,13 +7,15 @@ struct CosmologicalModel
 end
 
 function CosmologicalModel(sys::ODESystem)
+    full = complete(sys) # TODO: complete?
+
     bg = background(sys)
     bg_sim = structural_simplify(bg)
 
     pt = perturbations(sys)
     pt_sim = structural_simplify(pt)
 
-    return CosmologicalModel(bg, bg_sim, pt, pt_sim)
+    return CosmologicalModel(full, bg, bg_sim, pt, pt_sim)
 end
 
 @kwdef struct CosmologicalParameters
@@ -30,12 +33,12 @@ end
 
 function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     prob = ODEProblem(M.bg_sim, [], (tini, 4.0), [
-        M.bg_sim.γ.Ω0 => par.Ωγ0
-        M.bg_sim.c.Ω0 => par.Ωc0
-        M.bg_sim.b.Ω0 => par.Ωb0
-        M.bg_sim.ν.Neff => par.Neff
-        M.bg_sim.g.h => par.h
-        M.bg_sim.b.rec.Yp => par.Yp
+        M.full.γ.Ω0 => par.Ωγ0
+        M.full.c.Ω0 => par.Ωc0
+        M.full.b.Ω0 => par.Ωb0
+        M.full.ν.Neff => par.Neff
+        M.full.g.h => par.h
+        M.full.b.rec.Yp => par.Yp
     ])
     callback = callback_terminator(M.bg_sim, M.bg_sim.g.a, aend)
     return solve(prob, solver; callback, reltol, kwargs...)
@@ -43,11 +46,11 @@ end
 
 function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
-        M.pt_sim.γ.Ω0 => par.Ωγ0
-        M.pt_sim.c.Ω0 => par.Ωc0
-        M.pt_sim.b.Ω0 => par.Ωb0
-        M.pt_sim.g.h => par.h
-        M.pt_sim.ν.Neff => par.Neff
+        M.full.γ.Ω0 => par.Ωγ0
+        M.full.c.Ω0 => par.Ωc0
+        M.full.b.Ω0 => par.Ωb0
+        M.full.g.h => par.h
+        M.full.ν.Neff => par.Neff
     ]
 
     tend = 4.0
@@ -56,11 +59,11 @@ function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::Cosmo
         tend = th_sol[t][end]
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         push!(pars,
-            M.pt_sim.b.rec.dτspline => spline(log.(.-th_sol(ts, idxs=M.pt_sim.b.rec.dτ).u), log.(ts)), # TODO: improve spline accuracy
+            M.pt_sim.b.rec.dτspline => spline(log.(.-th_sol(ts, idxs=M.bg_sim.b.rec.dτ).u), log.(ts)), # TODO: improve spline accuracy
             #M.pt_sim.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=M.th.rec.Tb).u), log.(ts)),
         )
     else
-        push!(pars, M.pt_sim.b.rec.Yp => par.Yp)
+        push!(pars, M.full.b.rec.Yp => par.Yp)
     end
 
     ki = 1.0
