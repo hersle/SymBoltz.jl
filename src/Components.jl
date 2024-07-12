@@ -313,7 +313,7 @@ function ΛCDM(; kwargs...)
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     connections = ODESystem([eqs0; eqs1], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
-    return compose(connections, g, G, species...)
+    return complete(compose(connections, g, G, species...))
 end
 
 #=

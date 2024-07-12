@@ -8,13 +8,13 @@ using Base.Threads
 P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function Pc(model::CosmologicalModel, k, par::CosmologicalParameters; kwargs...)
+function Pc(model::CosmologyProblem, k, par::CosmologicalParameters; kwargs...)
     sols = solve_perturbations(model, k, par; kwargs...)
     Δ = [sol[model.pt.cdm.Δ][end] for sol in sols]
     return P0(k, par) .* Δ .^ 2
 end
 
-function Pc(model::CosmologicalModel, k, Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp; kwargs...)
+function Pc(model::CosmologyProblem, k, Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp; kwargs...)
     par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp)
     return Pc(model, k, par; kwargs...)
 end
@@ -34,7 +34,7 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(model::CosmologicalModel, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
+function S_splined(model::CosmologyProblem, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
     th = model.th_sim
     pt = model.pt
 
@@ -129,7 +129,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, args...; kwargs...)
+function Θl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, args...; kwargs...)
     ts = exp.(lnts)
     Ss = S(model, ts, ks, par, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
@@ -150,13 +150,13 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(model::CosmologicalModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, ks_S::AbstractArray; kwargs...)
+function Cl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, ks_S::AbstractArray; kwargs...)
     Θls = Θl(model, ls, ks, lnts, par, ks_S; kwargs...)
     P0s = P0(ks, par)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(model::CosmologicalModel, ls::AbstractArray, par::CosmologicalParameters; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+function Cl(model::CosmologyProblem, ls::AbstractArray, par::CosmologicalParameters; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
     bg_sol = solve_background(model, par; aend=1.0)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
@@ -170,9 +170,9 @@ function Cl(model::CosmologicalModel, ls::AbstractArray, par::CosmologicalParame
     return Cl(model, ls, ks_Cl, lnts, par, ks_S; observe)
 end
 
-Dl(model::CosmologicalModel, ls::AbstractArray, args...; kwargs...) = Cl(model, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
+Dl(model::CosmologyProblem, ls::AbstractArray, args...; kwargs...) = Cl(model, ls, args...; kwargs...) .* ls .* (ls .+ 1) ./ 2π
 
-Dl(model::CosmologicalModel, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; kwargs...) = Dl(model, ls, CosmologicalParameters(Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp); kwargs...)
+Dl(model::CosmologyProblem, ls::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; kwargs...) = Dl(model, ls, CosmologicalParameters(Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp); kwargs...)
 
 #Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
 #plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
