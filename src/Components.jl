@@ -220,16 +220,16 @@ function ΛCDM(; kwargs...)
     initialization_eqs = [
         g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
-    @parameters C
+    @parameters C fν
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
         k => NaN # make background shut up # TODO: avoid
-        # # TODO: fν => bg.neu.ρ0 / (bg.neu.ρ0 + bg.ph.ρ0)
+        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0)
         C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
-        g.Ψ => 20C / (15 #=+ 4fν=#) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
     ]
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
@@ -243,7 +243,7 @@ function ΛCDM(; kwargs...)
         γ.τ̇ ~ b.rec.dτ
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
-    connections = ODESystem([eqs0; eqs1], t, [], [C, k]; initialization_eqs, defaults, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [C, k, fν]; initialization_eqs, defaults, kwargs...)
     return complete(compose(connections, g, G, species...))
 end
 
