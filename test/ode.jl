@@ -11,7 +11,7 @@ par = Symboltz.CosmologicalParameters()
 p = plot(layout=(3,3), size=(1600, 1200), margin=5*Plots.mm)
 
 if true
-    bg_sol = Symboltz.solve_background(M, par)
+    bg_sol = Symboltz.solve_(M, par)
     plot!(p[1,1], bg_sol[Symboltz.t], bg_sol[M.full.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
     plot!(p[1,2], log10.(bg_sol[M.full.g.a]), stack(bg_sol[[M.full.γ.ρ, M.full.ν.ρ, M.full.h.ρ, M.full.c.ρ, M.full.b.ρ, M.full.Λ.ρ]] ./ bg_sol[M.full.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωγ" "Ω = Ων" "Ω = Ωh" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"], legend=:left)
     plot!(p[2,1], log10.(bg_sol[M.full.g.a]), stack(bg_sol[[M.full.b.rec.Xe, M.full.b.rec.XH⁺, M.full.b.rec.XHe⁺, M.full.b.rec.XHe⁺⁺]])'; xlabel="lg(a)", ylabel="X", ylims=(0, 1.5), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"])
@@ -22,7 +22,7 @@ end
 # TODO: color wavelengths like EM spectrum
 if true
     ks = 10 .^ range(-1, 1, length=3) ./ Symboltz.k0
-    pt_sols = Symboltz.solve_perturbations(M, ks, par)
+    pt_sols = Symboltz.solve_(M, par, ks)
     for (i, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
         color = i
         plot!(p[3,1], log10.(pt_sol[M.full.g.a]), pt_sol[M.full.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)

@@ -29,9 +29,8 @@ end
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
-# TODO: just one solve(), but dispatch on whether or not k is specified to determine whether perturbations are solved (and recombination, in a different way)?
-
-function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+# TODO: name just solve(); pass different solvers to background and perturbations; use CommonSolve interface
+function solve_(M::CosmologicalModel, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     prob = ODEProblem(M.bg_sim, [], (tini, 4.0), [
         M.full.γ.Ω0 => par.Ωγ0
         M.full.c.Ω0 => par.Ωc0
@@ -44,7 +43,7 @@ function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tin
     return solve(prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::CosmologicalParameters; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+function solve_(M::CosmologicalModel, par::CosmologicalParameters, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
     pars = Pair{Any, Any}[ # TODO: avoid Any
         M.full.γ.Ω0 => par.Ωγ0
         M.full.c.Ω0 => par.Ωc0
@@ -55,7 +54,7 @@ function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::Cosmo
 
     tend = 4.0
     if :b₊rec₊dτspline in Symbol.(parameters(M.pt_sim))
-        th_sol = solve_background(M, par; tini, aend) # TODO: forward kwargs...?
+        th_sol = solve_(M, par; tini, aend) # TODO: forward kwargs...?
         tend = th_sol[t][end]
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         push!(pars,
@@ -90,6 +89,6 @@ function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::Cosmo
     return solve(probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
 
-function solve_perturbations(M::CosmologicalModel, ks::Number, par::CosmologicalParameters; kwargs...)
-    return solve_perturbations(M, [ks], par; kwargs...)[1]
+function solve_(M::CosmologicalModel, par::CosmologicalParameters, k::Number; kwargs...)
+    return solve_(M, par, [k]; kwargs...)[1]
 end
