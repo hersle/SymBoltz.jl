@@ -5,19 +5,21 @@ using ForwardDiff
 using Base.Threads
 
 # primordial power spectrum
-P0(k, par::CosmologicalParameters) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
+P0(k, pars) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function Pc(model::CosmologyProblem, k, par::CosmologicalParameters; kwargs...)
+function Pc(model::CosmologyProblem, k, pars; kwargs...)
     sols = solve_perturbations(model, k, par; kwargs...)
     Δ = [sol[model.pt.cdm.Δ][end] for sol in sols]
     return P0(k, par) .* Δ .^ 2
 end
 
+#=
 function Pc(model::CosmologyProblem, k, Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp; kwargs...)
-    par = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp)
-    return Pc(model, k, par; kwargs...)
+    pars = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp)
+    return Pc(model, k, pars; kwargs...)
 end
+=#
 
 #= # TODO: make work again?
 # source function
@@ -34,12 +36,12 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(model::CosmologyProblem, ts::AbstractArray, ks::AbstractArray, par::CosmologicalParameters; kwargs...)
+function S_splined(model::CosmologyProblem, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
     th = model.th_sim
     pt = model.pt
 
-    pt_sols = solve_perturbations(model, ks, par; saveat = ts, kwargs...)
-    th_sol = solve_thermodynamics(model, par; saveat = ts)
+    pt_sols = solve_perturbations(model, ks, pars; saveat = ts, kwargs...)
+    th_sol = solve_thermodynamics(model, pars; saveat = ts)
     τ = th_sol[th.rec.τ] .- th_sol[th.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
@@ -47,7 +49,7 @@ function S_splined(model::CosmologyProblem, ts::AbstractArray, ks::AbstractArray
     g′ = @. (τ′^2 - τ″) * exp(-τ)
     
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
-    Ss = zeros(eltype([par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
+    Ss = zeros(eltype([par[2] for par in pars]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         pt_sol = pt_sols[ik]
         k = ks[ik]
@@ -66,8 +68,8 @@ function S_splined(model::CosmologyProblem, ts::AbstractArray, ks::AbstractArray
     return Ss
 end
 
-function S(model, ts::AbstractArray, ksfine::AbstractArray, par::CosmologicalParameters, kscoarse::AbstractArray; kwargs...) 
-    Sscoarse = S_splined(model, ts, kscoarse, par) # TODO: restore S_observed
+function S(model, ts::AbstractArray, ksfine::AbstractArray, pars, kscoarse::AbstractArray; kwargs...) 
+    Sscoarse = S_splined(model, ts, kscoarse, pars) # TODO: restore S_observed
     Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
     for it in eachindex(ts)
         Sscoarset = @view Sscoarse[it,:]
@@ -129,9 +131,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, args...; kwargs...)
+function Θl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
     ts = exp.(lnts)
-    Ss = S(model, ts, ks, par, args...; kwargs...)
+    Ss = S(model, ts, ks, pars, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
 end
 
@@ -150,14 +152,14 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, par::CosmologicalParameters, ks_S::AbstractArray; kwargs...)
-    Θls = Θl(model, ls, ks, lnts, par, ks_S; kwargs...)
-    P0s = P0(ks, par)
+function Cl(model::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S::AbstractArray; kwargs...)
+    Θls = Θl(model, ls, ks, lnts, pars, ks_S; kwargs...)
+    P0s = P0(ks, pars)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(model::CosmologyProblem, ls::AbstractArray, par::CosmologicalParameters; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve_background(model, par; aend=1.0)
+function Cl(model::CosmologyProblem, ls::AbstractArray, pars; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+    bg_sol = solve_background(model, pars; aend=1.0)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?

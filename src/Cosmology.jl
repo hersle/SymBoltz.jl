@@ -59,6 +59,6 @@ function solve_(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, ae
     return solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
 
-function solve_(M::CosmologyProblem, par::CosmologicalParameters, k::Number; kwargs...)
-    return solve_(M, par, [k]; kwargs...)[1]
+function solve_(M::CosmologyProblem, pars, k::Number; kwargs...)
+    return solve_(M, pars, [k]; kwargs...)[1]
 end
