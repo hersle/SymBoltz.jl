@@ -33,7 +33,7 @@ function solve_background(M::CosmologicalModel, par::CosmologicalParameters; tin
         M.bg_sim.γ.Ω0 => par.Ωγ0
         M.bg_sim.c.Ω0 => par.Ωc0
         M.bg_sim.b.Ω0 => par.Ωb0
-        #M.bg_sim.neu.Neff => par.Neff
+        M.bg_sim.ν.Neff => par.Neff
         M.bg_sim.g.h => par.h
         M.bg_sim.b.rec.Yp => par.Yp
     ])
@@ -47,7 +47,7 @@ function solve_perturbations(M::CosmologicalModel, ks::AbstractArray, par::Cosmo
         M.pt_sim.c.Ω0 => par.Ωc0
         M.pt_sim.b.Ω0 => par.Ωb0
         M.pt_sim.g.h => par.h
-        #M.th.bg.neu.Neff => par.Neff,
+        M.pt_sim.ν.Neff => par.Neff
     ]
 
     tend = 4.0

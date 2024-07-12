@@ -108,6 +108,29 @@ function photons(g; polarization=true, lmax=6, kwargs...)
     return γ
 end
 
+function massless_neutrinos(g; lmax=6, kwargs...)
+    ν = radiation(g; kwargs...) |> background |> complete
+
+    vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
+    pars = @parameters Neff
+    eqs = [
+        ϵ*D(F0) ~ (-k*F[1] + 4*D(g.Φ)) * ϵ
+        ϵ*D(F[1]) ~ (k/3*(F0-2*F[2]+4*g.Ψ)) * ϵ
+        [ϵ*D(F[l]) ~ (k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1])) * ϵ for l in 2:lmax]...
+        ϵ*F[lmax+1] ~ ((2*lmax+1) / (k*t) * F[lmax] - F[lmax-1]) * ϵ
+        ϵ*δ ~ F0 * ϵ
+        ϵ*θ ~ 3/4*k*F[1] * ϵ
+        ϵ*σ ~ F[2]/2 * ϵ
+    ]
+    initialization_eqs = [
+        ϵ*δ ~ -2 * g.Ψ * ϵ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        ϵ*θ ~ 1/2 * (k^2*t) * g.Ψ * ϵ
+        ϵ*σ ~ 1/15 * (k*t)^2 * g.Ψ * ϵ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        [ϵ*F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
+    ]
+    return extend(ν, ODESystem(eqs, t, vars, pars; initialization_eqs, defaults = [Neff => 3.046], kwargs...))
+end
+
 function baryons(g; recombination=true, kwargs...)
     b = matter(g; θinteract=true, kwargs...)
     if recombination
@@ -198,17 +221,18 @@ function ΛCDM(; kwargs...)
     @named g = metric()
     @named G = gravity(g)
     @named γ = photons(g)
+    @named ν = massless_neutrinos(g)
     @named c = matter(g)
     @named b = baryons(g)
     @named Λ = cosmological_constant(g)
-    species = [γ, c, b, Λ]
+    species = [γ, ν, c, b, Λ]
     initialization_eqs = [
-        g.a ~ √(γ.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a ~ √(γ.Ω0 + ν.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     @parameters C
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
-        #neu.Ω0 => (neu.Neff/3) * 7/8 * (4/11)^(4/3) * ph.Ω0
+        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
         #mneu.T0 => (neu.Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         #mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
         k => NaN # make background shut up # TODO: avoid
