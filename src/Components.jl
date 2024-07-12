@@ -1,18 +1,22 @@
 ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
 
 function metric(; kwargs...)
-    a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t)) # TODO: more natural way to connect them?
-    H0, h = GlobalScope.(@parameters H0 h)
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t)) # TODO: more natural way to connect them?
+    pars = H0, h = GlobalScope.(@parameters H0 h)
+    defs = [
+        H0 => H100 * h
+        h => H0 / H100
+    ]
     return ODESystem([
         ℰ ~ D(a) / a # ℰ = ℋ/ℋ0
         E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
-    ], t, [a, ℰ, E, H, ℋ, Φ, Ψ], [H0, h]; defaults = [H0 => H100 * h], kwargs...)
+    ], t, vars, pars; defaults=defs, kwargs...)
 end
 
 function gravity(g; kwargs...)
-    @variables ρ(t) ρcrit(t) δρ(t) Π(t)
+    vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
     eqs0 = [
         D(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
         ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
@@ -21,7 +25,7 @@ function gravity(g; kwargs...)
         D(g.Φ) ~ -4π/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12π * g.a^2 * Π
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t, [ρ, ρcrit, δρ, Π], []; kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, []; kwargs...)
 end
 
 function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
@@ -54,30 +58,25 @@ function matter(g; kwargs...)
 end
 
 function radiation(g; kwargs...)
-    return species_constant_eos(g, 1//3; kwargs...)
+    r = species_constant_eos(g, 1//3; kwargs...)
+    pars = @parameters T0
+    vars = @variables T(t) # TODO: define in constant_eos?
+    return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; kwargs...))
 end
 
 function cosmological_constant(g; kwargs...)
-    Λ = species_constant_eos(g, -1; kwargs...)
-    Λ = background(Λ) # discard nonexisting perturbations
-    @variables δ(t) θ(t) σ(t)
-    Λ = extend(ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, [δ, σ], []; name=:Λ), complete(Λ)) # no perturbations
-    return Λ
+    Λ = species_constant_eos(g, -1; kwargs...) |> background |> complete # discard ill-defined perturbations
+    vars = @variables δ(t) θ(t) σ(t)
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; kwargs...)) # manually set perturbations to zero
 end
 
 function photons(g; polarization=true, lmax=6, kwargs...)
-    @parameters T0
-    @variables T(t) F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
+    γ = radiation(g; kwargs...) |> background |> complete # prevent namespacing in extension below
 
-    γ = background(radiation(g; kwargs...))
-    γ = complete(γ) # prevent namespacing in extension below
-    γ = extend(γ, ODESystem([
-        T ~ T0 / g.a # alternative derivative: D(Tγ) ~ -1*Tγ * g.ℰ
-    ], t, [T], [T0]; defaults = [
-        T0 => (15/π^2 * γ.ρ0 * g.H0^2/GN * ħ^3*c^5)^(1/4) / kB
-    ], name=:γ))
-
-    # perturbations
+    vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
+    defs = [
+        γ.T0 => (15/π^2 * γ.ρ0 * g.H0^2/GN * ħ^3*c^5)^(1/4) / kB
+    ]
     eqs1 = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4/3 * τ̇/k * (θb - θ)
@@ -88,27 +87,30 @@ function photons(g; polarization=true, lmax=6, kwargs...)
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
         Π ~ F[2] + G0 + G[2]
-        (polarization ? [
-            D(G0) ~ k * (-G[1]) - τ̇ * (-G0 + Π/2)
-            D(G[1]) ~ k/3 * (G0 - 2*G[2]) - τ̇ * (-G[1])
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: collect all equations here once G[0] works
-            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
-        ] : [
-            G0 ~ 0, collect(G .~ 0)... # pin to zero
-        ])...
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
         θ ~ 1/2 * (k^2*t) * g.Ψ # Dodelson (7.95)
         F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
-        G0 ~ 0 #5/4 * Θ[2],
-        G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
-        G[2] ~ 0 #1/4 * Θ[2],
-        [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
-    γ = extend(γ, ODESystem(eqs1, t, [γ.ρ, δ, θ, σ, τ̇, θb], [T0]; initialization_eqs=ics1, kwargs...))
-    return γ
+    if polarization
+        union!(eqs1, [
+            D(G0) ~ k * (-G[1]) - τ̇ * (-G0 + Π/2)
+            D(G[1]) ~ k/3 * (G0 - 2*G[2]) - τ̇ * (-G[1])
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: collect all equations here once G[0] works
+            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
+        ] .|> O(ϵ^1))
+        union!(ics1, [
+            G0 ~ 0 #5/4 * Θ[2],
+            G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
+            G[2] ~ 0 #1/4 * Θ[2],
+            [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
+        ] .|> O(ϵ^1))
+    else
+        union!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
+    end
+    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, kwargs...))
 end
 
 function massless_neutrinos(g; lmax=6, kwargs...)
@@ -116,6 +118,10 @@ function massless_neutrinos(g; lmax=6, kwargs...)
 
     vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
+    defs = [
+        ν.T0 => NaN # TODO: use this
+        Neff => 3.046
+    ]
     eqs1 = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
@@ -131,7 +137,6 @@ function massless_neutrinos(g; lmax=6, kwargs...)
         σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
-    defs = [Neff => 3.046]
     return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...))
 end
 
@@ -142,9 +147,10 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
 
     f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
     dlnf0_dlnx(x) = -x / (1 + exp(-x))
-    E(x, y) = √(x^2 + y^2)
     x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
     ∫dx_x²_f0(f) = sum(collect(f) .* W) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f0(x)
+
+    E(x, y) = √(x^2 + y^2)
     Iρ(y) = ∫dx_x²_f0(@. E(x, y)) # Iρ(0) = 7π^4/120
     IP(y) = ∫dx_x²_f0(@. x^2 / E(x, y)) # IP(0) = Iρ(0)
     
@@ -157,13 +163,14 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
     ] .|> O(ϵ^0)
     eqs1 = [
         δ ~ ∫dx_x²_f0(@. E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y))
+        # TODO: θ
         σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
     ] .|> O(ϵ^1)
     defs = [
-        Ω0 => Ω0_massless * Iρ(y0)/Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
+        Ω0 => Ω0_massless * Iρ(y0) / Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
         ρ0 => 3/8π * Ω0
         ρ0_massless => 3/8π * Ω0_massless
-        m => 0.02 * eV/c^2 # one massive neutrino with this mass
+        m => 0.02 * eV/c^2 # one massive neutrino with this mass # TODO: specify by user
         y0 => m*c^2 / (kB*T0)
     ]
     ics1 = []
@@ -215,11 +222,11 @@ function ΛCDM(; kwargs...)
     @named b = baryons(g)
     @named Λ = cosmological_constant(g)
     species = [γ, ν, c, b, h, Λ]
-    initialization_eqs = [
+    ics0 = [
         g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
-    @parameters C fν
-    defaults = [
+    pars = @parameters C fν
+    defs = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
@@ -237,26 +244,10 @@ function ΛCDM(; kwargs...)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
-        b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer
+        b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.dτ
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
-    connections = ODESystem([eqs0; eqs1], t, [], [C, k, fν]; initialization_eqs, defaults, kwargs...)
-    return complete(compose(connections, g, G, species...))
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, kwargs...)
+    return complete(compose(connections, g, G, species...)) # TODO: complete here?
 end
-
-#=
-# TODO: would love something like this to work
-function ΛCDM()
-    g = metric()
-    G = gravity_GR()
-    γ = photons()
-    b = baryons()
-    c = cold_dark_matter()
-    h = massive_neutrinos()
-    Λ = cosmological_constant()
-    interaction = thompson_scattering(γ, b) # TODO: how???
-    species = [γ, b, c, h, Λ]
-    return cosmology(g, G, species)
-end
-=#
