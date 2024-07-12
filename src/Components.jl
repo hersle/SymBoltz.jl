@@ -227,7 +227,6 @@ function ΛCDM(; kwargs...)
     ]
     pars = @parameters C fν
     defs = [
-        species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
@@ -249,5 +248,13 @@ function ΛCDM(; kwargs...)
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, kwargs...)
-    return complete(compose(connections, g, G, species...)) # TODO: complete here?
+    M = compose(connections, g, G, species...)
+    defs = Pair{Any, Any}[]
+    for s in species
+        if !(Symbol(s.Ω0) in Symbol.(def[1] for def in ModelingToolkit.defaults(M))) # TODO: make defaults a Dict()
+            push!(defs, s.Ω0 => 1 - sum(s′.Ω0 for s′ in species if s′ != s)) # TODO: solve nonlinear system # TODO: any combination of all but one species
+        end
+    end
+    M = extend(M, ODESystem(Equation[], t; defaults=defs, kwargs...))
+    return complete(M) # TODO: complete here?
 end
