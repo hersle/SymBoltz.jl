@@ -131,6 +131,54 @@ function massless_neutrinos(g; lmax=6, kwargs...)
     return extend(ν, ODESystem(eqs, t, vars, pars; initialization_eqs, defaults = [Neff => 3.046], kwargs...))
 end
 
+# TODO: use vector equations and simplify loops
+function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
+    pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
+
+    f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
+    dlnf0_dlnx(x) = -x / (1 + exp(-x))
+    E(x, y) = √(x^2 + y^2)
+    x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
+    ∫dx_x²_f0(f) = sum(collect(f) .* W) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f0(x)
+    Iρ(y) = ∫dx_x²_f0(@. E(x, y)) # Iρ(0) = 7π^4/120
+    IP(y) = ∫dx_x²_f0(@. x^2 / E(x, y)) # IP(0) = Iρ(0)
+    
+    eqs = [
+        T ~ T0 / g.a # TODO: move into radiation?
+        y ~ m*c^2 / (kB*T)
+        ρ ~ ρ0_massless/g.a^4 * Iρ(y) / Iρ(0) # have ρ = Cρ * Iρ(y) / a⁴, so Cρ = ρ0 * 1⁴ / Iρ(y0) # TODO: div by Iρ(0) or Iρ(y0)?
+        P ~ 1/3 * ρ0_massless/g.a^4 * IP(y) / Iρ(0) # have P = CP * IP(y) / a⁴, and in the early universe Iρ(y→0) → IP(y→0) and P/ρ = CP * IP(y) / (Cρ * Iρ(y)) → CP/Cρ → 1/3, so CP = Cρ/3 # TODO: div by Iρ(0) or Iρ(y0)?
+        w ~ P / ρ
+
+        ϵ*δ ~ ∫dx_x²_f0(@. E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y)) * ϵ
+        ϵ*σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y))) * ϵ
+    ]
+    defaults = [
+        Ω0 => Ω0_massless * Iρ(y0)/Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
+        ρ0 => 3/8π * Ω0
+        ρ0_massless => 3/8π * Ω0_massless
+        m => 0.02 * eV/c^2 # one massive neutrino with this mass
+        y0 => m*c^2 / (kB*T0)
+    ]
+    initialization_eqs = []
+    for i in 1:nx
+        push!(eqs, [
+            ϵ*D(ψ0[i]) ~ (-k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])) * ϵ
+            ϵ*D(ψ[i,1]) ~ (k/3 * x[i]/E(x[i],y) * (ψ0[i] - 2*ψ[i,2]) - k/3 * E(x[i],y)/x[i] * g.Ψ * dlnf0_dlnx(x[i])) * ϵ
+            [ϵ*D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E(x[i],y) * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) * ϵ for l in 2:lmax]...
+            ϵ*ψ[i,lmax+1] ~ ((2*lmax+1) * E(x[i],y)/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]) * ϵ
+        ]...)
+        push!(initialization_eqs, [
+            ϵ*ψ0[i] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i]) * ϵ
+            ϵ*ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i]) * ϵ
+            ϵ*ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i]) * ϵ
+            [ϵ*ψ[i,l] ~ 0 for l in 3:lmax] # TODO: proper ICs    
+        ]...)
+    end
+    return ODESystem(eqs, t, vars, pars; initialization_eqs, defaults, kwargs...)
+end
+
 function baryons(g; recombination=true, kwargs...)
     b = matter(g; θinteract=true, kwargs...)
     if recombination
@@ -222,19 +270,20 @@ function ΛCDM(; kwargs...)
     @named G = gravity(g)
     @named γ = photons(g)
     @named ν = massless_neutrinos(g)
+    @named h = massive_neutrinos(g)
     @named c = matter(g)
     @named b = baryons(g)
     @named Λ = cosmological_constant(g)
-    species = [γ, ν, c, b, Λ]
+    species = [γ, ν, c, b, h, Λ]
     initialization_eqs = [
-        g.a ~ √(γ.Ω0 + ν.Ω0) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a ~ √(γ.Ω0 + ν.Ω0 #= TODO: + massive neutrinos=#) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     @parameters C
     defaults = [
         species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1]) # TODO: solve nonlinear system # TODO: any combination of all but one species
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
-        #mneu.T0 => (neu.Neff/3)^(1/4) * (4/11)^(1/3) * ph.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        #mneu.Ω0_massless => 7/8 * (mneu.T0/ph.T0)^4 * ph.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
+        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
         k => NaN # make background shut up # TODO: avoid
         # # TODO: fν => bg.neu.ρ0 / (bg.neu.ρ0 + bg.ph.ρ0)
         C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
