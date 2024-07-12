@@ -287,7 +287,7 @@ function ΛCDM(; kwargs...)
     @named Λ = cosmological_constant(g)
     species = [γ, ν, c, b, h, Λ]
     initialization_eqs = [
-        g.a ~ √(γ.Ω0 + ν.Ω0 #= TODO: + massive neutrinos=#) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     @parameters C
     defaults = [
