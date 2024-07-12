@@ -196,7 +196,7 @@ function baryons(g; recombination=true, kwargs...)
 end
 
 function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
-    subs = [transform(f, sub; fullname = fullname * "₊" * string(sub.name)) for sub in sys.systems]
+    subs = [transform(f, sub; fullname = (ModelingToolkit.iscomplete(sys) ? "" : fullname * "₊") * string(sub.name)) for sub in sys.systems]
     sys = f(sys, fullname)
     return compose(sys, subs)
 end
