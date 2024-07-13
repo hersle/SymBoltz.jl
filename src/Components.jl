@@ -247,6 +247,7 @@ function ΛCDM(; kwargs...)
         γ.τ̇ ~ b.rec.dτ
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
+    # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, kwargs...)
     M = compose(connections, g, G, species...)
     defs = Pair{Any, Any}[]
