@@ -1,3 +1,5 @@
+import CommonSolve: solve
+
 # TODO: split further into BackgroundProblem and PerturbationProblem
 struct CosmologyProblem
     bg_sim::ODESystem # TODO: remove _sim suffix
@@ -15,18 +17,17 @@ function CosmologyProblem(model::ODESystem)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
-# TODO: name just solve(); pass different solvers to background and perturbations; use CommonSolve interface
-# TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations!
-function solve_(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+# TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
+function solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     ode_prob = ODEProblem(prob.bg_sim, [], (tini, 4.0), pars)
     callback = callback_terminator(prob.bg_sim, prob.bg_sim.g.a, aend)
     return solve(ode_prob, solver; callback, reltol, kwargs...)
 end
 
-function solve_(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
     tend = 4.0
     if :b₊rec₊dτspline in Symbol.(parameters(prob.pt_sim))
-        bg_sol = solve_(prob, pars; tini, aend) # TODO: forward kwargs...?
+        bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
         tend = bg_sol[t][end]
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         pars = [pars;
@@ -59,6 +60,6 @@ function solve_(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, ae
     return solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
 
-function solve_(M::CosmologyProblem, pars, k::Number; kwargs...)
-    return solve_(M, pars, [k]; kwargs...)[1]
+function solve(M::CosmologyProblem, pars, k::Number; kwargs...)
+    return solve(M, pars, [k]; kwargs...)[1]
 end
