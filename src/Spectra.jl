@@ -5,13 +5,13 @@ using ForwardDiff
 using Base.Threads
 
 # primordial power spectrum
-P0(k, pars) = @. 2*π^2 / k^3 * par.As # TODO: add kpivot and ns
+P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
 
 # total matter power spectrum
-function Pc(model::CosmologyProblem, k, pars; kwargs...)
-    sols = solve_perturbations(model, k, par; kwargs...)
-    Δ = [sol[model.pt.cdm.Δ][end] for sol in sols]
-    return P0(k, par) .* Δ .^ 2
+function Pc(prob::CosmologyProblem, pars, k; kwargs...)
+    sols = solve(prob, pars, k; kwargs...)
+    Δ = [sol[prob.pt.c.Δ][end] for sol in sols]
+    return P0(k) .* Δ .^ 2
 end
 
 #=
