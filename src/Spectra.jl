@@ -14,13 +14,6 @@ function Pc(prob::CosmologyProblem, pars, k; kwargs...)
     return P0(k) .* Δ .^ 2
 end
 
-#=
-function Pc(model::CosmologyProblem, k, Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp; kwargs...)
-    pars = CosmologicalParameters(Ωγ0, Ωc0, Ωb0, h, Neff, As, Yp)
-    return Pc(model, k, pars; kwargs...)
-end
-=#
-
 #= # TODO: make work again?
 # source function
 # this one is more elegant, but a little numerically unstable (would really like to use this one)
