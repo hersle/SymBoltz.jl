@@ -2,13 +2,18 @@ using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
 
-model = Symboltz.ΛCDM()
-par = Symboltz.CosmologicalParameters()
+# TODO: sometimes the CMB spectrum is garbage
+# TODO: is the bug something multi-threading-related?
+
+@named M = Symboltz.ΛCDM()
+prob = Symboltz.CosmologyProblem(M)
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
-θ0 = [par.Ωγ0, par.Ων0, par.Ωc0, par.Ωb0, par.h, par.As, par.Yp]
+θ0 = [5.5e-5, 0.267, 0.05, 0.67, 0.245]
+
+Dl(θ) = Symboltz.Cl(prob, [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.g.h, M.b.rec.Yp] .=> θ, ls) .* ls .* (ls .+ 1) ./ 2π
+lgDl(lgθ) = log10.(Dl(10 .^ lgθ))
 
 # differentiated CMB power spectrum
-lgDl(lgθ) = log10.(Symboltz.Dl(model, ls, (10 .^ lgθ)...))
 lgDlres = DiffResults.JacobianResult(Float64.(ls), θ0)
 ForwardDiff.jacobian!(lgDlres, lgDl, log10.(θ0))
 lgDls, dlgDl_dθs_ad = DiffResults.value(lgDlres), DiffResults.jacobian(lgDlres)
