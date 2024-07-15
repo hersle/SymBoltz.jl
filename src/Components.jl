@@ -43,14 +43,14 @@ function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = fal
         σ ~ _σ
     ] .|> O(ϵ^1)
     ics1 = [
-        δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: fix with θ: -1/2 * k*t * g.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
-    ] .|> O(ϵ^1)
+        δ => -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        θ => 1/2 * (k^2*t) * g.Ψ # # TODO: fix with θ: -1/2 * k*t * g.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+    ] # .|> O(ϵ^1)
     defs = [
         ρ0 => 3/8π*Ω0
     ]
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; defaults=[ics1; defs], kwargs...)
 end
 
 function matter(g; kwargs...)
@@ -66,8 +66,8 @@ end
 
 function cosmological_constant(g; kwargs...)
     Λ = species_constant_eos(g, -1; kwargs...) |> background |> complete # discard ill-defined perturbations
-    vars = @variables δ(t) θ(t) σ(t)
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; kwargs...)) # manually set perturbations to zero
+    vars = @variables δ(t) #=θ(t)=# σ(t) # TODO: for some reason, θ ~ 0 messes with initial conditions setup
+    return extend(Λ, ODESystem([δ ~ 0, #=θ ~ 0,=# σ ~ 0] .|> O(ϵ^1), t, vars, []; defaults = [δ => 0, #=θ => 0,=# σ => 0], kwargs...)) # manually set perturbations to zero
 end
 
 function photons(g; polarization=true, lmax=6, kwargs...)
@@ -89,11 +89,11 @@ function photons(g; polarization=true, lmax=6, kwargs...)
         Π ~ F[2] + G0 + G[2]
     ] .|> O(ϵ^1)
     ics1 = [
-        δ ~ -2 * g.Ψ # Dodelson (7.89)
-        θ ~ 1/2 * (k^2*t) * g.Ψ # Dodelson (7.95)
-        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
-        [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
-    ] .|> O(ϵ^1)
+        δ => -2 * g.Ψ # Dodelson (7.89)
+        θ => 1/2 * (k^2*t) * g.Ψ # Dodelson (7.95)
+        F[2] => 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
+        [F[l] => 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
+    ] # .|> O(ϵ^1)
     if polarization
         union!(eqs1, [
             D(G0) ~ k * (-G[1]) - τ̇ * (-G0 + Π/2)
@@ -102,15 +102,15 @@ function photons(g; polarization=true, lmax=6, kwargs...)
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
         ] .|> O(ϵ^1))
         union!(ics1, [
-            G0 ~ 0 #5/4 * Θ[2],
-            G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
-            G[2] ~ 0 #1/4 * Θ[2],
-            [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
-        ] .|> O(ϵ^1))
+            G0 => 0 #5/4 * Θ[2],
+            G[1] => 0 #-1/4 * k/dτ * Θ[2],
+            G[2] => 0 #1/4 * Θ[2],
+            [G[l] => 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
+        ] #=.|> O(ϵ^1)=#)
     else
         union!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
-    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, kwargs...))
+    return extend(γ, ODESystem(eqs1, t, vars, []; defaults=[ics1; defs], kwargs...))
 end
 
 function massless_neutrinos(g; lmax=6, kwargs...)
@@ -132,12 +132,12 @@ function massless_neutrinos(g; lmax=6, kwargs...)
         σ ~ F[2]/2
     ] .|> O(ϵ^1)
     ics1 = [
-        δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 1/2 * (k^2*t) * g.Ψ
-        σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
-        [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
-    ] .|> O(ϵ^1)
-    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...))
+        δ => -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
+        θ => 1/2 * (k^2*t) * g.Ψ
+        σ => 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        [F[l] => 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
+    ] # .|> O(ϵ^1)
+    return extend(ν, ODESystem(eqs1, t, vars, pars; defaults=[ics1; defs], kwargs...))
 end
 
 # TODO: use vector equations and simplify loops
@@ -173,7 +173,7 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
         m => 0.02 * eV/c^2 # one massive neutrino with this mass # TODO: specify by user
         y0 => m*c^2 / (kB*T0)
     ]
-    ics1 = []
+    ics1 = Pair{Any, Any}[]
     for i in 1:nx
         union!(eqs1, [
             D(ψ0[i]) ~ -k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])
@@ -182,13 +182,13 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
             ψ[i,lmax+1] ~ (2*lmax+1) * E(x[i],y)/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ] .|> O(ϵ^1))
         union!(ics1, [
-            ψ0[i] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
-            ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i])
-            ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
-            [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: proper ICs    
-        ] .|> O(ϵ^1))
+            ψ0[i] => -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
+            ψ[i,1] => -1/(3*k) * #=E(x[i],y)/x[i] *=# (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i]) # TODO: include E/x (only ≈ x/x ≈ 1)
+            ψ[i,2] => -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
+            [ψ[i,l] => 0 for l in 3:lmax] # TODO: proper ICs    
+        ] #=.|> O(ϵ^1)=#)
     end
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; defaults=[ics1; defs], kwargs...)
 end
 
 function baryons(g; recombination=true, kwargs...)
@@ -223,7 +223,7 @@ function ΛCDM(; kwargs...)
     @named Λ = cosmological_constant(g)
     species = [γ, ν, c, b, h, Λ]
     ics0 = [
-        g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a => √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     pars = @parameters C fν
     defs = [
@@ -231,7 +231,7 @@ function ΛCDM(; kwargs...)
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
         k => NaN # make background shut up # TODO: avoid
-        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0)
+        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0) # TODO: 1/2 is wrong
         C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
     ]
@@ -248,7 +248,7 @@ function ΛCDM(; kwargs...)
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=[ics0; defs; t => 1e-5], kwargs...)
     M = compose(connections, g, G, species...)
     defs = Pair{Any, Any}[]
     for s in species

@@ -34,10 +34,10 @@ function thermodynamics_recombination_recfast(g; kwargs...)
     αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
     KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
     KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
-    initialization_eqs = [
-        XHe⁺ ~ 1 # TODO: add first order correction?
-        XH⁺ ~ 1 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        Tb ~ Tγ
+    ics = [
+        XHe⁺ => 1.0 # TODO: add first order correction?
+        XH⁺ => 1.0 # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
+        Tb => Tγ
     ]
     defaults = [
         fHe => Yp / (mHe/mH*(1-Yp))
@@ -46,7 +46,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
-        D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
+        Tb ~ Tγ # D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature # TODO: restore proper baryon temperature; cannot initialize it with defaults because of https://github.com/SciML/ModelingToolkit.jl/issues/2859
         DTb ~ D(Tb)
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
@@ -98,7 +98,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
 
         dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         D(τ) ~ dτ
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, dτ, Tb, Tγ], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, dτ, Tb, Tγ], [Yp, fHe]; defaults=[ics; defaults], kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
