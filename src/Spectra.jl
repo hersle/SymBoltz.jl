@@ -9,8 +9,8 @@ P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
 
 # total matter power spectrum
 function Pc(prob::CosmologyProblem, pars, k; kwargs...)
-    sols = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
-    Δ = [sol[prob.pt.c.Δ][end] for sol in sols]
+    sol = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
+    Δ = [sol[ik, prob.pt.c.Δ][end] for ik in eachindex(k)]
     return P0(k) .* Δ .^ 2
 end
 

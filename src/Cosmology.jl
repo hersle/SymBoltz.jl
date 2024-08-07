@@ -15,45 +15,25 @@ end
 
 struct CosmologySolution
     bg::ODESolution
-    pt::Union{ODESolution, Nothing} # TODO: multiple ks, source function-like splining?
+    pts::Union{EnsembleSolution, Nothing} # TODO: multiple ks, source function-like splining?
 end
 
 function Base.show(io::IO, sol::CosmologySolution)
     print(io, "Cosmology solution with")
     print(io, "\n* background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
-    !isnothing(sol.pt) && print(io, "\n* perturbation (k = $(sol.pt.prob.ps[k]) H₀/c): solved with $(nameof(typeof(sol.pt.alg))), $(length(sol.pt)) points")
-end
-
-#=
-function subsol_with_variables(sol::CosmologySolution, vars)
-    # TODO: what to do with ambiguous t? default to bg, but select pt if requesting only perturbed variables
-    vars = getname.(vars)
-    if !isnothing(sol.pt)
-        bg_vars = getname.(all_variable_symbols(sol.bg)) # variables in background
-        pt_vars = getname.(all_variable_symbols(sol.pt)) # variables in perturbations
-        pt_vars = setdiff(pt_vars, bg_vars) # variables in perturbations, but not in background
-        if !isdisjoint(vars, pt_vars)
-            return sol.pt # one or more requested variables are perturbation variables
+    if !isnothing(sol.pts)
+        for pt in sol.pts
+            print(io, "\n* perturbation (k = $(pt.prob.ps[k]) H₀/c): solved with $(nameof(typeof(pt.alg))), $(length(pt)) points")
         end
     end
-    return sol.bg
 end
 
-function subsol_with_variables(sol::CosmologySolution, var::Number)
-    return subsol_with_variables(sol, [var])
-end
-
-Base.getindex(sol::CosmologySolution, i) = subsol_with_variables(sol, i)[i]
-=#
-
-function Base.getindex(sol::CosmologySolution, i)
-    try # TODO: avoid try/catch
-        return sol.bg[i]
-    catch e
-        e isa ArgumentError && return sol.pt[i]
-        rethrow(e)
-    end
-end
+# TODO: don't select time points as 2nd/3rd index, since these points will vary
+const SymbolicIndex = Union{Num, AbstractArray{Num}}
+Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :) = stack(sol.bg[i, j])
+Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
+Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
+Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(t, idxs)
     try # TODO: avoid try/catch
@@ -105,8 +85,9 @@ function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aen
         ], tspan = (tini, 4.0), p = [k => ks[i]], use_defaults = true)
         return prob_new # BUG: prob_new's u0 does not match solution[begin]
         =#
-    end, output_func = (sol, i) -> (CosmologySolution(bg_sol.bg, sol), false))
-    return solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
+    end)
+    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
+    return CosmologySolution(bg_sol.bg, ode_sols)
 end
 
 function solve(M::CosmologyProblem, pars, k::Number; kwargs...)
