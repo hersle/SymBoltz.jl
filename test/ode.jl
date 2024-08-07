@@ -29,20 +29,20 @@ end
 # TODO: color wavelengths like EM spectrum
 if true
     ks = 10 .^ range(-1, 1, length=3) ./ Symboltz.k0
-    pt_sols = Symboltz.solve(prob, pars, ks)
-    for (i, (k, pt_sol)) in enumerate(zip(ks, pt_sols))
+    for (i, k) in enumerate(ks)
+        pt_sol = Symboltz.solve(prob, pars, k)
         color = i
-        plot!(p[3,1], log10.(pt_sol[M.g.a]), pt_sol[M.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
-        plot!(p[3,1], log10.(pt_sol[M.g.a]), pt_sol[M.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
-        plot!(p[3,2], log10.(pt_sol[M.g.a]), log10.(abs.(pt_sol[M.γ.δ]));  linestyle=:solid, color)
-        plot!(p[3,2], log10.(pt_sol[M.g.a]), log10.(abs.(pt_sol[M.c.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
-        plot!(p[3,2], log10.(pt_sol[M.g.a]), log10.(abs.(pt_sol[M.b.δ])); linestyle=:dot, color)
-        plot!(p[3,2], log10.(pt_sol[M.g.a]), log10.(abs.(pt_sol[M.ν.δ])); linestyle=:dashdot, color)
-        plot!(p[3,2], log10.(pt_sol[M.g.a]), log10.(abs.(pt_sol[M.h.δ])); linestyle=:dashdotdot, color)
-        plot!(p[3,3], log10.(pt_sol[M.g.a]), pt_sol[M.γ.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
-        plot!(p[3,3], log10.(pt_sol[M.g.a]), pt_sol[M.c.θ] ./ k; color)
-        plot!(p[3,3], log10.(pt_sol[M.g.a]), pt_sol[M.b.θ] ./ k; color)
-        plot!(p[3,3], log10.(pt_sol[M.g.a]), pt_sol[M.ν.θ] ./ k; color)
+        plot!(p[3,1], log10.(pt_sol.pt[M.g.a]), pt_sol[M.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
+        plot!(p[3,1], log10.(pt_sol.pt[M.g.a]), pt_sol[M.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
+        plot!(p[3,2], log10.(pt_sol.pt[M.g.a]), log10.(abs.(pt_sol[M.γ.δ]));  linestyle=:solid, color)
+        plot!(p[3,2], log10.(pt_sol.pt[M.g.a]), log10.(abs.(pt_sol[M.c.δ])); linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
+        plot!(p[3,2], log10.(pt_sol.pt[M.g.a]), log10.(abs.(pt_sol[M.b.δ])); linestyle=:dot, color)
+        plot!(p[3,2], log10.(pt_sol.pt[M.g.a]), log10.(abs.(pt_sol[M.ν.δ])); linestyle=:dashdot, color)
+        plot!(p[3,2], log10.(pt_sol.pt[M.g.a]), log10.(abs.(pt_sol[M.h.δ])); linestyle=:dashdotdot, color)
+        plot!(p[3,3], log10.(pt_sol.pt[M.g.a]), pt_sol[M.γ.θ] ./ k; color, xlabel="lg(a)", ylabel="θ / k")
+        plot!(p[3,3], log10.(pt_sol.pt[M.g.a]), pt_sol[M.c.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol.pt[M.g.a]), pt_sol[M.b.θ] ./ k; color)
+        plot!(p[3,3], log10.(pt_sol.pt[M.g.a]), pt_sol[M.ν.θ] ./ k; color)
         #plot!(p[3,3], log10.(pt_sol[M.g.a]), pt_sol[M.h.θ] ./ k; color) # TODO: compute
     end
     hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)

@@ -1,4 +1,5 @@
 import CommonSolve: solve
+#import SymbolicIndexingInterface: all_variable_symbols, getname
 
 # TODO: split further into BackgroundProblem and PerturbationProblem
 struct CosmologyProblem
@@ -7,13 +8,60 @@ struct CosmologyProblem
 end
 
 function CosmologyProblem(model::ODESystem)
-    bg = background(model)
-    bg = structural_simplify(bg)
-
-    pt = perturbations(model)
-    pt = structural_simplify(pt)
-
+    bg = structural_simplify(background(model))
+    pt = structural_simplify(perturbations(model))
     return CosmologyProblem(bg, pt)
+end
+
+struct CosmologySolution
+    bg::ODESolution
+    pt::Union{ODESolution, Nothing} # TODO: multiple ks, source function-like splining?
+end
+
+function Base.show(io::IO, sol::CosmologySolution)
+    print(io, "Cosmology solution with")
+    print(io, "\n* background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
+    !isnothing(sol.pt) && print(io, "\n* perturbation (k = $(sol.pt.prob.ps[k]) H₀/c): solved with $(nameof(typeof(sol.pt.alg))), $(length(sol.pt)) points")
+end
+
+#=
+function subsol_with_variables(sol::CosmologySolution, vars)
+    # TODO: what to do with ambiguous t? default to bg, but select pt if requesting only perturbed variables
+    vars = getname.(vars)
+    if !isnothing(sol.pt)
+        bg_vars = getname.(all_variable_symbols(sol.bg)) # variables in background
+        pt_vars = getname.(all_variable_symbols(sol.pt)) # variables in perturbations
+        pt_vars = setdiff(pt_vars, bg_vars) # variables in perturbations, but not in background
+        if !isdisjoint(vars, pt_vars)
+            return sol.pt # one or more requested variables are perturbation variables
+        end
+    end
+    return sol.bg
+end
+
+function subsol_with_variables(sol::CosmologySolution, var::Number)
+    return subsol_with_variables(sol, [var])
+end
+
+Base.getindex(sol::CosmologySolution, i) = subsol_with_variables(sol, i)[i]
+=#
+
+function Base.getindex(sol::CosmologySolution, i)
+    try # TODO: avoid try/catch
+        return sol.bg[i]
+    catch e
+        e isa ArgumentError && return sol.pt[i]
+        rethrow(e)
+    end
+end
+
+function (sol::CosmologySolution)(t, idxs)
+    try # TODO: avoid try/catch
+        return sol.bg(t, idxs=idxs)
+    catch e
+        e isa ArgumentError && return sol.pt(t, idxs=idxs)
+        rethrow(e)
+    end
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -21,7 +69,8 @@ end
 function solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars)
     callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
-    return solve(ode_prob, solver; callback, reltol, kwargs...)
+    ode_sol = solve(ode_prob, solver; callback, reltol, kwargs...)
+    return CosmologySolution(ode_sol, nothing)
 end
 
 function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
@@ -31,7 +80,7 @@ function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aen
         tend = bg_sol[t][end]
         ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         pars = [pars;
-            prob.pt.b.rec.dτspline => spline(log.(.-bg_sol(ts, idxs=prob.bg.b.rec.dτ).u), log.(ts)) # TODO: improve spline accuracy
+            prob.pt.b.rec.dτspline => spline(log.(.-bg_sol(ts, prob.bg.b.rec.dτ).u), log.(ts)) # TODO: improve spline accuracy
             #prob.pt.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=prob.th.rec.Tb).u), log.(ts)),
         ]
     end
@@ -56,7 +105,7 @@ function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aen
         ], tspan = (tini, 4.0), p = [k => ks[i]], use_defaults = true)
         return prob_new # BUG: prob_new's u0 does not match solution[begin]
         =#
-    end)
+    end, output_func = (sol, i) -> (CosmologySolution(bg_sol.bg, sol), false))
     return solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
 end
 
