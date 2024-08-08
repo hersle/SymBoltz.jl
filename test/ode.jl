@@ -26,6 +26,6 @@ plot!(p[2,2], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb]))
 
 # plot perturbations
 # TODO: color wavelengths like EM spectrum?
-plot!(p[3,1], sol, ks, [log10(M.g.a)], [M.g.Φ, M.g.Ψ])
-plot!(p[3,2], sol, ks, [log10(M.g.a)], log10.(abs.([M.γ.δ, M.c.δ, M.b.δ, M.ν.δ, M.h.δ#=, M.h.θ=#])); ylabel="log10(abs(δ(t))")
-plot!(p[3,3], sol, ks, [log10(M.g.a)], [M.γ.θ, M.c.θ, M.b.θ, M.ν.θ] ./ M.k; ylabel="θ(t) / k")
+plot!(p[3,1], sol, ks, log10(M.g.a), [M.g.Φ, M.g.Ψ])
+plot!(p[3,2], sol, ks, log10(M.g.a), log10.(abs.([M.γ.δ, M.c.δ, M.b.δ, M.ν.δ, M.h.δ#=, M.h.θ=#])); ylabel="log10(abs(δ(t))")
+plot!(p[3,3], sol, ks, log10(M.g.a), [M.γ.θ, M.c.θ, M.b.θ, M.ν.θ] ./ M.k; ylabel="θ(t) / k")
