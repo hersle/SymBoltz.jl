@@ -15,7 +15,8 @@ end
 
 struct CosmologySolution
     bg::ODESolution
-    pts::Union{EnsembleSolution, Nothing} # TODO: multiple ks, source function-like splining?
+    ks::Array{Float64}
+    pts::Union{EnsembleSolution, Nothing}
 end
 
 function Base.show(io::IO, sol::CosmologySolution)
@@ -36,12 +37,35 @@ Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(t, idxs)
-    try # TODO: avoid try/catch
-        return sol.bg(t, idxs=idxs)
-    catch e
-        e isa ArgumentError && return sol.pt(t, idxs=idxs)
-        rethrow(e)
+    v = sol.bg(t, idxs=idxs)
+    return stack(v')
+end
+
+function (sol::CosmologySolution)(k, t, idxs)
+    isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
+
+    kmin, kmax = extrema(sol.ks)
+    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
+
+    i2 = searchsortedfirst(sol.ks, k) # index above target k
+    i1 = i2 - 1 # index below target k ()
+
+    v2 = sol.pts[i2](t; idxs)
+    if i1 == 0
+        # k == kmin, no interpolation necessary
+        v = v2
+    else
+        # k > kmin, linearly interpolate between k1 and k2
+        v1 = sol.pts[i1](t; idxs)
+        k1 = sol.ks[i1]
+        k2 = sol.ks[i2]
+        v = @. v1 + (v2 - v1) * (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoother when interpolated in log(k) # TODO: use cubic spline?
     end
+    return stack(v') # make array of size corresponding to order of input arguments
+end
+
+function (sol::CosmologySolution)(_ks::AbstractArray, t, idxs)
+    return permutedims(stack([sol(_k, t, idxs) for _k in _ks]), (3, 1, 2))
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -50,10 +74,12 @@ function solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = R
     ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars)
     callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
     ode_sol = solve(ode_prob, solver; callback, reltol, kwargs...)
-    return CosmologySolution(ode_sol, nothing)
+    return CosmologySolution(ode_sol, [], nothing)
 end
 
 function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
+
     tend = 4.0
     if :b₊rec₊dτspline in Symbol.(parameters(prob.pt))
         bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
@@ -87,9 +113,9 @@ function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aen
         =#
     end)
     ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
-    return CosmologySolution(bg_sol.bg, ode_sols)
+    return CosmologySolution(bg_sol.bg, ks, ode_sols)
 end
 
 function solve(M::CosmologyProblem, pars, k::Number; kwargs...)
-    return solve(M, pars, [k]; kwargs...)[1]
+    return solve(M, pars, [k]; kwargs...)
 end
