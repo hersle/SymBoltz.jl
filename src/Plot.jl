@@ -10,44 +10,39 @@ using RecipesBase
     return xs, ys
 end
 
-@recipe function plot(sol::CosmologySolution, k::AbstractArray, x::AbstractArray, y::AbstractArray; N = 500)
+@recipe function plot(sol::CosmologySolution, k, x, y; N = 500)
     ts = exp.(range(log.(extrema(sol[t]))..., length=N))
-    xs = sol(k, ts, x)
-    ys = sol(k, ts, y)
 
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
             color = ik
-
+            xs = sol(k[ik], ts, x)
+            ys = sol(k[ik], ts, y[iv])
             @series begin
-                color --> color
                 linestyle --> linestyle
-                label --> ""
-                xs[ik, :, iv], ys[ik, :, iv]
+                color --> color
+                label := ""
+                xs, ys
             end
 
-            # dummy plot for wavenumber label
+            # label wavenumber with dummy plot
             if iv == 1
                 @series begin
-                    color := color
                     linestyle := :solid
+                    color := color
                     label := "k = $(k[ik]) H₀/c"
                     [NaN], [NaN]
                 end
             end
         end
 
-        # dummy plot for variable label
+        # label variable with dummy plot
         @series begin
-            color := :black
             linestyle := linestyle
+            color := :black
             label := y[iv]
             [NaN], [NaN]
         end
     end
-end
-
-@recipe function plot(sol::CosmologySolution, k, x::Number, y; N = 500)
-    sol, k, fill(x, length(y)), y
 end
