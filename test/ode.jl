@@ -26,13 +26,6 @@ plot!(p[2,2], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb]))
 
 # plot perturbations
 # TODO: color wavelengths like EM spectrum?
-# TODO: pass array of ks to plot
-for (color, k) in enumerate(ks)
-    plot!(p[3,1], sol, k, log10(M.g.a), [M.g.Φ, M.g.Ψ]; linestyle=[:solid :dash], color, label=nothing)
-    plot!(p[3,2], sol, k, log10(M.g.a), log10.(abs.([M.γ.δ, M.c.δ, M.b.δ, M.ν.δ, M.h.δ#=, M.h.θ=#])); linestyle=[:solid :dash :dot :dashdot :dashdotdot], color, ylabel="log10(abs(δ(t))", label=nothing)
-    plot!(p[3,3], sol, k, log10(M.g.a), [M.γ.θ, M.c.θ, M.b.θ, M.ν.θ] ./ M.k; color, label=nothing)
-end
-hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)
-hline!(p[3,1], fill(NaN, 1, length(ks)), color=permutedims(eachindex(ks)), label=permutedims([(@sprintf "k = %f h/Mpc" k * Symboltz.k0) for k in ks]))
-hline!(p[3,2], [NaN NaN NaN NaN NaN], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="δ = δ" .* ["γ" "c" "b" "ν" "h"], color=:black, legend_position=:topleft)
-hline!(p[3,3], [NaN NaN NaN NaN #=NaN=#], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="θ = θ" .* ["γ" "c" "b" "ν" #="h"=#], color=:black, legend_position=:topleft)
+plot!(p[3,1], sol, ks, [log10(M.g.a)], [M.g.Φ, M.g.Ψ])
+plot!(p[3,2], sol, ks, [log10(M.g.a)], log10.(abs.([M.γ.δ, M.c.δ, M.b.δ, M.ν.δ, M.h.δ#=, M.h.θ=#])); ylabel="log10(abs(δ(t))")
+plot!(p[3,3], sol, ks, [log10(M.g.a)], [M.γ.θ, M.c.θ, M.b.θ, M.ν.θ] ./ M.k; ylabel="θ(t) / k")
