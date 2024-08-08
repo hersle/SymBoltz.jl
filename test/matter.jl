@@ -7,7 +7,7 @@ prob = Symboltz.CosmologyProblem(M)
 ks = 10 .^ range(-3, 0, length=150) / Symboltz.k0
 θ0 = [5.5e-5, 0.267, 0.05, 3.046, 0.67, 0.245]
 
-P(θ) = Symboltz.Pc(prob, [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ, ks) / Symboltz.k0^3
+P(θ) = Symboltz.P(prob, M.c, [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ, ks) / Symboltz.k0^3
 lgP(lgθ) = log10.(P(10 .^ lgθ))
 
 # computer power spectrum and derivatives wrt. input parameters using autodiff in one go
