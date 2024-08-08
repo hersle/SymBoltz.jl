@@ -1,8 +1,6 @@
 using ModelingToolkit
-using Plots; Plots.default(label=nothing)
+using Plots
 using Printf
-
-# TODO: make plot recipes
 
 @named M = Symboltz.ΛCDM()
 prob = Symboltz.CosmologyProblem(M)
@@ -20,34 +18,21 @@ sol = Symboltz.solve(prob, pars, ks)
 
 p = plot(layout=(3,3), size=(1600, 1200), margin=5*Plots.mm)
 
-if true
-    plot!(p[1,1], sol[Symboltz.t], sol[M.g.a]; xlabel="t / (1/H0)", ylabel="a", ylims=(0, 1))
-    plot!(p[1,2], sol[log10(M.g.a)], stack(sol[[M.γ.ρ, M.ν.ρ, M.h.ρ, M.c.ρ, M.b.ρ, M.Λ.ρ] ./ M.G.ρcrit])'; xlabel="lg(a)", ylabel="Ω", label=["Ω = Ωγ" "Ω = Ων" "Ω = Ωh" "Ω = Ωc" "Ω = Ωb" "Ω = ΩΛ"], legend=:left)
-    plot!(p[2,1], sol[log10(M.g.a)], stack(sol[[M.b.rec.Xe, M.b.rec.XH⁺, M.b.rec.XHe⁺, M.b.rec.XHe⁺⁺]])'; xlabel="lg(a)", ylabel="X", ylims=(0, 1.5), label=["X = Xe" "X = XH⁺" "X = XHe⁺" "X = XHe⁺⁺"])
-    plot!(p[2,2], sol[log10(M.g.a)], stack(sol[log10.([M.b.rec.Tγ, M.b.rec.Tb])])'; xlabel = "lg(a)", ylabel = "lg(T/K)", labels = ["T = Tγ" "T = Tb"])
-    display(p)
-end
+# plot background
+plot!(p[1,1], sol, Symboltz.t, M.g.a; ylims=(0, 1))
+plot!(p[1,2], sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.c.ρ, M.b.ρ, M.Λ.ρ] ./ M.G.ρcrit; legend=:left, ylims=(0, 1))
+plot!(p[2,1], sol, log10(M.g.a), [M.b.rec.Xe, M.b.rec.XH⁺, M.b.rec.XHe⁺, M.b.rec.XHe⁺⁺]; ylims=(0, 1.5))
+plot!(p[2,2], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb]))
 
-# TODO: color wavelengths like EM spectrum
-if true
-    for (i, k) in enumerate(ks)
-        color = i
-        plot!(p[3,1], sol[i, log10(M.g.a)], sol[i, M.g.Φ]; linestyle=:solid, xlabel="lg(a)", color)
-        plot!(p[3,1], sol[i, log10(M.g.a)], sol[i, M.g.Ψ]; linestyle=:dash,  xlabel="lg(a)", color)
-        plot!(p[3,2], sol[i, log10(M.g.a)], sol[i, log10(abs(M.γ.δ))];  linestyle=:solid, color)
-        plot!(p[3,2], sol[i, log10(M.g.a)], sol[i, log10(abs(M.c.δ))]; linestyle=:dash, xlabel="lg(a)", ylabel="lg(|δ|)", color)
-        plot!(p[3,2], sol[i, log10(M.g.a)], sol[i, log10(abs(M.b.δ))]; linestyle=:dot, color)
-        plot!(p[3,2], sol[i, log10(M.g.a)], sol[i, log10(abs(M.ν.δ))]; linestyle=:dashdot, color)
-        plot!(p[3,2], sol[i, log10(M.g.a)], sol[i, log10(abs(M.h.δ))]; linestyle=:dashdotdot, color)
-        plot!(p[3,3], sol[i, log10(M.g.a)], sol[i, M.γ.θ / k]; color, xlabel="lg(a)", ylabel="θ / k")
-        plot!(p[3,3], sol[i, log10(M.g.a)], sol[i, M.c.θ / k]; color)
-        plot!(p[3,3], sol[i, log10(M.g.a)], sol[i, M.b.θ / k]; color)
-        plot!(p[3,3], sol[i, log10(M.g.a)], sol[i, M.ν.θ / k]; color)
-        #plot!(p[3,3], sol[log10(M.g.a)], sol[M.h.θ / k]; color) # TODO: compute
-    end
-    hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)
-    hline!(p[3,1], fill(NaN, 1, length(ks)), color=permutedims(eachindex(ks)), label=permutedims([(@sprintf "k = %f h/Mpc" k * Symboltz.k0) for k in ks]))
-    hline!(p[3,2], [NaN NaN NaN NaN NaN], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="δ = δ" .* ["γ" "c" "b" "ν" "h"], color=:black, legend_position=:topleft)
-    hline!(p[3,3], [NaN NaN NaN NaN #=NaN=#], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="θ = θ" .* ["γ" "c" "b" "ν" #="h"=#], color=:black, legend_position=:topleft)
-    display(p)
+# plot perturbations
+# TODO: color wavelengths like EM spectrum?
+# TODO: pass array of ks to plot
+for (color, k) in enumerate(ks)
+    plot!(p[3,1], sol, k, log10(M.g.a), [M.g.Φ, M.g.Ψ]; linestyle=[:solid :dash], color, label=nothing)
+    plot!(p[3,2], sol, k, log10(M.g.a), log10.(abs.([M.γ.δ, M.c.δ, M.b.δ, M.ν.δ, M.h.δ#=, M.h.θ=#])); linestyle=[:solid :dash :dot :dashdot :dashdotdot], color, ylabel="log10(abs(δ(t))", label=nothing)
+    plot!(p[3,3], sol, k, log10(M.g.a), [M.γ.θ, M.c.θ, M.b.θ, M.ν.θ] ./ M.k; color, label=nothing)
 end
+hline!(p[3,1], [NaN NaN], linestyle=[:solid :dash], label=["Φ" "Ψ"], color=:black, legend_position=:topright)
+hline!(p[3,1], fill(NaN, 1, length(ks)), color=permutedims(eachindex(ks)), label=permutedims([(@sprintf "k = %f h/Mpc" k * Symboltz.k0) for k in ks]))
+hline!(p[3,2], [NaN NaN NaN NaN NaN], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="δ = δ" .* ["γ" "c" "b" "ν" "h"], color=:black, legend_position=:topleft)
+hline!(p[3,3], [NaN NaN NaN NaN #=NaN=#], linestyle=[:solid :dash :dot :dashdot :dashdotdot], label="θ = θ" .* ["γ" "c" "b" "ν" #="h"=#], color=:black, legend_position=:topleft)
