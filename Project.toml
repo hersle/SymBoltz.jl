@@ -1,6 +1,7 @@
 name = "Symboltz"
 uuid = "64c5a815-d72d-4982-8b1f-85a778bbef4e"
 authors = ["Herman Sletmoen"]
+version = "0.0.0"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
