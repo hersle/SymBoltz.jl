@@ -1,3 +1,4 @@
 using Documenter, Symboltz
 
-makedocs(sitename = "Symboltz", repo = "github.com/hersle/SymBoltz.jl.git",)
+makedocs(sitename = "Symboltz")
+deploydocs(repo = "github.com/hersle/SymBoltz.jl.git")
