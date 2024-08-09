@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     permissions:
+      actions: write # allow deletion of old caches
       contents: write
       pull-requests: read
       statuses: write
