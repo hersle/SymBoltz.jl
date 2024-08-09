@@ -89,6 +89,11 @@ end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
+"""
+    solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+
+Solve `CosmologyProblem` with parameters `pars` at the background level.
+"""
 function solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars)
     callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
