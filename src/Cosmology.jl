@@ -38,10 +38,16 @@ Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1
 
 function (sol::CosmologySolution)(t, idxs)
     v = sol.bg(t, idxs=idxs)
-    return stack(v')
+    if t isa AbstractArray
+        v = v.u
+        if idxs isa AbstractArray
+            v = permutedims(stack(v))
+        end
+    end
+    return v
 end
 
-function (sol::CosmologySolution)(k, t, idxs)
+function (sol::CosmologySolution)(k::Number, t, idxs)
     isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
 
     kmin, kmax = extrema(sol.ks)
@@ -61,11 +67,24 @@ function (sol::CosmologySolution)(k, t, idxs)
         k2 = sol.ks[i2]
         v = @. v1 + (v2 - v1) * (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoother when interpolated in log(k) # TODO: use cubic spline?
     end
-    return stack(v') # make array of size corresponding to order of input arguments
+
+    if t isa AbstractArray
+        v = v.u
+        if idxs isa AbstractArray
+            v = permutedims(stack(v))
+        end
+    end
+    return v
 end
 
-function (sol::CosmologySolution)(_ks::AbstractArray, t, idxs)
-    return permutedims(stack([sol(_k, t, idxs) for _k in _ks]), (3, 1, 2))
+function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
+    v = sol.(k, Ref(t), Ref(idxs))
+    if t isa AbstractArray && idxs isa AbstractArray
+        v = stack(v; dims=1)
+    elseif t isa AbstractArray || idxs isa AbstractArray
+        v = permutedims(stack(v))
+    end
+    return v
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
