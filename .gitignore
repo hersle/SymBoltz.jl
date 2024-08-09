@@ -1,4 +1,7 @@
-/Manifest.toml
+
+docs/build/
+Manifest.toml
+dev/
 /class/
 /COMBO/
 *.pdf
