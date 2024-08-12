@@ -1,4 +1,4 @@
-module Symboltz
+module SymBoltz
 
 using ModelingToolkit
 using DifferentialEquations
