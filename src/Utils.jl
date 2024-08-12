@@ -43,6 +43,7 @@ function identity(sys)
 end
 
 O(x, ϵⁿ) = x * ϵⁿ
+O(p::Pair, ϵⁿ) = O(p.first, ϵⁿ) => O(p.second, ϵⁿ)
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
@@ -60,23 +61,29 @@ function extract_order(eq::Equation, order)
     return extract_order(eq.lhs, order) ~ extract_order(eq.rhs, order)
 end
 
+function extract_order(p::Pair, order)
+    return extract_order(p.first, order) => extract_order(p.second, order)
+end
+
 function extract_order(sys::ODESystem, orders)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
-    defs = ModelingToolkit.get_defaults(sys)
+    defs = ModelingToolkit.get_defaults(sys) |> collect # to array
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
     eqs = vcat((extract_order.(eqs, order) for order in orders)...)
     ieqs = vcat((extract_order.(ieqs, order) for order in orders)...)
+    defs = vcat((extract_order.(defs, order) for order in orders)...)
 
     # remove resulting trivial equations
     eqs = filter(eq -> eq != (0 ~ 0), eqs)
     ieqs = filter(eq -> eq != (0 ~ 0), ieqs)
+    defs = filter(eq -> eq !== (0 => 0), defs)
 
-    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
+    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=Vector{Pair{Any, Any}}(defs), guesses=guesses, name=sys.name)
     return sys0
 end
 
