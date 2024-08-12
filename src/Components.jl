@@ -1,7 +1,7 @@
 ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
 
 function metric(; kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t)) # TODO: more natural way to connect them?
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t))
     pars = H0, h = GlobalScope.(@parameters H0 h)
     defs = [
         H0 => H100 * h
@@ -44,7 +44,7 @@ function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = fal
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: fix with θ: -1/2 * k*t * g.Ψ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     defs = [
         ρ0 => 3/8π*Ω0
@@ -60,7 +60,7 @@ end
 function radiation(g; kwargs...)
     r = species_constant_eos(g, 1//3; kwargs...)
     pars = @parameters T0
-    vars = @variables T(t) # TODO: define in constant_eos?
+    vars = @variables T(t) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
     return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; kwargs...))
 end
 
@@ -91,7 +91,7 @@ function photons(g; polarization=true, lmax=6, kwargs...)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
         θ ~ 1/2 * (k^2*t) * g.Ψ # Dodelson (7.95)
-        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included # TODO: move to initialization_eqs?
+        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
@@ -185,7 +185,7 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
             ψ0[i] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
-            [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: proper ICs    
+            [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ] .|> O(ϵ^1))
     end
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
@@ -257,5 +257,5 @@ function ΛCDM(; kwargs...)
         end
     end
     M = extend(M, ODESystem(Equation[], t; defaults=defs, kwargs...))
-    return complete(M) # TODO: complete here?
+    return complete(M)
 end

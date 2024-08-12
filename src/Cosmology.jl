@@ -1,7 +1,6 @@
 import CommonSolve: solve
 #import SymbolicIndexingInterface: all_variable_symbols, getname
 
-# TODO: split further into BackgroundProblem and PerturbationProblem
 struct CosmologyProblem
     bg::ODESystem
     pt::ODESystem
