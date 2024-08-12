@@ -2,7 +2,7 @@ using Test
 
 idxs = [M.g.a, M.g.a, M.g.a, M.g.a]
 ts = [1.0, 2.0, 3.0]
-ks = [1.0, 10.0] ./ Symboltz.k0
+ks = [1.0, 10.0] ./ SymBoltz.k0
 
 has_size(arr::Array, siz) = siz == size(arr)
 has_size(arr::Number, siz) = siz == ()

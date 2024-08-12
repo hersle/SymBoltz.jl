@@ -2,9 +2,9 @@ using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using GraphRecipes
 
-@named bg = Symboltz.background_ΛCDM()
-@named th = Symboltz.thermodynamics_ΛCDM(bg)
-@named pt = Symboltz.perturbations_ΛCDM(th, 6)
+@named bg = SymBoltz.background_ΛCDM()
+@named th = SymBoltz.thermodynamics_ΛCDM(bg)
+@named pt = SymBoltz.perturbations_ΛCDM(th, 6)
 
 tstate = ModelingToolkit.get_tearing_state(pt.ssys)
 imat = ModelingToolkit.BipartiteGraphs.incidence_matrix(tstate.structure.graph)

@@ -5,8 +5,8 @@ using Plots; Plots.default(label=nothing)
 using Printf
 
 lmax = 6
-model = Symboltz.ΛCDM(; lmax)
-par = Symboltz.CosmologicalParameters()
+model = SymBoltz.ΛCDM(; lmax)
+par = SymBoltz.CosmologicalParameters()
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -22,7 +22,7 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     return run(`$exec $inpath`) # run
 end
 
-function output_class(par::Symboltz.CosmologicalParameters, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
+function output_class(par::SymBoltz.CosmologicalParameters, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
     in = Dict(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
@@ -75,15 +75,15 @@ end
 kMpc = 1e0 # 1/Mpc # disagreement on smaller scales
 sol1 = output_class(par, kMpc)
 
-k = kMpc ./ (par.h * Symboltz.k0) # h/Mpc -> code units
-sol2_th = Symboltz.solve_thermodynamics(model, par)
-sol2_pt = Symboltz.solve_perturbations(model, k, par)
+k = kMpc ./ (par.h * SymBoltz.k0) # h/Mpc -> code units
+sol2_th = SymBoltz.solve_thermodynamics(model, par)
+sol2_pt = SymBoltz.solve_perturbations(model, k, par)
 
 # map results from both codes to common convention
 results = Dict(
     # background
     "lg(a_bg)" => (log10.(1 ./ (sol1["bg"]["z"] .+ 1)), log10.(sol2_th[model.bg.g.a])),
-    "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[Symboltz.t] / (par.h * Symboltz.k0)),
+    "t" => (sol1["bg"]["conf.time[Mpc]"], sol2_th[SymBoltz.t] / (par.h * SymBoltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2_th[model.bg.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.ph.ρ] / (3/8π)),
     "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2_th[model.bg.neu.ρ] / (3/8π)),
@@ -94,7 +94,7 @@ results = Dict(
 
     # thermodynamics
     "lg(a_th)" => (log10.(reverse(sol1["th"]["scalefactora"])), log10.(sol2_th[model.bg.g.a])),
-    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2_th[model.th.rec.dτ] * (Symboltz.k0 * par.h))),
+    "lg(τ′)" => (log10.(reverse(sol1["th"]["kappa'[Mpc^-1]"])), log10.(.- sol2_th[model.th.rec.dτ] * (SymBoltz.k0 * par.h))),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2_th[model.th.rec.cs²]), # TODO: becomes negative; fix
     "lg(csb²)" => (log10.(reverse(sol1["th"]["c_b^2"])), log10.(abs.(sol2_th[model.th.rec.cs²]))), # TODO: becomes negative; fix
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2_th[model.th.rec.Xe]),
@@ -111,11 +111,11 @@ results = Dict(
     "δγ" => (sol1["pt"]["delta_g"], sol2_pt[model.pt.ph.δ]),
     "δν" => (sol1["pt"]["delta_ur"], sol2_pt[model.pt.neu.δ]),
     "δmν" => (sol1["pt"]["delta_ncdm[0]"], sol2_pt[model.pt.mneu.δ]),
-    "θb" => (sol1["pt"]["theta_b"], sol2_pt[model.pt.bar.θ] * (par.h*Symboltz.k0)),
-    "θc" => (sol1["pt"]["theta_cdm"], sol2_pt[model.pt.cdm.θ] * (par.h*Symboltz.k0)),
-    "θγ" => (sol1["pt"]["theta_g"], sol2_pt[model.pt.ph.θ] * (par.h*Symboltz.k0)),
-    "θν" => (sol1["pt"]["theta_ur"], sol2_pt[model.pt.neu.θ] * (par.h*Symboltz.k0)), # TODO: is *3 correct?
-    #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2_pt[model.pt.mneu.θ] * (par.h*Symboltz.k0)), # TODO: correct???
+    "θb" => (sol1["pt"]["theta_b"], sol2_pt[model.pt.bar.θ] * (par.h*SymBoltz.k0)),
+    "θc" => (sol1["pt"]["theta_cdm"], sol2_pt[model.pt.cdm.θ] * (par.h*SymBoltz.k0)),
+    "θγ" => (sol1["pt"]["theta_g"], sol2_pt[model.pt.ph.θ] * (par.h*SymBoltz.k0)),
+    "θν" => (sol1["pt"]["theta_ur"], sol2_pt[model.pt.neu.θ] * (par.h*SymBoltz.k0)), # TODO: is *3 correct?
+    #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2_pt[model.pt.mneu.θ] * (par.h*SymBoltz.k0)), # TODO: correct???
     #"Π" => (sol1["pt"]["shear_g"], sol2_pt[model.pt.ph.Θ[2]] * -2),
     #"P0" => (sol1["pt"]["pol0_g"], sol2_pt[model.pt.ph.ΘP0] * -4), # TODO: is -4 correct ???
     #"P1" => (sol1["pt"]["pol1_g"], sol2_pt[model.pt.ph.ΘP[1]] * -4), # TODO: is -4 correct ???
@@ -127,7 +127,7 @@ results = Dict(
 #xlabels, ylabels = ["lg(a_th)", "lg(a_th)", "lg(a_th)", "lg(a_th)"], ["Tb", "Tb′", "csb²", "Xe"]
 xlabels, ylabels = ["lg(a_pt)", "lg(a_pt)", "lg(a_pt)"], ["Ψ", "Φ", "δmν"] # TODO: θmν
 p = plot(; layout = (length(ylabels)+1, 1), size = (700, 800))
-title = join([(@sprintf "%s = %.2e" s getfield(par, s)) for s in fieldnames(Symboltz.CosmologicalParameters)], ", ") * (@sprintf ", k = %.2e / Mpc" kMpc)
+title = join([(@sprintf "%s = %.2e" s getfield(par, s)) for s in fieldnames(SymBoltz.CosmologicalParameters)], ", ") * (@sprintf ", k = %.2e / Mpc" kMpc)
 plot!(p[1]; title, titlefontsize = 9)
 for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     x1, x2 = results[xlabel]
@@ -139,14 +139,14 @@ for (i, (xlabel, ylabel)) in enumerate(zip(xlabels, ylabels))
     i2s = xmin .≤ x2 .≤ xmax # select x values in common range
     x1 = x1[i1s]
     x2 = x2[i2s]
-    x = x2[begin+1:end-1] # compare ratios at Symboltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
+    x = x2[begin+1:end-1] # compare ratios at SymBoltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
 
     y1, y2 = results[ylabel]
     y1 = y1[i1s]
     y2 = y2[i2s]
     color = i
     plot!(p[i], x1, y1; color, linestyle = :dash, label = "CLASS (y₁)", xlabel, ylabel, legend_position = :topright)
-    plot!(p[i], x2, y2; color, linestyle = :solid, label = "Symboltz (y₂)")
+    plot!(p[i], x2, y2; color, linestyle = :solid, label = "SymBoltz (y₂)")
     y1 = CubicSpline(y1, x1; extrapolate=true).(x)
     y2 = CubicSpline(y2, x2; extrapolate=true).(x)
     r = @. abs(y2-y1) / max(abs(y1), abs(y2))

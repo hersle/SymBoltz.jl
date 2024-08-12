@@ -5,12 +5,12 @@ using ForwardDiff, DiffResults, FiniteDiff
 # TODO: sometimes the CMB spectrum is garbage
 # TODO: is the bug something multi-threading-related?
 
-@named M = Symboltz.ΛCDM()
-prob = Symboltz.CosmologyProblem(M)
+@named M = SymBoltz.ΛCDM()
+prob = SymBoltz.CosmologyProblem(M)
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [5.5e-5, 0.267, 0.05, 0.67, 0.245]
 
-Dl(θ) = Symboltz.Cl(prob, [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.g.h, M.b.rec.Yp] .=> θ, ls) .* ls .* (ls .+ 1) ./ 2π
+Dl(θ) = SymBoltz.Cl(prob, [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.g.h, M.b.rec.Yp] .=> θ, ls) .* ls .* (ls .+ 1) ./ 2π
 lgDl(lgθ) = log10.(Dl(10 .^ lgθ))
 
 # differentiated CMB power spectrum
