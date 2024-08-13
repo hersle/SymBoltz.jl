@@ -18,6 +18,24 @@ To get started, we will simply load the standard ΛCDM model:
 nothing # hide
 ```
 
+The symbolic model has a hierarchical structure, with multiple subsystems representing different components of the Einstein-Boltzmann system:
+```@example 1
+using Plots
+plot(M)
+```
+In this case, the components are:
+| Symbol | Component                        |
+| ------ | -------------------------------- |
+| `g`    | spacetime metric ($g_{\mu\nu}$)  |
+| `G`    | gravity                          |
+| `γ`    | photons                          |
+| `ν`    | massless neutrinos               |
+| `c`    | cold dark matter                 |
+| `b`    | baryons                          |
+| `h`    | massive neutrinos                |
+| `Λ`    | cosmological constant            |
+| `rec`  | recombination                    |
+
 The hierarchical structure of the whole symbolic model can be inspected interactively as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.<TAB>`, `M.G` and so on (with TAB-completion).
 For example, to see all equations for the theory of gravity:
 ```@example 1
