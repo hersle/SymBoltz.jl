@@ -23,7 +23,9 @@ The symbolic model has a hierarchical structure, with multiple subsystems repres
 using Plots
 plot(M)
 ```
+
 In this case, the components are:
+
 | Symbol | Component                        |
 | ------ | -------------------------------- |
 | `g`    | spacetime metric ($g_{\mu\nu}$)  |
