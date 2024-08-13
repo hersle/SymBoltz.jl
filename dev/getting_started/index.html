@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting started · SymBoltz</title><meta name="title" content="Getting started · SymBoltz"/><meta property="og:title" content="Getting started · SymBoltz"/><meta property="twitter:title" content="Getting started · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">SymBoltz.jl: linear Einstein-Boltzmann equation solver</a></li><li class="is-active"><a class="tocitem" href>Getting started</a><ul class="internal"><li><a class="tocitem" href="#1.-Define-the-model"><span>1. Define the model</span></a></li><li><a class="tocitem" href="#2.-Build-the-problem"><span>2. Build the problem</span></a></li><li><a class="tocitem" href="#3.-Solve-the-problem"><span>3. Solve the problem</span></a></li><li><a class="tocitem" href="#4.-Access-the-solution"><span>4. Access the solution</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Getting started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/getting_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h1><p><a href="../#Installation">Install SymBoltz.jl</a> and load it with</p><pre><code class="language-julia hljs">using ModelingToolkit
+import SymBoltz</code></pre><h2 id="1.-Define-the-model"><a class="docs-heading-anchor" href="#1.-Define-the-model">1. Define the model</a><a id="1.-Define-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Define-the-model" title="Permalink"></a></h2><p>The first step is to define the cosmological model to solve. This is a symbolic representation of the variables and equations that describe the various components in the universe; such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons). It is used both to define the numerical problem to solve, and to access variables in its solution.</p><p>To get started, we will simply load the standard ΛCDM model:</p><pre><code class="language-julia hljs">@named M = SymBoltz.ΛCDM()</code></pre><p>The hierarchical structure of the whole symbolic model can be inspected interactively as a <a href="https://docs.sciml.ai/ModelingToolkit">ModelingToolkit</a> system by evaluating <code>M</code>, <code>M.&lt;TAB&gt;</code> and so on (with TAB-completion). For example, to see all equations for the theory of gravity:</p><pre><code class="language-julia hljs">equations(M.G)</code></pre><p class="math-container">\[ \begin{align}
+\frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} &amp;= \left( a\left( t \right) \right)^{2} \sqrt{8.3776 \rho\left( t \right)} \\
+{\rho}crit\left( t \right) &amp;= 0.11937 \left( E\left( t \right) \right)^{2} \\
+\frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{ - k^{2} \Phi\left( t \right)}{3 \mathscr{E}\left( t \right)} + \frac{ - 4.1888 \left( a\left( t \right) \right)^{2} \delta\rho\left( t \right)}{\mathscr{E}\left( t \right)} - \mathscr{E}\left( t \right) \Psi\left( t \right) \right) \epsilon \\
+k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &amp;= 37.699 \left( a\left( t \right) \right)^{2} \Pi\left( t \right) \epsilon
+\end{align}
+ \]</p><p>See TODO to learn more about the model representation and how to define extended cosmological models.</p><h2 id="2.-Build-the-problem"><a class="docs-heading-anchor" href="#2.-Build-the-problem">2. Build the problem</a><a id="2.-Build-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Build-the-problem" title="Permalink"></a></h2><p>The next step is to create a cosmological problem from the symbolic model. This separates the full model into sequential computational stages, like the background and perturbation systems.</p><pre><code class="language-julia hljs">prob = SymBoltz.CosmologyProblem(M)</code></pre><h2 id="3.-Solve-the-problem"><a class="docs-heading-anchor" href="#3.-Solve-the-problem">3. Solve the problem</a><a id="3.-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Solve-the-problem" title="Permalink"></a></h2><p>Finally, we set our desired cosmological parameters and wavenumbers, and solve the problem:</p><pre><code class="language-julia hljs">pars = [
+    M.γ.Ω0 =&gt; 5e-5
+    M.c.Ω0 =&gt; 0.27
+    M.b.Ω0 =&gt; 0.05
+    M.ν.Neff =&gt; 3.0
+    M.g.h =&gt; 0.7
+    M.b.rec.Yp =&gt; 0.25
+]
+ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
+sol = SymBoltz.solve(prob, pars, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution with
+* background: solved with Rodas5P, 13456 points
+* perturbation (k = 2.9979245800000003 H₀/c): solved with KenCarp47, 44 points
+* perturbation (k = 3.2145762611930646 H₀/c): solved with KenCarp47, 45 points
+* perturbation (k = 3.4468847575298187 H₀/c): solved with KenCarp47, 44 points
+* perturbation (k = 3.6959815435462247 H₀/c): solved with KenCarp47, 44 points
+* perturbation (k = 3.9630798622997365 H₀/c): solved with KenCarp47, 47 points
+* perturbation (k = 4.249480634553193 H₀/c): solved with KenCarp47, 48 points
+* perturbation (k = 4.556578794999018 H₀/c): solved with KenCarp47, 49 points
+* perturbation (k = 4.885870086384743 H₀/c): solved with KenCarp47, 51 points
+* perturbation (k = 5.238958344631105 H₀/c): solved with KenCarp47, 50 points
+* perturbation (k = 5.617563310425402 H₀/c): solved with KenCarp47, 53 points
+* perturbation (k = 6.02352900533696 H₀/c): solved with KenCarp47, 54 points
+* perturbation (k = 6.458832713251267 H₀/c): solved with KenCarp47, 50 points
+* perturbation (k = 6.925594610867335 H₀/c): solved with KenCarp47, 55 points
+* perturbation (k = 7.426088094164381 H₀/c): solved with KenCarp47, 54 points
+* perturbation (k = 7.962750851133577 H₀/c): solved with KenCarp47, 53 points
+* perturbation (k = 8.538196734705338 H₀/c): solved with KenCarp47, 57 points
+* perturbation (k = 9.155228493700102 H₀/c): solved with KenCarp47, 60 points
+* perturbation (k = 9.816851423809567 H₀/c): solved with KenCarp47, 59 points
+* perturbation (k = 10.526288005096367 H₀/c): solved with KenCarp47, 62 points
+* perturbation (k = 11.286993597305269 H₀/c): solved with KenCarp47, 61 points
+* perturbation (k = 12.102673269430824 H₀/c): solved with KenCarp47, 67 points
+* perturbation (k = 12.977299845511187 H₀/c): solved with KenCarp47, 66 points
+* perturbation (k = 13.915133254541274 H₀/c): solved with KenCarp47, 63 points
+* perturbation (k = 14.92074127875044 H₀/c): solved with KenCarp47, 67 points
+* perturbation (k = 15.999021801300492 H₀/c): solved with KenCarp47, 68 points
+* perturbation (k = 17.15522666176309 H₀/c): solved with KenCarp47, 70 points
+* perturbation (k = 18.39498723556614 H₀/c): solved with KenCarp47, 74 points
+* perturbation (k = 19.724341861995857 H₀/c): solved with KenCarp47, 74 points
+* perturbation (k = 21.149765254344224 H₀/c): solved with KenCarp47, 76 points
+* perturbation (k = 22.67820003544614 H₀/c): solved with KenCarp47, 79 points
+* perturbation (k = 24.31709055220224 H₀/c): solved with KenCarp47, 83 points
+* perturbation (k = 26.074419133783373 H₀/c): solved with KenCarp47, 86 points
+* perturbation (k = 27.958744970114715 H₀/c): solved with KenCarp47, 87 points
+* perturbation (k = 29.979245800000005 H₀/c): solved with KenCarp47, 88 points
+* perturbation (k = 32.14576261193065 H₀/c): solved with KenCarp47, 89 points
+* perturbation (k = 34.468847575298184 H₀/c): solved with KenCarp47, 91 points
+* perturbation (k = 36.95981543546225 H₀/c): solved with KenCarp47, 99 points
+* perturbation (k = 39.63079862299737 H₀/c): solved with KenCarp47, 99 points
+* perturbation (k = 42.49480634553195 H₀/c): solved with KenCarp47, 102 points
+* perturbation (k = 45.565787949990195 H₀/c): solved with KenCarp47, 108 points
+* perturbation (k = 48.858700863847446 H₀/c): solved with KenCarp47, 109 points
+* perturbation (k = 52.38958344631108 H₀/c): solved with KenCarp47, 110 points
+* perturbation (k = 56.17563310425399 H₀/c): solved with KenCarp47, 113 points
+* perturbation (k = 60.235290053369575 H₀/c): solved with KenCarp47, 112 points
+* perturbation (k = 64.58832713251263 H₀/c): solved with KenCarp47, 120 points
+* perturbation (k = 69.25594610867331 H₀/c): solved with KenCarp47, 125 points
+* perturbation (k = 74.26088094164382 H₀/c): solved with KenCarp47, 128 points
+* perturbation (k = 79.62750851133576 H₀/c): solved with KenCarp47, 131 points
+* perturbation (k = 85.38196734705336 H₀/c): solved with KenCarp47, 131 points
+* perturbation (k = 91.55228493700103 H₀/c): solved with KenCarp47, 135 points
+* perturbation (k = 98.16851423809565 H₀/c): solved with KenCarp47, 140 points
+* perturbation (k = 105.26288005096367 H₀/c): solved with KenCarp47, 143 points
+* perturbation (k = 112.86993597305269 H₀/c): solved with KenCarp47, 147 points
+* perturbation (k = 121.02673269430824 H₀/c): solved with KenCarp47, 149 points
+* perturbation (k = 129.77299845511192 H₀/c): solved with KenCarp47, 157 points
+* perturbation (k = 139.15133254541283 H₀/c): solved with KenCarp47, 157 points
+* perturbation (k = 149.2074127875045 H₀/c): solved with KenCarp47, 161 points
+* perturbation (k = 159.990218013005 H₀/c): solved with KenCarp47, 159 points
+* perturbation (k = 171.55226661763083 H₀/c): solved with KenCarp47, 164 points
+* perturbation (k = 183.9498723556613 H₀/c): solved with KenCarp47, 170 points
+* perturbation (k = 197.2434186199585 H₀/c): solved with KenCarp47, 179 points
+* perturbation (k = 211.49765254344211 H₀/c): solved with KenCarp47, 185 points
+* perturbation (k = 226.7820003544614 H₀/c): solved with KenCarp47, 188 points
+* perturbation (k = 243.17090552202242 H₀/c): solved with KenCarp47, 193 points
+* perturbation (k = 260.74419133783374 H₀/c): solved with KenCarp47, 194 points
+* perturbation (k = 279.58744970114714 H₀/c): solved with KenCarp47, 195 points
+* perturbation (k = 299.792458 H₀/c): solved with KenCarp47, 197 points
+* perturbation (k = 321.4576261193065 H₀/c): solved with KenCarp47, 197 points
+* perturbation (k = 344.68847575298184 H₀/c): solved with KenCarp47, 202 points
+* perturbation (k = 369.5981543546226 H₀/c): solved with KenCarp47, 205 points
+* perturbation (k = 396.3079862299738 H₀/c): solved with KenCarp47, 208 points
+* perturbation (k = 424.94806345531936 H₀/c): solved with KenCarp47, 208 points
+* perturbation (k = 455.65787949990187 H₀/c): solved with KenCarp47, 210 points
+* perturbation (k = 488.58700863847446 H₀/c): solved with KenCarp47, 211 points
+* perturbation (k = 523.8958344631108 H₀/c): solved with KenCarp47, 205 points
+* perturbation (k = 561.75633104254 H₀/c): solved with KenCarp47, 210 points
+* perturbation (k = 602.3529005336957 H₀/c): solved with KenCarp47, 204 points
+* perturbation (k = 645.8832713251265 H₀/c): solved with KenCarp47, 203 points
+* perturbation (k = 692.5594610867332 H₀/c): solved with KenCarp47, 200 points
+* perturbation (k = 742.608809416438 H₀/c): solved with KenCarp47, 197 points
+* perturbation (k = 796.2750851133575 H₀/c): solved with KenCarp47, 196 points
+* perturbation (k = 853.8196734705338 H₀/c): solved with KenCarp47, 191 points
+* perturbation (k = 915.5228493700104 H₀/c): solved with KenCarp47, 195 points
+* perturbation (k = 981.6851423809566 H₀/c): solved with KenCarp47, 187 points
+* perturbation (k = 1052.6288005096371 H₀/c): solved with KenCarp47, 188 points
+* perturbation (k = 1128.699359730527 H₀/c): solved with KenCarp47, 184 points
+* perturbation (k = 1210.2673269430827 H₀/c): solved with KenCarp47, 185 points
+* perturbation (k = 1297.729984551119 H₀/c): solved with KenCarp47, 188 points
+* perturbation (k = 1391.513325454128 H₀/c): solved with KenCarp47, 181 points
+* perturbation (k = 1492.0741278750447 H₀/c): solved with KenCarp47, 180 points
+* perturbation (k = 1599.90218013005 H₀/c): solved with KenCarp47, 180 points
+* perturbation (k = 1715.5226661763083 H₀/c): solved with KenCarp47, 175 points
+* perturbation (k = 1839.498723556613 H₀/c): solved with KenCarp47, 177 points
+* perturbation (k = 1972.4341861995852 H₀/c): solved with KenCarp47, 182 points
+* perturbation (k = 2114.9765254344215 H₀/c): solved with KenCarp47, 178 points
+* perturbation (k = 2267.820003544613 H₀/c): solved with KenCarp47, 175 points
+* perturbation (k = 2431.7090552202235 H₀/c): solved with KenCarp47, 175 points
+* perturbation (k = 2607.441913378337 H₀/c): solved with KenCarp47, 180 points
+* perturbation (k = 2795.8744970114712 H₀/c): solved with KenCarp47, 182 points
+* perturbation (k = 2997.92458 H₀/c): solved with KenCarp47, 179 points</code></pre><p>To solve only the background, you can simply omit the <code>ks</code> argument: <code>SymBoltz.solve(prob, pars, ks)</code>.</p><h2 id="4.-Access-the-solution"><a class="docs-heading-anchor" href="#4.-Access-the-solution">4. Access the solution</a><a id="4.-Access-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Access-the-solution" title="Permalink"></a></h2><p>You are now free to do whatever you want with the solution object. It can be called like <code>sol(k, t, var)</code> to access the variable(s) <code>var</code> as a function of the wavenumber(s) <code>k</code> and conformal time(s) <code>t</code>. This will interpolate linearly in <span>$log(k)$</span>, and with the ODE solver&#39;s interpolator in <span>$t$</span>.</p><p>For example, to access <span>$\Phi(k,t)$</span> as a function of the 3 wavenumbers we solved for and 1000 log-spaced conformal times:</p><pre><code class="language-julia hljs">ts = exp.(range(log.(extrema(sol[SymBoltz.t]))..., length=1000)) # TODO: replace with M.t
+Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100×1000 Matrix{Float64}:
+ 0.635265  0.635265  0.635264  …  0.447036    0.439707    0.431866
+ 0.635265  0.635265  0.635264     0.446576    0.439257    0.431426
+ 0.635265  0.635265  0.635264     0.446091    0.43878     0.430956
+ 0.635265  0.635265  0.635264     0.445545    0.438241    0.430427
+ 0.635265  0.635265  0.635264     0.444918    0.437625    0.429825
+ 0.635265  0.635265  0.635264  …  0.444263    0.43698     0.429188
+ 0.635265  0.635265  0.635264     0.443503    0.436235    0.428462
+ 0.635265  0.635265  0.635264     0.442707    0.43545     0.427686
+ 0.635265  0.635265  0.635264     0.441787    0.43455     0.426808
+ 0.635265  0.635265  0.635264     0.440813    0.433586    0.425857
+ ⋮                             ⋱                          
+ 0.635265  0.635264  0.635263     0.00642039  0.00631441  0.00620276
+ 0.635265  0.635264  0.635262     0.00576312  0.00566986  0.00556845
+ 0.635265  0.635264  0.635262     0.00517244  0.00508798  0.00499679
+ 0.635265  0.635263  0.635262     0.00463769  0.00456235  0.00448054
+ 0.635265  0.635263  0.635261  …  0.00415579  0.00408716  0.00401486
+ 0.635265  0.635263  0.635261     0.0037221   0.00366055  0.00359532
+ 0.635265  0.635263  0.635261     0.00333014  0.00327538  0.00321764
+ 0.635265  0.635262  0.63526      0.00297873  0.00293051  0.00287795
+ 0.635265  0.635262  0.635259     0.00266313  0.0026191   0.00257263</code></pre><p>This can be plotted with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+plot(sol, ks[begin:5:end], log10(M.g.a), M.g.Φ)</code></pre><img src="ead8d07f.svg" alt="Example block output"/><p>We can also calculate the power spectrum for a desired species (here cold dark matter):</p><pre><code class="language-julia hljs">Ps = SymBoltz.P(sol, M.c, ks)
+plot(log10.(ks), log10.(Ps); xlabel=&quot;lg(k)&quot;, ylabel=&quot;lg(P)&quot;, label=nothing)</code></pre><img src="69777a55.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« SymBoltz.jl: linear Einstein-Boltzmann equation solver</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 13 August 2024 10:55">Tuesday 13 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
