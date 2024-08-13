@@ -4,6 +4,7 @@ authors = ["Herman Sletmoen"]
 version = "0.0.0"
 
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"

@@ -46,3 +46,15 @@ end
         end
     end
 end
+
+# plot ODESystems as a hierarchical tree # TODO: contribute back to ModelingToolkit.jl?
+using AbstractTrees
+AbstractTrees.children(sys::ODESystem) = sys.systems
+AbstractTrees.printnode(io::IO, sys::ODESystem) = print(io, sys.name)
+
+using GraphRecipes
+@recipe function plot(::Type{T}, sys::T) where {T <: ODESystem}
+    nodeshape --> :rect
+    fontsize --> 20
+    TreePlot(sys)
+end
