@@ -6,12 +6,12 @@ and its (logarithmic) derivatives
 \frac{\partial \lg P}{\partial \lg \theta_i}
 ```
 using automatic differentiation with [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl).
-The technique [can also be used to differentiate any other quantity](@ref "General approach").
+This technique [can also differentiate any other quantity](@ref "General approach").
 
 ## 1. Wrapping the evaluation
 
 *We* must first decide which parameters $\theta$ the power spectrum $P(k; \theta)$ will be considered a function of.
-To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(\Omega_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p$, following the [Getting started tutorial](@ref "Getting started"):
+To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(\Omega_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):
 ```@example 1
 using ModelingToolkit
 import SymBoltz
@@ -51,9 +51,27 @@ We can plot them all at once:
 plot(log10.(ks), dlgP_dlgθs; xlabel = "lg(k)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
 ```
 
+## Get values and derivatives together
+
+The above example showed how to calculate the power spectrum *values* and their *derivatives* through *two separate calls*.
+If you need both, it is faster to calculate them simultaneously with the package [`DiffResults.jl`](https://juliadiff.org/DiffResults.jl/stable/):
+```@example 1
+using DiffResults
+
+Pres = DiffResults.JacobianResult(ks, θ0) # allocate buffer for value+derivatives for a function with θ0-sized input and ks-sized output
+Pres = ForwardDiff.jacobian!(Pres, lgP, log10.(θ0)) # evaluate value+derivatives of lgP(log10.(θ0)) and store the results in Pres
+lgPs = DiffResults.value(Pres) # extract value
+dlgP_dlgθs = DiffResults.jacobian(Pres) # extract derivatives
+
+p1 = plot(log10.(ks), lgPs; ylabel = "lg(P)", label = nothing)
+p2 = plot(log10.(ks), dlgP_dlgθs; xlabel = "lg(k)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
+plot(p1, p2, layout=(2, 1), size = (600, 600))
+```
+
 ## General approach
 
 The technique shown here can be used to calculate the derivative of any SymBoltz.jl output quantity:
 
 1. Write a wrapper function `output(input)` that calculates the desired output quantities from the desired input quantities.
 2. Use [`ForwardDiff.derivative(output, input)`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative) (scalar-to-scalar), [`ForwardDiff.gradient(output, input)`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.gradient) (vector-to-scalar) or [`ForwardDiff.jacobian(output, input)`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian) (vector-to-vector) to evaluate the derivative of `output` at the values `input`.
+   Or use the similar functions in [`DiffResults`](https://juliadiff.org/DiffResults.jl/stable/) to calculate the value *and* derivatives simultaneously.
