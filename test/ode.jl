@@ -2,7 +2,7 @@ using ModelingToolkit
 using Plots
 using Printf
 
-@named M = SymBoltz.ΛCDM()
+M = SymBoltz.ΛCDM()
 prob = SymBoltz.CosmologyProblem(M)
 pars = [
     M.γ.Ω0 => 5.5e-5

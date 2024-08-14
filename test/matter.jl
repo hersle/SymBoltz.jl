@@ -2,7 +2,7 @@ using ModelingToolkit
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
 
-@named M = SymBoltz.ΛCDM()
+M = SymBoltz.ΛCDM()
 prob = SymBoltz.CosmologyProblem(M)
 ks = 10 .^ range(-3, 0, length=150) / SymBoltz.k0
 θ0 = [5.5e-5, 0.267, 0.05, 3.046, 0.67, 0.245]

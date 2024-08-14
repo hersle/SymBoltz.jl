@@ -14,7 +14,7 @@ It will be used both to create the numerical problem to solve, and to access var
 
 To get started, we will simply load the standard ΛCDM model:
 ```@example 1
-@named M = SymBoltz.ΛCDM()
+M = SymBoltz.ΛCDM()
 nothing # hide
 ```
 

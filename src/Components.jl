@@ -248,7 +248,7 @@ function ΛCDM(; kwargs...)
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, name=:ΛCDM, kwargs...)
     M = compose(connections, g, G, species...)
     defs = Pair{Any, Any}[]
     for s in species
@@ -256,6 +256,6 @@ function ΛCDM(; kwargs...)
             push!(defs, s.Ω0 => 1 - sum(s′.Ω0 for s′ in species if s′ != s)) # TODO: solve nonlinear system # TODO: any combination of all but one species
         end
     end
-    M = extend(M, ODESystem(Equation[], t; defaults=defs, kwargs...))
+    M = extend(M, ODESystem(Equation[], t; defaults=defs, name=:ΛCDM, kwargs...))
     return complete(M)
 end

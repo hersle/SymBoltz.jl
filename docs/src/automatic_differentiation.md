@@ -16,7 +16,7 @@ To do so, let us write a small wrapper function that calculates the power spectr
 using ModelingToolkit
 import SymBoltz
 
-@named M = SymBoltz.ΛCDM()
+M = SymBoltz.ΛCDM()
 prob = SymBoltz.CosmologyProblem(M)
 
 # define ordering and values of parameters

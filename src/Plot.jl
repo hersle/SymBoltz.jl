@@ -55,6 +55,7 @@ AbstractTrees.printnode(io::IO, sys::ODESystem) = print(io, sys.name)
 using GraphRecipes
 @recipe function plot(::Type{T}, sys::T) where {T <: ODESystem}
     nodeshape --> :rect
-    fontsize --> 20
+    nodesize --> 0.12
+    fontsize --> 15
     TreePlot(sys)
 end

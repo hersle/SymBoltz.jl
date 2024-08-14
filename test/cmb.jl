@@ -5,7 +5,7 @@ using ForwardDiff, DiffResults, FiniteDiff
 # TODO: sometimes the CMB spectrum is garbage
 # TODO: is the bug something multi-threading-related?
 
-@named M = SymBoltz.ΛCDM()
+M = SymBoltz.ΛCDM()
 prob = SymBoltz.CosmologyProblem(M)
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [5.5e-5, 0.267, 0.05, 0.67, 0.245]
