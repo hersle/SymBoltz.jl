@@ -1,4 +1,4 @@
-using ModelingToolkit
+import SymBoltz
 using Plots; Plots.default(label=nothing)
 using ForwardDiff, DiffResults, FiniteDiff
 

@@ -8,15 +8,16 @@ using Base.Threads
 P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
 
 # power spectrum
-function P(prob::CosmologyProblem, species::ODESystem, pars, k; kwargs...)
-    sol = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
-    return P(sol, species, k)
-end
-
-function P(sol::CosmologySolution, species::ODESystem, k)
+function power_spectrum(sol::CosmologySolution, species::ODESystem, k)
     tend = sol[t][end]
     return P0(k) .* sol(k, tend, [species.Δ^2])[:, 1, 1]
 end
+
+function power_spectrum(prob::CosmologyProblem, species::ODESystem, pars, k; kwargs...)
+    sol = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
+    return power_spectrum(sol, species, k)
+end
+
 
 #= # TODO: make work again?
 # source function

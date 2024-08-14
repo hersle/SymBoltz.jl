@@ -1,4 +1,4 @@
-using ModelingToolkit
+import SymBoltz
 using Plots
 using Printf
 

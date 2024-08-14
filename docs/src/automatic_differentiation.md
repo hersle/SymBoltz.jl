@@ -13,18 +13,17 @@ This technique [can also differentiate any other quantity](@ref "General approac
 *We* must first decide which parameters $\theta$ the power spectrum $P(k; \theta)$ will be considered a function of.
 To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(\Omega_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):
 ```@example 1
-using ModelingToolkit
-import SymBoltz
+using SymBoltz
 
-M = SymBoltz.ΛCDM()
-prob = SymBoltz.CosmologyProblem(M)
+M = ΛCDM()
+prob = CosmologyProblem(M)
 
 # define ordering and values of parameters
 θ_syms = [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] # symbolic indices
 θ_strs = ["Ωγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
 θ0 = [5e-5, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
 
-P(k, θ) = SymBoltz.P(SymBoltz.solve(prob, θ_syms .=> θ, k), M.c, k)
+P(k, θ) = power_spectrum(solve(prob, θ_syms .=> θ, k), M.c, k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example 1

@@ -2,8 +2,7 @@
 
 [Install SymBoltz.jl](@ref "Installation") and load it with
 ```@example 1
-using ModelingToolkit
-import SymBoltz
+using SymBoltz
 ``` 
 
 ## 1. Define the model
@@ -14,7 +13,7 @@ It will be used both to create the numerical problem to solve, and to access var
 
 To get started, we will simply load the standard ΛCDM model:
 ```@example 1
-M = SymBoltz.ΛCDM()
+M = ΛCDM()
 nothing # hide
 ```
 
@@ -52,7 +51,7 @@ The next step is to create a cosmological problem from the symbolic model.
 This separates the full model into sequential computational stages, like the background and perturbation systems.
 
 ```@example 1
-prob = SymBoltz.CosmologyProblem(M)
+prob = CosmologyProblem(M)
 nothing # hide
 ```
 
@@ -69,7 +68,7 @@ pars = [
     M.b.rec.Yp => 0.25
 ]
 ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
-sol = SymBoltz.solve(prob, pars, ks)
+sol = solve(prob, pars, ks)
 ```
 
 To solve only the background, you can simply omit the `ks` argument: `SymBoltz.solve(prob, pars, ks)`.
@@ -100,6 +99,6 @@ plot(sol, ks[begin:5:end], log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for every 5th wa
 
 We can also calculate the power spectrum for a desired species (here: cold dark matter with `M.c`):
 ```@example 1
-Ps = SymBoltz.P(sol, M.c, ks)
+Ps = power_spectrum(sol, M.c, ks)
 plot(log10.(ks), log10.(Ps); xlabel="lg(k)", ylabel="lg(P)", label=nothing)
 ```

@@ -25,7 +25,13 @@ include("Thermodynamics.jl")
 include("Spectra.jl")
 include("Plot.jl")
 
-export background_ΛCDM, thermodynamics_ΛCDM, perturbations_ΛCDM
-export P0, P, Cl, Dl
+export ΛCDM
+export CosmologyProblem
+export solve
+export power_spectrum, Cl, Dl
+
+# re-export commonly used ModelingToolkit functions
+export unknowns, observed, parameters
+export equations, initialization_equations, defaults
 
 end
