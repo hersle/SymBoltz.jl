@@ -17,33 +17,29 @@ M = ΛCDM()
 nothing # hide
 ```
 
-The symbolic model has a hierarchical structure, with multiple subsystems representing different components of the Einstein-Boltzmann system:
+The symbolic model has a hierarchical structure with several components of the Einstein-Boltzmann system:
 ```@example 1
 using Plots
 plot(M)
 ```
+In this case, the components are
+the spacetime metric (`g`, for $g_{\mu\nu}$),
+the theory of gravity (`G`, here general relativity),
+photons (`γ`),
+massless neutrinos (`ν`),
+cold dark matter (`c`),
+baryons (`b`),
+massive neutrinos (`h`),
+dark energy as a cosmological constant (`Λ`)
+and recombination (`rec`).
 
-In this case, the components are:
-
-| Symbol | Component                        |
-| ------ | -------------------------------- |
-| `g`    | spacetime metric ($g_{\mu\nu}$)  |
-| `G`    | gravity                          |
-| `γ`    | photons                          |
-| `ν`    | massless neutrinos               |
-| `c`    | cold dark matter                 |
-| `b`    | baryons                          |
-| `h`    | massive neutrinos                |
-| `Λ`    | cosmological constant            |
-| `rec`  | recombination                    |
-
-The hierarchical structure of the whole symbolic model can be inspected interactively as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.<TAB>`, `M.G` and so on (with TAB-completion).
+The hierarchical structure can be inspected interactively as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.<TAB>`, `M.G` and so on (with TAB-completion).
 For example, to see all equations for the theory of gravity:
 ```@example 1
 equations(M.G)
 ```
 
-See TODO to learn more about the model representation and how to define extended cosmological models.
+See the [tutorial on Creating extended models](@ref "Creating extended models") to learn more about the model representation and how to define extended cosmological models.
 
 ## 2. Build the problem
 
@@ -71,7 +67,7 @@ ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
 sol = solve(prob, pars, ks)
 ```
 
-To solve only the background, you can simply omit the `ks` argument: `SymBoltz.solve(prob, pars, ks)`.
+To solve only the background, you can simply omit the `ks` argument: `solve(prob, pars, ks)`.
 
 ## 4. Access the solution
 

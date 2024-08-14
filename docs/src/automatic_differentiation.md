@@ -1,4 +1,4 @@
-# Automatic differentiation
+# Using automatic differentiation
 
 This tutorial shows how to compute the (cold dark matter) power spectrum $P(k; \theta)$
 and its (logarithmic) derivatives

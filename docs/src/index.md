@@ -14,7 +14,7 @@ SymBoltz.jl is a package for solving the linearized Einstein-Boltzmann system of
 
 ## Installation
 
-Launch `julia`, enter the package manager by hitting `]` and enter (one of)
+[Install](https://julialang.org/downloads/) and launch `julia`, enter the package manager by hitting `]` and enter (one of)
 ```
 add https://github.com/hersle/SymBoltz.jl # for usage
 dev https://github.com/hersle/SymBoltz.jl # for development
@@ -22,4 +22,4 @@ dev https://github.com/hersle/SymBoltz.jl # for development
 
 ## Usage
 
-TODO: tutorials
+See the tutorials in the sidebar.
