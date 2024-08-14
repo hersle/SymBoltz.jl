@@ -47,7 +47,7 @@ function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = fal
         θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     defs = [
-        ρ0 => 3/8π*Ω0
+        ρ0 => 3/8π * Ω0
     ]
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
@@ -212,15 +212,17 @@ function perturbations(sys; spline_thermo=true)
     return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
 end
 
-function ΛCDM(; kwargs...)
-    @named g = metric()
-    @named G = gravity(g)
+function ΛCDM(;
+    g = metric(name = :g),
+    G = gravity(g; name = :G),
+    Λ = cosmological_constant(g; name = :Λ),
+    kwargs...
+)
     @named γ = photons(g)
     @named ν = massless_neutrinos(g)
     @named h = massive_neutrinos(g)
     @named c = matter(g)
     @named b = baryons(g)
-    @named Λ = cosmological_constant(g)
     species = [γ, ν, c, b, h, Λ]
     ics0 = [
         g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
