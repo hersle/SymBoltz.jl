@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Fitting parameter with Bayesian inference · SymBoltz</title><meta name="title" content="Fitting parameter with Bayesian inference · SymBoltz"/><meta property="og:title" content="Fitting parameter with Bayesian inference · SymBoltz"/><meta property="twitter:title" content="Fitting parameter with Bayesian inference · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">SymBoltz.jl: linear Einstein-Boltzmann equation solver</a></li><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Creating extended models</a></li><li class="is-active"><a class="tocitem" href>Fitting parameter with Bayesian inference</a><ul class="internal"><li><a class="tocitem" href="#Observed-supernova-data"><span>Observed supernova data</span></a></li><li><a class="tocitem" href="#Predicting-luminosity-distances"><span>Predicting luminosity distances</span></a></li><li><a class="tocitem" href="#Bayesian-inference"><span>Bayesian inference</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Fitting parameter with Bayesian inference</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Fitting parameter with Bayesian inference</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/parameter_fitting.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fitting-parameter-with-Bayesian-inference"><a class="docs-heading-anchor" href="#Fitting-parameter-with-Bayesian-inference">Fitting parameter with Bayesian inference</a><a id="Fitting-parameter-with-Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-parameter-with-Bayesian-inference" title="Permalink"></a></h1><p>This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data.</p><h2 id="Observed-supernova-data"><a class="docs-heading-anchor" href="#Observed-supernova-data">Observed supernova data</a><a id="Observed-supernova-data-1"></a><a class="docs-heading-anchor-permalink" href="#Observed-supernova-data" title="Permalink"></a></h2><p>We use the data from <a href="https://arxiv.org/abs/1401.4064">Betoule+ (2014)</a> of redshifts and luminosity distances of supernovae. Specifically, we use the values and errors in tables F.1 and F.2 (available from the <a href="http://supernovae.in2p3.fr/sdss_snls_jla/jla_likelihood_v6.tgz">data files <code>data/jla_mub.txt</code> and <code>data/jla_mub_covmatrix.dat</code></a>):</p><pre><code class="language-julia hljs"># TODO: do things properly
+# TODO: use full covariance
+using LinearAlgebra # TODO: remove after using full covar?
+data = [ # https://cmb.wintherscoming.no/data/supernovadata.txt
+#   z        dL/Gpc    ΔdL/Gpc
+    0.010    0.0390    0.0026
+    0.012    0.0597    0.0046
+    0.014    0.0587    0.0021
+    0.016    0.0666    0.0022
+    0.019    0.0829    0.0033
+    0.023    0.0972    0.0025
+    0.026    0.1123    0.0032
+    0.031    0.1412    0.0037
+    0.037    0.1637    0.0043
+    0.043    0.1936    0.0067
+    0.051    0.2139    0.0092
+    0.060    0.2701    0.0077
+    0.070    0.3062    0.0093
+    0.082    0.3902    0.0098
+    0.097    0.4473    0.0123
+    0.114    0.5279    0.0091
+    0.134    0.6510    0.0116
+    0.158    0.7384    0.0118
+    0.186    0.9087    0.0134
+    0.218    1.0747    0.0163
+    0.257    1.2971    0.0189
+    0.302    1.5172    0.0274
+    0.355    1.9243    0.0297
+    0.418    2.2813    0.0436
+    0.491    2.7943    0.0507
+    0.578    3.3373    0.0552
+    0.679    4.0789    0.1179
+    0.799    5.0213    0.1262
+    0.940    6.2302    0.1917
+    1.105    7.9947    0.5692
+    1.300    9.2121    0.5874
+]
+data = (zs = data[:,1], dLs = data[:,2], ΔdLs = data[:,3], C = Diagonal(data[:,3] .^ 2))
+
+using Plots
+scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = &quot;lg(1+z)&quot;, ylabel = &quot;dₗ/z/Gpc&quot;, label = &quot;observations&quot;)</code></pre><img src="38281325.svg" alt="Example block output"/><h2 id="Predicting-luminosity-distances"><a class="docs-heading-anchor" href="#Predicting-luminosity-distances">Predicting luminosity distances</a><a id="Predicting-luminosity-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-luminosity-distances" title="Permalink"></a></h2><p>To predict luminosity distances</p><p class="math-container">\[d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
+\qquad \text{where} \qquad
+\chi = c \, (t_0 - t)\]</p><p>theoretically, we solve the standard ΛCDM model:</p><pre><code class="language-julia hljs"># TODO: generalize to non-flat
+using SymBoltz, DataInterpolations
+
+M = ΛCDM(recombination=false) # TODO: build m-only model
+prob = CosmologyProblem(M)
+
+# TODO: improve performance of this
+function dL(z, sol::CosmologySolution)
+    as = sol[M.g.a][begin:end-1]
+    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.g.H0] # s
+    t_of_loga = CubicSpline(ts, log.(as); extrapolate=true) # TODO: do internally
+    a0, a = 1, 1 ./ (z .+ 1)
+    t0, t = t_of_loga(log(a0)), t_of_loga(log.(a))
+    r = @. SymBoltz.c * (t0 - t)
+    return @. r / a / SymBoltz.Gpc
+end
+
+function dL(z, prob::CosmologyProblem, Ωm0, h)
+    return dL(z, solve(prob, [
+        M.γ.Ω0 =&gt; 5e-5,
+        M.ν.Neff =&gt; 3.0,
+        M.b.Ω0 =&gt; 0.0,
+        M.c.Ω0 =&gt; Ωm0, # TODO: create matter-only model
+        M.g.h =&gt; h
+    ]))
+end
+
+# Show example predictions
+zs = data.zs
+dLs = dL(zs, prob, 0.3, 0.7)
+scatter!(@. log10(zs+1), dLs ./ zs; label = &quot;prediction&quot;)</code></pre><img src="cd96855a.svg" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we use the <a href="https://turinglang.org/">Turing.jl</a> package:</p><pre><code class="language-julia hljs">using Turing
+
+@model function supernova(data, prob)
+    # Parameter priors
+    Ωm0 ~ Uniform(0.2, 0.4)
+    h ~ Uniform(0.6, 0.8)
+
+    # Theoretical prediction
+    dLs = dL(data.zs, prob, Ωm0, h)
+
+    # Compare predictions to data
+    data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
+end
+
+# TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+sn = supernova(data, prob) # condition model on data
+chain = sample(sn, MH(), MCMCSerial(), 500, 1) # TODO: NUTS() # TODO: MCMCThreads()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (500×3×1 Array{Float64, 3}):
+
+Iterations        = 1:1:500
+Number of chains  = 1
+Samples per chain = 500
+Wall duration     = 55.41 seconds
+Compute duration  = 55.41 seconds
+parameters        = Ωm0, h
+internals         = lp
+
+Summary Statistics
+ <span class="sgr1"> parameters </span> <span class="sgr1">    mean </span> <span class="sgr1">     std </span> <span class="sgr1">    mcse </span> <span class="sgr1"> ess_bulk </span> <span class="sgr1"> ess_tail </span> <span class="sgr1">    rhat </span> <span class="sgr1"> e</span> ⋯
+ <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  </span> ⋯
+
+         Ωm0    0.2760    0.0371    0.0134     8.9199     9.9665    1.1003     ⋯
+           h    0.7043    0.0083    0.0027     5.8791     5.9523    1.1653     ⋯
+<span class="sgr36">                                                                1 column omitted</span>
+
+Quantiles
+ <span class="sgr1"> parameters </span> <span class="sgr1">    2.5% </span> <span class="sgr1">   25.0% </span> <span class="sgr1">   50.0% </span> <span class="sgr1">   75.0% </span> <span class="sgr1">   97.5% </span>
+ <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span>
+
+         Ωm0    0.2271    0.2426    0.2804    0.2880    0.3409
+           h    0.6946    0.7006    0.7033    0.7100    0.7118
+</code></pre><p>As we see above, the MCMC <code>chain</code> displays a summary with information about the fitted parameters, including their posterior means and standard deviations. We can also plot the chains:</p><pre><code class="language-julia hljs">using StatsPlots
+plot(chain)</code></pre><img src="6c886cfe.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Creating extended models</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 16 August 2024 13:57">Friday 16 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
