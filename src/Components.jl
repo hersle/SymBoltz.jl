@@ -195,8 +195,11 @@ function baryons(g; recombination=true, name = :b, kwargs...)
     b = matter(g; θinteract=true, name, kwargs...)
     if recombination
         @named rec = thermodynamics_recombination_recfast(g)
-        b = compose(b, rec)
+    else
+        vars = @variables dτ(t) ρb(t) Tγ(t)
+        @named rec = ODESystem([dτ ~ 0], t, vars, [])
     end
+    b = compose(b, rec)
     return b
 end
 
@@ -213,13 +216,14 @@ function perturbations(sys; spline_thermo=true)
 end
 
 function ΛCDM(;
+    recombination = true,
     g = metric(),
     G = gravity(g),
     γ = photons(g),
     ν = massless_neutrinos(g),
     h = massive_neutrinos(g),
     c = matter(g; name = :c),
-    b = baryons(g; name = :b),
+    b = baryons(g; recombination, name = :b),
     Λ = cosmological_constant(g),
     kwargs...
 )
