@@ -1,6 +1,6 @@
 ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
 
-function metric(; kwargs...)
+function metric(; name = :g, kwargs...)
     vars = a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t))
     pars = H0, h = GlobalScope.(@parameters H0 h)
     defs = [
@@ -12,10 +12,10 @@ function metric(; kwargs...)
         E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
-    ], t, vars, pars; defaults=defs, kwargs...)
+    ], t, vars, pars; defaults=defs, name, kwargs...)
 end
 
-function gravity(g; kwargs...)
+function gravity(g; name = :G, kwargs...)
     vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
     eqs0 = [
         D(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
@@ -25,7 +25,7 @@ function gravity(g; kwargs...)
         D(g.Φ) ~ -4π/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12π * g.a^2 * Π
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t, vars, []; kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, []; name, kwargs...)
 end
 
 function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
@@ -53,25 +53,25 @@ function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = fal
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
 end
 
-function matter(g; kwargs...)
-    return species_constant_eos(g, 0; kwargs...)
+function matter(g; name = :m, kwargs...)
+    return species_constant_eos(g, 0; name, kwargs...)
 end
 
-function radiation(g; kwargs...)
-    r = species_constant_eos(g, 1//3; kwargs...)
+function radiation(g; name = :r, kwargs...)
+    r = species_constant_eos(g, 1//3; name, kwargs...)
     pars = @parameters T0
     vars = @variables T(t) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
-    return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; kwargs...))
+    return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; name, kwargs...))
 end
 
-function cosmological_constant(g; kwargs...)
-    Λ = species_constant_eos(g, -1; kwargs...) |> background |> complete # discard ill-defined perturbations
+function cosmological_constant(g; name = :Λ, kwargs...)
+    Λ = species_constant_eos(g, -1; name, kwargs...) |> background |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; kwargs...)) # manually set perturbations to zero
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name, kwargs...)) # manually set perturbations to zero
 end
 
-function photons(g; polarization=true, lmax=6, kwargs...)
-    γ = radiation(g; kwargs...) |> background |> complete # prevent namespacing in extension below
+function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
+    γ = radiation(g; name, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
     defs = [
@@ -110,11 +110,11 @@ function photons(g; polarization=true, lmax=6, kwargs...)
     else
         union!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
-    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, kwargs...))
+    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...))
 end
 
-function massless_neutrinos(g; lmax=6, kwargs...)
-    ν = radiation(g; kwargs...) |> background |> complete
+function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
+    ν = radiation(g; name, kwargs...) |> background |> complete
 
     vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
@@ -137,11 +137,11 @@ function massless_neutrinos(g; lmax=6, kwargs...)
         σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
-    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...))
+    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...))
 end
 
 # TODO: use vector equations and simplify loops
-function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
+function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
 
@@ -188,11 +188,11 @@ function massive_neutrinos(g; nx=5, lmax=4, kwargs...)
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ] .|> O(ϵ^1))
     end
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
 end
 
-function baryons(g; recombination=true, kwargs...)
-    b = matter(g; θinteract=true, kwargs...)
+function baryons(g; recombination=true, name = :b, kwargs...)
+    b = matter(g; θinteract=true, name, kwargs...)
     if recombination
         @named rec = thermodynamics_recombination_recfast(g)
         b = compose(b, rec)
@@ -213,16 +213,16 @@ function perturbations(sys; spline_thermo=true)
 end
 
 function ΛCDM(;
-    g = metric(name = :g),
-    G = gravity(g; name = :G),
-    Λ = cosmological_constant(g; name = :Λ),
+    g = metric(),
+    G = gravity(g),
+    γ = photons(g),
+    ν = massless_neutrinos(g),
+    h = massive_neutrinos(g),
+    c = matter(g; name = :c),
+    b = baryons(g; name = :b),
+    Λ = cosmological_constant(g),
     kwargs...
 )
-    @named γ = photons(g)
-    @named ν = massless_neutrinos(g)
-    @named h = massive_neutrinos(g)
-    @named c = matter(g)
-    @named b = baryons(g)
     species = [γ, ν, c, b, h, Λ]
     ics0 = [
         g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
