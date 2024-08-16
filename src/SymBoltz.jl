@@ -26,7 +26,7 @@ include("Spectra.jl")
 include("Plot.jl")
 
 export ΛCDM
-export CosmologyProblem
+export CosmologyProblem, CosmologySolution
 export solve
 export power_spectrum, Cl, Dl
 

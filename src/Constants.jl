@@ -12,6 +12,7 @@ const aR = 4/c*σ # "radiation constant" in https://arxiv.org/pdf/astro-ph/99092
 const σT = PhysicalConstants.CODATA2018.σ_e / u"m^2"
 const km  = 1u"km/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
+const Gpc = 1u"Gpc/m" |> NoUnits
 const H100 = 100 * km/Mpc
 const k0 = H100 * Mpc / c # h/Mpc # TODO: use H100
 const eV = 1u"eV/J" |> NoUnits
