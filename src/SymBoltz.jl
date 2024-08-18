@@ -12,6 +12,8 @@ using DataInterpolations
 # TODO: define components with @mtkmodel?
 # TODO: try different AD sensitivity algorithms: https://docs.sciml.ai/SciMLSensitivity/stable/getting_started/
 # TODO: define global spacetime structure here?
+# TODO: solve BG in reverse, thermo forward, then perturbations forward?
+# TODO: add ODESystems, ODEProblems, ... into one single CosmologyModel type
 
 using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0
 @parameters k # perturbation wavenumber
