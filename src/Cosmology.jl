@@ -96,7 +96,7 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 function solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
-    ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars)
+    ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars; use_union = false)
     callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
     ode_sol = solve(ode_prob, solver; callback, reltol, kwargs...)
     return CosmologySolution(ode_sol, [], nothing)
@@ -121,7 +121,7 @@ function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend 
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(prob.pt, [], (tini, tend), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(prob.pt, [], (tini, tend), [pars; k => ks[i]]; use_union = false) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]

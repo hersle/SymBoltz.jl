@@ -113,7 +113,7 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, M) # condition model on data
-chain = sample(sn, MH(), MCMCSerial(), 500, 1) # TODO: NUTS() # TODO: MCMCThreads()
+chain = sample(sn, NUTS(), MCMCSerial(), 100, 1) # TODO: NUTS() # TODO: MCMCThreads()
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:

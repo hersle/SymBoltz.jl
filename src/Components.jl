@@ -229,7 +229,7 @@ function ΛCDM(;
 )
     species = [γ, ν, c, b, h, Λ]
     ics0 = [
-        g.a ~ √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
+        g.a => √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
     ]
     pars = @parameters C fν
     defs = [
@@ -254,7 +254,7 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; initialization_eqs=ics0, defaults=defs, name=:ΛCDM, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name=:ΛCDM, kwargs...)
     M = compose(connections, g, G, species...)
     defs = Pair{Any, Any}[]
     for s in species
