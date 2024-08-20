@@ -18,14 +18,12 @@ SymBoltz.jl is a package for solving the linearized Einstein-Boltzmann system of
 
 ### For use
 
-For usage only, enter
 ```
 add https://github.com/hersle/SymBoltz.jl
 ```
 
 ### For use and development
 
-For usage and development, enter
 ```
 dev https://github.com/hersle/SymBoltz.jl
 ```
