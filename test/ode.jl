@@ -3,7 +3,7 @@ using Plots
 using Printf
 
 M = SymBoltz.ΛCDM()
-prob = SymBoltz.CosmologyProblem(M)
+prob = SymBoltz.CosmologyModel(M)
 pars = [
     M.γ.Ω0 => 5.5e-5
     M.c.Ω0 => 0.267

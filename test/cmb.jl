@@ -6,7 +6,7 @@ using ForwardDiff, DiffResults, FiniteDiff
 # TODO: is the bug something multi-threading-related?
 
 M = SymBoltz.ΛCDM()
-prob = SymBoltz.CosmologyProblem(M)
+prob = SymBoltz.CosmologyModel(M)
 ls = [2:1:8; 10; 12; 16; 22; 30:15:3000]
 θ0 = [5.5e-5, 0.267, 0.05, 0.67, 0.245]
 

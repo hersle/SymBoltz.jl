@@ -1,15 +1,17 @@
 import CommonSolve: solve
 #import SymbolicIndexingInterface: all_variable_symbols, getname
 
-struct CosmologyProblem
+struct CosmologyModel
+    sys::ODESystem
+
     bg::ODESystem
     pt::ODESystem
 end
 
-function CosmologyProblem(model::ODESystem)
-    bg = structural_simplify(background(model))
-    pt = structural_simplify(perturbations(model))
-    return CosmologyProblem(bg, pt)
+function CosmologyModel(sys::ODESystem)
+    bg = structural_simplify(background(sys))
+    pt = structural_simplify(perturbations(sys))
+    return CosmologyModel(sys, bg, pt)
 end
 
 struct CosmologySolution
@@ -89,18 +91,18 @@ end
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 """
-    solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+    solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
 
-Solve `CosmologyProblem` with parameters `pars` at the background level.
+Solve `CosmologyModel` with parameters `pars` at the background level.
 """
-function solve(prob::CosmologyProblem, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+function solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
     ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars)
     callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
     ode_sol = solve(ode_prob, solver; callback, reltol, kwargs...)
     return CosmologySolution(ode_sol, [], nothing)
 end
 
-function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     tend = 4.0
@@ -139,6 +141,6 @@ function solve(prob::CosmologyProblem, pars, ks::AbstractArray; tini = 1e-5, aen
     return CosmologySolution(bg_sol.bg, ks, ode_sols)
 end
 
-function solve(M::CosmologyProblem, pars, k::Number; kwargs...)
+function solve(M::CosmologyModel, pars, k::Number; kwargs...)
     return solve(M, pars, [k]; kwargs...)
 end

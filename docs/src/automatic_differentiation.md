@@ -16,14 +16,13 @@ To do so, let us write a small wrapper function that calculates the power spectr
 using SymBoltz
 
 M = ΛCDM()
-prob = CosmologyProblem(M)
 
 # define ordering and values of parameters
-θ_syms = [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] # symbolic indices
+θ_syms = [M.sys.γ.Ω0, M.sys.c.Ω0, M.sys.b.Ω0, M.sys.ν.Neff, M.sys.g.h, M.sys.b.rec.Yp] # symbolic indices
 θ_strs = ["Ωγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
 θ0 = [5e-5, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
 
-P(k, θ) = power_spectrum(solve(prob, θ_syms .=> θ, k), M.c, k)
+P(k, θ) = power_spectrum(solve(M, θ_syms .=> θ, k), M.sys.c, k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example 1

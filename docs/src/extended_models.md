@@ -70,7 +70,7 @@ and then recreate it with the cosmological constant replaced by the w₀wₐ-com
 using SymBoltz
 M1 = ΛCDM(name = :ΛCDM)
 
-X = w0wa(M1.g; name = :X)
+X = w0wa(M1.sys.g; name = :X)
 M2 = ΛCDM(Λ = X, name = :w0waCDM)
 ```
 
@@ -79,20 +79,19 @@ M2 = ΛCDM(Λ = X, name = :w0waCDM)
 Now set some parameters and solve both models:
 ```@example 1
 θ1 = [
-    M1.γ.Ω0 => 5e-5
-    M1.c.Ω0 => 0.27
-    M1.b.Ω0 => 0.05
-    M1.ν.Neff => 3.0
-    M1.g.h => 0.7
-    M1.b.rec.Yp => 0.25
+    M1.sys.γ.Ω0 => 5e-5
+    M1.sys.c.Ω0 => 0.27
+    M1.sys.b.Ω0 => 0.05
+    M1.sys.ν.Neff => 3.0
+    M1.sys.g.h => 0.7
+    M1.sys.b.rec.Yp => 0.25
 ]
 θ2 = [
     θ1; # extend previous parameter list
-    M2.X.w0 => -0.9
-    M2.X.wa => 0.2
+    M2.sys.X.w0 => -0.9
+    M2.sys.X.wa => 0.2
 ]
-prob1, prob2 = CosmologyProblem(M1), CosmologyProblem(M2)
-sol1, sol2 = solve(prob1, θ1), solve(prob2, θ2)
+sol1, sol2 = solve(M1, θ1), solve(M2, θ2)
 ```
 
 Let us compare $H_2 / H_1$ as a function of the scale factor $a$:
@@ -105,8 +104,8 @@ function common_extrema(itr1, itr2)
 end
 t1s, t2s = sol1[SymBoltz.t], sol2[SymBoltz.t]
 ts = exp.(range(log.(common_extrema(t1s, t2s))..., length=1000))
-lga1s, lga2s = sol1(ts, log10(M1.g.a)), sol2(ts, log10(M2.g.a))
-H1s, H2s = sol1(ts, M1.g.H), sol2(ts, M2.g.H)
+lga1s, lga2s = sol1(ts, log10(M1.sys.g.a)), sol2(ts, log10(M2.sys.g.a))
+H1s, H2s = sol1(ts, M1.sys.g.H), sol2(ts, M2.sys.g.H)
 
 # evaluate at common scale factors
 # TODO: define convenience method for doing spline conversion

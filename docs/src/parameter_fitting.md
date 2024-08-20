@@ -65,12 +65,11 @@ theoretically, we solve the standard ΛCDM model:
 using SymBoltz, DataInterpolations
 
 M = ΛCDM(recombination=false) # TODO: build m-only model
-prob = CosmologyProblem(M)
 
 # TODO: improve performance of this
 function dL(z, sol::CosmologySolution)
-    as = sol[M.g.a][begin:end-1]
-    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.g.H0] # s
+    as = sol[M.sys.g.a][begin:end-1]
+    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.sys.g.H0] # s
     t_of_loga = CubicSpline(ts, log.(as); extrapolate=true) # TODO: do internally
     a0, a = 1, 1 ./ (z .+ 1)
     t0, t = t_of_loga(log(a0)), t_of_loga(log.(a))
@@ -78,19 +77,19 @@ function dL(z, sol::CosmologySolution)
     return @. r / a / SymBoltz.Gpc
 end
 
-function dL(z, prob::CosmologyProblem, Ωm0, h)
-    return dL(z, solve(prob, [
-        M.γ.Ω0 => 5e-5,
-        M.ν.Neff => 3.0,
-        M.b.Ω0 => 0.0,
-        M.c.Ω0 => Ωm0, # TODO: create matter-only model
-        M.g.h => h
+function dL(z, M::CosmologyModel, Ωm0, h)
+    return dL(z, solve(M, [
+        M.sys.γ.Ω0 => 5e-5,
+        M.sys.ν.Neff => 3.0,
+        M.sys.b.Ω0 => 0.0,
+        M.sys.c.Ω0 => Ωm0, # TODO: create matter-only model
+        M.sys.g.h => h
     ]))
 end
 
 # Show example predictions
 zs = data.zs
-dLs = dL(zs, prob, 0.3, 0.7)
+dLs = dL(zs, M, 0.3, 0.7)
 scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 ```
 
@@ -100,20 +99,20 @@ To perform bayesian inference, we use the [Turing.jl](https://turinglang.org/) p
 ```@example 1
 using Turing
 
-@model function supernova(data, prob)
+@model function supernova(data, M)
     # Parameter priors
     Ωm0 ~ Uniform(0.2, 0.4)
     h ~ Uniform(0.6, 0.8)
 
     # Theoretical prediction
-    dLs = dL(data.zs, prob, Ωm0, h)
+    dLs = dL(data.zs, M, Ωm0, h)
 
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
-sn = supernova(data, prob) # condition model on data
+sn = supernova(data, M) # condition model on data
 chain = sample(sn, MH(), MCMCSerial(), 500, 1) # TODO: NUTS() # TODO: MCMCThreads()
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.

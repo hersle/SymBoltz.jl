@@ -13,7 +13,7 @@ function power_spectrum(sol::CosmologySolution, species::ODESystem, k)
     return P0(k) .* sol(k, tend, [species.Δ^2])[:, 1, 1]
 end
 
-function power_spectrum(prob::CosmologyProblem, species::ODESystem, pars, k; kwargs...)
+function power_spectrum(prob::CosmologyModel, species::ODESystem, pars, k; kwargs...)
     sol = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
     return power_spectrum(sol, species, k)
 end
@@ -34,7 +34,7 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(prob::CosmologyProblem, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
+function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
     bg_sol = solve(prob, pars; aend = NaN, saveat = ts) # disable callback termination with aend=NaN to avoid duplicating time endpoints ()
     pt_sols = solve(prob, pars, ks; saveat = ts, kwargs...)
     τ = bg_sol[prob.bg.b.rec.τ] .- bg_sol[prob.bg.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
@@ -126,7 +126,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(prob::CosmologyProblem, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
+function Θl(prob::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
     ts = exp.(lnts)
     Ss = S(prob, ts, ks, pars, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
@@ -147,13 +147,13 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(prob::CosmologyProblem, pars, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, ks_S::AbstractArray; kwargs...)
+function Cl(prob::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, ks_S::AbstractArray; kwargs...)
     Θls = Θl(prob, ls, ks, lnts, pars, ks_S; kwargs...)
     P0s = P0(ks)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(prob::CosmologyProblem, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+function Cl(prob::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
     bg_sol = solve(prob, pars; aend=1.0)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1

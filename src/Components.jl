@@ -263,5 +263,6 @@ function ΛCDM(;
         end
     end
     M = extend(M, ODESystem(Equation[], t; defaults=defs, name=:ΛCDM, kwargs...))
-    return complete(M)
+    M = complete(M)
+    return CosmologyModel(M)
 end
