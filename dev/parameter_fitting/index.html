@@ -39,18 +39,17 @@ data = [ # https://cmb.wintherscoming.no/data/supernovadata.txt
 data = (zs = data[:,1], dLs = data[:,2], ΔdLs = data[:,3], C = Diagonal(data[:,3] .^ 2))
 
 using Plots
-scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = &quot;lg(1+z)&quot;, ylabel = &quot;dₗ/z/Gpc&quot;, label = &quot;observations&quot;)</code></pre><img src="1c12d324.svg" alt="Example block output"/><h2 id="Predicting-luminosity-distances"><a class="docs-heading-anchor" href="#Predicting-luminosity-distances">Predicting luminosity distances</a><a id="Predicting-luminosity-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-luminosity-distances" title="Permalink"></a></h2><p>To predict luminosity distances</p><p class="math-container">\[d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
+scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = &quot;lg(1+z)&quot;, ylabel = &quot;dₗ/z/Gpc&quot;, label = &quot;observations&quot;)</code></pre><img src="17b6f60c.svg" alt="Example block output"/><h2 id="Predicting-luminosity-distances"><a class="docs-heading-anchor" href="#Predicting-luminosity-distances">Predicting luminosity distances</a><a id="Predicting-luminosity-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-luminosity-distances" title="Permalink"></a></h2><p>To predict luminosity distances</p><p class="math-container">\[d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 \qquad \text{where} \qquad
 \chi = c \, (t_0 - t)\]</p><p>theoretically, we solve the standard ΛCDM model:</p><pre><code class="language-julia hljs"># TODO: generalize to non-flat
 using SymBoltz, DataInterpolations
 
 M = ΛCDM(recombination=false) # TODO: build m-only model
-prob = CosmologyProblem(M)
 
 # TODO: improve performance of this
 function dL(z, sol::CosmologySolution)
-    as = sol[M.g.a][begin:end-1]
-    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.g.H0] # s
+    as = sol[M.sys.g.a][begin:end-1]
+    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.sys.g.H0] # s
     t_of_loga = CubicSpline(ts, log.(as); extrapolate=true) # TODO: do internally
     a0, a = 1, 1 ./ (z .+ 1)
     t0, t = t_of_loga(log(a0)), t_of_loga(log.(a))
@@ -58,42 +57,42 @@ function dL(z, sol::CosmologySolution)
     return @. r / a / SymBoltz.Gpc
 end
 
-function dL(z, prob::CosmologyProblem, Ωm0, h)
-    return dL(z, solve(prob, [
-        M.γ.Ω0 =&gt; 5e-5,
-        M.ν.Neff =&gt; 3.0,
-        M.b.Ω0 =&gt; 0.0,
-        M.c.Ω0 =&gt; Ωm0, # TODO: create matter-only model
-        M.g.h =&gt; h
+function dL(z, M::CosmologyModel, Ωm0, h)
+    return dL(z, solve(M, [
+        M.sys.γ.Ω0 =&gt; 5e-5,
+        M.sys.ν.Neff =&gt; 3.0,
+        M.sys.b.Ω0 =&gt; 0.0,
+        M.sys.c.Ω0 =&gt; Ωm0, # TODO: create matter-only model
+        M.sys.g.h =&gt; h
     ]))
 end
 
 # Show example predictions
 zs = data.zs
-dLs = dL(zs, prob, 0.3, 0.7)
-scatter!(@. log10(zs+1), dLs ./ zs; label = &quot;prediction&quot;)</code></pre><img src="53e8ff75.svg" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we use the <a href="https://turinglang.org/">Turing.jl</a> package:</p><pre><code class="language-julia hljs">using Turing
+dLs = dL(zs, M, 0.3, 0.7)
+scatter!(@. log10(zs+1), dLs ./ zs; label = &quot;prediction&quot;)</code></pre><img src="22ec54aa.svg" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we use the <a href="https://turinglang.org/">Turing.jl</a> package:</p><pre><code class="language-julia hljs">using Turing
 
-@model function supernova(data, prob)
+@model function supernova(data, M)
     # Parameter priors
     Ωm0 ~ Uniform(0.2, 0.4)
     h ~ Uniform(0.6, 0.8)
 
     # Theoretical prediction
-    dLs = dL(data.zs, prob, Ωm0, h)
+    dLs = dL(data.zs, M, Ωm0, h)
 
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
-sn = supernova(data, prob) # condition model on data
+sn = supernova(data, M) # condition model on data
 chain = sample(sn, MH(), MCMCSerial(), 500, 1) # TODO: NUTS() # TODO: MCMCThreads()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (500×3×1 Array{Float64, 3}):
 
 Iterations        = 1:1:500
 Number of chains  = 1
 Samples per chain = 500
-Wall duration     = 52.8 seconds
-Compute duration  = 52.8 seconds
+Wall duration     = 51.13 seconds
+Compute duration  = 51.13 seconds
 parameters        = Ωm0, h
 internals         = lp
 
@@ -101,15 +100,15 @@ Summary Statistics
  <span class="sgr1"> parameters </span> <span class="sgr1">    mean </span> <span class="sgr1">     std </span> <span class="sgr1">    mcse </span> <span class="sgr1"> ess_bulk </span> <span class="sgr1"> ess_tail </span> <span class="sgr1">    rhat </span> <span class="sgr1"> e</span> ⋯
  <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  </span> ⋯
 
-         Ωm0    0.2844    0.0360    0.0118    10.2752    28.9281    1.0659     ⋯
-           h    0.7025    0.0055    0.0011    27.6004    13.6103    1.0592     ⋯
+         Ωm0    0.2873    0.0267    0.0100     8.0505     3.4498    1.1069     ⋯
+           h    0.7020    0.0042    0.0024     4.4141        NaN    1.1671     ⋯
 <span class="sgr36">                                                                1 column omitted</span>
 
 Quantiles
  <span class="sgr1"> parameters </span> <span class="sgr1">    2.5% </span> <span class="sgr1">   25.0% </span> <span class="sgr1">   50.0% </span> <span class="sgr1">   75.0% </span> <span class="sgr1">   97.5% </span>
  <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span>
 
-         Ωm0    0.2298    0.2457    0.2896    0.3229    0.3338
-           h    0.6940    0.6982    0.7016    0.7064    0.7136
+         Ωm0    0.2391    0.2639    0.2972    0.3088    0.3327
+           h    0.6950    0.6976    0.7020    0.7038    0.7091
 </code></pre><p>As we see above, the MCMC <code>chain</code> displays a summary with information about the fitted parameters, including their posterior means and standard deviations. We can also plot the chains:</p><pre><code class="language-julia hljs">using StatsPlots
-plot(chain)</code></pre><img src="cbc93209.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Creating extended models</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 20 August 2024 09:28">Tuesday 20 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(chain)</code></pre><img src="0b948f9e.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Creating extended models</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 20 August 2024 09:51">Tuesday 20 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
