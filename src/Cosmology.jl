@@ -14,6 +14,16 @@ function CosmologyModel(sys::ODESystem)
     return CosmologyModel(sys, bg, pt)
 end
 
+# Forward property access to full system
+Base.propertynames(M::CosmologyModel) = propertynames(getfield(M, :sys))
+function Base.getproperty(M::CosmologyModel, prop::Symbol)
+    if prop in propertynames(M)
+        return Base.getproperty(getfield(M, :sys), prop)
+    else
+        return getfield(M, prop) # hidden access to other fields
+    end
+end
+
 struct CosmologySolution
     bg::ODESolution
     ks::Array{Float64}

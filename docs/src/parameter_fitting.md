@@ -68,8 +68,8 @@ M = ΛCDM(recombination=false) # TODO: build m-only model
 
 # TODO: improve performance of this
 function dL(z, sol::CosmologySolution)
-    as = sol[M.sys.g.a][begin:end-1]
-    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.sys.g.H0] # s
+    as = sol[M.g.a][begin:end-1]
+    ts = sol[SymBoltz.t][begin:end-1] / sol.bg.ps[M.g.H0] # s
     t_of_loga = CubicSpline(ts, log.(as); extrapolate=true) # TODO: do internally
     a0, a = 1, 1 ./ (z .+ 1)
     t0, t = t_of_loga(log(a0)), t_of_loga(log.(a))
@@ -79,11 +79,11 @@ end
 
 function dL(z, M::CosmologyModel, Ωm0, h)
     return dL(z, solve(M, [
-        M.sys.γ.Ω0 => 5e-5,
-        M.sys.ν.Neff => 3.0,
-        M.sys.b.Ω0 => 0.0,
-        M.sys.c.Ω0 => Ωm0, # TODO: create matter-only model
-        M.sys.g.h => h
+        M.γ.Ω0 => 5e-5,
+        M.ν.Neff => 3.0,
+        M.b.Ω0 => 0.0,
+        M.c.Ω0 => Ωm0, # TODO: create matter-only model
+        M.g.h => h
     ]))
 end
 
