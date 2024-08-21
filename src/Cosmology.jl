@@ -40,12 +40,14 @@ struct CosmologySolution
 end
 
 function Base.show(io::IO, sol::CosmologySolution)
-    print(io, "Cosmology solution with")
-    print(io, "\n* background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
+    print(io, "Cosmology solution with stages")
+    print(io, "\n  1. background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
     if !isnothing(sol.pts)
-        for pt in sol.pts
-            print(io, "\n* perturbation (k = $(pt.prob.ps[k]) H₀/c): solved with $(nameof(typeof(pt.alg))), $(length(pt)) points")
-        end
+        solver = nameof(typeof(only(unique(map(pt -> pt.alg, sol.pts)))))
+        kmin, kmax = extrema(map(pt -> pt.prob.ps[SymBoltz.k], sol.pts))
+        nmin, nmax = extrema(map(pt -> length(pt), sol.pts))
+        n = length(sol.pts)
+        print(io, "\n  2. perturbations: solved with $solver, $nmin-$nmax points, x$(n) k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
     end
 end
 
