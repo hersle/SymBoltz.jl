@@ -49,7 +49,7 @@ end
 
 # plot ODESystems as a hierarchical tree # TODO: contribute back to ModelingToolkit.jl?
 using AbstractTrees
-AbstractTrees.children(sys::ODESystem) = sys.systems
+AbstractTrees.children(sys::ODESystem) = collect(sys.systems)
 AbstractTrees.printnode(io::IO, sys::ODESystem) = print(io, sys.name)
 
 using GraphRecipes
@@ -58,4 +58,8 @@ using GraphRecipes
     nodesize --> 0.12
     fontsize --> 15
     TreePlot(sys)
+end
+
+@recipe function plot(::Type{T}, M::T) where {T <: CosmologyModel}
+    return (M.sys,) # call ODESystem recipe
 end

@@ -24,6 +24,15 @@ function Base.getproperty(M::CosmologyModel, prop::Symbol)
     end
 end
 
+# Forward inspection functions to full system
+equations(M::CosmologyModel) = equations(M.sys)
+observed(M::CosmologyModel) = observed(M.sys)
+parameters(M::CosmologyModel) = parameters(M.sys)
+initialization_equations(M::CosmologyModel) = initialization_equations(M.sys)
+defaults(M::CosmologyModel) = defaults(M.sys)
+
+Base.show(io::IO, M::CosmologyModel) = print(chop(sprint(print_tree, M.sys)))
+
 struct CosmologySolution
     bg::ODESolution
     ks::Array{Float64}

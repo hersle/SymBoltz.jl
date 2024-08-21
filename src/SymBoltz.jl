@@ -1,5 +1,9 @@
 module SymBoltz
 
+# re-export commonly used ModelingToolkit functions
+import ModelingToolkit: unknowns, observed, parameters, equations, initialization_equations, defaults
+export unknowns, observed, parameters, equations, initialization_equations, defaults
+
 using ModelingToolkit
 using DifferentialEquations
 using DataInterpolations
@@ -25,15 +29,11 @@ include("Constants.jl")
 include("Components.jl")
 include("Thermodynamics.jl")
 include("Spectra.jl")
-include("Plot.jl")
+include("Tree.jl")
 
 export ΛCDM
 export CosmologyModel, CosmologySolution
 export solve
 export power_spectrum, Cl, Dl
-
-# re-export commonly used ModelingToolkit functions
-export unknowns, observed, parameters
-export equations, initialization_equations, defaults
 
 end

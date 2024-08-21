@@ -14,14 +14,10 @@ It will be used both to create the numerical problem to solve, and to access var
 To get started, we will simply load the standard ΛCDM model:
 ```@example 1
 M = ΛCDM()
-nothing # hide
 ```
 
-The symbolic model has a hierarchical structure with several components of the Einstein-Boltzmann system:
-```@example 1
-using Plots
-plot(M)
-```
+As shown, the symbolic model is structured with a hierarchy of components, each of which contains chunks of the Einstein-Boltzmann system (it can also be displayed graphically with`using Plots; plot(M)`).
+.
 In this case, the components are
 the spacetime metric (`g`, for $g_{\mu\nu}$),
 the theory of gravity (`G`, here general relativity),
@@ -32,7 +28,9 @@ baryons (`b`),
 massive neutrinos (`h`),
 dark energy as a cosmological constant (`Λ`)
 and recombination (`rec`).
-Internally, the full model is separated into sequential computational stages, like the background and perturbation systems.
+
+Internally, these components are combined into a full Einstein-Boltzmann system.
+The full system is also separated into sequential computational stages, like the background and perturbation systems.
 
 The hierarchical structure can be inspected interactively as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.<TAB>`, `M.G` and so on (with TAB-completion).
 For example, to see all equations for the theory of gravity:
