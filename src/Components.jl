@@ -1,7 +1,14 @@
 ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
 
+"""
+    metric(; name = :g, kwargs...)
+
+Create a symbolic component for the perturbed FLRW spacetime metric in the conformal Newtonian gauge with signature
+
+    a^2 * diag(-1-2*ϵ*Ψ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ)
+"""
 function metric(; name = :g, kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t))
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g11, g22, g33, g44 = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g11(t) g22(t) g33(t) g44(t))
     pars = H0, h = GlobalScope.(@parameters H0 h)
     defs = [
         H0 => H100 * h
@@ -15,7 +22,12 @@ function metric(; name = :g, kwargs...)
     ], t, vars, pars; defaults=defs, name, kwargs...)
 end
 
-function gravity(g; name = :G, kwargs...)
+"""
+    general_relativity(g; name = :G, kwargs...)
+
+Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
+"""
+function general_relativity(g; name = :G, kwargs...)
     vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
     eqs0 = [
         D(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
@@ -28,6 +40,11 @@ function gravity(g; name = :G, kwargs...)
     return ODESystem([eqs0; eqs1], t, vars, []; name, kwargs...)
 end
 
+"""
+    species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
+
+Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
+"""
 function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = @parameters Ω0 ρ0 # TODO: split pars0, pars1
@@ -53,10 +70,20 @@ function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = fal
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
 end
 
+"""
+    matter(g; name = :m, kwargs...)
+
+Create a particle species for matter (with equation of state `w ~ 0`) in the spacetime with metric `g`.
+"""
 function matter(g; name = :m, kwargs...)
     return species_constant_eos(g, 0; name, kwargs...)
 end
 
+"""
+    radiation(g; name = :r, kwargs...)
+
+Create a particle species for radiation (with equation of state `w ~ 1/3`) in the spacetime with metric `g`.
+"""
 function radiation(g; name = :r, kwargs...)
     r = species_constant_eos(g, 1//3; name, kwargs...)
     pars = @parameters T0
@@ -64,12 +91,22 @@ function radiation(g; name = :r, kwargs...)
     return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; name, kwargs...))
 end
 
+"""
+    cosmological_constant(g; name = :Λ, kwargs...)
+
+Create a particle species for the cosmological constant (with equation of state `w ~ -1`) in the spacetime with metric `g`.
+"""
 function cosmological_constant(g; name = :Λ, kwargs...)
     Λ = species_constant_eos(g, -1; name, kwargs...) |> background |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
     return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name, kwargs...)) # manually set perturbations to zero
 end
 
+"""
+    cosmological_constant(g; name = :Λ, kwargs...)
+
+Create a particle species for photons in the spacetime with metric `g`.
+"""
 function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
     γ = radiation(g; name, kwargs...) |> background |> complete # prevent namespacing in extension below
 
@@ -113,6 +150,11 @@ function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
     return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...))
 end
 
+"""
+    massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
+
+Create a particle species for massless neutrinos in the spacetime with metric `g`.
+"""
 function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
     ν = radiation(g; name, kwargs...) |> background |> complete
 
@@ -141,6 +183,11 @@ function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
 end
 
 # TODO: use vector equations and simplify loops
+"""
+    massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
+
+Create a particle species for massive neutrinos in the spacetime with metric `g`.
+"""
 function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
@@ -191,6 +238,11 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
 end
 
+"""
+    baryons(g; recombination=true, name = :b, kwargs...)
+
+Create a particle species for baryons in the spacetime with metric `g`.
+"""
 function baryons(g; recombination=true, name = :b, kwargs...)
     b = matter(g; θinteract=true, name, kwargs...)
     if recombination
@@ -215,10 +267,26 @@ function perturbations(sys; spline_thermo=true)
     return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
 end
 
+"""
+    ΛCDM(;
+        recombination = true,
+        g = metric(),
+        G = general_relativity(g),
+        γ = photons(g),
+        ν = massless_neutrinos(g),
+        h = massive_neutrinos(g),
+        c = matter(g; name = :c),
+        b = baryons(g; recombination, name = :b),
+        Λ = cosmological_constant(g),
+        kwargs...
+    )
+
+Create a complete ΛCDM model.
+"""
 function ΛCDM(;
     recombination = true,
     g = metric(),
-    G = gravity(g),
+    G = general_relativity(g),
     γ = photons(g),
     ν = massless_neutrinos(g),
     h = massive_neutrinos(g),
