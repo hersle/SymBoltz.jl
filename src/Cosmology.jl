@@ -31,7 +31,7 @@ parameters(M::CosmologyModel) = parameters(M.sys)
 initialization_equations(M::CosmologyModel) = initialization_equations(M.sys)
 defaults(M::CosmologyModel) = defaults(M.sys)
 
-Base.show(io::IO, M::CosmologyModel) = print(chop(sprint(print_tree, M.sys)))
+Base.show(io::IO, M::CosmologyModel) = print(io, chop(sprint(print_tree, M.sys))) # chop off last excessive newline
 
 struct CosmologySolution
     bg::ODESolution
