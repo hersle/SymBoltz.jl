@@ -15,8 +15,8 @@ function metric(; name = :g, kwargs...)
         h => H0 / H100
     ]
     return ODESystem([
-        ℰ ~ D(a) / a # ℰ = ℋ/ℋ0
-        E ~ ℰ / a # E = H/H0
+        D(a) ~ ℰ * a # ℰ = ℋ/ℋ0 = ℋ/H0
+        ℰ ~ a * E # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
     ], t, vars, pars; defaults=defs, name, kwargs...)
@@ -30,7 +30,7 @@ Create a symbolic component for the general relativistic (GR) theory of gravity 
 function general_relativity(g; name = :G, kwargs...)
     vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
     eqs0 = [
-        D(g.a) ~ √(8π/3 * ρ) * g.a^2 # Friedmann equation
+        g.E ~ √(8π/3 * ρ) # Friedmann equation
         ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
     ] .|> O(ϵ^0)
     eqs1 = [
