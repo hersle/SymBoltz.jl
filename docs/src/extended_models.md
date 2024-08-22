@@ -7,7 +7,7 @@ with the w₀wₐ-parametrization from [Chevallier, Polarski (2000)](https://arx
 ```math
 w(t) = w_0 + w_a (1 - a(t)).
 ```
-With this equation of state, solving the continuity equation
+With this equation of state, solving the background continuity equation
 ```math
 \frac{\mathrm{d} \rho(t)}{\mathrm{d}t} = -3 H(t) \, (ρ(t) + P(t)) = -3 H(t) \, \rho(t) \, (1 + w(t))
 ```
@@ -16,6 +16,14 @@ gives $m = -3 (1 + w_0 + w_a)$, $n = -3 w_a$ and hence
 ```math
 \rho(t) = \rho(t_0) \, a(t)^{1 + w_0 + w_a} \exp(w_a (1 - a(t))).
 ```
+Following [Bertschinger & Ma (equation 30)](https://arxiv.org/pdf/astro-ph/9506072#%5B%7B%22num%22%3A70%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C387%5D), the perturbation equations are
+```math
+\begin{aligned}
+\dot{δ} &= -(1 + w) (θ - 3 \dot{Φ}) - 3 \frac{\dot{a}}{a} (c_s^2 - w) δ, \\
+\dot{θ} &= -\frac{\dot{a}}{a} (1 - 3w) θ - \frac{\dot{w}}{1+w} θ + \frac{c_s^2}{1+w} k^2 δ - k^2 σ + k^2 Ψ,
+\end{aligned}
+```
+with initial (adiabatic) conditions $δ = -\frac{3}{2} (1+w) Ψ$ and $θ = \frac{1}{2} k^2 t Ψ$.
 
 ## Create the symbolic component
 
@@ -25,39 +33,45 @@ that are composed together into a full/complete cosmological model.
 Let us create a component for the w₀wₐ-parametrization:
 ```@example 1
 using ModelingToolkit # must be loaded to create custom components
-using SymBoltz: t, ϵ # load conformal time and perturbation book-keeper
+using SymBoltz: t, ϵ, k # load conformal time and perturbation book-keeper
 
 # Create a function that creates a symbolic w0wa dark energy component
 function w0wa(g; kwargs...)
     # 1. Create parameters
-    pars = @parameters w0 wa ρ0 Ω0
+    pars = @parameters w0 wa ρ0 Ω0 cs²
 
     # 2. Create variables
-    vars = @variables ρ(t) P(t) w(t) δ(t) σ(t)
+    vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
 
     # 3. Specify background equations (~ means equality in ModelingToolkit)
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
+        ẇ ~ D(w)
         ρ ~ ρ0 * g.a^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density
         P ~ w * ρ # pressure
-    ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect), marking them as background equations
+    ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
 
-    # 4. Specify perturbation (O(ϵ^0)) equations # TODO: include
+    # 4. Specify perturbation (O(ϵ⁰)) equations
     eqs1 = [
-        δ ~ 0 # energy overdensity
+        D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ # energy overdensity
+        D(θ) ~ -g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
         σ ~ 0 # shear stress
-    ] .|> SymBoltz.O(ϵ^1) # O(ϵ^1) multiplies all equations by ϵ, marking them as perturbation equations
+    ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
 
-    # 5. Specify relationships between parameters
+    # 5. Specify initial conditions for perturbations
+    ics1 = [
+        δ ~ -3/2 * (1+w) * g.Ψ
+        θ ~ 1/2 * (k^2*t) * g.Ψ
+    ] .|> SymBoltz.O(ϵ^1)
+
+    # 6. Specify relationships between parameters
     defaults = [
         ρ0 => 3/8π * Ω0
     ]
 
-    # 6. Pack everything into an ODE system
-    return ODESystem([eqs0; eqs1], t, vars, pars; defaults, kwargs...)
+    # 7. Pack everything into an ODE system
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, kwargs...)
 end
-
-# TODO: should illustrate initialization_eqs behavior
 ```
 
 ## Create the standard and extended models
@@ -75,7 +89,8 @@ M2 = ΛCDM(Λ = X, name = :w0waCDM)
 
 ## Solve and compare the models
 
-Now set some parameters and solve both models:
+Now set some parameters and solve both models up to one perturbation wavenumber.
+First
 ```@example 1
 θ1 = [
     M1.γ.Ω0 => 5e-5
@@ -85,15 +100,18 @@ Now set some parameters and solve both models:
     M1.g.h => 0.7
     M1.b.rec.Yp => 0.25
 ]
-sol1 = solve(M1, θ1)
+ks = 1.0
+sol1 = solve(M1, θ1, ks)
 ```
+and second
 ```@example 1
 θ2 = [
     θ1; # extend previous parameter list
     M2.X.w0 => -0.9
     M2.X.wa => 0.2
+    M2.X.cs² => 1.0
 ]
-sol2 = solve(M2, θ2)
+sol2 = solve(M2, θ2, ks)
 ```
 
 Let us compare $H_2 / H_1$ as a function of the scale factor $a$:
