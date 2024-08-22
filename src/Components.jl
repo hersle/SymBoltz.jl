@@ -324,12 +324,8 @@ function ΛCDM(;
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name=:ΛCDM, kwargs...)
     M = compose(connections, g, G, species...)
-    defs = Pair{Any, Any}[]
-    for s in species
-        if !(Symbol(s.Ω0) in Symbol.(def[1] for def in ModelingToolkit.defaults(M))) # TODO: make defaults a Dict()
-            push!(defs, s.Ω0 => 1 - sum(s′.Ω0 for s′ in species if s′ != s)) # TODO: solve nonlinear system # TODO: any combination of all but one species
-        end
-    end
+    defs = Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species) # TODO: solve nonlinear system
+    defs = merge(defs, defaults(M))
     M = extend(M, ODESystem(Equation[], t; defaults=defs, name=:ΛCDM, kwargs...))
     M = complete(M)
     return CosmologyModel(M)
