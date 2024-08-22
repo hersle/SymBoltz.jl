@@ -33,7 +33,7 @@ that are composed together into a full/complete cosmological model.
 Let us create a component for the w₀wₐ-parametrization:
 ```@example 1
 using ModelingToolkit # must be loaded to create custom components
-using SymBoltz: t, ϵ, k # load conformal time and perturbation book-keeper
+using SymBoltz: t, D, ϵ, k # load conformal time and perturbation book-keeper
 
 # Create a function that creates a symbolic w0wa dark energy component
 function w0wa(g; kwargs...)
