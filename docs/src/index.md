@@ -1,4 +1,4 @@
-# SymBoltz.jl: linear Einstein-Boltzmann equation solver
+# Introduction
 
 SymBoltz.jl is a package for solving the linearized Einstein-Boltzmann system of equations. It is designed to be simple to use, extend and integrate with the wider Julia and SciML ecosystems for scientific analysis.
 
