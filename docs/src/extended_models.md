@@ -16,7 +16,6 @@ gives $m = -3 (1 + w_0 + w_a)$, $n = -3 w_a$ and hence
 ```math
 \rho(t) = \rho(t_0) \, a(t)^{1 + w_0 + w_a} \exp(w_a (1 - a(t))).
 ```
-TODO: use t for cosmic time, τ for conformal time
 
 ## Create the symbolic component
 
@@ -86,12 +85,15 @@ Now set some parameters and solve both models:
     M1.g.h => 0.7
     M1.b.rec.Yp => 0.25
 ]
+sol1 = solve(M1, θ1)
+```
+```@example 1
 θ2 = [
     θ1; # extend previous parameter list
     M2.X.w0 => -0.9
     M2.X.wa => 0.2
 ]
-sol1, sol2 = solve(M1, θ1), solve(M2, θ2)
+sol2 = solve(M2, θ2)
 ```
 
 Let us compare $H_2 / H_1$ as a function of the scale factor $a$:
