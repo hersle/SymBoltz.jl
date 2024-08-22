@@ -38,8 +38,6 @@ For example, to see all equations for the theory of gravity:
 equations(M.G)
 ```
 
-See the [tutorial on Creating extended models](@ref "Creating extended models") to learn more about the model representation and how to define extended cosmological models.
-
 ## 2. Solve the model
 
 Next, we set our desired cosmological parameters and wavenumbers, and solve the model:
