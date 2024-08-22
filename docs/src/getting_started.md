@@ -56,15 +56,16 @@ ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
 sol = solve(M, pars, ks)
 ```
 
-To solve only the background, you can simply omit the `ks` argument: `solve(prob, pars, ks)`.
+To solve only the background, you can simply omit the `ks` argument: `solve(prob, pars)`.
 
 ## 3. Access the solution
 
 You are now free to do whatever you want with the solution object.
 It can be called like
-- `sol(t, var)` to access the background variable(s) `var` as a function of the conformal time(s) `t`, or
-- `sol(k, t, var)` to access the perturbed variable(s) `var` as a function of the wavenumber(s) `k` and conformal time(s) `t`.
-This will interpolate linearly in $\log(k)$, and with the ODE solver's interpolator in $t$.
+- `sol(t, y)` to get the variable(s) $y(t)$ as a function of conformal time(s) $t$, or
+- `sol(k, t, y)` to get the variable(s) $y(k,t)$ as a function of the wavenumber(s) $k$ and conformal time(s) $t$.
+`y` can be *any* symbolic variable(s) in the model `M`.
+The solution will automatically interpolate linearly in $\log(k)$, and with the ODE solver's custom interpolator in $t$.
 
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 1000 log-spaced conformal times:
 ```@example 1
