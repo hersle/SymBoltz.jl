@@ -12,6 +12,7 @@ makedocs(
         ],
         "components.md",
         "conventions.md",
+        "comparison.md",
     ],
     pagesonly = true, # only process files listed in pages (useful for testing)
 )
