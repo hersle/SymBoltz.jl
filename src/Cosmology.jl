@@ -109,6 +109,23 @@ function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
     return v
 end
 
+function (sol::CosmologySolution)(tvar::Num, t, idxs)
+    tmin, tmax = extrema(sol[SymBoltz.t])
+    ts = exp.(range(log(tmin), log(tmax), length = 1000))
+    xs = sol(ts, tvar)
+    ts = CubicSpline(ts, xs; extrapolate=true)(t)
+    return sol(ts, idxs)
+end
+
+# TODO: change argument order to join with previous
+function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
+    tmin, tmax = extrema(sol[SymBoltz.t])
+    ts = exp.(range(log(tmin), log(tmax), length = 1000))
+    xs = sol(ts, tvar)
+    ts = CubicSpline(ts, xs; extrapolate=true)(t)
+    return sol(k, ts, idxs)
+end
+
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 """

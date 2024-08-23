@@ -114,25 +114,11 @@ And for the w₀wₐCDM model:
 sol2 = solve(M2, θ2, ks)
 ```
 
-Let us compare $H_2 / H_1$ as a function of the scale factor $a$:
+Let us compare $H$ as a function of the (logarithm of the) scale factor $a$:
 ```@example 1
-# get common extrema for two iterators
-function common_extrema(itr1, itr2)
-    min1, max1 = extrema(itr1)
-    min2, max2 = extrema(itr2)
-    return max(min1, min2), min(max1, max2)
-end
-t1s, t2s = sol1[SymBoltz.t], sol2[SymBoltz.t]
-ts = exp.(range(log.(common_extrema(t1s, t2s))..., length=1000))
-lga1s, lga2s = sol1(ts, log10(M1.g.a)), sol2(ts, log10(M2.g.a))
-H1s, H2s = sol1(ts, M1.g.H), sol2(ts, M2.g.H)
-
-# evaluate at common scale factors
-# TODO: define convenience method for doing spline conversion
-using DataInterpolations
 lgas = range(-3, 0, length=500)
-H1s = CubicSpline(H1s, lga1s; extrapolate=true)(lgas)
-H2s = CubicSpline(H2s, lga2s; extrapolate=true)(lgas)
+H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
+H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
 
 using Plots
 plot(lgas, H2s ./ H1s; xlabel = "lg(a)", ylabel = "H₂ / H₁", label = nothing)
