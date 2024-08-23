@@ -90,7 +90,7 @@ M2 = ΛCDM(Λ = X, name = :w0waCDM)
 ## Solve and compare the models
 
 Now set some parameters and solve both models up to one perturbation wavenumber.
-First
+For the ΛCDM model:
 ```@example 1
 θ1 = [
     M1.γ.Ω0 => 5e-5
@@ -103,7 +103,7 @@ First
 ks = 1.0
 sol1 = solve(M1, θ1, ks)
 ```
-and second
+And for the w₀wₐCDM model:
 ```@example 1
 θ2 = [
     θ1; # extend previous parameter list
