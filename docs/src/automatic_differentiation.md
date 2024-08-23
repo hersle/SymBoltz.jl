@@ -8,7 +8,7 @@ and its (logarithmic) derivatives
 using automatic differentiation with [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl).
 This technique [can also differentiate any other quantity](@ref "General approach").
 
-## 1. Wrapping the evaluation
+## 1. Wrap the evaluation
 
 *We* must first decide which parameters $\theta$ the power spectrum $P(k; \theta)$ will be considered a function of.
 To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(\Omega_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):

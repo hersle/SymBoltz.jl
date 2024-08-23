@@ -1,4 +1,4 @@
-# Fitting parameter with Bayesian inference
+# Fitting parameters
 
 This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data.
 
@@ -121,3 +121,5 @@ We can also plot the chains:
 using StatsPlots
 plot(chain)
 ```
+
+TODO: take som inspiration from the [Catalyst tutorial](https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/)

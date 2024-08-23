@@ -27,11 +27,10 @@ baryons (`b`),
 massive neutrinos (`h`),
 dark energy as a cosmological constant (`Λ`)
 and recombination (`rec`).
-
 Internally, these components are combined into a full Einstein-Boltzmann system.
 The full system is also separated into sequential computational stages, like the background and perturbation systems.
 
-The hierarchical structure can be inspected interactively as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.<TAB>`, `M.G` and so on (with TAB-completion).
+The hierarchical structure can be inspected interactively (with TAB-completion) as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.G`, `M.g.ρ` and so on.
 For example, to see all equations for the theory of gravity:
 ```@example 1
 equations(M.G)
