@@ -17,7 +17,6 @@ M = ΛCDM()
 ```
 
 As shown, the symbolic model is structured with a hierarchy of components, each of which contains chunks of the Einstein-Boltzmann system (it can also be displayed graphically with `using Plots; plot(M)`).
-.
 In this case, the components are
 the spacetime metric (`g`, for $g_{\mu\nu}$),
 the theory of gravity (`G`, here general relativity),

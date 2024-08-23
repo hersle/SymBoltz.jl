@@ -43,7 +43,7 @@ function w0wa(g; kwargs...)
     # 2. Create variables
     vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
 
-    # 3. Specify background equations (~ means equality in ModelingToolkit)
+    # 3. Specify background equations (~ is equality in ModelingToolkit)
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
         ẇ ~ D(w)
@@ -51,7 +51,7 @@ function w0wa(g; kwargs...)
         P ~ w * ρ # pressure
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
 
-    # 4. Specify perturbation (O(ϵ⁰)) equations
+    # 4. Specify perturbation (O(ϵ⁰)) equations (D is the conformal time derivative)
     eqs1 = [
         D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ # energy overdensity
         D(θ) ~ -g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
