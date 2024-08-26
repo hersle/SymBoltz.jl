@@ -306,6 +306,9 @@ function ΛCDM(;
 )
     species = [γ, ν, c, b, h, Λ]
     pars = @parameters C fν
+    ics0 = [
+        g.a => √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ? # TODO: more generally, set a ~ ȧ*t instead? # TODO: pass a to ODEProblem instead (currently breaks autodiff)
+    ]
     defs = [
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
@@ -328,7 +331,7 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=defs, name=:ΛCDM, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name=:ΛCDM, kwargs...)
     M = compose(connections, g, G, species...)
     defs = Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species) # TODO: solve nonlinear system
     defs = merge(defs, defaults(M))
