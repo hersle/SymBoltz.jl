@@ -302,6 +302,7 @@ function ΛCDM(;
     c = matter(g; name = :c),
     b = baryons(g; recombination, name = :b),
     Λ = cosmological_constant(g),
+    name = :ΛCDM,
     kwargs...
 )
     species = [γ, ν, c, b, h, Λ]
@@ -331,11 +332,11 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name=:ΛCDM, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name)
     M = compose(connections, g, G, species...)
     defs = Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species) # TODO: solve nonlinear system
     defs = merge(defs, defaults(M))
-    M = extend(M, ODESystem(Equation[], t; defaults=defs, name=:ΛCDM, kwargs...))
+    M = extend(M, ODESystem(Equation[], t; defaults=defs, name))
     M = complete(M)
-    return CosmologyModel(M)
+    return CosmologyModel(M; kwargs...)
 end

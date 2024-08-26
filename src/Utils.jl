@@ -42,6 +42,10 @@ function identity(sys)
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
 end
 
+function debugize(sys)
+    return transform((s, _) -> length(s.systems) == 0 ? debug_system(s) : identity(s), sys)
+end
+
 O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
