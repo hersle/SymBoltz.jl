@@ -5,13 +5,15 @@ struct CosmologyModel
     sys::ODESystem
 
     bg::ODESystem
+    th::ODESystem
     pt::ODESystem
 end
 
 function CosmologyModel(sys::ODESystem)
     bg = structural_simplify(background(sys))
+    th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys))
-    return CosmologyModel(sys, bg, pt)
+    return CosmologyModel(sys, bg, th, pt)
 end
 
 # Forward property access to full system

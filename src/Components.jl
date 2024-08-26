@@ -101,7 +101,7 @@ end
 Create a particle species for the cosmological constant (with equation of state `w ~ -1`) in the spacetime with metric `g`.
 """
 function cosmological_constant(g; name = :Λ, kwargs...)
-    Λ = species_constant_eos(g, -1; name, kwargs...) |> background |> complete # discard ill-defined perturbations
+    Λ = species_constant_eos(g, -1; name, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
     return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name, kwargs...)) # manually set perturbations to zero
 end
@@ -112,7 +112,7 @@ end
 Create a particle species for photons in the spacetime with metric `g`.
 """
 function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
-    γ = radiation(g; name, kwargs...) |> background |> complete # prevent namespacing in extension below
+    γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
     vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
     defs = [
@@ -160,7 +160,7 @@ end
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
 function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
-    ν = radiation(g; name, kwargs...) |> background |> complete
+    ν = radiation(g; name, kwargs...) |> thermodynamics |> complete
 
     vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
@@ -260,6 +260,11 @@ function baryons(g; recombination=true, name = :b, kwargs...)
 end
 
 function background(sys)
+    sys = thermodynamics(sys)
+    return replace(sys, sys.b.rec => ODESystem([], t; name = :rec))
+end
+
+function thermodynamics(sys)
     return transform((sys, _) -> extract_order(sys, [0]), sys)
 end
 
