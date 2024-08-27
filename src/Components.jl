@@ -258,9 +258,11 @@ function baryons(g; recombination=true, name = :b, kwargs...)
     return b
 end
 
-function background(sys)
+function background(sys; initE = true)
     sys = thermodynamics(sys)
-    sys = extend(sys, ODESystem([], t; initialization_eqs = [sys.g.E ~ 1], name = sys.name)) # initialize with H == H0 today
+    if initE
+        sys = extend(sys, ODESystem([], t; initialization_eqs = [sys.g.E ~ 1], name = sys.name)) # initialize with H == H0 today
+    end
     return replace(sys, sys.b.rec => ODESystem([], t; name = :rec))
 end
 
@@ -307,15 +309,15 @@ function ΛCDM(;
 )
     species = [γ, ν, c, b, h, Λ]
     pars = @parameters C fν
-    defs = [
-        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
-        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
-        k => NaN # make background shut up # TODO: avoid
-        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0)
-        C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
-        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
-    ]
+    defs = Dict(
+        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0,
+        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
+        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0, # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        k => NaN, # make background shut up # TODO: avoid
+        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0),
+        C => 0.48, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
+        g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+    )
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
@@ -330,6 +332,11 @@ function ΛCDM(;
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=defs, name)
-    M = compose(connections, g, G, species...) |> complete
-    return CosmologyModel(M; kwargs...)
+    M = compose(connections, g, G, species...)
+    initE = !all([:Ω0 in Symbol.(parameters(s)) for s in species])
+    if !initE
+        defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M))
+        M = extend(M, ODESystem([], t; defaults = defs, name))
+    end
+    return CosmologyModel(complete(M); initE, kwargs...)
 end
