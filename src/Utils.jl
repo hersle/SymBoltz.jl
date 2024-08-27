@@ -77,8 +77,9 @@ function extract_order(sys::ODESystem, orders)
     ieqs = vcat((extract_order.(ieqs, order) for order in orders)...)
 
     # remove resulting trivial equations
-    eqs = filter(eq -> eq != (0 ~ 0), eqs)
-    ieqs = filter(eq -> eq != (0 ~ 0), ieqs)
+    trivial_eqs = [0 ~ 0, 0 ~ -0.0]
+    eqs = filter(eq -> !(eq in trivial_eqs), eqs)
+    ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
     sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
     return sys0
