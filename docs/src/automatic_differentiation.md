@@ -26,13 +26,14 @@ P(k, θ) = power_spectrum(solve(M, θ_syms .=> θ, k), M.c, k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example 1
-ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
+using Unitful, UnitfulAstro
+ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 Ps = P(ks, θ0)
 ```
 This can be plotted with
 ```@example 1
 using Plots
-plot(log10.(ks), log10.(Ps); xlabel = "lg(k)", ylabel = "lg(P)", label = nothing)
+plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```
 
 ## 2. Calculate the derivatives
@@ -40,13 +41,13 @@ plot(log10.(ks), log10.(Ps); xlabel = "lg(k)", ylabel = "lg(P)", label = nothing
 To get $\partial \lg P / \partial \lg \theta$, we can simply pass the wrapper function `P(k, θ)` through [`ForwardDiff.jacobian`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian):
 ```@example 1
 using ForwardDiff
-lgP(lgθ) = log10.(P(ks, 10 .^ lgθ)) # ForwardDiff.jacobian needs an array -> array function
+lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # ForwardDiff.jacobian needs an array -> array function
 dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ0))
 ```
 The matrix element `dlgP_dlgθs[i, j]` now contains $\partial \lg P(k_i) / \partial \lg \theta_j$.
 We can plot them all at once:
 ```@example 1
-plot(log10.(ks), dlgP_dlgθs; xlabel = "lg(k)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
+plot(log10.(ks/u"1/Mpc"), dlgP_dlgθs; xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
 ```
 
 ## Get values and derivatives together
@@ -56,13 +57,13 @@ If you need both, it is faster to calculate them simultaneously with the package
 ```@example 1
 using DiffResults
 
-Pres = DiffResults.JacobianResult(ks, θ0) # allocate buffer for value+derivatives for a function with θ0-sized input and ks-sized output
+Pres = DiffResults.JacobianResult(ks/u"1/Mpc", θ0) # allocate buffer for value+derivatives for a function with θ0-sized input and ks-sized output
 Pres = ForwardDiff.jacobian!(Pres, lgP, log10.(θ0)) # evaluate value+derivatives of lgP(log10.(θ0)) and store the results in Pres
 lgPs = DiffResults.value(Pres) # extract value
 dlgP_dlgθs = DiffResults.jacobian(Pres) # extract derivatives
 
-p1 = plot(log10.(ks), lgPs; ylabel = "lg(P)", label = nothing)
-p2 = plot(log10.(ks), dlgP_dlgθs; xlabel = "lg(k)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
+p1 = plot(log10.(ks/u"1/Mpc"), lgPs; ylabel = "lg(P/Mpc³)", label = nothing)
+p2 = plot(log10.(ks/u"1/Mpc"), dlgP_dlgθs; xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
 plot(p1, p2, layout=(2, 1), size = (600, 600))
 ```
 

@@ -82,7 +82,6 @@ plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc", log10(M.g.a), M.g.Φ) # lg(a) vs. �
 
 We can also calculate the power spectrum for a desired species (here: cold dark matter with `M.c`):
 ```@example 1
-# TODO: fix units
 Ps = power_spectrum(sol, M.c, ks)
-plot(log10.(ks), log10.(Ps); xlabel="lg(k)", ylabel="lg(P)", label=nothing)
+plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```

@@ -35,7 +35,8 @@ Base.show(io::IO, M::CosmologyModel) = print(io, chop(sprint(print_tree, M.sys))
 
 struct CosmologySolution
     bg::ODESolution
-    ks::Array{Float64}
+    ks::AbstractArray
+
     pts::Union{EnsembleSolution, Nothing}
 end
 
@@ -179,7 +180,7 @@ function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend 
         return prob_new # BUG: prob_new's u0 does not match solution[begin]
         =#
     end)
-    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, progress=true, kwargs...) # TODO: test GPU parallellization
+    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization # TODO: add progress=true back (crashes with autodiff)
     return CosmologySolution(bg_sol.bg, ks, ode_sols)
 end
 
