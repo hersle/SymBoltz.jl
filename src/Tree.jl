@@ -31,7 +31,7 @@ end
                 @series begin
                     linestyle := :solid
                     color := color
-                    label := "k = $(round(k[ik]; digits=3)) H₀/c"
+                    label := "k = $(k[ik])"
                     [NaN], [NaN]
                 end
             end

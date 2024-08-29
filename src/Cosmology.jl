@@ -70,6 +70,8 @@ function (sol::CosmologySolution)(t, idxs)
 end
 
 function (sol::CosmologySolution)(k::Number, t, idxs)
+    k = k_dimensionless.(k, sol.bg.ps[:h])
+
     isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
 
     kmin, kmax = extrema(sol.ks)
@@ -141,6 +143,8 @@ function solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rod
 end
 
 function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+    ks = k_dimensionless.(ks, Dict(pars)[prob.g.h])
+
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     tend = 4.0

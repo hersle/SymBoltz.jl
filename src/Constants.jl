@@ -14,7 +14,7 @@ const km  = 1u"km/m"  |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
 const Gpc = 1u"Gpc/m" |> NoUnits
 const H100 = 100 * km/Mpc
-const k0 = H100 * Mpc / c # h/Mpc # TODO: use H100
+const k0 = H100 * Mpc / c # h/Mpc
 const eV = 1u"eV/J" |> NoUnits
 
 me = PhysicalConstants.CODATA2018.m_e / u"kg"
@@ -40,3 +40,12 @@ mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
                                                                 E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
 
 δkron(i, j) = (i == j ? 1 : 0)
+
+function k_dimensionless(k, h)
+    return k
+end
+function k_dimensionless(k::Unitful.Quantity, h)
+    H0 = h * H100 # s⁻¹
+    k0 = (H0 / c) / u"m"
+    return NoUnits.(k / k0)
+end

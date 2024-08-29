@@ -40,6 +40,7 @@ equations(M.G)
 
 Next, we set our desired cosmological parameters and wavenumbers, and solve the model:
 ```@example 1
+using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = [
     M.γ.Ω0 => 5e-5
     M.c.Ω0 => 0.27
@@ -48,7 +49,7 @@ pars = [
     M.g.h => 0.7
     M.b.rec.Yp => 0.25
 ]
-ks = 10 .^ range(-3, 0, length=100) / SymBoltz.k0 # TODO: improve on units
+ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 sol = solve(M, pars, ks)
 ```
 
@@ -63,12 +64,12 @@ It can be called like
 `y` can be *any* symbolic variable(s) in the model `M`.
 The solution will automatically interpolate linearly in $\log(k)$, and with the ODE solver's custom interpolator in $t$.
 
-For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 1000 log-spaced conformal times:
+For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
 ```@example 1
-ts = exp.(range(log.(extrema(sol[SymBoltz.t]))..., length=1000)) # TODO: replace with M.t
+ts = exp.(range(log.(extrema(sol[SymBoltz.t]))..., length=300)) # TODO: replace with M.t
 Es = sol(ts, M.g.E)
 ```
-Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same 1000 log-spaced conformal times:
+Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:
 ```@example 1
 Φs = sol(ks, ts, M.g.Φ)
 ```
@@ -76,11 +77,12 @@ Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same
 This can be plotted with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
 ```@example 1
 using Plots
-plot(sol, ks[begin:5:end], log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for every 5th wavenumber
+plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc", log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the power spectrum for a desired species (here: cold dark matter with `M.c`):
 ```@example 1
+# TODO: fix units
 Ps = power_spectrum(sol, M.c, ks)
 plot(log10.(ks), log10.(Ps); xlabel="lg(k)", ylabel="lg(P)", label=nothing)
 ```
