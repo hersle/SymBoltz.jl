@@ -255,11 +255,11 @@ Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination=true, name = :b, kwargs...)
     b = matter(g; θinteract=true, name, kwargs...) |> complete
-    if recombination
+    if recombination # TODO: dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g)
     else
-        vars = @variables dτ(t) ρb(t) Tγ(t)
-        @named rec = ODESystem([dτ ~ 0], t, vars, [])
+        vars = @variables dτ(t) ρb(t) Tγ(t) cs²(t)
+        @named rec = ODESystem([dτ ~ 0, cs² ~ 0], t, vars, [])
     end
     b = extend(b, ODESystem([b.cs² ~ rec.cs²] .|> O(ϵ^1), t, [], []; name))
     b = compose(b, rec)
@@ -271,7 +271,7 @@ function background(sys)
 end
 
 function perturbations(sys; spline_thermo=true)
-    if spline_thermo
+    if spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
         @named rec = thermodynamics_recombination_splined()
         sys = replace(sys, sys.b.rec => rec)
     end

@@ -149,9 +149,9 @@ function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     tend = 4.0
+    bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
+    tend = bg_sol.bg[t][end]
     if :b₊rec₊dτspline in Symbol.(parameters(prob.pt))
-        bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
-        tend = bg_sol.bg[t][end]
         pars = [pars;
             prob.pt.b.rec.dτspline => spline(bg_sol[log(-prob.b.rec.dτ)], bg_sol[log(prob.t)])
             prob.pt.b.rec.cs²spline => spline(bg_sol[log(+prob.b.rec.cs²)], bg_sol[log(prob.t)])
