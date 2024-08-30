@@ -49,10 +49,10 @@ end
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
-function species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
+function species_constant_eos(g, w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = @parameters Ω0 ρ0 # TODO: split pars0, pars1
-    vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) # TODO: split vars0, vars1
+    vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) # TODO: split vars0, vars1
     eqs0 = [
         P ~ w * ρ # equation of state
         ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
@@ -242,13 +242,20 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
 end
 
+function cold_dark_matter(g; name = :c, kwargs...)
+    c = matter(g; name, kwargs...) |> complete
+    c = extend(c, ODESystem([c.cs² ~ 0] .|> O(ϵ^1), t, [], []; name))
+    return c
+end
+
 """
     baryons(g; recombination=true, name = :b, kwargs...)
 
 Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination=true, name = :b, kwargs...)
-    b = matter(g; θinteract=true, name, kwargs...)
+    b = matter(g; θinteract=true, name, kwargs...) |> complete
+    b = extend(b, ODESystem([b.cs² ~ 0] .|> O(ϵ^1), t, [], []; name))
     if recombination
         @named rec = thermodynamics_recombination_recfast(g)
     else
@@ -279,7 +286,7 @@ end
         γ = photons(g),
         ν = massless_neutrinos(g),
         h = massive_neutrinos(g),
-        c = matter(g; name = :c),
+        c = cold_dark_matter(g; name = :c),
         b = baryons(g; recombination, name = :b),
         Λ = cosmological_constant(g),
         kwargs...
@@ -294,7 +301,7 @@ function ΛCDM(;
     γ = photons(g),
     ν = massless_neutrinos(g),
     h = massive_neutrinos(g),
-    c = matter(g; name = :c),
+    c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, name = :b),
     Λ = cosmological_constant(g),
     kwargs...
