@@ -66,7 +66,7 @@ The solution will automatically interpolate linearly in $\log(k)$, and with the 
 
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
 ```@example 1
-ts = exp.(range(log.(extrema(sol[SymBoltz.t]))..., length=300)) # TODO: replace with M.t
+ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
 Es = sol(ts, M.g.E)
 ```
 Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:
