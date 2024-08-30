@@ -18,9 +18,9 @@ using SymBoltz
 M = ΛCDM()
 
 # define ordering and values of parameters
-θ_syms = [M.γ.Ω0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] # symbolic indices
-θ_strs = ["Ωγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
-θ0 = [5e-5, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
+θ_syms = [M.γ.T0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] # symbolic indices
+θ_strs = ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
+θ0 = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
 
 P(k, θ) = power_spectrum(solve(M, θ_syms .=> θ, k), M.c, k)
 ```

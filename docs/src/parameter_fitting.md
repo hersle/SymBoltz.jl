@@ -79,7 +79,7 @@ end
 
 function dL(z, M::CosmologyModel, Ωm0, h)
     return dL(z, solve(M, [
-        M.γ.Ω0 => 5e-5,
+        M.γ.T0 => 2.7,
         M.ν.Neff => 3.0,
         M.b.Ω0 => 0.0,
         M.c.Ω0 => Ωm0, # TODO: create matter-only model

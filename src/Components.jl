@@ -116,7 +116,7 @@ function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
 
     vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
     defs = [
-        γ.T0 => (15/π^2 * γ.ρ0 * g.H0^2/GN * ħ^3*c^5)^(1/4) / kB
+        γ.Ω0 => π^2/15 * (kB*γ.T0)^4 / (ħ^3*c^5) * 8π*GN / (3*g.H0^2)
     ]
     eqs1 = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
