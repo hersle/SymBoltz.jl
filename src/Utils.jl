@@ -85,8 +85,8 @@ end
 spleval(x, spline) = spline(x)
 
 function spline(y, x)
-    #i = unique(i -> x[i], eachindex(x)) # get indices of unique x values
-    #x, y = x[i], y[i] # remove duplicate x values
+    i = unique(i -> (x[i], y[i]), eachindex(x)) # get indices of unique values
+    x, y = x[i], y[i] # remove duplicate x values
     return CubicSpline(y, x; extrapolate=true)
 end
 

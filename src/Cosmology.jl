@@ -152,9 +152,8 @@ function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend 
     if :b₊rec₊dτspline in Symbol.(parameters(prob.pt))
         bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
         tend = bg_sol.bg[t][end]
-        ts = exp.(range(log(tini), log(tend), length=1024)) # TODO: select determine points adaptively from th_sol # TODO: CMB spectrum is sensitive to number of points here!
         pars = [pars;
-            prob.pt.b.rec.dτspline => spline(bg_sol.bg(ts, idxs=log(-prob.bg.b.rec.dτ)).u, log.(ts)) # TODO: improve spline accuracy
+            prob.pt.b.rec.dτspline => spline(bg_sol[log(-prob.b.rec.dτ)], bg_sol[log(prob.t)])
             #prob.pt.th.rec.cs²spline => spline(log.(th_sol(ts, idxs=prob.th.rec.Tb).u), log.(ts)),
         ]
     end
