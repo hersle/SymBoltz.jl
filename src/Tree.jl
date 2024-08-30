@@ -1,7 +1,15 @@
 using RecipesBase
 
-@recipe function plot(sol::CosmologySolution, x, y; N = 500)
-    ts = exp.(range(log.(extrema(sol[t]))..., length=N))
+function get_ts(sol::CosmologySolution, N::Union{Nothing, Int})
+    ts = sol[t]
+    if !isnothing(N)
+        ts = exp.(range(log.(extrema(ts))..., length=N))
+    end
+    return ts
+end
+
+@recipe function plot(sol::CosmologySolution, x, y; N = nothing)
+    ts = get_ts(sol, N)
     xs = sol(ts, x)
     ys = sol(ts, y)
     xlabel --> (x isa AbstractArray ? "" : x)
@@ -10,8 +18,8 @@ using RecipesBase
     return xs, ys
 end
 
-@recipe function plot(sol::CosmologySolution, k, x, y; N = 500)
-    ts = exp.(range(log.(extrema(sol[t]))..., length=N))
+@recipe function plot(sol::CosmologySolution, k, x, y; N = nothing)
+    ts = get_ts(sol, N)
 
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
