@@ -42,6 +42,10 @@ function identity(sys)
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
 end
 
+function debugize(sys)
+    return transform((s, _) -> length(s.systems) == 0 ? debug_system(s) : identity(s), sys)
+end
+
 O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
@@ -73,8 +77,9 @@ function extract_order(sys::ODESystem, orders)
     ieqs = vcat((extract_order.(ieqs, order) for order in orders)...)
 
     # remove resulting trivial equations
-    eqs = filter(eq -> eq != (0 ~ 0), eqs)
-    ieqs = filter(eq -> eq != (0 ~ 0), ieqs)
+    trivial_eqs = [0 ~ 0, 0 ~ -0.0]
+    eqs = filter(eq -> !(eq in trivial_eqs), eqs)
+    ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
     sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
     return sys0

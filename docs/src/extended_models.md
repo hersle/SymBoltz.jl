@@ -47,7 +47,7 @@ function w0wa(g; kwargs...)
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
         ẇ ~ D(w)
-        ρ ~ ρ0 * g.a^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density
+        ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
         P ~ w * ρ # pressure
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
 

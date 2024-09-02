@@ -41,7 +41,8 @@ function general_relativity(g; name = :G, kwargs...)
         D(g.Φ) ~ -4*Num(π)/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * g.a^2 * Π
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t, vars, []; name, kwargs...)
+    guesses = [ρ => 1]
+    return ODESystem([eqs0; eqs1], t, vars, []; guesses, name, kwargs...)
 end
 
 """
@@ -49,13 +50,13 @@ end
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
-function species_constant_eos(g, w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
+function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
-    pars = @parameters Ω0 ρ0 # TODO: split pars0, pars1
+    pars = analytical ? (@parameters ρ0 Ω0) : [] # TODO: split pars0, pars1
     vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) # TODO: split vars0, vars1
     eqs0 = [
         P ~ w * ρ # equation of state
-        ρ ~ ρ0 * g.a^(-3*(1+w)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
+        analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
     ] .|> O(ϵ^0)
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
@@ -67,9 +68,7 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; θinteract = false, kwargs
         δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
-    defs = [
-        ρ0 => 3/8π * Ω0
-    ]
+    defs = analytical ? [ρ0 => 3/8π * Ω0] : Dict()
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
 end
@@ -100,8 +99,8 @@ end
 
 Create a particle species for the cosmological constant (with equation of state `w ~ -1`) in the spacetime with metric `g`.
 """
-function cosmological_constant(g; name = :Λ, kwargs...)
-    Λ = species_constant_eos(g, -1; name, kwargs...) |> background |> complete # discard ill-defined perturbations
+function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
+    Λ = species_constant_eos(g, -1; name, analytical, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
     return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name, kwargs...)) # manually set perturbations to zero
 end
@@ -112,7 +111,7 @@ end
 Create a particle species for photons in the spacetime with metric `g`.
 """
 function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
-    γ = radiation(g; name, kwargs...) |> background |> complete # prevent namespacing in extension below
+    γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
     vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
     defs = [
@@ -160,7 +159,7 @@ end
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
 function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
-    ν = radiation(g; name, kwargs...) |> background |> complete
+    ν = radiation(g; name, kwargs...) |> thermodynamics |> complete
 
     vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
@@ -266,7 +265,15 @@ function baryons(g; recombination=true, name = :b, kwargs...)
     return b
 end
 
-function background(sys)
+function background(sys; initE = true)
+    sys = thermodynamics(sys)
+    if initE
+        sys = extend(sys, ODESystem([], t; initialization_eqs = [sys.g.E ~ 1], name = sys.name)) # initialize with H == H0 today
+    end
+    return replace(sys, sys.b.rec => ODESystem([], t; name = :rec))
+end
+
+function thermodynamics(sys)
     return transform((sys, _) -> extract_order(sys, [0]), sys)
 end
 
@@ -304,22 +311,20 @@ function ΛCDM(;
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, name = :b),
     Λ = cosmological_constant(g),
+    name = :ΛCDM,
     kwargs...
 )
     species = [γ, ν, c, b, h, Λ]
-    ics0 = [
-        g.a => √(γ.Ω0 + ν.Ω0 + h.Ω0_massless) * t # analytical radiation-dominated solution # TODO: write t ~ 1/g.ℰ ?
-    ]
     pars = @parameters C fν
-    defs = [
-        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
-        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0 # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
-        k => NaN # make background shut up # TODO: avoid
-        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0)
-        C => 0.48 # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
-        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
-    ]
+    defs = Dict(
+        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0,
+        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
+        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0, # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        k => NaN, # make background shut up # TODO: avoid
+        fν => ν.ρ0 / (ν.ρ0 + ν.ρ0),
+        C => 0.48, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
+        g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+    )
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
@@ -333,11 +338,12 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=union(defs, ics0), name=:ΛCDM, kwargs...)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=defs, name)
     M = compose(connections, g, G, species...)
-    defs = Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species) # TODO: solve nonlinear system
-    defs = merge(defs, defaults(M))
-    M = extend(M, ODESystem(Equation[], t; defaults=defs, name=:ΛCDM, kwargs...))
-    M = complete(M)
-    return CosmologyModel(M)
+    initE = !all([:Ω0 in Symbol.(parameters(s)) for s in species])
+    if !initE
+        defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M))
+        M = extend(M, ODESystem([], t; defaults = defs, name))
+    end
+    return CosmologyModel(complete(M); initE, kwargs...)
 end

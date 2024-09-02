@@ -5,13 +5,18 @@ struct CosmologyModel
     sys::ODESystem
 
     bg::ODESystem
+    th::ODESystem
     pt::ODESystem
 end
 
-function CosmologyModel(sys::ODESystem)
-    bg = structural_simplify(background(sys))
+function CosmologyModel(sys::ODESystem; initE = true, debug = false)
+    if debug
+        sys = complete(debugize(sys)) # TODO: make work with massive neutrinos
+    end
+    bg = structural_simplify(background(sys; initE))
+    th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys))
-    return CosmologyModel(sys, bg, pt)
+    return CosmologyModel(sys, bg, th, pt)
 end
 
 # Forward property access to full system
@@ -35,32 +40,35 @@ Base.show(io::IO, M::CosmologyModel) = print(io, chop(sprint(print_tree, M.sys))
 
 struct CosmologySolution
     bg::ODESolution
+    th::ODESolution
     ks::AbstractArray
-
     pts::Union{EnsembleSolution, Nothing}
 end
 
 function Base.show(io::IO, sol::CosmologySolution)
     print(io, "Cosmology solution with stages")
     print(io, "\n  1. background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
+    if !isnothing(sol.th)
+        print(io, "\n  2. thermodynamics: solved with $(nameof(typeof(sol.th.alg))), $(length(sol.th)) points")
+    end
     if !isnothing(sol.pts)
         solver = nameof(typeof(only(unique(map(pt -> pt.alg, sol.pts)))))
         kmin, kmax = extrema(map(pt -> pt.prob.ps[SymBoltz.k], sol.pts))
         nmin, nmax = extrema(map(pt -> length(pt), sol.pts))
         n = length(sol.pts)
-        print(io, "\n  2. perturbations: solved with $solver, $nmin-$nmax points, x$(n) k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
+        print(io, "\n  3. perturbations: solved with $solver, $nmin-$nmax points, x$(n) k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
     end
 end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
-Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :) = stack(sol.bg[i, j])
+Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :) = stack(sol.th[i, j])
 Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(t, idxs)
-    v = sol.bg(t, idxs=idxs)
+    v = sol.th(t, idxs=idxs)
     if t isa AbstractArray
         v = v.u
         if idxs isa AbstractArray
@@ -132,38 +140,49 @@ end
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 """
-    solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+    solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
-function solve(prob::CosmologyModel, pars; tini = 1e-5, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
-    ode_prob = ODEProblem(prob.bg, [], (tini, 4.0), pars; use_union = false)
-    callback = callback_terminator(prob.bg, prob.bg.g.a, aend)
-    ode_sol = solve(ode_prob, solver; callback, reltol, kwargs...)
-    return CosmologySolution(ode_sol, [], nothing)
+# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
+function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+    # First solve background backwards from today
+    bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars; use_union = false)
+    callback = callback_terminator(M.bg, M.g.a, aini)
+    bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
+
+    # Then solve thermodynamics forwards till today
+    tini = 1 / bg_sol[M.g.ℰ][end] # bg_sol[SymBoltz.t][end]
+    Δt = 0 - bg_sol[SymBoltz.t][end]
+    tend = tini + Δt
+    ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end]
+    th_prob = ODEProblem(M.th, ics, (tini, tend), pars; use_union = false) # TODO: pass aini
+    th_sol = solve(th_prob, solver; reltol, kwargs...)
+
+    return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
-    ks = k_dimensionless.(ks, Dict(pars)[prob.g.h])
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, aend = 1e0, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+    ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    tend = 4.0
-    bg_sol = solve(prob, pars; tini, aend) # TODO: forward kwargs...?
-    tend = bg_sol.bg[t][end]
-    if :b₊rec₊dτspline in Symbol.(parameters(prob.pt))
+    th_sol = solve(M, pars; aini, aend) # TODO: forward kwargs...?
+    tini, tend = extrema(th_sol.th[t])
+    if :b₊rec₊dτspline in Symbol.(parameters(M.pt))
         pars = [pars;
-            prob.pt.b.rec.dτspline => spline(bg_sol[log(-prob.b.rec.dτ)], bg_sol[log(prob.t)])
-            prob.pt.b.rec.cs²spline => spline(bg_sol[log(+prob.b.rec.cs²)], bg_sol[log(prob.t)])
+            M.pt.b.rec.dτspline => spline(th_sol[log(-M.b.rec.dτ)], th_sol[log(M.t)])
+            M.pt.b.rec.cs²spline => spline(th_sol[log(+M.b.rec.cs²)], th_sol[log(M.t)])
         ]
     end
 
     ki = 1.0
-    ode_prob0 = ODEProblem(prob.pt, [], (tini, tend), [pars; k => ki]) # TODO: why do I need this???
+    ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][end]
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(prob.pt, [], (tini, tend), [pars; k => ks[i]]; use_union = false) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]]; use_union = false) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]
@@ -179,8 +198,8 @@ function solve(prob::CosmologyModel, pars, ks::AbstractArray; tini = 1e-5, aend 
         return prob_new # BUG: prob_new's u0 does not match solution[begin]
         =#
     end)
-    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization # TODO: add progress=true back (crashes with autodiff)
-    return CosmologySolution(bg_sol.bg, ks, ode_sols)
+    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
+    return CosmologySolution(th_sol.bg, th_sol.th, ks, ode_sols)
 end
 
 function solve(M::CosmologyModel, pars, k::Number; kwargs...)
