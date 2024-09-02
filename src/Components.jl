@@ -328,7 +328,7 @@ function ΛCDM(;
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
-        b.θinteraction ~ #=g.k^2*csb²*bar.δ +=# -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: enable csb² when it seems stable... # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
+        b.θinteraction ~ k^2*b.cs²*b.δ + -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.dτ
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
