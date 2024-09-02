@@ -93,7 +93,7 @@ Now set some parameters and solve both models up to one perturbation wavenumber.
 For the ΛCDM model:
 ```@example 1
 θ1 = [
-    M1.γ.Ω0 => 5e-5
+    M1.γ.T0 => 2.7
     M1.c.Ω0 => 0.27
     M1.b.Ω0 => 0.05
     M1.ν.Neff => 3.0
