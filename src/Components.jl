@@ -34,12 +34,12 @@ Create a symbolic component for the general relativistic (GR) theory of gravity 
 function general_relativity(g; name = :G, kwargs...)
     vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
     eqs0 = [
-        g.E ~ √(8π/3 * ρ) # Friedmann equation
-        ρcrit ~ 3/8π * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
+        g.E ~ √(8*Num(π)/3 * ρ) # Friedmann equation
+        ρcrit ~ 3/(8*Num(π)) * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
     ] .|> O(ϵ^0)
     eqs1 = [
-        D(g.Φ) ~ -4π/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
-        k^2 * (g.Φ - g.Ψ) ~ 12π * g.a^2 * Π
+        D(g.Φ) ~ -4*Num(π)/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
+        k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * g.a^2 * Π
     ] .|> O(ϵ^1)
     return ODESystem([eqs0; eqs1], t, vars, []; name, kwargs...)
 end
