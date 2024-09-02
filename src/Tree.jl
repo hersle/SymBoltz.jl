@@ -21,6 +21,9 @@ end
 @recipe function plot(sol::CosmologySolution, k, x, y; N = nothing)
     ts = get_ts(sol, N)
 
+    xlabel --> (x isa AbstractArray ? "" : x)
+    ylabel --> (y isa AbstractArray ? "" : y)
+
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
