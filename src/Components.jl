@@ -266,6 +266,53 @@ function baryons(g; recombination=true, name = :b, kwargs...)
     return b
 end
 
+"""
+    quintessence(g; name = :ϕ, kwargs...)
+
+Create a species for a quintessence scalar field in the spacetime with metric `g`.
+
+# Examples
+```julia
+M = ΛCDM()
+ϕ = SymBoltz.quintessence(M.g)
+M = ΛCDM(Λ = ϕ, name = :ϕCDM)
+pars = [
+    M.γ.T0 => 2.7
+    M.c.Ω0 => 0.27
+    M.b.Ω0 => 0.05
+    M.ν.Neff => 3.0
+    M.g.h => 0.7
+    M.ϕ.M => 1e-3
+    M.ϕ.α => 1.0
+]
+sol = solve(M, pars, reltol = 1e-8, thermo = false)
+```
+"""
+function quintessence(g; name = :ϕ, kwargs...)
+    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) v(t)
+    pars = @parameters M α
+
+    # scalar field potential # TODO: let user pass function
+    V(ϕ) = M^(4+α) * ϕ^(-α)
+    V′(ϕ) = Differential(ϕ)(V(ϕ)) |> expand_derivatives
+
+    eqs0 = [
+        D(D(ϕ)) ~ -3 * g.ℰ * D(ϕ) - V′(ϕ)
+        v ~ V(ϕ)
+        ρ ~ 1/2 * D(ϕ)^2 + v
+        P ~ 1/2 * D(ϕ)^2 - v
+        w ~ P / ρ
+    ] .|> O(ϵ^0)
+    eqs1 = [
+        δ ~ 0
+        σ ~ 0
+    ] .|> O(ϵ^1)
+    ics0 = [
+        ϕ ~ 1.0
+    ]
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, name, kwargs...)
+end
+
 function background(sys; initE = true)
     sys = thermodynamics(sys)
     if initE
