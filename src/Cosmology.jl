@@ -124,7 +124,7 @@ function (sol::CosmologySolution)(tvar::Num, t, idxs)
     tmin, tmax = extrema(sol[SymBoltz.t])
     ts = exp.(range(log(tmin), log(tmax), length = 1000))
     xs = sol(ts, tvar)
-    ts = CubicSpline(ts, xs; extrapolate=true)(t)
+    ts = exp.(spline(log.(ts), xs)(t))
     return sol(ts, idxs)
 end
 

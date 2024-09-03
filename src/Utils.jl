@@ -90,8 +90,14 @@ end
 spleval(x, spline) = spline(x)
 
 function spline(y, x)
-    i = unique(i -> (x[i], y[i]), eachindex(x)) # get indices of unique values
-    x, y = x[i], y[i] # remove duplicate x values
+    # remove duplicate x values
+    i = unique(i -> (x[i], y[i]), eachindex(x)) # indices of unique values
+    x, y = x[i], y[i] # pick them out
+
+    # sort x # TODO: add to DataInterpolations.jl?
+    i = sortperm(x) # indices that sorts x
+    x, y = x[i], y[i]
+
     return CubicSpline(y, x; extrapolate=true)
 end
 

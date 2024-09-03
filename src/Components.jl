@@ -8,7 +8,7 @@ Create a symbolic component for the perturbed FLRW spacetime metric in the confo
     a^2 * diag(-1-2*ϵ*Ψ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ)
 """
 function metric(; name = :g, kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g11, g22, h11, h22 = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g11(t) g22(t) h11(t) h22(t))
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g11, g22, h11, h22, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g11(t) g22(t) h11(t) h22(t) z(t))
     pars = H0, h = GlobalScope.(@parameters H0 h)
     defs = [
         H0 => H100 * h
@@ -23,6 +23,7 @@ function metric(; name = :g, kwargs...)
         g22 ~ +a^2
         h11 * ϵ ~ -2 * a^2 * Ψ * ϵ
         h22 * ϵ ~ -2 * a^2 * Φ * ϵ
+        z ~ 1/a - 1
     ], t, vars, pars; defaults=defs, name, kwargs...)
 end
 
