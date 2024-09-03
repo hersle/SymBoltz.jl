@@ -145,19 +145,23 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, thermo = true, kwargs...)
     # First solve background backwards from today
     bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars; use_union = false)
     callback = callback_terminator(M.bg, M.g.a, aini)
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
 
     # Then solve thermodynamics forwards till today
-    tini = 1 / bg_sol[M.g.ℰ][end] # bg_sol[SymBoltz.t][end]
-    Δt = 0 - bg_sol[SymBoltz.t][end]
-    tend = tini + Δt
-    ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end]
-    th_prob = ODEProblem(M.th, ics, (tini, tend), pars; use_union = false) # TODO: pass aini
-    th_sol = solve(th_prob, solver; reltol, kwargs...)
+    if thermo
+        tini = 1 / bg_sol[M.g.ℰ][end] # bg_sol[SymBoltz.t][end]
+        Δt = 0 - bg_sol[SymBoltz.t][end]
+        tend = tini + Δt
+        ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end] # TODO: pass D(ϕ)
+        th_prob = ODEProblem(M.th, ics, (tini, tend), pars) # TODO: pass aini
+        th_sol = solve(th_prob, solver; reltol, kwargs...)
+    else
+        th_sol = bg_sol
+    end
 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
