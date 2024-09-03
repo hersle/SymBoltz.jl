@@ -99,7 +99,7 @@ using Turing
 @model function supernova(data, M)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
-    h ~ Uniform(0.0, 2.0)
+    h ~ Uniform(0.1, 1.5)
 
     # Theoretical prediction
     dLs = dL(data.zs, M, Ωm0, h)
