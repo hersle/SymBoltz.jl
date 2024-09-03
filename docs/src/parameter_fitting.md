@@ -64,7 +64,7 @@ theoretically, we solve the standard ΛCDM model:
 # TODO: generalize to non-flat
 using SymBoltz, DataInterpolations
 
-M = ΛCDM(recombination=false)
+M = ΛCDM()
 
 function dL(z, sol::CosmologySolution)
     a = @. 1 / (z + 1)
@@ -81,7 +81,7 @@ function dL(z, M::CosmologyModel, Ωm0, h)
         M.b.Ω0 => 0.0,
         M.c.Ω0 => Ωm0, # TODO: create matter-only model
         M.g.h => h
-    ]))
+    ], thermo = false))
 end
 
 # Show example predictions

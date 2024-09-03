@@ -121,17 +121,16 @@ function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
 end
 
 function (sol::CosmologySolution)(tvar::Num, t, idxs)
-    tmin, tmax = extrema(sol[SymBoltz.t])
-    ts = exp.(range(log(tmin), log(tmax), length = 1000))
+    ts = sol[SymBoltz.t]
     xs = sol(ts, tvar)
-    ts = exp.(spline(log.(ts), xs)(t))
+    ts = spline(ts, xs)(t)
     return sol(ts, idxs)
 end
 
 # TODO: change argument order to join with previous
 function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
     tmin, tmax = extrema(sol[SymBoltz.t])
-    ts = exp.(range(log(tmin), log(tmax), length = 1000))
+    ts = exp.(range(log(tmin), log(tmax), length = 1000)) # TODO: select from solution
     xs = sol(ts, tvar)
     ts = CubicSpline(ts, xs; extrapolate=true)(t)
     return sol(k, ts, idxs)
