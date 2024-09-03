@@ -98,8 +98,8 @@ using Turing
 
 @model function supernova(data, M)
     # Parameter priors
-    Ωm0 ~ Uniform(0.2, 0.4)
-    h ~ Uniform(0.6, 0.8)
+    Ωm0 ~ Uniform(0.0, 1.0)
+    h ~ Uniform(0.1, 1.5)
 
     # Theoretical prediction
     dLs = dL(data.zs, M, Ωm0, h)
@@ -110,7 +110,7 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, M) # condition model on data
-chain = sample(sn, NUTS(), MCMCSerial(), 10, 1) # TODO: NUTS() # TODO: MCMCThreads()
+chain = sample(sn, NUTS(), MCMCSerial(), 200, 1) # TODO: NUTS() # TODO: MCMCThreads()
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:
