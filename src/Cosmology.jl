@@ -146,7 +146,7 @@ Solve `CosmologyModel` with parameters `pars` at the background level.
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, thermo = true, kwargs...)
     # First solve background backwards from today
-    bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars; use_union = false)
+    bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
 
@@ -156,7 +156,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
         Δt = 0 - bg_sol[SymBoltz.t][end]
         tend = tini + Δt
         ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end] # TODO: pass D(ϕ)
-        th_prob = ODEProblem(M.th, ics, (tini, tend), pars) # TODO: pass aini
+        th_prob = ODEProblem(M.th, ics, (tini, tend), pars)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
     else
         th_sol = bg_sol
@@ -185,7 +185,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, aend = 1
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]]; use_union = false) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]

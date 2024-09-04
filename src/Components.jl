@@ -53,8 +53,8 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 """
 function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
-    pars = analytical ? (@parameters ρ0 Ω0) : [] # TODO: split pars0, pars1
-    vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) # TODO: split vars0, vars1
+    pars = analytical ? (@parameters ρ0 Ω0) : []
+    vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t)
     eqs0 = [
         P ~ w * ρ # equation of state
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
@@ -112,6 +112,7 @@ end
 Create a particle species for photons in the spacetime with metric `g`.
 """
 function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
+    lmax >= 3 || error("Need lmax >= 3")
     γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
     vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
@@ -123,7 +124,7 @@ function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4/3 * τ̇/k * (θb - θ)
         D(F[2]) ~ 2/5*k*F[1] - 3/5*k*F[3] + 9/10*τ̇*F[2] - 1/10*τ̇*(G0+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]... # TODO: Π in last term here?
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax] # TODO: assumes lmax ≥ ???
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]
         δ ~ F0
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
@@ -198,7 +199,7 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
 
     f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
     dlnf0_dlnx(x) = -x / (1 + exp(-x))
-    x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations? # TODO: also include common x^2 factor in weighting?
+    x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T0) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
     ∫dx_x²_f0(f) = sum(collect(f) .* W) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f0(x)
 
     E(x, y) = √(x^2 + y^2)
@@ -206,7 +207,7 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     IP(y) = ∫dx_x²_f0(@. x^2 / E(x, y)) # IP(0) = Iρ(0)
     
     eqs0 = [
-        T ~ T0 / g.a # TODO: move into radiation?
+        T ~ T0 / g.a
         y ~ m*c^2 / (kB*T)
         ρ ~ ρ0_massless/g.a^4 * Iρ(y) / Iρ(0) # have ρ = Cρ * Iρ(y) / a⁴, so Cρ = ρ0 * 1⁴ / Iρ(y0) # TODO: div by Iρ(0) or Iρ(y0)?
         P ~ 1/3 * ρ0_massless/g.a^4 * IP(y) / Iρ(0) # have P = CP * IP(y) / a⁴, and in the early universe Iρ(y→0) → IP(y→0) and P/ρ = CP * IP(y) / (Cρ * Iρ(y)) → CP/Cρ → 1/3, so CP = Cρ/3 # TODO: div by Iρ(0) or Iρ(y0)?
