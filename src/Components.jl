@@ -166,7 +166,6 @@ function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
     vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
     defs = [
-        ν.T0 => NaN # TODO: use this
         Neff => 3.046
     ]
     eqs1 = [
@@ -366,6 +365,7 @@ function ΛCDM(;
     species = [γ, ν, c, b, h, Λ]
     pars = @parameters C fν
     defs = Dict(
+        ν.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0,
         ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0,
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0, # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
