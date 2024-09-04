@@ -146,6 +146,7 @@ Solve `CosmologyModel` with parameters `pars` at the background level.
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, thermo = true, kwargs...)
     # First solve background backwards from today
+    pars = [pars; M.k => 0.0] # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
