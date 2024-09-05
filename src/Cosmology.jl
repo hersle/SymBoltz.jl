@@ -136,7 +136,7 @@ function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
     return sol(k, ts, idxs)
 end
 
-function error_if_bad_retcode(code)
+function check_solution(code)
     code = Symbol(code)
     good = (:Success, :Terminated)
     code in good || error("Solver failed with status $code (expected $good)")
@@ -156,7 +156,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
     bg_prob = ODEProblem(M.bg, [M.g.a => aend], (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
-    error_if_bad_retcode(bg_sol.retcode)
+    check_solution(bg_sol.retcode)
 
     # Then solve thermodynamics forwards till today
     if thermo
@@ -166,7 +166,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
         ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end] # TODO: pass D(ϕ)
         th_prob = ODEProblem(M.th, ics, (tini, tend), pars)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
-        error_if_bad_retcode(th_sol.retcode)
+        check_solution(th_sol.retcode)
     else
         th_sol = bg_sol
     end
@@ -211,7 +211,9 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, aend = 1
         =#
     end)
     ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
-    error_if_bad_retcode.(ode_sols[i].retcode)
+    for i in 1:length(ode_sols)
+        check_solution(ode_sols[i].retcode)
+    end
     return CosmologySolution(th_sol.bg, th_sol.th, ks, ode_sols)
 end
 
