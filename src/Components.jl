@@ -273,44 +273,49 @@ Create a species for a quintessence scalar field in the spacetime with metric `g
 
 # Examples
 ```julia
-M = ΛCDM()
-ϕ = SymBoltz.quintessence(M.g)
-M = ΛCDM(Λ = ϕ, name = :ϕCDM)
+function QCDM(; name = :QCDM)
+    Q = SymBoltz.quintessence(SymBoltz.metric())
+    return ΛCDM(Λ = Q; name)
+end
+
+M = QCDM()
 pars = [
     M.γ.T0 => 2.7
     M.c.Ω0 => 0.27
     M.b.Ω0 => 0.05
     M.ν.Neff => 3.0
     M.g.h => 0.7
-    M.ϕ.M => 1e-3
-    M.ϕ.α => 1.0
 ]
 sol = solve(M, pars, reltol = 1e-8, thermo = false)
 ```
 """
-function quintessence(g; name = :ϕ, kwargs...)
-    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) v(t)
-    pars = @parameters M α
-
-    # scalar field potential # TODO: let user pass function
-    V(ϕ) = M^(4+α) * ϕ^(-α)
-    V′(ϕ) = Differential(ϕ)(V(ϕ)) |> expand_derivatives
-
+function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, kwargs...)
+    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) ϵs(t) ηs(t)
+    pars = [] # @parameters M # α # TODO: potential parameters
+    ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
-        D(D(ϕ)) ~ -3 * g.ℰ * D(ϕ) - V′(ϕ)
-        v ~ V(ϕ)
-        ρ ~ 1/2 * D(ϕ)^2 + v
-        P ~ 1/2 * D(ϕ)^2 - v
+        V ~ v(ϕ)
+        V′ ~ ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
+        V″ ~ ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
+        ϕ′ ~ D(ϕ)
+        ϕ̇ ~ D(ϕ) / g.a
+        K ~ ϕ̇^2 / 2
+        D(D(ϕ)) ~ -2 * g.ℰ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*E*ϕ̇ + V′ = 0
+        ρ ~ K + V
+        P ~ K - V
         w ~ P / ρ
+        ϵs ~ (V′/V)^2 / (16*Num(π)) # 1st slow roll parameter
+        ηs ~ (V″/V) / (8*Num(π)) # 2nd slow roll parameter
     ] .|> O(ϵ^0)
-    eqs1 = [
+    eqs1 = [ # TODO: perturbations
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
     ics0 = [
-        ϕ ~ 1.0
+        w ~ -1
+        #ϕ ~ 12.5
     ]
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, guesses = [ϕ => 1.0, ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
 end
 
 function background(sys; initE = true)
