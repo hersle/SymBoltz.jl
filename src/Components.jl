@@ -273,11 +273,6 @@ Create a species for a quintessence scalar field in the spacetime with metric `g
 
 # Examples
 ```julia
-function QCDM(; name = :QCDM)
-    Q = SymBoltz.quintessence(SymBoltz.metric())
-    return ΛCDM(Λ = Q; name)
-end
-
 M = QCDM()
 pars = [
     M.γ.T0 => 2.7
@@ -290,7 +285,7 @@ sol = solve(M, pars, reltol = 1e-8, thermo = false)
 ```
 """
 function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, kwargs...)
-    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) ϵs(t) ηs(t)
+    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) m²(t) ϵs(t) ηs(t)
     pars = [] # @parameters M # α # TODO: potential parameters
     ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
@@ -304,6 +299,7 @@ function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, 
         ρ ~ K + V
         P ~ K - V
         w ~ P / ρ
+        m² ~ V″
         ϵs ~ (V′/V)^2 / (16*Num(π)) # 1st slow roll parameter
         ηs ~ (V″/V) / (8*Num(π)) # 2nd slow roll parameter
     ] .|> O(ϵ^0)
@@ -400,4 +396,10 @@ function ΛCDM(;
         M = extend(M, ODESystem([], t; defaults = defs, name))
     end
     return CosmologyModel(complete(M); initE, kwargs...)
+end
+
+function QCDM(; name = :QCDM, kwargs...)
+    M = ΛCDM()
+    Q = SymBoltz.quintessence(M.g)
+    return ΛCDM(Λ = Q; name)
 end

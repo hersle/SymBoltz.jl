@@ -31,7 +31,7 @@ include("Thermodynamics.jl")
 include("Spectra.jl")
 include("Tree.jl")
 
-export ΛCDM
+export ΛCDM, QCDM
 export CosmologyModel, CosmologySolution
 export solve
 export power_spectrum, Cl, Dl
