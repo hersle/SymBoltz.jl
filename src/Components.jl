@@ -398,6 +398,18 @@ function ΛCDM(;
     return CosmologyModel(complete(M); initE, kwargs...)
 end
 
+function parameters_Planck18(M::CosmologyModel)
+    # https://arxiv.org/pdf/1807.06209, Table 5
+    h = 0.6736
+    return [
+        M.g.h => h
+        M.γ.T0 => 2.7255
+        M.c.Ω0 => 0.1200 / h^2
+        M.b.Ω0 => 0.02237 / h^2
+        M.b.rec.Yp => 0.2454
+    ]
+end
+
 function QCDM(; name = :QCDM, kwargs...)
     M = ΛCDM()
     Q = SymBoltz.quintessence(M.g)
