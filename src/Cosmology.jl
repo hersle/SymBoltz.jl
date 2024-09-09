@@ -152,14 +152,15 @@ Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, thermo = true, kwargs...)
-    # Split parameters into DifferentialEquations' "u0" and "p" convention
+    # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
+    T = typeof(pars)
     params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     vars = intersect(keys(params), unknowns(M))
     pars = intersect(keys(params), parameters(M))
     diff = setdiff(keys(params), union(vars, pars))
     isempty(diff) || error("$diff are not unknowns or parameters")
-    vars = [var => params[var] for var in vars] # like u0
-    pars = [par => params[par] for par in pars] # like p
+    vars = T([var => params[var] for var in vars]) # like u0
+    pars = T([par => params[par] for par in pars]) # like p
 
     # First solve background backwards from today
     bg_prob = ODEProblem(M.bg, [vars; M.g.a => aend], (0.0, -4.0), pars)
@@ -169,10 +170,10 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
 
     # Then solve thermodynamics forwards till today
     if thermo
-        tini = 1 / bg_sol[M.g.ℰ][end] # bg_sol[SymBoltz.t][end]
+        tini = 1 / bg_sol[M.g.ℰ][end]
         Δt = 0 - bg_sol[SymBoltz.t][end]
         tend = tini + Δt
-        ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end] # TODO: pass D(ϕ)
+        ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end]
         th_prob = ODEProblem(M.th, ics, (tini, tend), pars)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
         check_solution(th_sol.retcode)
