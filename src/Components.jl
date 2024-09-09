@@ -274,14 +274,8 @@ Create a species for a quintessence scalar field in the spacetime with metric `g
 # Examples
 ```julia
 M = QCDM()
-pars = [
-    M.γ.T0 => 2.7
-    M.c.Ω0 => 0.27
-    M.b.Ω0 => 0.05
-    M.ν.Neff => 3.0
-    M.g.h => 0.7
-]
-sol = solve(M, pars, reltol = 1e-8, thermo = false)
+pars = SymBoltz.parameters_Planck18(M)
+sol = solve(M, pars, reltol = 1e-10)
 ```
 """
 function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, kwargs...)
@@ -307,11 +301,10 @@ function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, 
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    ics0 = [
-        w ~ -1
-        #ϕ ~ 12.5
+    defaults = [
+        ϕ => 12.5
     ]
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, guesses = [ϕ => 1.0, ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; defaults, guesses = [ϕ => 1.0, ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
 end
 
 function background(sys; initE = true)
