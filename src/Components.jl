@@ -301,10 +301,7 @@ function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, 
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    defaults = [
-        ϕ => 12.5
-    ]
-    return ODESystem([eqs0; eqs1], t, vars, pars; defaults, guesses = [ϕ => 1.0, ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; guesses = [ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
 end
 
 function background(sys; initE = true)
