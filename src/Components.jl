@@ -273,14 +273,15 @@ Create a species for a quintessence scalar field in the spacetime with metric `g
 
 # Examples
 ```julia
-M = QCDM()
-pars = SymBoltz.parameters_Planck18(M)
-sol = solve(M, pars, reltol = 1e-10)
+using ModelingToolkit, DifferentialEquations
+@parameters V0 N
+M = QCDM(v = ϕ -> V0 * ϕ^N)
+pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
+sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-9)
 ```
 """
-function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, kwargs...)
-    vars = @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) m²(t) ϵs(t) ηs(t)
-    pars = [] # @parameters M # α # TODO: potential parameters
+function quintessence(g; v = ϕ -> 0, name = :Q, kwargs...)
+    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) m²(t) ϵs(t) ηs(t)
     ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
         V ~ v(ϕ)
@@ -301,7 +302,7 @@ function quintessence(g; v = (ϕ; M=1, α=1) -> M^(4+α) * ϕ^(-α), name = :Q, 
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t, vars, pars; guesses = [ϕ′ => 1.0, ϕ̇ => 1.0, P => 0.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => +1.0, ϕ′ => +1.0, ϕ̇ => +1.0, P => 0.0], name, kwargs...)
 end
 
 function background(sys; initE = true)
@@ -364,6 +365,7 @@ function ΛCDM(;
         fν => ν.ρ0 / (ν.ρ0 + ν.ρ0),
         C => 0.48, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
         g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+        ϵ => 1 # TODO: remove
     )
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
@@ -400,8 +402,8 @@ function parameters_Planck18(M::CosmologyModel)
     ]
 end
 
-function QCDM(; name = :QCDM, kwargs...)
+function QCDM(; v = ϕ -> 0, name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = SymBoltz.quintessence(M.g)
+    Q = SymBoltz.quintessence(M.g; v)
     return ΛCDM(Λ = Q; name)
 end
