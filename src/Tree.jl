@@ -14,6 +14,11 @@ end
     ys = sol(ts, y)
     xlabel --> (x isa AbstractArray ? "" : x)
     ylabel --> (y isa AbstractArray ? "" : y)
+    line_z = get(plotattributes, :line_z, nothing)
+    if line_z isa Num # TODO: add to perturbations?
+        line_z := sol(ts, line_z)
+        colorbar_title --> line_z
+    end
     label --> y'
     return xs, ys
 end

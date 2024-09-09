@@ -273,11 +273,12 @@ Create a species for a quintessence scalar field in the spacetime with metric `g
 
 # Examples
 ```julia
-using ModelingToolkit, DifferentialEquations
+using ModelingToolkit, DifferentialEquations, Plots
 @parameters V0 N
 M = QCDM(v = ϕ -> V0 * ϕ^N)
 pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
-sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-9)
+sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10)
+plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
 """
 function quintessence(g; v = ϕ -> 0, name = :Q, kwargs...)
