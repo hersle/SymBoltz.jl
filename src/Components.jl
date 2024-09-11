@@ -15,8 +15,8 @@ function metric(; name = :g, kwargs...)
         h => H0 / H100
     ]
     return ODESystem([
-        D(a) ~ ℰ * a # ℰ = ℋ/ℋ0 = ℋ/H0
-        ℰ ~ a * E # E = H/H0
+        ℰ ~ D(a) / a # ℰ = ℋ/ℋ0 = ℋ/H0
+        E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
         H ~ E * H0
         g11 ~ -a^2
@@ -32,18 +32,23 @@ end
 
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
-function general_relativity(g; name = :G, kwargs...)
-    vars = @variables ρ(t) ρcrit(t) δρ(t) Π(t)
-    eqs0 = [
-        g.E ~ √(8*Num(π)/3 * ρ) # Friedmann equation
-        ρcrit ~ 3/(8*Num(π)) * g.E^2 # critical density (H² = 8πG/3 * ρcrit)
-    ] .|> O(ϵ^0)
+function general_relativity(g; acceleration = true, name = :G, kwargs...)
+    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) Π(t)
+    fried1 = D(g.a) ~ √(8*Num(π)/3 * ρ) * g.a # constraint equation
+    fried2 = D(D(g.a)) ~ -4*Num(π)/3 * (ρ + 3*P) * g.a # acceleration equation
+    if acceleration
+        eqs0 = [fried2] .|> O(ϵ^0)
+        ics0 = [fried1]
+    else
+        eqs0 = [fried1]
+        ics0 = []
+    end
     eqs1 = [
         D(g.Φ) ~ -4*Num(π)/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * g.a^2 * Π
     ] .|> O(ϵ^1)
     guesses = [ρ => 1]
-    return ODESystem([eqs0; eqs1], t, vars, []; guesses, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, []; initialization_eqs = ics0, guesses, name, kwargs...)
 end
 
 """
@@ -367,6 +372,7 @@ function ΛCDM(;
     )
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
+        G.P ~ sum(s.P for s in species)
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
         b.rec.Tγ ~ γ.T
     ] .|> O(ϵ^0)

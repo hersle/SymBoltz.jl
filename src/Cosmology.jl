@@ -151,7 +151,7 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5P(), reltol = 1e-13, thermo = true, debug_initialization = false, kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, thermo = true, debug_initialization = false, kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
     params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
@@ -163,7 +163,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
     pars = T([par => params[par] for par in pars]) # like p
 
     # First solve background backwards from today
-    bg_prob = ODEProblem(M.bg, [vars; M.g.a => aend; M.g.E => 1], (0.0, -4.0), pars)
+    bg_prob = ODEProblem(M.bg, [vars; M.g.a => 1.0; M.g.ℰ => 1.0], (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     debug_initialization && solve(bg_prob.f.initializeprob; show_trace = Val(true))
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
