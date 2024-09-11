@@ -14,7 +14,7 @@ function power_spectrum(sol::CosmologySolution, species::ODESystem, k)
 end
 
 function power_spectrum(prob::CosmologyModel, species::ODESystem, pars, k; kwargs...)
-    sol = solve(prob, pars, k; aend=1.0, save_everystep=false, kwargs...) # just save endpoints
+    sol = solve(prob, pars, k; save_everystep=false, kwargs...) # just save endpoints
     return power_spectrum(sol, species, k)
 end
 
@@ -35,7 +35,7 @@ end
 
 # this one is less elegant, but more numerically stable
 function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
-    bg_sol = solve(prob, pars; aend = NaN, saveat = ts) # disable callback termination with aend=NaN to avoid duplicating time endpoints ()
+    bg_sol = solve(prob, pars; saveat = ts)
     pt_sols = solve(prob, pars, ks; saveat = ts, kwargs...)
     τ = bg_sol[prob.bg.b.rec.τ] .- bg_sol[prob.bg.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
@@ -154,7 +154,7 @@ function Cl(prob::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, ln
 end
 
 function Cl(prob::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve(prob, pars; aend=1.0)
+    bg_sol = solve(prob, pars)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
