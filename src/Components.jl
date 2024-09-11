@@ -281,7 +281,7 @@ sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
 """
-function quintessence(g; v = ϕ -> 0, name = :Q, kwargs...)
+function quintessence(g; v = ϕ -> 0, ϕ̇guess = 0.0, name = :Q, kwargs...)
     @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) m²(t) ϵs(t) ηs(t)
     ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
@@ -303,7 +303,7 @@ function quintessence(g; v = ϕ -> 0, name = :Q, kwargs...)
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => +1.0, ϕ′ => +1.0, ϕ̇ => +1.0, P => 0.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => 0.0, ϕ′ => ϕ̇guess, ϕ̇ => ϕ̇guess, P => 0.0], name, kwargs...)
 end
 
 function background(sys; initE = true)
@@ -403,8 +403,8 @@ function parameters_Planck18(M::CosmologyModel)
     ]
 end
 
-function QCDM(; v = ϕ -> 0, name = :QCDM, kwargs...)
+function QCDM(; name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = SymBoltz.quintessence(M.g; v)
+    Q = SymBoltz.quintessence(M.g; kwargs...)
     return ΛCDM(Λ = Q; name)
 end
