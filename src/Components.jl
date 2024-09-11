@@ -306,11 +306,8 @@ function quintessence(g; v = ϕ -> 0, ϕ̇guess = 0.0, name = :Q, kwargs...)
     return ODESystem([eqs0; eqs1], t; guesses = [ϕ => 0.0, ϕ′ => ϕ̇guess, ϕ̇ => ϕ̇guess, P => 0.0], name, kwargs...)
 end
 
-function background(sys; initE = true)
+function background(sys)
     sys = thermodynamics(sys)
-    if initE
-        sys = extend(sys, ODESystem([], t; initialization_eqs = [sys.g.E ~ 1], name = sys.name)) # initialize with H == H0 today
-    end
     return replace(sys, sys.b.rec => ODESystem([], t; name = :rec))
 end
 
@@ -388,7 +385,7 @@ function ΛCDM(;
         defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M))
         M = extend(M, ODESystem([], t; defaults = defs, name))
     end
-    return CosmologyModel(complete(M); initE, kwargs...)
+    return CosmologyModel(complete(M); kwargs...)
 end
 
 function parameters_Planck18(M::CosmologyModel)

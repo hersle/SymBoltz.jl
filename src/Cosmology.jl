@@ -9,11 +9,11 @@ struct CosmologyModel
     pt::ODESystem
 end
 
-function CosmologyModel(sys::ODESystem; initE = true, debug = false)
+function CosmologyModel(sys::ODESystem; debug = false)
     if debug
         sys = complete(debugize(sys)) # TODO: make work with massive neutrinos
     end
-    bg = structural_simplify(background(sys; initE))
+    bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys))
     return CosmologyModel(sys, bg, th, pt)
@@ -163,7 +163,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, aend = 1e0, solver = Rodas5
     pars = T([par => params[par] for par in pars]) # like p
 
     # First solve background backwards from today
-    bg_prob = ODEProblem(M.bg, [vars; M.g.a => aend], (0.0, -4.0), pars)
+    bg_prob = ODEProblem(M.bg, [vars; M.g.a => aend; M.g.E => 1], (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     debug_initialization && solve(bg_prob.f.initializeprob; show_trace = Val(true))
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
