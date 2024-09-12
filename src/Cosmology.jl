@@ -186,7 +186,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp47(), reltol = 1e-9, verbose = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = Rodas5P(), reltol = 1e-11, verbose = false, kwargs...)
     ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -202,6 +202,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
 
     ki = 1.0
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][end]
+    ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
