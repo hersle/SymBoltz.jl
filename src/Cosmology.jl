@@ -175,7 +175,8 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         Δt = 0 - bg_sol[SymBoltz.t][end]
         tend = tini + Δt
         ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][end]
-        th_prob = ODEProblem(M.th, ics, (tini, tend), pars)
+        ics = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt(t)"), ics) # remove ȧ initial condition
+        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; fully_determined = true)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
         check_solution(th_sol.retcode)
     else
