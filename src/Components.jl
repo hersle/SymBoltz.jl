@@ -32,23 +32,31 @@ end
 
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
-function general_relativity(g; acceleration = true, name = :G, kwargs...)
-    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) Π(t)
-    fried1 = D(g.a) ~ √(8*Num(π)/3 * ρ) * g.a # constraint equation
-    fried2 = D(D(g.a)) ~ -4*Num(π)/3 * (ρ + 3*P) * g.a # acceleration equation
+function general_relativity(g; acceleration = false, name = :G, kwargs...)
+    @variables ρ(t) P(t) ρcrit(t) δρ(t) Π(t) Δ(t)
+    @parameters Δfac = 1e3
+    a = g.a
+    F1 = D(a)^2 ~ 8*Num(π)/3 * ρ * a^4 # Friedmann constraint equation
+    F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^2)
     if acceleration
-        eqs0 = [fried2] .|> O(ϵ^0)
-        ics0 = [fried1]
+        eqs0 = [
+            F2.lhs ~ F2.rhs + Δfac*Δ # use constraint damping # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
+            Δ ~ F1.lhs - F1.rhs # violation of Friedmann constraint
+        ] .|> O(ϵ^0)
+        ics0 = [F1] .|> O(ϵ^0)
     else
-        eqs0 = [fried1]
+        eqs0 = [
+            F1.lhs^(1/2) ~ +√(F1.rhs) # "normal" Friedmann equation
+            Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
+        ] .|> O(ϵ^0)
         ics0 = []
     end
     eqs1 = [
-        D(g.Φ) ~ -4*Num(π)/3*g.a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
-        k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * g.a^2 * Π
+        D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
+        k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
     ] .|> O(ϵ^1)
     guesses = [ρ => 1]
-    return ODESystem([eqs0; eqs1], t, vars, []; initialization_eqs = ics0, guesses, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t; initialization_eqs = ics0, guesses, name, kwargs...)
 end
 
 """
@@ -346,8 +354,9 @@ Create a complete ΛCDM model.
 """
 function ΛCDM(;
     recombination = true,
+    acceleration = false,
     g = metric(),
-    G = general_relativity(g),
+    G = general_relativity(g; acceleration),
     γ = photons(g),
     ν = massless_neutrinos(g),
     h = massive_neutrinos(g),

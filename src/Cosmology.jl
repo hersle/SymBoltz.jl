@@ -163,7 +163,8 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     pars = T([par => params[par] for par in pars]) # like p
 
     # First solve background backwards from today
-    bg_prob = ODEProblem(M.bg, [vars; M.g.a => 1.0; M.g.ℰ => 1.0], (0.0, -4.0), pars)
+    ics = [vars; M.g.a => 1.0; M.g.ℰ => 1.0]
+    bg_prob = ODEProblem(M.bg, ics, (0.0, -4.0), pars)
     callback = callback_terminator(M.bg, M.g.a, aini)
     debug_initialization && solve(bg_prob.f.initializeprob; show_trace = Val(true))
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
