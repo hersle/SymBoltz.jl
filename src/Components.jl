@@ -308,30 +308,29 @@ function baryons(g; recombination=true, name = :b, kwargs...)
 end
 
 """
-    quintessence(g; name = :ϕ, kwargs...)
+    quintessence(g, v; name = :ϕ, kwargs...)
 
-Create a species for a quintessence scalar field in the spacetime with metric `g`.
+Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 
 # Examples
 ```julia
 using ModelingToolkit, DifferentialEquations, Plots
 @parameters V0 N
-M = QCDM(v = ϕ -> V0 * ϕ^N)
+V(ϕ) = V0 * ϕ^N
+M = QCDM(V)
 pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
 sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
 """
-function quintessence(g; v = ϕ -> 0, ϕ̇guess = 0.0, name = :Q, kwargs...)
-    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) ϕ′(t) ϕ̇(t) K(t) m²(t) ϵs(t) ηs(t)
+function quintessence(g, v; name = :Q, kwargs...)
+    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) K(t) m²(t) ϵs(t) ηs(t)
     ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
         V ~ v(ϕ)
         V′ ~ ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
         V″ ~ ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
-        ϕ′ ~ D(ϕ)
-        ϕ̇ ~ D(ϕ) / g.a
-        K ~ ϕ̇^2 / 2
+        K ~ (D(ϕ)/g.a)^2 / 2 # ϕ̇²/2 = (ϕ′/a)²/2
         D(D(ϕ)) ~ -2 * g.ℰ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*E*ϕ̇ + V′ = 0
         ρ ~ K + V
         P ~ K - V
@@ -344,7 +343,7 @@ function quintessence(g; v = ϕ -> 0, ϕ̇guess = 0.0, name = :Q, kwargs...)
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => 0.0, ϕ′ => ϕ̇guess, ϕ̇ => ϕ̇guess, P => 0.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => 0.0, P => 0.0, D(ϕ) => -1.0], name, kwargs...)
 end
 
 function background(sys)
@@ -443,10 +442,10 @@ function parameters_Planck18(M::CosmologyModel)
     ]
 end
 
-function QCDM(; name = :QCDM, kwargs...)
+function QCDM(v; name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = quintessence(M.g; kwargs...)
-    return ΛCDM(Λ = Q; name)
+    Q = quintessence(M.g, v)
+    return ΛCDM(Λ = Q; name, kwargs...)
 end
 
 function GRΛCDM(args...; kwargs...)
