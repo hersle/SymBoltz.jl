@@ -151,7 +151,7 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, backwards = true, thermo = true, debug_initialization = false, kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
     params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
@@ -172,7 +172,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         tspan = (0.0, +4.0) # integrate forwards
         aterm = 1.0 # terminate today
     end
-    bg_prob = ODEProblem(M.bg, ics, tspan, pars)
+    bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses)
     callback = callback_terminator(M.bg, M.g.a, aterm)
     debug_initialization && solve(bg_prob.f.initializeprob; show_trace = Val(true))
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
@@ -186,7 +186,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         tend = tini + Δt
         ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][iini]
         ics = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt(t)"), ics) # remove ȧ initial condition
-        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; fully_determined = true)
+        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; guesses, fully_determined = true)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
         check_solution(th_sol.retcode)
     else

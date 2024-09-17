@@ -60,6 +60,34 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
 end
 
 """
+
+# Examples
+```
+M = BDΛCDM()
+pars = [SymBoltz.parameters_Planck18(M); M.Λ.ρ => 0.6 * 3/8π; M.G.ω => 100.0; M.G.ϕ => 1.0]
+sol = solve(M, pars, thermo = false)
+plot(sol, log10(M.g.a), M.G.ϕ)
+```
+"""
+function brans_dicke(g; name = :G, kwargs...)
+    pars = @parameters ω
+    vars = @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t)
+    a = g.a
+    fried1 = (D(a)/a)^2 ~ 8*Num(π)/3*ρ/ϕ - D(a)/a*D(ϕ)/ϕ + ω/6*(D(ϕ)/ϕ)^2
+    fried2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
+    kg = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * (ρ - 3*P) - 2 * D(a)/a * D(ϕ)/ϕ
+    eqs0 = [fried2, kg] .|> O(ϵ^0)
+    ics0 = [fried1] .|> O(ϵ^0)
+    # TODO: perturbations
+    eqs1 = [
+        g.Φ ~ 0
+        g.Ψ ~ g.Φ
+    ] .|> O(ϵ^1)
+    guesses = [D(ϕ) => -1.0, ρ => 1]
+    return ODESystem([eqs0; eqs1], t, vars, pars; name, initialization_eqs = ics0, guesses, kwargs...)
+end
+
+"""
     species_constant_eos(g, w, cs² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
@@ -417,6 +445,16 @@ end
 
 function QCDM(; name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = SymBoltz.quintessence(M.g; kwargs...)
+    Q = quintessence(M.g; kwargs...)
     return ΛCDM(Λ = Q; name)
+end
+
+function GRΛCDM(args...; kwargs...)
+    return ΛCDM(args...; kwargs...)
+end
+
+function BDΛCDM(; name = :BDΛCDM, kwargs...)
+    M = GRΛCDM()
+    G = brans_dicke(M.g; kwargs...)
+    return ΛCDM(; G = G)
 end

@@ -166,3 +166,22 @@ then generate efficient numerical functions.
 - [Why use ModelingToolkit.jl](https://discourse.julialang.org/t/what-are-the-advantages-of-using-modelingtoolkit-to-make-and-solve-odeproblems/103563)
 
 - [Causal vs Acausal Modeling By Example: Why Julia ModelingToolkit.jl Scales](https://www.youtube.com/watch?v=ZYkojUozeC4)
+
+# Interconnected features
+
+Triangle with differentiable, approximation-free and symbolical modularity
+and how they enable each other.
+
+# Finite differences
+
+$f(\mathbf{x}) = f(x_1, \ldots, x_n)$
+calculate $f$ and $\nabla f$ in $\mathcal{O}(2n+1)$ time
+
+# Automatic differentiation
+
+Cheap Gradient Principle:
+$\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
+*independent of $n$!*
+
+1. `f(x) = x^2`'
+
