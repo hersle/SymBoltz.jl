@@ -34,7 +34,7 @@ Create a symbolic component for the general relativistic (GR) theory of gravity 
 """
 function general_relativity(g; acceleration = false, name = :G, kwargs...)
     @variables ρ(t) P(t) ρcrit(t) δρ(t) Π(t) Δ(t)
-    @parameters Δfac = 1e3
+    @parameters Δfac = 0
     a = g.a
     F1 = D(a)^2 ~ 8*Num(π)/3 * ρ * a^4 # Friedmann constraint equation
     F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^2)
@@ -55,7 +55,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
     ] .|> O(ϵ^1)
-    guesses = [ρ => 1]
+    guesses = [ρ => 1, D(a) => +1]
     return ODESystem([eqs0; eqs1], t; initialization_eqs = ics0, guesses, name, kwargs...)
 end
 
