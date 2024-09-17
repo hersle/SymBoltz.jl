@@ -174,8 +174,18 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     end
     bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses)
     callback = callback_terminator(M.bg, M.g.a, aterm)
-    debug_initialization && solve(bg_prob.f.initializeprob; show_trace = Val(true))
+    if debug_initialization
+        isys = bg_prob.f.initializeprob.f.sys
+        println("Solving initialization system with equations")
+        println(join(equations(isys), "\n"))
+        #solve(bg_prob.f.initializeprob; show_trace = Val(true))
+    end
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
+    if debug_initialization
+        ics = unknowns(isys) .=> bg_sol[unknowns(isys)][begin]
+        println("Found variable values")
+        println(join(ics, "\n"))
+    end
     check_solution(bg_sol.retcode)
 
     # Then solve thermodynamics forwards till today
