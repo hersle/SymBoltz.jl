@@ -319,7 +319,7 @@ using ModelingToolkit, DifferentialEquations, Plots
 V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
 pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
-sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10)
+sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10; guesses = [D(M.Q.ϕ) => +1.0])
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
 """
@@ -343,7 +343,7 @@ function quintessence(g, v; name = :Q, kwargs...)
         δ ~ 0
         σ ~ 0
     ] .|> O(ϵ^1)
-    return ODESystem([eqs0; eqs1], t; guesses = [ϕ => 0.0, P => 0.0, D(ϕ) => -1.0], name, kwargs...)
+    return ODESystem([eqs0; eqs1], t; name, kwargs...)
 end
 
 function background(sys)
