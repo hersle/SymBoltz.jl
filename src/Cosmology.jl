@@ -155,10 +155,8 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
     params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
-    vars = intersect(keys(params), unknowns(M))
-    pars = intersect(keys(params), parameters(M))
-    diff = setdiff(keys(params), union(vars, pars))
-    isempty(diff) || error("$diff are not unknowns or parameters")
+    pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
+    vars = setdiff(keys(params), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     vars = T([var => params[var] for var in vars]) # like u0
     pars = T([par => params[par] for par in pars]) # like p
 
@@ -174,6 +172,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     end
     bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses)
     callback = callback_terminator(M.bg, M.g.a, aterm)
+    debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
     if debug_initialization
         isys = bg_prob.f.initializeprob.f.sys
         println("Solving initialization system with equations")
