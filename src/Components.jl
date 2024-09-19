@@ -95,10 +95,11 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ0 Ω0) : []
-    vars = @variables ρ(t) P(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t)
+    vars = @variables ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t)
     eqs0 = [
         P ~ w * ρ # equation of state
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
+        Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
@@ -260,7 +261,7 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     ] .|> O(ϵ^1)
     defs = [
         Ω0 => Ω0_massless * Iρ(y0) / Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
-        ρ0 => 3/8π * Ω0
+        ρ0 => 3/(8*Num(π)) * Ω0
         ρ0_massless => 3/8π * Ω0_massless
         m => 0.02 * eV/c^2 # one massive neutrino with this mass # TODO: specify by user
         y0 => m*c^2 / (kB*T0)
@@ -318,6 +319,7 @@ using ModelingToolkit, DifferentialEquations, Plots
 @parameters V0 N
 V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
+D = Differential(M.t)
 pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
 sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10; guesses = [D(M.Q.ϕ) => +1.0])
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))

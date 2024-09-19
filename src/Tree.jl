@@ -3,7 +3,7 @@ using RecipesBase
 function get_ts(sol::CosmologySolution, N::Union{Nothing, Int})
     ts = sol[t]
     if !isnothing(N)
-        ts = exp.(range(log.(extrema(ts))..., length=N))
+        ts = sinh.(range(asinh.(extrema(ts))..., length=N))
     end
     return ts
 end

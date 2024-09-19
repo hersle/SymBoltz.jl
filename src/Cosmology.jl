@@ -177,6 +177,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         isys = bg_prob.f.initializeprob.f.sys
         println("Solving initialization system with equations")
         println(join(equations(isys), "\n"))
+        println("for unknowns ", unknowns(isys))
         #solve(bg_prob.f.initializeprob; show_trace = Val(true))
     end
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
