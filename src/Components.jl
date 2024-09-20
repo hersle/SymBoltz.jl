@@ -59,6 +59,9 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
     return ODESystem([eqs0; eqs1], t; initialization_eqs = ics0, guesses, name, kwargs...)
 end
 
+# TODO: potential
+# TODO: mass
+# TODO: optionally solve F1 directly for D(a) > 0 with quadratic formula
 """
     brans_dicke(g; name = :G, kwargs...)
 
@@ -81,9 +84,6 @@ sol = solve(M, pars, thermo = false, backwards = false)
 plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 ```
 """
-# TODO: potential
-# TODO: mass
-# TODO: optionally solve F1 directly for D(a) > 0 with quadratic formula
 function brans_dicke(g; name = :G, kwargs...)
     @parameters ω
     @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
