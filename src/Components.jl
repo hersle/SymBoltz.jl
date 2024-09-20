@@ -24,7 +24,7 @@ function metric(; name = :g, kwargs...)
         h11 * ϵ ~ -2 * a^2 * Ψ * ϵ
         h22 * ϵ ~ -2 * a^2 * Φ * ϵ
         z ~ 1/a - 1
-    ], t, vars, pars; defaults=defs, name, kwargs...)
+    ], t, vars, pars; defaults = defs, name, kwargs...)
 end
 
 """

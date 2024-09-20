@@ -159,6 +159,7 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
+# TODO: shoot to reach E = 1 today when integrating forwards
 function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
@@ -184,10 +185,10 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
     if debug_initialization
         isys = bg_prob.f.initializeprob.f.sys
-        println("Solving initialization system with equations")
+        println("Solving initialization equations")
         println(join(equations(isys), "\n"))
-        println("for unknowns ", unknowns(isys))
-        #solve(bg_prob.f.initializeprob; show_trace = Val(true))
+        println("for unknowns ", join(unknowns(isys), ", "), ":")
+        solve(bg_prob.f.initializeprob; show_trace = Val(true))
     end
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
     if debug_initialization
