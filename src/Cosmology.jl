@@ -65,7 +65,13 @@ end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
-Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :) = stack(sol.th[i, j])
+function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
+    if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
+        return sol.th.ps[i] # assume all parameters are in background/thermodynamics
+    else
+        return stack(sol.th[i, j])
+    end
+end
 Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
