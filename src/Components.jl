@@ -384,6 +384,7 @@ Create a complete ΛCDM model.
 function ΛCDM(;
     recombination = true,
     acceleration = false,
+    Λanalytical = false,
     g = metric(),
     G = general_relativity(g; acceleration),
     γ = photons(g),
@@ -391,7 +392,7 @@ function ΛCDM(;
     h = massive_neutrinos(g),
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, name = :b),
-    Λ = cosmological_constant(g),
+    Λ = cosmological_constant(g; analytical = Λanalytical),
     name = :ΛCDM,
     kwargs...
 )
