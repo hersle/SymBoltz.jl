@@ -6,6 +6,7 @@ export unknowns, observed, parameters, equations, initialization_equations, defa
 
 using ModelingToolkit
 using DifferentialEquations
+using NonlinearSolve
 using DataInterpolations
 
 # TODO: non-linear: higher-order perturbations vs halofit vs N-body?
@@ -19,7 +20,7 @@ using DataInterpolations
 # TODO: solve BG in reverse, thermo forward, then perturbations forward?
 # TODO: add ODESystems, ODEProblems, ... into one single CosmologyModel type
 
-using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0
+using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0 # TODO: export D
 @parameters k # perturbation wavenumber
 k = GlobalScope(k)
 
@@ -33,7 +34,8 @@ include("Tree.jl")
 
 export ΛCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyModel, CosmologySolution
-export solve
+export solve, shoot
+export parameters_Planck18
 export power_spectrum, Cl, Dl
 
 end

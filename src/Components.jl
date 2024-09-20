@@ -60,17 +60,25 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
 end
 
 """
+    brans_dicke(g; name = :G, kwargs...)
 
 # Examples
-```
-using Plots, ModelingToolkit
-M = BDΛCDM(Λanalytical = true)
+Shoot for parameters that give `E = G = 1` today:
+```@example 1
+using SymBoltz, ModelingToolkit
+M = BDΛCDM()
 D = Differential(M.t)
-pars = [SymBoltz.parameters_Planck18(M); M.Λ.Ω0 => 0.70; M.G.ω => 100.0; M.G.ϕ => 0.926; D(M.G.ϕ) => 0.0]
+
+pars_fixed = [parameters_Planck18(M); M.G.ω => 100.0; D(M.G.ϕ) => 0.0] # unspecified: M.Λ.Ω0, M.G.ϕ
+pars_guess = [M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7] # initial guesses for shooting method
+pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
+pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
+```
+Solve background and plot scalar field and Hubble function:
+```@example 1
+using Plots
 sol = solve(M, pars, thermo = false, backwards = false)
-vars = [M.g.ℰ, M.G.G]
-vars .=> sol[vars][:,end]
-plot(sol, log10(M.g.a), vars, ylims=(0.8, 1.2))
+plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 ```
 """
 # TODO: potential
@@ -326,13 +334,13 @@ end
 Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 
 # Examples
-```julia
+```@example
 using ModelingToolkit, DifferentialEquations, Plots
 @parameters V0 N
 V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
 D = Differential(M.t)
-pars = [SymBoltz.parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
+pars = [parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
 sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10; guesses = [D(M.Q.ϕ) => +1.0])
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
@@ -468,7 +476,7 @@ function GRΛCDM(args...; kwargs...)
 end
 
 function BDΛCDM(; name = :BDΛCDM, kwargs...)
-    M = GRΛCDM(; kwargs...)
+    M = GRΛCDM(; Λanalytical = true, kwargs...)
     G = brans_dicke(M.g)
-    return ΛCDM(; G = G, name, kwargs...)
+    return ΛCDM(; G = G, Λanalytical = true, name, kwargs...)
 end
