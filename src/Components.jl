@@ -62,12 +62,11 @@ end
 """
 
 # Examples
-GR limit:
 ```
 using Plots, ModelingToolkit
 M = BDΛCDM(Λanalytical = true)
 D = Differential(M.t)
-pars = [SymBoltz.parameters_Planck18(M); M.Λ.Ω0 => 0.77073; M.G.ω => 100.0; M.G.ϕ => 0.986; D(M.G.ϕ) => 0.0]
+pars = [SymBoltz.parameters_Planck18(M); M.Λ.Ω0 => 0.70; M.G.ω => 100.0; M.G.ϕ => 0.926; D(M.G.ϕ) => 0.0]
 sol = solve(M, pars, thermo = false, backwards = false)
 vars = [M.g.ℰ, M.G.G]
 vars .=> sol[vars][:,end]
@@ -81,7 +80,7 @@ function brans_dicke(g; name = :G, kwargs...)
     @parameters ω
     @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
     a = g.a
-    F1 = (D(a)/a)^2 ~ 8*Num(π)/3*ρ*a^2/ϕ - D(a)/a*D(ϕ)/ϕ + ω/6*(D(ϕ)/ϕ)^2
+    F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
     KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ) # TODO: (ρ-3*P)/ϕ ?
     eqs0 = [
