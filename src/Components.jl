@@ -37,7 +37,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
     @parameters Δfac = 0
     a = g.a
     F1 = D(a)^2 ~ 8*Num(π)/3 * ρ * a^4 # Friedmann constraint equation
-    F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^2)
+    F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^3)
     if acceleration
         eqs0 = [
             F2.lhs ~ F2.rhs + Δfac*Δ # use constraint damping # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
@@ -62,29 +62,42 @@ end
 """
 
 # Examples
+GR limit:
 ```
-M = BDΛCDM()
-pars = [SymBoltz.parameters_Planck18(M); M.Λ.ρ => 0.6 * 3/8π; M.G.ω => 100.0; M.G.ϕ => 1.0]
-sol = solve(M, pars, thermo = false)
-plot(sol, log10(M.g.a), M.G.ϕ)
+using Plots, ModelingToolkit
+M = BDΛCDM(Λanalytical = true)
+D = Differential(M.t)
+pars = [SymBoltz.parameters_Planck18(M); M.Λ.Ω0 => 0.77073; M.G.ω => 100.0; M.G.ϕ => 0.986; D(M.G.ϕ) => 0.0]
+sol = solve(M, pars, thermo = false, backwards = false)
+vars = [M.g.ℰ, M.G.G]
+vars .=> sol[vars][:,end]
+plot(sol, log10(M.g.a), vars, ylims=(0.8, 1.2))
 ```
 """
+# TODO: potential
+# TODO: mass
+# TODO: optionally solve F1 directly for D(a) > 0 with quadratic formula
 function brans_dicke(g; name = :G, kwargs...)
-    pars = @parameters ω
-    vars = @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t)
+    @parameters ω
+    @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
     a = g.a
-    fried1 = (D(a)/a)^2 ~ 8*Num(π)/3*ρ/ϕ - D(a)/a*D(ϕ)/ϕ + ω/6*(D(ϕ)/ϕ)^2
-    fried2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
-    kg = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * (ρ - 3*P) - 2 * D(a)/a * D(ϕ)/ϕ
-    eqs0 = [fried2, kg] .|> O(ϵ^0)
-    ics0 = [fried1] .|> O(ϵ^0)
+    F1 = (D(a)/a)^2 ~ 8*Num(π)/3*ρ*a^2/ϕ - D(a)/a*D(ϕ)/ϕ + ω/6*(D(ϕ)/ϕ)^2
+    F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
+    KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ) # TODO: (ρ-3*P)/ϕ ?
+    eqs0 = [
+        F2
+        KG
+        Δ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
+        G ~ (2*ω+4) / (2*ω+3) / ϕ # effective gravitational constant
+    ] .|> O(ϵ^0)
+    ics0 = [F1] .|> O(ϵ^0)
     # TODO: perturbations
     eqs1 = [
-        g.Φ ~ 0
-        g.Ψ ~ g.Φ
+        D(g.Φ) ~ δρ
+        g.Ψ ~ g.Φ + Π
     ] .|> O(ϵ^1)
-    guesses = [D(ϕ) => -1.0, ρ => 1]
-    return ODESystem([eqs0; eqs1], t, vars, pars; name, initialization_eqs = ics0, guesses, kwargs...)
+    guesses = [ρ => 1.0, D(g.a) => +1.0] # TODO: scalar field increase or decrease?
+    return ODESystem([eqs0; eqs1], t; name, initialization_eqs = ics0, guesses, kwargs...)
 end
 
 """
@@ -456,7 +469,7 @@ function GRΛCDM(args...; kwargs...)
 end
 
 function BDΛCDM(; name = :BDΛCDM, kwargs...)
-    M = GRΛCDM()
-    G = brans_dicke(M.g; kwargs...)
-    return ΛCDM(; G = G)
+    M = GRΛCDM(; kwargs...)
+    G = brans_dicke(M.g)
+    return ΛCDM(; G = G, name, kwargs...)
 end
