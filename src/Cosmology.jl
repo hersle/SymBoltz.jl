@@ -7,16 +7,18 @@ struct CosmologyModel
     bg::ODESystem
     th::ODESystem
     pt::ODESystem
+
+    initE::Bool # need extra equation E = 1 to initialize when integrating background backwards?
 end
 
-function CosmologyModel(sys::ODESystem; debug = false)
+function CosmologyModel(sys::ODESystem; initE = true, debug = false)
     if debug
         sys = complete(debugize(sys)) # TODO: make work with massive neutrinos
     end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys))
-    return CosmologyModel(sys, bg, th, pt)
+    return CosmologyModel(sys, bg, th, pt, initE)
 end
 
 # Forward property access to full system
@@ -162,7 +164,8 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
 
     # First solve background forwards or backwards from today
     if backwards
-        ics = [vars; M.g.a => 1.0; M.g.ℰ => 1.0]
+        ics = [vars; M.g.a => 1.0]
+        M.initE && push!(ics, M.g.ℰ => 1.0)
         tspan = (0.0, -4.0) # integrate backwards
         aterm = aini # terminate at initial scale factor
     else
@@ -170,7 +173,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         tspan = (0.0, +4.0) # integrate forwards
         aterm = 1.0 # terminate today
     end
-    bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses)
+    bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses, fully_determined = true)
     callback = callback_terminator(M.bg, M.g.a, aterm)
     debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
     if debug_initialization

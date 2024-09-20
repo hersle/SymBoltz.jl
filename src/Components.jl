@@ -111,7 +111,7 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinter
         δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
-    defs = analytical ? [ρ0 => 3/8π * Ω0] : Dict()
+    defs = analytical ? [ρ0 => 3/(8*Num(π)) * Ω0] : Dict()
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
 end
@@ -425,11 +425,11 @@ function ΛCDM(;
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=defs, name)
     M = compose(connections, g, G, species...)
     initE = !all([:Ω0 in Symbol.(parameters(s)) for s in species])
-    if !initE
-        defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M))
+    if !initE # add default if all species are analytical
+        defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M)) # TODO: generalize to non-GR
         M = extend(M, ODESystem([], t; defaults = defs, name))
     end
-    return CosmologyModel(complete(M); kwargs...)
+    return CosmologyModel(complete(M); initE, kwargs...)
 end
 
 function parameters_Planck18(M::CosmologyModel)
