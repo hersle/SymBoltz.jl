@@ -265,7 +265,7 @@ function solve(M::CosmologyModel, pars, k::Number; kwargs...)
     return solve(M, pars, [k]; kwargs...)
 end
 
-function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), kwargs...)
+function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
     guesses = [pars[2] for pars in pars_varying]
     pars_varying = [pars[1] for pars in pars_varying]
     funcs = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
@@ -277,7 +277,7 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
     end
 
     prob = NonlinearProblem(f, guesses)
-    sol = solve(prob, solver) # TODO: speed up!
+    sol = solve(prob, solver; show_trace = Val(verbose)) # TODO: speed up!
     check_solution(sol.retcode)
     return pars_varying .=> sol.u
 end
