@@ -217,7 +217,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = Rodas5P(), reltol = 1e-11, verbose = true, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, verbose = true, kwargs...)
     ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
