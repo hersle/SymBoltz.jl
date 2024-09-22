@@ -9,16 +9,17 @@ struct CosmologyModel
     pt::ODESystem
 
     initE::Bool # need extra equation E = 1 to initialize when integrating background backwards?
+    spline_thermo::Bool # whether to spline thermodynamics in perturbations
 end
 
-function CosmologyModel(sys::ODESystem; initE = true, debug = false)
+function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
     if debug
         sys = complete(debugize(sys)) # TODO: make work with massive neutrinos
     end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
-    pt = structural_simplify(perturbations(sys))
-    return CosmologyModel(sys, bg, th, pt, initE)
+    pt = structural_simplify(perturbations(sys; spline_thermo))
+    return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
 end
 
 # Forward property access to full system
@@ -216,14 +217,14 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = Rodas5P(), reltol = 1e-11, verbose = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = Rodas5P(), reltol = 1e-11, verbose = true, kwargs...)
     ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     th_sol = solve(M, pars; aini) # TODO: forward kwargs...?
     tini, tend = extrema(th_sol.th[t])
-    if :b₊rec₊dτspline in Symbol.(parameters(M.pt))
+    if M.spline_thermo
         pars = [pars;
             M.pt.b.rec.dτspline => spline(th_sol[log(-M.b.rec.dτ)], th_sol[log(M.t)])
             M.pt.b.rec.cs²spline => spline(th_sol[log(+M.b.rec.cs²)], th_sol[log(M.t)])

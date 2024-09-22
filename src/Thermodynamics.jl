@@ -115,10 +115,10 @@ end
 
 function thermodynamics_recombination_splined(; kwargs...)
     vars = @variables dτ(t) cs²(t) #Tb(t)
-    pars = @parameters dτspline::CubicSpline cs²spline::CubicSpline #Tbspline::CubicSpline
+    pars = @parameters (dτspline::CubicSpline)(..) (cs²spline::CubicSpline)(..) #(Tbspline::CubicSpline)(..)
     return ODESystem([
-        dτ ~ -exp(spleval(log(t), dτspline))
-        cs² ~ +exp(spleval(log(t), cs²spline))
-        #Tb ~ exp(spleval(log(t), Tbspline))
+        dτ ~ -exp(dτspline(log(t)))
+        cs² ~ +exp(cs²spline(log(t)))
+        #Tb ~ exp(Tbspline(log(t)))
     ], t, vars, pars; kwargs...) # connect perturbation dτ with spline evaluation
 end

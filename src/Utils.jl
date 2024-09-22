@@ -85,10 +85,6 @@ function extract_order(sys::ODESystem, orders)
     return sys0
 end
 
-# proxy function for evaluating a spline
-@register_symbolic spleval(x, spline::CubicSpline)
-spleval(x, spline) = spline(x)
-
 function spline(y, x)
     # remove duplicate x values
     i = unique(i -> (x[i], y[i]), eachindex(x)) # indices of unique values

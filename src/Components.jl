@@ -377,7 +377,7 @@ function thermodynamics(sys)
     return transform((sys, _) -> extract_order(sys, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo=true)
+function perturbations(sys; spline_thermo = true)
     if spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
         @named rec = thermodynamics_recombination_splined()
         sys = replace(sys, sys.b.rec => rec)
