@@ -222,12 +222,13 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    th_sol = solve(M, pars; aini) # TODO: forward kwargs...?
+    th_sol = solve(M, pars; aini, kwargs...)
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
+        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini) # should solve again if given keyword arguments, like saveat
         pars = [pars;
-            M.pt.b.rec.dτspline => spline(th_sol[log(-M.b.rec.dτ)], th_sol[log(M.t)])
-            M.pt.b.rec.cs²spline => spline(th_sol[log(+M.b.rec.cs²)], th_sol[log(M.t)])
+            M.pt.b.rec.dτspline => spline(th_sol_spline[log(-M.b.rec.dτ)], th_sol_spline[log(M.t)])
+            M.pt.b.rec.cs²spline => spline(th_sol_spline[log(+M.b.rec.cs²)], th_sol_spline[log(M.t)])
         ]
     end
 

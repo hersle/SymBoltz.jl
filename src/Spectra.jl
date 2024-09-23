@@ -35,9 +35,8 @@ end
 
 # this one is less elegant, but more numerically stable
 function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
-    bg_sol = solve(prob, pars; saveat = ts)
-    pt_sols = solve(prob, pars, ks; saveat = ts, kwargs...)
-    τ = bg_sol[prob.b.rec.τ] .- bg_sol[prob.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+    sol = solve(prob, pars, ks; saveat = ts, kwargs...)
+    τ = sol[prob.b.rec.τ] .- sol[prob.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)
@@ -46,7 +45,7 @@ function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, p
     # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
     Ss = zeros(eltype([par[2] for par in pars]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
-        pt_sol = pt_sols.pts[ik]
+        pt_sol = sol.pts[ik]
         k = ks[ik]
         Θ0 = pt_sol[prob.pt.γ.F0]
         Ψ = pt_sol[prob.pt.g.Ψ]
