@@ -38,25 +38,21 @@ function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars
     sol = solve(M, pars, ks; saveat = ts, kwargs...)
     τ = sol[M.b.rec.τ] .- sol[M.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
-    τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)
-    g′ = @. (τ′^2 - τ″) * exp(-τ)
     
-    # TODO: add source functions as observed perturbation functions? but difficult with cumulative τ(t)? must anyway wait for this to be fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697
+    # TODO: add source functions as observed perturbation functions?
     Ss = zeros(eltype([par[2] for par in pars]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
-        pt_sol = sol.pts[ik]
         k = ks[ik]
-        Θ0 = pt_sol[M.pt.γ.F0]
-        Ψ = pt_sol[M.pt.g.Ψ]
-        Φ = pt_sol[M.pt.g.Φ]
-        Π = pt_sol[M.pt.γ.Π]
-        ub = pt_sol[M.pt.b.θ] ./ k # TODO: add u variable
-        Ψ′ = D_spline(Ψ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
-        Φ′ = D_spline(Φ, ts)
-        ub′ = D_spline(ub, ts)
-        gΠ″ = D_spline(g .* Π, ts; order = 2)
-        @. Ss[:,ik] = g*(Θ0+Ψ+Π/4) + (g′*ub+g*ub′)/k + exp(-τ)*(Ψ′-Φ′) + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
+        Θ0 = sol[ik, M.γ.F0]
+        Ψ = sol[ik, M.g.Ψ]
+        Φ = sol[ik, M.g.Φ]
+        Π = sol[ik, M.γ.Π]
+        ub = sol[ik, M.b.u]
+        gub′ = D_spline(g .* ub, ts) # TODO: why is the observed version messy?
+        Ψ_minus_Φ′ = D_spline(Ψ .- Φ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574 # TODO: why is the observed version so messy?
+        gΠ″ = D_spline(g .* Π, ts; order = 2) # TODO: why is the observed version messy?
+        @. Ss[:,ik] = g*(Θ0+Ψ+Π/4) + gub′/k + exp(-τ)*Ψ_minus_Φ′ + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
     end
 
     return Ss
@@ -71,9 +67,6 @@ function S(M::CosmologyModel, ts::AbstractArray, ksfine::AbstractArray, pars, ks
     end
     return Ssfine
 end
-
-#Ss = S(ts, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
-#plot(ts, asinh.(Ss[:,[1,9]]))
 
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
@@ -134,7 +127,7 @@ end
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::AbstractArray; integrator = SimpsonEven())
     Cls = similar(Θls, length(ls))
-    ks_with0 = [0.0; ks]
+    ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
     dCl_dks_with0 = [zeros(eltype(Θls), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
 
     @threads for il in eachindex(ls)
@@ -165,6 +158,3 @@ function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2�
 
     return Cl(M, pars, ls, ks_Cl, lnts, ks_S; observe)
 end
-
-#Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)
-#plot(ls, Dls; xlabel="l", ylabel="Dl = l (l+1) Cl / 2π")
