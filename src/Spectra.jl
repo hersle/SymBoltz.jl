@@ -13,8 +13,8 @@ function power_spectrum(sol::CosmologySolution, species::ODESystem, k)
     return P0(k) .* sol(k, tend, [species.Δ^2])[:, 1, 1]
 end
 
-function power_spectrum(prob::CosmologyModel, species::ODESystem, pars, k; kwargs...)
-    sol = solve(prob, pars, k; save_everystep=false, kwargs...) # just save endpoints
+function power_spectrum(M::CosmologyModel, species::ODESystem, pars, k; kwargs...)
+    sol = solve(M, pars, k; save_everystep=false, kwargs...) # just save endpoints
     return power_spectrum(sol, species, k)
 end
 
@@ -34,9 +34,9 @@ end
 =#
 
 # this one is less elegant, but more numerically stable
-function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
-    sol = solve(prob, pars, ks; saveat = ts, kwargs...)
-    τ = sol[prob.b.rec.τ] .- sol[prob.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
+    sol = solve(M, pars, ks; saveat = ts, kwargs...)
+    τ = sol[M.b.rec.τ] .- sol[M.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     τ″ = D_spline(τ′, ts)
     g = @. -τ′ * exp(-τ)
@@ -47,11 +47,11 @@ function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, p
     @threads for ik in eachindex(ks)
         pt_sol = sol.pts[ik]
         k = ks[ik]
-        Θ0 = pt_sol[prob.pt.γ.F0]
-        Ψ = pt_sol[prob.pt.g.Ψ]
-        Φ = pt_sol[prob.pt.g.Φ]
-        Π = pt_sol[prob.pt.γ.Π]
-        ub = pt_sol[prob.pt.b.θ] ./ k # TODO: add u variable
+        Θ0 = pt_sol[M.pt.γ.F0]
+        Ψ = pt_sol[M.pt.g.Ψ]
+        Φ = pt_sol[M.pt.g.Φ]
+        Π = pt_sol[M.pt.γ.Π]
+        ub = pt_sol[M.pt.b.θ] ./ k # TODO: add u variable
         Ψ′ = D_spline(Ψ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574
         Φ′ = D_spline(Φ, ts)
         ub′ = D_spline(ub, ts)
@@ -62,8 +62,8 @@ function S_splined(prob::CosmologyModel, ts::AbstractArray, ks::AbstractArray, p
     return Ss
 end
 
-function S(prob, ts::AbstractArray, ksfine::AbstractArray, pars, kscoarse::AbstractArray; kwargs...) 
-    Sscoarse = S_splined(prob, ts, kscoarse, pars) # TODO: restore S_observed
+function S(M::CosmologyModel, ts::AbstractArray, ksfine::AbstractArray, pars, kscoarse::AbstractArray; kwargs...)
+    Sscoarse = S_splined(M::CosmologyModel, ts, kscoarse, pars) # TODO: restore S_observed
     Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
     for it in eachindex(ts)
         Sscoarset = @view Sscoarse[it,:]
@@ -125,9 +125,9 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(prob::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
+function Θl(M::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
     ts = exp.(lnts)
-    Ss = S(prob, ts, ks, pars, args...; kwargs...)
+    Ss = S(M, ts, ks, pars, args...; kwargs...)
     return Θl(ls, ks, lnts, Ss)
 end
 
@@ -146,14 +146,14 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(prob::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, ks_S::AbstractArray; kwargs...)
-    Θls = Θl(prob, ls, ks, lnts, pars, ks_S; kwargs...)
+function Cl(M::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, ks_S::AbstractArray; kwargs...)
+    Θls = Θl(M, ls, ks, lnts, pars, ks_S; kwargs...)
     P0s = P0(ks)
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(prob::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve(prob, pars)
+function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
+    bg_sol = solve(M, pars)
 
     ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
@@ -163,7 +163,7 @@ function Cl(prob::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 =
     ks_Cl = range_until(0, kt0max, Δkt0; skip_start=true) ./ t0
     ks_S = range_until(0, kt0max, Δkt0_S; skip_start=true) ./ t0 # Δk = 50/t0
 
-    return Cl(prob, pars, ls, ks_Cl, lnts, ks_S; observe)
+    return Cl(M, pars, ls, ks_Cl, lnts, ks_S; observe)
 end
 
 #Dls = Dl(ls, ks, ts, Ωγ0, Ων0, Ωc0, Ωb0, h, As, Yp; Sspline_ks)

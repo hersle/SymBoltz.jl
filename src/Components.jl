@@ -173,7 +173,7 @@ end
 
 Create a particle species for photons in the spacetime with metric `g`.
 """
-function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
+function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
@@ -199,20 +199,20 @@ function photons(g; polarization=true, lmax=6, name = :γ, kwargs...)
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
-        union!(eqs1, [
+        append!(eqs1, [
             D(G0) ~ k * (-G[1]) - τ̇ * (-G0 + Π/2)
             D(G[1]) ~ k/3 * (G0 - 2*G[2]) - τ̇ * (-G[1])
             [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: collect all equations here once G[0] works
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
         ] .|> O(ϵ^1))
-        union!(ics1, [
+        append!(ics1, [
             G0 ~ 0 #5/4 * Θ[2],
             G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
             G[2] ~ 0 #1/4 * Θ[2],
             [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
         ] .|> O(ϵ^1))
     else
-        union!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
+        append!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
     return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...))
 end
@@ -288,13 +288,13 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     ]
     ics1 = []
     for i in 1:nx
-        union!(eqs1, [
+        append!(eqs1, [
             D(ψ0[i]) ~ -k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])
             D(ψ[i,1]) ~ k/3 * x[i]/E(x[i],y) * (ψ0[i] - 2*ψ[i,2]) - k/3 * E(x[i],y)/x[i] * g.Ψ * dlnf0_dlnx(x[i])
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E(x[i],y) * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
             ψ[i,lmax+1] ~ (2*lmax+1) * E(x[i],y)/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ] .|> O(ϵ^1))
-        union!(ics1, [
+        append!(ics1, [
             ψ0[i] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
