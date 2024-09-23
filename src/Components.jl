@@ -8,13 +8,14 @@ Create a symbolic component for the perturbed FLRW spacetime metric in the confo
     a^2 * diag(-1-2*ϵ*Ψ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ, +1 - 2*ϵ*Φ)
 """
 function metric(; name = :g, kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g11, g22, h11, h22, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g11(t) g22(t) h11(t) h22(t) z(t))
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ, Φ′, Ψ′, g11, g22, h11, h22, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) Φ′(t) Ψ′(t) g11(t) g22(t) h11(t) h22(t) z(t))
     pars = H0, h = GlobalScope.(@parameters H0 h)
     defs = [
         H0 => H100 * h
         h => H0 / H100
     ]
     return ODESystem([
+        z ~ 1/a - 1
         ℰ ~ D(a) / a # ℰ = ℋ/ℋ0 = ℋ/H0
         E ~ ℰ / a # E = H/H0
         ℋ ~ ℰ * H0
@@ -23,7 +24,8 @@ function metric(; name = :g, kwargs...)
         g22 ~ +a^2
         h11 * ϵ ~ -2 * a^2 * Ψ * ϵ
         h22 * ϵ ~ -2 * a^2 * Φ * ϵ
-        z ~ 1/a - 1
+        Φ′ * ϵ ~ D(Φ) * ϵ # TODO: why unstable at early times?
+        Ψ′ * ϵ ~ D(Ψ) * ϵ # TODO: why unstable at early times?
     ], t, vars, pars; defaults = defs, name, kwargs...)
 end
 
@@ -115,7 +117,7 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ0 Ω0) : []
-    vars = @variables ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t)
+    vars = @variables ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) u(t) u′(t)
     eqs0 = [
         P ~ w * ρ # equation of state
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
@@ -124,6 +126,8 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinter
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cs²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
+        u ~ θ / k # velocity
+        u′ ~ D(u)
         Δ ~ δ + 3(1+w) * g.ℰ/θ # Baumann (4.2.144) with v -> -u
         σ ~ _σ
     ] .|> O(ϵ^1)
