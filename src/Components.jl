@@ -68,27 +68,37 @@ end
     brans_dicke(g; name = :G, kwargs...)
 
 """
-function brans_dicke(g; name = :G, kwargs...)
-    @parameters ω
-    @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
+function brans_dicke(g; name = :G, acceleration = false, kwargs...)
+    pars = @parameters ω
+    vars = @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
     a = g.a
     F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
-    KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ) # TODO: (ρ-3*P)/ϕ ?
+    KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ)
     eqs0 = [
-        F2
         KG
-        Δ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
         G ~ (2*ω+4) / (2*ω+3) / ϕ # effective gravitational constant
     ] .|> O(ϵ^0)
-    ics0 = [F1] .|> O(ϵ^0)
+    ics0 = []
+    if acceleration
+        append!(eqs0, [
+            F2
+            Δ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
+        ] .|> O(ϵ^0))
+        push!(ics0, F1 |> O(ϵ^0))
+    else
+        append!(eqs0, [
+            D(a) ~ -a/2*D(ϕ)/ϕ + √((a/2*D(ϕ)/ϕ)^2 + 8*Num(π)/3*ρ*a^4/ϕ + ω/6*(a*D(ϕ)/ϕ)^2) # TODO: Symbolics.symbolic_solve F1 for ȧ
+            Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
+        ] .|> O(ϵ^0))
+    end
     # TODO: perturbations
     eqs1 = [
         D(g.Φ) ~ δρ
         g.Ψ ~ g.Φ + Π
     ] .|> O(ϵ^1)
-    guesses = [ρ => 1.0, D(g.a) => +1.0] # TODO: scalar field increase or decrease?
-    return ODESystem([eqs0; eqs1], t; name, initialization_eqs = ics0, guesses, kwargs...)
+    guesses = [ρ => 1.0, D(g.a) => +1.0]
+    return ODESystem([eqs0; eqs1], t, vars, pars; name, initialization_eqs = ics0, guesses, kwargs...) # TODO: don't pass vars and pars
 end
 
 """
@@ -416,8 +426,8 @@ function ΛCDM(;
         ϵ => 1 # TODO: remove
     )
     eqs0 = [
-        G.ρ ~ sum(s.ρ for s in species)
-        G.P ~ sum(s.P for s in species)
+        G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
+        G.P ~ sum(s.P for s in species) # TODO: only if G has P
         b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
         b.rec.Tγ ~ γ.T
     ] .|> O(ϵ^0)
@@ -466,8 +476,8 @@ end
 
 Create a ΛCDM model, but with the Brans-Dicke theory of gravity instead of General Relativity.
 """
-function BDΛCDM(; name = :BDΛCDM, kwargs...)
+function BDΛCDM(; acceleration = false, name = :BDΛCDM, kwargs...)
     M = GRΛCDM(; Λanalytical = true, kwargs...)
-    G = brans_dicke(M.g)
+    G = brans_dicke(M.g; acceleration)
     return ΛCDM(; G = G, Λanalytical = true, name, kwargs...)
 end
