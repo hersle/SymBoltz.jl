@@ -8,7 +8,7 @@ Pages   = ["Components.jl"]
 ## Brans-Dicke
 
 ```@docs
-brans_dicke
+SymBoltz.brans_dicke
 BDΛCDM
 ```
 
