@@ -148,7 +148,7 @@ end
 function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
     bg_sol = solve(M, pars)
 
-    ti, t0 = 1e-4, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
+    ti, t0 = bg_sol[t][begin] + 1e-10, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
     lnts = range(log(ti), log(t0), step=Δlnt) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
