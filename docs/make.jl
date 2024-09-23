@@ -10,7 +10,10 @@ makedocs(
             "extended_models.md",
             "parameter_fitting.md"
         ],
-        "components.md",
+        "Components and models" => [
+            "components.md",
+            "models.md"
+        ],
         "conventions.md",
         "comparison.md",
     ],
