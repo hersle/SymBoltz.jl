@@ -300,6 +300,11 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
 end
 
+"""
+    cold_dark_matter(g; name = :c, kwargs...)
+
+Create a particle species for cold dark matter in the spacetime with metric `g`.
+"""
 function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
     c = extend(c, ODESystem([c.cs² ~ 0] .|> O(ϵ^1), t, [], []; name))
@@ -446,9 +451,19 @@ function parameters_Planck18(M::CosmologyModel)
         M.c.Ω0 => 0.1200 / h^2
         M.b.Ω0 => 0.02237 / h^2
         M.b.rec.Yp => 0.2454
+
+        # TODO: how to handle
+        # 1) backwards with default for Λ.Ω0? --> skip E = 1
+        # 2) forwards with no default?        --> shooting
+        #M.Λ.Ω => 1 - sum(s.Ω0 for s in [M.γ, M.ν, M.h, M.c, M.b])
     ]
 end
 
+"""
+    QCDM(v; name = :QCDM, kwargs...)
+
+Create a ΛCDM model, but with the quintessence scalar field in the potential `v` as dark energy instead of the cosmological constant.
+"""
 function QCDM(v; name = :QCDM, kwargs...)
     M = ΛCDM()
     Q = quintessence(M.g, v)
