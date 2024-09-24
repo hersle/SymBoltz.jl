@@ -31,12 +31,12 @@ SymBoltz.QCDM
 ```
 
 ```@example
-using SymBoltz, ModelingToolkit, DifferentialEquations, Plots
+using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
 V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
 D = Differential(M.t)
 pars = [parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
-sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10; guesses = [D(M.Q.ϕ) => +1.0])
+sol = solve(M, pars, thermo = false; guesses = [D(M.Q.ϕ) => +1.0])
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
