@@ -388,7 +388,7 @@ end
         kwargs...
     )
 
-Create a complete ΛCDM model.
+Create a ΛCDM model.
 """
 function ΛCDM(;
     recombination = true,

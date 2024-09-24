@@ -1,5 +1,19 @@
 # Models
 
+## ΛCDM
+
+```@docs
+SymBoltz.ΛCDM
+```
+
+```@example
+using SymBoltz, Plots
+M = ΛCDM()
+pars = parameters_Planck18(M)
+sol = solve(M, pars)
+plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+```
+
 ## Brans-Dicke ΛCDM
 
 ```@docs
@@ -24,7 +38,7 @@ sol = solve(M, pars, thermo = false, backwards = false)
 plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 ```
 
-## Quintessence ΛCDM
+## Quintessence-CDM
 
 ```@docs
 SymBoltz.QCDM
