@@ -1,10 +1,9 @@
 # Models
 
-## Brans-Dicke
+## Brans-Dicke ΛCDM
 
 ```@docs
-SymBoltz.brans_dicke
-BDΛCDM
+SymBoltz.BDΛCDM
 ```
 
 Shoot for parameters that give `E = G = 1` today:
@@ -23,4 +22,21 @@ Solve background and plot scalar field and Hubble function:
 using Plots
 sol = solve(M, pars, thermo = false, backwards = false)
 plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
+```
+
+## Quintessence ΛCDM
+
+```@docs
+SymBoltz.QCDM
+```
+
+```@example
+using SymBoltz, ModelingToolkit, DifferentialEquations, Plots
+@parameters V0 N
+V(ϕ) = V0 * ϕ^N
+M = QCDM(V)
+D = Differential(M.t)
+pars = [parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
+sol = solve(M, pars, thermo = false, solver = Tsit5(), reltol = 1e-10; guesses = [D(M.Q.ϕ) => +1.0])
+plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
