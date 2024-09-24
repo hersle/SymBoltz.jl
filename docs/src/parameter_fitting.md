@@ -7,7 +7,7 @@ This tutorial shows how to perform Bayesian parameter inference on a cosmologica
 We use the data from [Betoule+ (2014)](https://arxiv.org/abs/1401.4064) of redshifts and luminosity distances of supernovae.
 Specifically, we use the values and errors in tables F.1 and F.2
 (available from the [data files `data/jla_mub.txt` and `data/jla_mub_covmatrix.dat`](http://supernovae.in2p3.fr/sdss_snls_jla/jla_likelihood_v6.tgz)):
-```@example 1
+```@example fit
 # TODO: do things properly
 # TODO: use full covariance
 using LinearAlgebra # TODO: remove after using full covar?
@@ -60,7 +60,7 @@ d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 \chi = c \, (t_0 - t)
 ```
 theoretically, we solve the standard ΛCDM model:
-```@example 1
+```@example fit
 # TODO: generalize to non-flat
 using SymBoltz, DataInterpolations
 
@@ -93,7 +93,7 @@ scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 ## Bayesian inference
 
 To perform bayesian inference, we use the [Turing.jl](https://turinglang.org/) package:
-```@example 1
+```@example fit
 using Turing
 
 @model function supernova(data, M)
@@ -114,7 +114,7 @@ chain = sample(sn, NUTS(), MCMCSerial(), 200, 1) # TODO: NUTS() # TODO: MCMCThre
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:
-```@example 1
+```@example fit
 using StatsPlots
 plot(chain)
 ```

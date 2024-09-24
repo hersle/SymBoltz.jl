@@ -1,7 +1,7 @@
 # Getting started
 
 [Install SymBoltz.jl](@ref "Installation") and load it with
-```@example 1
+```@example getting_started
 using SymBoltz
 ``` 
 
@@ -12,7 +12,7 @@ This is a symbolic representation of the variables and equations that describe t
 It will be used both to create the numerical problem to solve, and to access variables in its solution.
 
 To get started, we will simply load the standard ΛCDM model:
-```@example 1
+```@example getting_started
 M = ΛCDM()
 ```
 
@@ -32,14 +32,14 @@ The full system is also separated into sequential computational stages, like the
 
 The hierarchical structure can be inspected interactively (with TAB-completion) as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.G`, `M.g.ρ` and so on.
 For example, to see all equations for the theory of gravity:
-```@example 1
+```@example getting_started
 equations(M.G)
 ```
 
 ## 2. Solve the model
 
 Next, we set our desired cosmological parameters and wavenumbers, and solve the model:
-```@example 1
+```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = [
     M.γ.T0 => 2.7
@@ -65,28 +65,28 @@ It can be called like
 The solution will automatically interpolate linearly in $\log(k)$, and with the ODE solver's custom interpolator in $t$.
 
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
-```@example 1
+```@example getting_started
 ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
 Es = sol(ts, M.g.E)
 ```
 Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:
-```@example 1
+```@example getting_started
 Φs = sol(ks, ts, M.g.Φ)
 ```
 
 This can be plotted with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
-```@example 1
+```@example getting_started
 using Plots
 plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc", log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the power spectrum for a desired species (here: cold dark matter with `M.c`):
-```@example 1
+```@example getting_started
 Ps = power_spectrum(sol, M.c, ks)
 plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```
 Similarly, we can calculate the angular CMB power spectrum:
-```@example 1
+```@example getting_started
 ls = 10:10:1000
 Cls = Cl(M, pars, ls)
 plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing) # TODO: fix

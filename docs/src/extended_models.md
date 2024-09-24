@@ -31,7 +31,7 @@ SymBoltz.jl represents each component of the Einstein-Boltzmann equations as a p
 These are effectively "chunks" of logically related parameters, variables, equations and initial conditions
 that are composed together into a full/complete cosmological model.
 Let us create a component for the w₀wₐ-parametrization:
-```@example 1
+```@example ext
 using ModelingToolkit # must be loaded to create custom components
 using SymBoltz: t, D, ϵ, k # load conformal time and perturbation book-keeper
 
@@ -78,7 +78,7 @@ end
 
 We can now create both the standard ΛCDM model,
 and then recreate it with the cosmological constant replaced by the w₀wₐ-component to construct the extended w₀wₐCDM model:
-```@example 1
+```@example ext
 # TODO: start with M1 from the very top, then add M2 later
 using SymBoltz
 M1 = ΛCDM(name = :ΛCDM)
@@ -91,7 +91,7 @@ M2 = ΛCDM(Λ = X, name = :w0waCDM)
 
 Now set some parameters and solve both models up to one perturbation wavenumber.
 For the ΛCDM model:
-```@example 1
+```@example ext
 θ1 = [
     M1.γ.T0 => 2.7
     M1.c.Ω0 => 0.27
@@ -104,7 +104,7 @@ ks = 1.0
 sol1 = solve(M1, θ1, ks)
 ```
 And for the w₀wₐCDM model:
-```@example 1
+```@example ext
 θ2 = [
     θ1; # extend previous parameter list
     M2.X.w0 => -0.9
@@ -115,7 +115,7 @@ sol2 = solve(M2, θ2, ks)
 ```
 
 Let us compare $H$ as a function of the (logarithm of the) scale factor $a$:
-```@example 1
+```@example ext
 lgas = range(-3, 0, length=500)
 H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
 H2s = sol2(log10(M2.g.a), lgas, M2.g.H)

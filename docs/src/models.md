@@ -6,7 +6,7 @@
 SymBoltz.ΛCDM
 ```
 
-```@example
+```@example ΛCDM
 using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
@@ -21,7 +21,7 @@ SymBoltz.BDΛCDM
 ```
 
 Shoot for parameters that give `E = G = 1` today:
-```@example 2
+```@example BDΛCDM
 using SymBoltz, ModelingToolkit
 M = BDΛCDM()
 D = Differential(M.t)
@@ -32,7 +32,7 @@ pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo =
 pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
 ```
 Solve background and plot scalar field and Hubble function:
-```@example 2
+```@example BDΛCDM
 using Plots
 sol = solve(M, pars, thermo = false, backwards = false)
 plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
@@ -44,7 +44,7 @@ plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 SymBoltz.QCDM
 ```
 
-```@example
+```@example QCDM
 using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
 V(ϕ) = V0 * ϕ^N
