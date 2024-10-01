@@ -19,7 +19,7 @@ function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debu
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys; spline_thermo))
-    return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
+    return CosmologyModel(complete(sys), bg, th, pt, initE, spline_thermo)
 end
 
 # Forward property access to full system

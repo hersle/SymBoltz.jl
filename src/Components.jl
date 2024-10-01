@@ -439,7 +439,7 @@ function ΛCDM(;
         defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M)) # TODO: generalize to non-GR
         M = extend(M, ODESystem([], t; defaults = defs, name))
     end
-    return CosmologyModel(complete(M); initE, kwargs...)
+    return CosmologyModel(M; initE, kwargs...)
 end
 
 function parameters_Planck18(M::CosmologyModel)
