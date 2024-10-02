@@ -436,13 +436,12 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
+    initE = !Λanalytical
+    if Λanalytical
+        push!(defs, species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])) # TODO: unsafe outside GR
+    end
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
-    initE = !all([:Ω0 in Symbol.(parameters(s)) for s in species])
-    if !initE # add default if all species are analytical
-        defs = merge(Dict(s.Ω0 => 1 - (sum(s′.Ω0 for s′ in species if s′ != s)) for s in species), defaults(M)) # TODO: generalize to non-GR
-        M = extend(M, ODESystem([], t; defaults = defs, name))
-    end
     return CosmologyModel(M; initE, kwargs...)
 end
 
