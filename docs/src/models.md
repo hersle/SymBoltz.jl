@@ -1,5 +1,22 @@
 # Models
 
+## RMΛ
+
+```@docs
+SymBoltz.RMΛ
+```
+
+```@example RMΛ
+using SymBoltz, Plots
+M = RMΛ()
+pars = [M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0] # TODO: don't pass h and T0 to avoid infinite loop
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
+sol = solve(M, pars, ks)
+p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ; N = 10000)
+p2 = plot(sol, ks, log10(M.g.a), M.g.Φ; N = 10000)
+plot(p1, p2, layout = (2, 1), size = (600, 600))
+```
+
 ## ΛCDM
 
 ```@docs

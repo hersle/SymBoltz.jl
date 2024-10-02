@@ -106,7 +106,7 @@ end
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
-function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, kwargs...)
+function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ0 Ω0) : []
     vars = @variables ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) u(t) u′(t)
@@ -115,6 +115,7 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinter
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
+    adiabatic && push!(eqs0, O(ϵ^0)(cs² ~ w))
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cs²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
@@ -147,10 +148,10 @@ end
 Create a particle species for radiation (with equation of state `w ~ 1/3`) in the spacetime with metric `g`.
 """
 function radiation(g; name = :r, kwargs...)
-    r = species_constant_eos(g, 1//3; name, kwargs...)
+    r = species_constant_eos(g, 1//3; name, kwargs...) |> complete
     pars = @parameters T0
     vars = @variables T(t) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
-    return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; name, kwargs...))
+    return extend(r, ODESystem([T ~ T0 / g.a], t, vars, pars; name))
 end
 
 """
@@ -161,7 +162,7 @@ Create a particle species for the cosmological constant (with equation of state 
 function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
     Λ = species_constant_eos(g, -1; name, analytical, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name, kwargs...)) # manually set perturbations to zero
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name)) # manually set perturbations to zero
 end
 
 """
@@ -359,7 +360,10 @@ end
 
 function background(sys)
     sys = thermodynamics(sys)
-    return replace(sys, sys.b.rec => ODESystem([], t; name = :rec))
+    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys))
+        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination
+    end
+    return sys
 end
 
 function thermodynamics(sys)
@@ -367,9 +371,9 @@ function thermodynamics(sys)
 end
 
 function perturbations(sys; spline_thermo = true)
-    if spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
+    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
         @named rec = thermodynamics_recombination_splined()
-        sys = replace(sys, sys.b.rec => rec)
+        sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
     end
     return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
 end
@@ -432,7 +436,7 @@ function ΛCDM(;
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults=defs, name)
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
     initE = !all([:Ω0 in Symbol.(parameters(s)) for s in species])
     if !initE # add default if all species are analytical
@@ -440,6 +444,48 @@ function ΛCDM(;
         M = extend(M, ODESystem([], t; defaults = defs, name))
     end
     return CosmologyModel(M; initE, kwargs...)
+end
+
+"""
+    RMΛ(;
+        acceleration = false,
+        adiabatic = true,
+        g = metric(),
+        r = radiation(g; adiabatic),
+        m = matter(g; adiabatic),
+        Λ = cosmological_constant(g; adiabatic),
+        G = general_relativity(g; acceleration),
+        name = :RMΛ, kwargs...
+    )
+
+Create a simple model with pure non-interacting radiation, matter and cosmological constant.
+"""
+function RMΛ(;
+    acceleration = false,
+    adiabatic = true,
+    g = metric(),
+    r = radiation(g; adiabatic),
+    m = matter(g; adiabatic),
+    Λ = cosmological_constant(g; adiabatic),
+    G = general_relativity(g; acceleration),
+    name = :RMΛ, kwargs...
+)
+    species = [r, m, Λ]
+    eqs0 = [
+        G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
+        G.P ~ sum(s.P for s in species) # TODO: only if G has P
+    ] .|> O(ϵ^0)
+    eqs1 = [
+        G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
+        G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
+    ] .|> O(ϵ^1)
+    defs = [
+        g.Ψ => 20 / 15, # TODO: put to what?
+        ϵ => 1 # TODO: remove
+    ]
+    connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
+    M = compose(connections, g, G, species...)
+    return CosmologyModel(M; spline_thermo = false)
 end
 
 function parameters_Planck18(M::CosmologyModel)
