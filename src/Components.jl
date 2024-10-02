@@ -321,8 +321,8 @@ function baryons(g; recombination=true, name = :b, kwargs...)
     if recombination # TODO: dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g)
     else
-        vars = @variables dτ(t) ρb(t) Tγ(t) cs²(t)
-        @named rec = ODESystem([dτ ~ 0, cs² ~ 0], t, vars, [])
+        vars = @variables τ(t) τ̇(t) ρb(t) Tγ(t) cs²(t)
+        @named rec = ODESystem([τ ~ 0, τ̇ ~ 0, cs² ~ 0], t, vars, [])
     end
     b = extend(b, ODESystem([b.cs² ~ rec.cs²] .|> O(ϵ^1), t, [], []; name))
     b = compose(b, rec)
@@ -427,8 +427,8 @@ function ΛCDM(;
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
-        b.θinteraction ~ k^2*b.cs²*b.δ + -b.rec.dτ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
-        γ.τ̇ ~ b.rec.dτ
+        b.θinteraction ~ k^2*b.cs²*b.δ + -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
+        γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?

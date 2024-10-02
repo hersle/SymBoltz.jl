@@ -227,7 +227,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini) # should solve again if given keyword arguments, like saveat
         pars = [pars;
-            M.pt.b.rec.dτspline => spline(th_sol_spline[log(-M.b.rec.dτ)], th_sol_spline[log(M.t)])
+            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]) # TODO: more time points, spline log(t)?
             M.pt.b.rec.cs²spline => spline(th_sol_spline[log(+M.b.rec.cs²)], th_sol_spline[log(M.t)])
         ]
     end

@@ -104,5 +104,10 @@ function D_spline(y, x; order = 1)
     return y′
 end
 
+value(s, t) = s(t)
+derivative(s, t) = DataInterpolations.derivative(s, t)
+@register_symbolic value(s::CubicSpline, t)
+@register_symbolic derivative(s::CubicSpline, t)
+
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))

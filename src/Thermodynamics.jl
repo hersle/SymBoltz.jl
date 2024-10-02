@@ -15,7 +15,7 @@ end
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
     @parameters Yp fHe # fHe = nHe/nH
-    @variables Xe(t) ne(t) τ(t) = 0.0 dτ(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
+    @variables Xe(t) ne(t) τ(t) = 0.0 τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -96,9 +96,9 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        dτ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
-        D(τ) ~ dτ
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, dτ, Tb, Tγ, μ, cs²], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
+        τ̇ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
+        D(τ) ~ τ̇
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cs²], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
@@ -114,11 +114,12 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
 end
 
 function thermodynamics_recombination_splined(; kwargs...)
-    vars = @variables dτ(t) cs²(t) #Tb(t)
-    pars = @parameters (dτspline::CubicSpline)(..) (cs²spline::CubicSpline)(..) #(Tbspline::CubicSpline)(..)
+    vars = @variables τ(t) τ̇(t) cs²(t) #Tb(t)
+    pars = @parameters τspline::CubicSpline cs²spline::CubicSpline #(Tbspline::CubicSpline)(..)
     return ODESystem([
-        dτ ~ -exp(dτspline(log(t)))
-        cs² ~ +exp(cs²spline(log(t)))
+        τ ~ value(τspline, t)
+        τ̇ ~ derivative(τspline, t)
+        cs² ~ +exp(value(cs²spline, log(t)))
         #Tb ~ exp(Tbspline(log(t)))
-    ], t, vars, pars; kwargs...) # connect perturbation dτ with spline evaluation
+    ], t, vars, pars; kwargs...) # connect perturbation τ with spline evaluation
 end
