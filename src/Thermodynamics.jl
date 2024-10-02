@@ -15,7 +15,7 @@ end
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
     @parameters Yp fHe # fHe = nHe/nH
-    @variables Xe(t) ne(t) τ(t) = 0.0 τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
+    @variables Xe(t) ne(t) τ(t) τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -41,6 +41,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
     ]
     defaults = [
         fHe => Yp / (mHe/mH*(1-Yp))
+        τ => 0.0
     ]
     return ODESystem([
         nH ~ (1-Yp) * ρb/mH # 1/m³

@@ -235,11 +235,11 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     ki = 1.0
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][end]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]) # TODO: why do I need this???
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]; fully_determined = true) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]]) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]], fully_determined = true) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]

@@ -81,10 +81,10 @@ and then recreate it with the cosmological constant replaced by the w₀wₐ-com
 ```@example ext
 # TODO: start with M1 from the very top, then add M2 later
 using SymBoltz
-M1 = ΛCDM(name = :ΛCDM)
+M1 = ΛCDM(name = :ΛCDM, Λanalytical = true)
 
 X = w0wa(M1.g; name = :X)
-M2 = ΛCDM(Λ = X, name = :w0waCDM)
+M2 = ΛCDM(Λ = X, name = :w0waCDM, Λanalytical = true)
 ```
 
 ## Solve and compare the models
