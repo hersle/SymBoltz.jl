@@ -7,7 +7,7 @@ SymBoltz.RMΛ
 ```
 
 ```@example RMΛ
-using SymBoltz, Plots
+using SymBoltz, Unitful, UnitfulAstro, Plots
 M = RMΛ()
 pars = [M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0] # TODO: don't pass h and T0 to avoid infinite loop
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
