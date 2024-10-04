@@ -71,8 +71,8 @@ end
 """
 function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     pars = @parameters ω
-    vars = @variables ρ(t) P(t) ϕ(t) δρ(t) Π(t) Δ(t) G(t)
-    a = g.a
+    vars = @variables ρ(t) P(t) ϕ(t) δϕ(t) δρ(t) δP(t) Π(t) Δ(t) G(t)
+    @unpack a, ℰ, Φ, Ψ = g # shorthand
     F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
     KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ)
@@ -93,13 +93,18 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
             Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
         ] .|> O(ϵ^0))
     end
-    # TODO: perturbations
     eqs1 = [
-        D(g.Φ) ~ δρ
-        g.Ψ ~ g.Φ + Π
+        # https://arxiv.org/pdf/2006.04273 equations (D.20, D.22, D.25) with Φ → Ψ and Ψ → -Φ
+        D(Φ) ~ -(8*Num(π)*a^2*(2*Ψ*ρ+δρ) + 2*k^2*Φ*ϕ - (3*ℰ^2+k^2)*δϕ - 3*ℰ*D(δϕ) - ω/2*(δϕ*(D(ϕ)/ϕ)^2-2*D(ϕ)*D(δϕ))) / (6*ℰ*ϕ + 3*D(ϕ)) # (μ,ν) = (0,0)
+        Ψ ~ Φ - δϕ/ϕ - 12*Num(π)/ϕ * a^2 * Π / k^2 # (μ,ν) = (i,j), i ≠ j, add matter stress divided by ϕ from field equations # TODO: correct?
+        D(D(δϕ)) ~ -8*Num(π)/(3+2*ω)*a^2*(3*δP-δρ) + 2*D(D(ϕ))*Ψ - k^2*δϕ - 2*ℰ*D(δϕ) + D(ϕ)*(D(Ψ)+3*D(ϕ)) + 4*ℰ*Ψ*D(ϕ) # perturbed Klein-Gordon equation
+    ] .|> O(ϵ^1)
+    ics1 = [
+        δϕ ~ 0.0 # TODO: set properly
+        D(δϕ) ~ 0.0 # TODO: set properly
     ] .|> O(ϵ^1)
     guesses = [ρ => 1.0, D(g.a) => +1.0]
-    return ODESystem([eqs0; eqs1], t, vars, pars; name, initialization_eqs = ics0, guesses, kwargs...) # TODO: don't pass vars and pars
+    return ODESystem([eqs0; eqs1], t, vars, pars; name, initialization_eqs = [ics0; ics1], guesses, kwargs...) # TODO: don't pass vars and pars
 end
 
 """
@@ -464,10 +469,11 @@ Create a simple model with pure non-interacting radiation, matter and cosmologic
 function RMΛ(;
     acceleration = false,
     adiabatic = true,
+    Λanalytical = false,
     g = metric(),
     r = radiation(g; adiabatic),
     m = matter(g; adiabatic),
-    Λ = cosmological_constant(g; adiabatic),
+    Λ = cosmological_constant(g; adiabatic, analytical = Λanalytical),
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
@@ -531,4 +537,15 @@ function BDΛCDM(; acceleration = false, name = :BDΛCDM, kwargs...)
     M = GRΛCDM(; Λanalytical = true, kwargs...)
     G = brans_dicke(M.g; acceleration)
     return ΛCDM(; G = G, Λanalytical = true, name, kwargs...)
+end
+
+"""
+    BDRMΛ(; name = :BDRMΛ, kwargs...)
+
+Create a RMΛ model, but with the Brans-Dicke theory of gravity instead of General Relativity.
+"""
+function BDRMΛ(; acceleration = false, name = :BDRMΛ, kwargs...)
+    M = RMΛ(; Λanalytical = true, kwargs...)
+    G = brans_dicke(M.g; acceleration)
+    return RMΛ(; G = G, Λanalytical = true, name, kwargs...)
 end
