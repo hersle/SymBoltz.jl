@@ -29,6 +29,7 @@ function metric(; name = :g, kwargs...)
     ], t, vars, pars; defaults = defs, name, kwargs...)
 end
 
+# TODO: add δP
 """
     general_relativity(g; name = :G, kwargs...)
 
@@ -435,6 +436,7 @@ function ΛCDM(;
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
+    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) |> O(ϵ^1)) # total pressure perturbation
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
     if Λanalytical
@@ -478,6 +480,7 @@ function RMΛ(;
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
+    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) |> O(ϵ^1)) # total pressure perturbation
     defs = [
         g.Ψ => 20 / 15, # TODO: put to what?
         ϵ => 1 # TODO: remove
