@@ -217,15 +217,15 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, verbose = true, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = true, kwargs...)
     ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    th_sol = solve(M, pars; aini, kwargs...)
+    th_sol = solve(M, pars; aini, backwards, kwargs...)
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
-        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini) # should solve again if given keyword arguments, like saveat
+        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards) # should solve again if given keyword arguments, like saveat
         pars = [pars;
             M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]) # TODO: more time points, spline log(t)?
             M.pt.b.rec.cs²spline => spline(th_sol_spline[log(+M.b.rec.cs²)], th_sol_spline[log(M.t)])
@@ -233,7 +233,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     end
 
     ki = 1.0
-    ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][end]
+    ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]; fully_determined = true) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
