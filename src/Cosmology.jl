@@ -149,7 +149,7 @@ end
 function check_solution(code)
     code = Symbol(code)
     good = (:Success, :Terminated)
-    code in good || error("Solver failed with status $code (expected $(join(String.(good), " or ")))")
+    code in good || @warn "Solver failed with status $code (expected $(join(String.(good), " or ")))"
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
