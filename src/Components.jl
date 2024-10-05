@@ -36,8 +36,8 @@ end
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
 function general_relativity(g; acceleration = false, name = :G, kwargs...)
-    @variables ρ(t) P(t) ρcrit(t) δρ(t) Π(t) Δ(t)
-    @parameters Δfac = 0
+    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) δP(t) Π(t) Δ(t)
+    pars = @parameters Δfac = 0
     a = g.a
     F1 = D(a)^2 ~ 8*Num(π)/3 * ρ * a^4 # Friedmann constraint equation
     F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^3)
@@ -59,7 +59,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
     ] .|> O(ϵ^1)
     guesses = [ρ => 1, D(a) => +1]
-    return ODESystem([eqs0; eqs1], t; initialization_eqs = ics0, guesses, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, guesses, name, kwargs...)
 end
 
 # TODO: potential
@@ -121,7 +121,6 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinter
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
-    adiabatic && push!(eqs0, O(ϵ^0)(cs² ~ w))
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cs²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cs²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
@@ -130,6 +129,7 @@ function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinter
         Δ ~ δ + 3(1+w) * g.ℰ/θ # Baumann (4.2.144) with v -> -u
         σ ~ _σ
     ] .|> O(ϵ^1)
+    adiabatic && push!(eqs1, O(ϵ^1)(cs² ~ w))
     ics1 = [
         δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
@@ -345,7 +345,7 @@ end
 Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 """
 function quintessence(g, v; name = :Q, kwargs...)
-    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) K(t) m²(t) ϵs(t) ηs(t)
+    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) K(t) m²(t) ϵs(t) ηs(t) cs²(t)
     ∂_∂ϕ = Differential(ϕ)
     eqs0 = [
         V ~ v(ϕ)
@@ -363,6 +363,7 @@ function quintessence(g, v; name = :Q, kwargs...)
     eqs1 = [ # TODO: perturbations
         δ ~ 0
         σ ~ 0
+        cs² ~ 0
     ] .|> O(ϵ^1)
     return ODESystem([eqs0; eqs1], t; name, kwargs...)
 end
@@ -439,12 +440,12 @@ function ΛCDM(;
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
+        G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
         b.θinteraction ~ k^2*b.cs²*b.δ + -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
-    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, (G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species)) |> O(ϵ^1)) # total pressure perturbation
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
     if Λanalytical
@@ -487,9 +488,9 @@ function RMΛ(;
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
+        G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
-    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, (G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species)) |> O(ϵ^1)) # total pressure perturbation
     defs = [
         g.Ψ => 20 / 15, # TODO: put to what?
         ϵ => 1 # TODO: remove
