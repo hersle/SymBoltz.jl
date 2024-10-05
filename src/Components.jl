@@ -168,7 +168,7 @@ Create a particle species for the cosmological constant (with equation of state 
 function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
     Λ = species_constant_eos(g, -1; name, analytical, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0] .|> O(ϵ^1), t, vars, []; name)) # manually set perturbations to zero
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cs² ~ -1] .|> O(ϵ^1), t, vars, []; name)) # manually set perturbations to zero
 end
 
 """
@@ -194,6 +194,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
         Π ~ F[2] + G0 + G[2]
+        γ.cs² ~ 0 # TODO: add to get correct pressure in KG equations!
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
@@ -241,6 +242,7 @@ function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
         δ ~ F0
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
+        ν.cs² ~ 0 # TODO: add to get correct pressure in KG equations!
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
@@ -259,7 +261,7 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
-    vars = @variables ρ(t) T(t) y(t) P(t) w(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cs²(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
 
     f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
     dlnf0_dlnx(x) = -x / (1 + exp(-x))
@@ -281,6 +283,7 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
         δ ~ ∫dx_x²_f0(@. E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y))
         # TODO: θ
         σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
+        cs² ~ 0 # TODO: add to get correct pressure in KG equations!
     ] .|> O(ϵ^1)
     defs = [
         Ω0 => Ω0_massless * Iρ(y0) / Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
@@ -441,7 +444,7 @@ function ΛCDM(;
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
-    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) |> O(ϵ^1)) # total pressure perturbation
+    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, (G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species)) |> O(ϵ^1)) # total pressure perturbation
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
     if Λanalytical
@@ -486,7 +489,7 @@ function RMΛ(;
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
-    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) |> O(ϵ^1)) # total pressure perturbation
+    Symbol("δP(t)") in Symbol.(unknowns(G)) && push!(eqs1, (G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species)) |> O(ϵ^1)) # total pressure perturbation
     defs = [
         g.Ψ => 20 / 15, # TODO: put to what?
         ϵ => 1 # TODO: remove

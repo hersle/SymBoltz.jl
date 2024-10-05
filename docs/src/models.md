@@ -50,6 +50,8 @@ pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
 ```
 Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
+# TODO: solve for perturbed scalar field
+# TODO: (must add proper pressure perturbation to all species first)
 using Plots
 sol = solve(M, pars, thermo = false, backwards = false)
 plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
