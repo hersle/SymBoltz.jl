@@ -20,17 +20,21 @@ using DataInterpolations
 # TODO: solve BG in reverse, thermo forward, then perturbations forward?
 # TODO: add ODESystems, ODEProblems, ... into one single CosmologyModel type
 
-using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0 # TODO: export D
-@parameters k # perturbation wavenumber
-k = GlobalScope(k)
+using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H0
+k = only(GlobalScope.(@parameters k)) # perturbation wavenumber
+ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
 
-include("Utils.jl")
-include("Cosmology.jl")
-include("Constants.jl")
-include("Components.jl")
-include("Thermodynamics.jl")
-include("Spectra.jl")
-include("Tree.jl")
+include("utils.jl")
+include("constants.jl")
+include("components/metric.jl")
+include("components/gravity.jl")
+include("components/species.jl")
+include("components/thermodynamics.jl")
+include("models.jl")
+include("solve.jl")
+include("spectra.jl")
+include("parameters.jl")
+include("plot.jl")
 
 export RMΛ, ΛCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyModel, CosmologySolution

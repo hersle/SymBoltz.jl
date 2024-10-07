@@ -64,22 +64,6 @@ end
 end
 
 # plot ODESystems as a hierarchical tree # TODO: contribute back to ModelingToolkit.jl?
-using AbstractTrees
-using SymbolicUtils
-function AbstractTrees.children(sys::ODESystem; variables = false)
-    syss = collect(sys.systems)
-    if variables && isempty(syss)
-        return union(unknowns(sys), observed(sys), parameters(sys))
-    else
-        return syss
-    end
-end
-function AbstractTrees.children(var::SymbolicUtils.BasicSymbolic)
-    return []
-end
-AbstractTrees.printnode(io::IO, sys::ODESystem) = print(io, sys.name)
-AbstractTrees.printnode(io::IO, var::SymbolicUtils.BasicSymbolic) = print(io, var)
-
 using GraphRecipes
 @recipe function plot(::Type{T}, sys::T) where {T <: ODESystem}
     nodeshape --> :rect

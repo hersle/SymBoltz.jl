@@ -1,6 +1,26 @@
 import CommonSolve: solve
 #import SymbolicIndexingInterface: all_variable_symbols, getname
 
+function background(sys)
+    sys = thermodynamics(sys)
+    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys))
+        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination
+    end
+    return sys
+end
+
+function thermodynamics(sys)
+    return transform((sys, _) -> extract_order(sys, [0]), sys)
+end
+
+function perturbations(sys; spline_thermo = true)
+    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
+        @named rec = thermodynamics_recombination_splined()
+        sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
+    end
+    return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
+end
+
 struct CosmologyModel
     sys::ODESystem
 
@@ -62,94 +82,6 @@ function Base.show(io::IO, sol::CosmologySolution)
         n = length(sol.pts)
         print(io, "\n  3. perturbations: solved with $solver, $nmin-$nmax points, x$(n) k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
     end
-end
-
-# TODO: don't select time points as 2nd/3rd index, since these points will vary
-const SymbolicIndex = Union{Num, AbstractArray{Num}}
-function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
-    if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
-        return sol.th.ps[i] # assume all parameters are in background/thermodynamics
-    else
-        return stack(sol.th[i, j])
-    end
-end
-Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
-Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
-Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
-
-function (sol::CosmologySolution)(t, idxs)
-    v = sol.th(t, idxs=idxs)
-    if t isa AbstractArray
-        v = v.u
-        if idxs isa AbstractArray
-            v = permutedims(stack(v))
-        end
-    end
-    return v
-end
-
-function (sol::CosmologySolution)(k::Number, t, idxs)
-    k = k_dimensionless.(k, sol.bg.ps[:h])
-
-    isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
-
-    kmin, kmax = extrema(sol.ks)
-    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
-
-    i2 = searchsortedfirst(sol.ks, k) # index above target k
-    i1 = i2 - 1 # index below target k ()
-
-    v2 = sol.pts[i2](t; idxs)
-    if i1 == 0
-        # k == kmin, no interpolation necessary
-        v = v2
-    else
-        # k > kmin, linearly interpolate between k1 and k2
-        v1 = sol.pts[i1](t; idxs)
-        k1 = sol.ks[i1]
-        k2 = sol.ks[i2]
-        v = @. v1 + (v2 - v1) * (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoother when interpolated in log(k) # TODO: use cubic spline?
-    end
-
-    if t isa AbstractArray
-        v = v.u
-        if idxs isa AbstractArray
-            v = permutedims(stack(v))
-        end
-    end
-    return v
-end
-
-function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
-    v = sol.(k, Ref(t), Ref(idxs))
-    if t isa AbstractArray && idxs isa AbstractArray
-        v = stack(v; dims=1)
-    elseif t isa AbstractArray || idxs isa AbstractArray
-        v = permutedims(stack(v))
-    end
-    return v
-end
-
-function (sol::CosmologySolution)(tvar::Num, t, idxs)
-    ts = sol[SymBoltz.t]
-    xs = sol(ts, tvar)
-    ts = spline(ts, xs)(t)
-    return sol(ts, idxs)
-end
-
-# TODO: change argument order to join with previous
-function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
-    tmin, tmax = extrema(sol[SymBoltz.t])
-    ts = exp.(range(log(tmin), log(tmax), length = 1000)) # TODO: select from solution
-    xs = sol(ts, tvar)
-    ts = CubicSpline(ts, xs; extrapolate=true)(t)
-    return sol(k, ts, idxs)
-end
-
-function check_solution(code)
-    code = Symbol(code)
-    good = (:Success, :Terminated)
-    code in good || @warn "Solver failed with status $code (expected $(join(String.(good), " or ")))"
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -265,6 +197,95 @@ end
 function solve(M::CosmologyModel, pars, k::Number; kwargs...)
     return solve(M, pars, [k]; kwargs...)
 end
+
+function check_solution(code)
+    code = Symbol(code)
+    good = (:Success, :Terminated)
+    code in good || @warn "Solver failed with status $code (expected $(join(String.(good), " or ")))"
+end
+
+# TODO: don't select time points as 2nd/3rd index, since these points will vary
+const SymbolicIndex = Union{Num, AbstractArray{Num}}
+function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
+    if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
+        return sol.th.ps[i] # assume all parameters are in background/thermodynamics
+    else
+        return stack(sol.th[i, j])
+    end
+end
+Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
+Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
+Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
+
+function (sol::CosmologySolution)(t, idxs)
+    v = sol.th(t, idxs=idxs)
+    if t isa AbstractArray
+        v = v.u
+        if idxs isa AbstractArray
+            v = permutedims(stack(v))
+        end
+    end
+    return v
+end
+
+function (sol::CosmologySolution)(k::Number, t, idxs)
+    k = k_dimensionless.(k, sol.bg.ps[:h])
+
+    isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
+
+    kmin, kmax = extrema(sol.ks)
+    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
+
+    i2 = searchsortedfirst(sol.ks, k) # index above target k
+    i1 = i2 - 1 # index below target k ()
+
+    v2 = sol.pts[i2](t; idxs)
+    if i1 == 0
+        # k == kmin, no interpolation necessary
+        v = v2
+    else
+        # k > kmin, linearly interpolate between k1 and k2
+        v1 = sol.pts[i1](t; idxs)
+        k1 = sol.ks[i1]
+        k2 = sol.ks[i2]
+        v = @. v1 + (v2 - v1) * (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoother when interpolated in log(k) # TODO: use cubic spline?
+    end
+
+    if t isa AbstractArray
+        v = v.u
+        if idxs isa AbstractArray
+            v = permutedims(stack(v))
+        end
+    end
+    return v
+end
+
+function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
+    v = sol.(k, Ref(t), Ref(idxs))
+    if t isa AbstractArray && idxs isa AbstractArray
+        v = stack(v; dims=1)
+    elseif t isa AbstractArray || idxs isa AbstractArray
+        v = permutedims(stack(v))
+    end
+    return v
+end
+
+function (sol::CosmologySolution)(tvar::Num, t, idxs)
+    ts = sol[SymBoltz.t]
+    xs = sol(ts, tvar)
+    ts = spline(ts, xs)(t)
+    return sol(ts, idxs)
+end
+
+# TODO: change argument order to join with previous
+function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
+    tmin, tmax = extrema(sol[SymBoltz.t])
+    ts = exp.(range(log(tmin), log(tmax), length = 1000)) # TODO: select from solution
+    xs = sol(ts, tvar)
+    ts = CubicSpline(ts, xs; extrapolate=true)(t)
+    return sol(k, ts, idxs)
+end
+
 
 function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
     guesses = [pars[2] for pars in pars_varying]
