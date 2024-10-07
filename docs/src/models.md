@@ -24,11 +24,14 @@ SymBoltz.ΛCDM
 ```
 
 ```@example ΛCDM
-using SymBoltz, Plots
+using SymBoltz, Plots, Unitful, UnitfulAstro
 M = ΛCDM()
 pars = parameters_Planck18(M)
-sol = solve(M, pars)
-plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
+sol = solve(M, pars, ks)
+p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
+plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
 ## Brans-Dicke ΛCDM
@@ -53,8 +56,11 @@ Solve background and plot scalar field and Hubble function:
 # TODO: solve for perturbed scalar field
 # TODO: (must add proper pressure perturbation to all species first)
 using Plots
-sol = solve(M, pars, thermo = false, backwards = false)
-plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
+ks = [1e-0] / u"Mpc"
+sol = solve(M, pars, ks, backwards = false)
+p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.85, 1.15))
+p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
+plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
 ## Brans-Dicke RMΛ

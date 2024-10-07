@@ -85,7 +85,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
         Π ~ F[2] + G0 + G[2]
-        γ.cs² ~ 0 # TODO: add to get correct pressure in KG equations!
+        γ.cs² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
@@ -133,7 +133,7 @@ function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
         δ ~ F0
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
-        ν.cs² ~ 0 # TODO: add to get correct pressure in KG equations!
+        ν.cs² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
@@ -174,7 +174,7 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
         δ ~ ∫dx_x²_f0(@. E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y))
         # TODO: θ
         σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
-        cs² ~ 0 # TODO: add to get correct pressure in KG equations!
+        cs² ~ ∫dx_x²_f0(@. x^2/E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y)*ψ0)
     ] .|> O(ϵ^1)
     defs = [
         Ω0 => Ω0_massless * Iρ(y0) / Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
