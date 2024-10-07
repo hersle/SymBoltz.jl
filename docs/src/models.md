@@ -55,7 +55,7 @@ Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
 # TODO: solve for perturbed scalar field
 # TODO: (must add proper pressure perturbation to all species first)
-using Plots
+using Unitful, UnitfulAstro, Plots
 ks = [1e-0] / u"Mpc"
 sol = solve(M, pars, ks, backwards = false)
 p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.85, 1.15))
