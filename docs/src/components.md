@@ -47,5 +47,6 @@ SymBoltz.massive_neutrinos
 
 ```@docs
 SymBoltz.cosmological_constant
+SymBoltz.w0wa
 SymBoltz.quintessence
 ```

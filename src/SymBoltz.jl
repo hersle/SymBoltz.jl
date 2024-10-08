@@ -36,7 +36,7 @@ include("spectra.jl")
 include("parameters.jl")
 include("plot.jl")
 
-export RMΛ, ΛCDM, QCDM, GRΛCDM, BDΛCDM
+export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyModel, CosmologySolution
 export solve, shoot
 export parameters_Planck18

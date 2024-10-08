@@ -146,3 +146,14 @@ function BDRMΛ(; acceleration = false, name = :BDRMΛ, kwargs...)
     G = brans_dicke(M.g; acceleration)
     return RMΛ(; G = G, Λanalytical = true, name, kwargs...)
 end
+
+"""
+    w0waCDM(; name = :w0waCDM, kwargs...)
+
+Create a ΛCDM model, but with w₀wₐ-parametrized dark energy instead of the cosmological constant.
+"""
+function w0waCDM(; name = :w0waCDM, Λanalytical = true, kwargs...)
+    M = ΛCDM(; kwargs...)
+    X = w0wa(M.g; analytical = Λanalytical)
+    return ΛCDM(Λ = X; name, Λanalytical, kwargs...)
+end

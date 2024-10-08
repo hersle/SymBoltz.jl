@@ -34,6 +34,28 @@ p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
+## w₀wₐCDM (CPL parametrization)
+
+```@docs
+SymBoltz.w0waCDM
+```
+
+```@example w0waCDM
+using SymBoltz, Plots, Unitful, UnitfulAstro
+M = w0waCDM()
+pars = [
+    parameters_Planck18(M);
+    M.X.w0 => -0.9;
+    M.X.wa => 0.2;
+    M.X.cs² => 1.0;
+]
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
+sol = solve(M, pars, ks)
+p1 = plot(sol, log10(M.g.a), M.X.w)
+p2 = plot(sol, ks, log10(M.g.a), M.X.δ)
+plot(p1, p2, layout = (2, 1), size = (600, 600))
+```
+
 ## Brans-Dicke ΛCDM
 
 ```@docs

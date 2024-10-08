@@ -63,6 +63,37 @@ function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
 end
 
 """
+    w0wa(g; kwargs...)
+
+Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in the spacetime with metric `g`.
+"""
+function w0wa(g; name = :X, analytical = false, kwargs...)
+    @assert analytical # TODO: non-analytical
+    pars = @parameters w0 wa ρ0 Ω0 cs²
+    vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
+    # TODO: generate equations with a generic species_eos function
+    eqs0 = [
+        w ~ w0 + wa * (1 - g.a) # equation of state
+        ẇ ~ D(w)
+        ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
+        P ~ w * ρ # pressure
+    ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
+    eqs1 = [
+        D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ # energy overdensity
+        D(θ) ~ -g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
+        σ ~ 0 # shear stress
+    ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
+    ics1 = [
+        δ ~ -3/2 * (1+w) * g.Ψ
+        θ ~ 1/2 * (k^2*t) * g.Ψ
+    ] .|> SymBoltz.O(ϵ^1)
+    defaults = [
+        ρ0 => 3/8π * Ω0
+    ]
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, kwargs...)
+end
+
+"""
     photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
 
 Create a particle species for photons in the spacetime with metric `g`.
