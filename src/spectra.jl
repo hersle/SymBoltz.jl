@@ -44,7 +44,7 @@ function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars
     Ss = zeros(eltype([par[2] for par in pars]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
     @threads for ik in eachindex(ks)
         k = ks[ik]
-        Θ0 = sol[ik, M.γ.F0]
+        Θ0 = sol[ik, M.γ.F[0]]
         Ψ = sol[ik, M.g.Ψ]
         Φ = sol[ik, M.g.Φ]
         Π = sol[ik, M.γ.Π]

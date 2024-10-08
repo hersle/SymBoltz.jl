@@ -102,20 +102,20 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
-    vars = @variables F0(t) F(t)[1:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G0(t) G(t)[1:lmax]
+    vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G(t)[0:lmax]
     defs = [
         γ.Ω0 => π^2/15 * (kB*γ.T0)^4 / (ħ^3*c^5) * 8π*GN / (3*g.H0^2)
     ]
     eqs1 = [
-        D(F0) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4/3 * τ̇/k * (θb - θ)
-        D(F[2]) ~ 2/5*k*F[1] - 3/5*k*F[3] + 9/10*τ̇*F[2] - 1/10*τ̇*(G0+G[2])
+        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
+        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4/3 * τ̇/k * (θb - θ)
+        D(F[2]) ~ 2/5*k*F[1] - 3/5*k*F[3] + 9/10*τ̇*F[2] - 1/10*τ̇*(G[0]+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]... # TODO: Π in last term here?
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]
-        δ ~ F0
+        δ ~ F[0]
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
-        Π ~ F[2] + G0 + G[2]
+        Π ~ F[2] + G[0] + G[2]
         γ.cs² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
@@ -126,19 +126,18 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ] .|> O(ϵ^1)
     if polarization
         append!(eqs1, [
-            D(G0) ~ k * (-G[1]) - τ̇ * (-G0 + Π/2)
-            D(G[1]) ~ k/3 * (G0 - 2*G[2]) - τ̇ * (-G[1])
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 2:lmax-1]... # TODO: collect all equations here once G[0] works
+            D(G[0]) ~ k * (-G[1]) + τ̇ * (G[0] - Π/2)
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + τ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            G0 ~ 0 #5/4 * Θ[2],
+            G[0] ~ 0 #5/4 * Θ[2],
             G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
             G[2] ~ 0 #1/4 * Θ[2],
             [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
         ] .|> O(ϵ^1))
     else
-        append!(eqs1, [G0 ~ 0, collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
+        append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
     return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...))
 end
@@ -151,17 +150,17 @@ Create a particle species for massless neutrinos in the spacetime with metric `g
 function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
     ν = radiation(g; name, kwargs...) |> thermodynamics |> complete
 
-    vars = @variables F0(t) F(t)[1:lmax+1] δ(t) θ(t) σ(t)
+    vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
     defs = [
         Neff => 3.046
     ]
     eqs1 = [
-        D(F0) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
+        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
+        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax]...
         F[lmax+1] ~ (2*lmax+1) / (k*t) * F[lmax] - F[lmax-1]
-        δ ~ F0
+        δ ~ F[0]
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
         ν.cs² ~ 1//3
@@ -183,7 +182,7 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
-    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cs²(t) δ(t) σ(t) θ(t) ψ0(t)[1:nx] ψ(t)[1:nx,1:lmax+1]
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cs²(t) δ(t) σ(t) θ(t) ψ(t)[1:nx,0:lmax+1]
 
     f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
     dlnf0_dlnx(x) = -x / (1 + exp(-x))
@@ -202,10 +201,10 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
         w ~ P / ρ
     ] .|> O(ϵ^0)
     eqs1 = [
-        δ ~ ∫dx_x²_f0(@. E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y))
+        δ ~ ∫dx_x²_f0(@. E(x, y)*ψ[:,0]) / ∫dx_x²_f0(@. E(x, y))
         # TODO: θ
         σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
-        cs² ~ ∫dx_x²_f0(@. x^2/E(x, y)*ψ0) / ∫dx_x²_f0(@. E(x, y)*ψ0)
+        cs² ~ ∫dx_x²_f0(@. x^2/E(x, y)*ψ[:,0]) / ∫dx_x²_f0(@. E(x, y)*ψ[:,0])
     ] .|> O(ϵ^1)
     defs = [
         Ω0 => Ω0_massless * Iρ(y0) / Iρ(0) # ≈ Ω0_massless * (3ζ(3)/2)/(7π^4/120) * y0 for y0 → ∞
@@ -217,13 +216,13 @@ function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
     ics1 = []
     for i in 1:nx
         append!(eqs1, [
-            D(ψ0[i]) ~ -k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])
-            D(ψ[i,1]) ~ k/3 * x[i]/E(x[i],y) * (ψ0[i] - 2*ψ[i,2]) - k/3 * E(x[i],y)/x[i] * g.Ψ * dlnf0_dlnx(x[i])
+            D(ψ[i,0]) ~ -k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])
+            D(ψ[i,1]) ~ k/3 * x[i]/E(x[i],y) * (ψ[i,0] - 2*ψ[i,2]) - k/3 * E(x[i],y)/x[i] * g.Ψ * dlnf0_dlnx(x[i])
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E(x[i],y) * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
             ψ[i,lmax+1] ~ (2*lmax+1) * E(x[i],y)/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            ψ0[i] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
+            ψ[i,0] ~ -1/4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i])
             ψ[i,2] ~ -1/2 * (1/15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
