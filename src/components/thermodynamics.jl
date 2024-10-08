@@ -120,7 +120,7 @@ function thermodynamics_recombination_splined(; kwargs...)
     return ODESystem([
         τ ~ value(τspline, t)
         τ̇ ~ derivative(τspline, t)
-        cs² ~ +exp(value(cs²spline, log(t)))
+        cs² ~ value(cs²spline, t)
         #Tb ~ exp(Tbspline(log(t)))
     ], t, vars, pars; kwargs...) # connect perturbation τ with spline evaluation
 end

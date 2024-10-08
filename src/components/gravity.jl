@@ -1,4 +1,3 @@
-# TODO: add δP
 """
     general_relativity(g; name = :G, kwargs...)
 
@@ -37,6 +36,7 @@ end
 """
     brans_dicke(g; name = :G, kwargs...)
 
+Create a symbolic component for the Brans-Dicke (BD) theory of gravity in the spacetime with the metric `g`.
 """
 function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     pars = @parameters ω

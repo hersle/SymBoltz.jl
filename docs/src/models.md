@@ -1,6 +1,6 @@
 # Models
 
-## RMΛ
+## Free radiation, matter and cosmological constant (RMΛ)
 
 ```@docs
 SymBoltz.RMΛ
@@ -17,7 +17,7 @@ p2 = plot(sol, ks, log10(M.g.a), M.g.Φ; N = 10000)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
-## ΛCDM
+## Standard ΛCDM
 
 ```@docs
 SymBoltz.ΛCDM
@@ -53,10 +53,8 @@ pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
 ```
 Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
-# TODO: solve for perturbed scalar field
-# TODO: (must add proper pressure perturbation to all species first)
 using Unitful, UnitfulAstro, Plots
-ks = [1e-0] / u"Mpc"
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks, backwards = false)
 p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.85, 1.15))
 p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
@@ -75,7 +73,6 @@ pars_guess = [M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7] # initial guesses for shooting me
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
 pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
 
-# TODO: add perturbations to ΛCDM example, too (need to define h.cs²)
 ks = [1e-0] / u"Mpc"
 sol = solve(M, pars, ks, backwards = false) # TODO: set background integration direction during model creation
 p1 = plot(sol, log10(M.g.a), M.G.G; N = 10000)

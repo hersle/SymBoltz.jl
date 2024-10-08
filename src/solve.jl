@@ -87,13 +87,13 @@ end
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 """
-    solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, kwargs...)
+    solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-10, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
-function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-13, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-10, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
     params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
@@ -160,7 +160,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards) # should solve again if given keyword arguments, like saveat
         pars = [pars;
             M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]) # TODO: more time points, spline log(t)?
-            M.pt.b.rec.cs²spline => spline(th_sol_spline[log(+M.b.rec.cs²)], th_sol_spline[log(M.t)])
+            M.pt.b.rec.cs²spline => spline(th_sol_spline[M.b.rec.cs²], th_sol_spline[M.t])
         ]
     end
 

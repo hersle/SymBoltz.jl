@@ -63,7 +63,7 @@ function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
 end
 
 """
-    cosmological_constant(g; name = :Λ, kwargs...)
+    photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
 
 Create a particle species for photons in the spacetime with metric `g`.
 """
