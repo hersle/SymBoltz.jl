@@ -50,6 +50,10 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
+      - name: Clone and build CLASS
+        run: |
+          git clone --depth 1 https://github.com/lesgourg/class_public
+          make --directory class_public class
       - name: Configure doc environment
         shell: julia --project=docs --color=yes {0}
         run: |
