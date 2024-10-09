@@ -9,3 +9,21 @@ TODO
 | **Approximations**       | None                                                 | Mandatory (?)                 | Mandatory (?)                                               |
 | **Speed**                | Fast                                                 | Faster                        | Fastest                                                     |
 | **Sensitivity analysis** | Automatic differentiation                            | Finite differences            | Finite differences                                          |
+
+## Accuracy comparison with CLASS
+
+```@example class
+run(`make --version`)
+```
+
+```@example class
+run(`cc --version`)
+```
+
+```@example class
+isdir("class_public")
+```
+
+```@example class
+isfile("class_public/class")
+```
