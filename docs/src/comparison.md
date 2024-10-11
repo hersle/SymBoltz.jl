@@ -21,11 +21,6 @@ run(`cc --version`)
 ```
 
 ```@example class
-#run(`git clone --depth 1 https://github.com/lesgourg/class_public`)
-#run(`make --directory class_public class`)
-```
-
-```@example class
 isdir("class_public")
 ```
 
