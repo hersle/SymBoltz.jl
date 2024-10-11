@@ -13,6 +13,11 @@ TODO
 ## Accuracy comparison with CLASS
 
 ```@example class
+run(`class`)
+nothing
+```
+
+```@example class
 run(`make --version`)
 ```
 
@@ -21,9 +26,13 @@ run(`cc --version`)
 ```
 
 ```@example class
-isdir("class_public")
+pwd()
 ```
 
 ```@example class
-isfile("class_public/class")
+isdir("../../class_public")
+```
+
+```@example class
+isfile("../../class_public/class")
 ```

@@ -1,5 +1,7 @@
 using Documenter, SymBoltz
 
+ENV["JULIA_DEBUG"] = "Documenter" # make Documenter.jl output more verbose
+
 makedocs(
     sitename = "SymBoltz",
     pages = [
