@@ -12,7 +12,7 @@ TODO
 
 ## Numerical comparison to CLASS
 
-```@example class
+```@setup class
 using SymBoltz
 using ModelingToolkit
 using DelimitedFiles
@@ -147,7 +147,7 @@ function plot_compare(xlabel, ylabels)
         ylabels = [ylabels]
     end
     # TODO: relative or absolute comparison (of quantities close to 0)
-    p = plot(; layout=grid(2, 1, heights=(2/3, 1/3)), size = (700, 700))
+    p = plot(; layout=grid(2, 1, heights=(2/3, 1/3)), size = (800, 700))
     title = join([(@sprintf "%s = %.3f" s Dict(pars)[s]) for s in keys(Dict(pars))], ", ") * (@sprintf ", k = %.2e / Mpc" kMpc)
     plot!(p[1]; title, titlefontsize = 8)
     for (color, ylabel) in enumerate(ylabels)
@@ -176,62 +176,38 @@ function plot_compare(xlabel, ylabels)
     return p
 end
 # TODO: compare relative errors between un-log10-ed quantities
+nothing # hide
 ```
 
 ### Background
 
 ```@example class
-plot_compare("a_bg", "t")
+plot_compare("a_bg", "t") # hide
 ```
 ```@example class
-plot_compare("lg(a_bg)", "lg(E)")
+plot_compare("lg(a_bg)", "lg(E)") # hide
 ```
 
 ### Thermodynamics
 ```@example class
-plot_compare("lg(a_th)", "lg(τ̇)")
+plot_compare("lg(a_th)", "lg(τ̇)") # hide
 ```
 ```@example class
-plot_compare("lg(a_th)", "Xe")
+plot_compare("lg(a_th)", "Xe") # hide
 ```
 ```@example class
-plot_compare("lg(a_th)", "lg(Tb)")
+plot_compare("lg(a_th)", "lg(Tb)") # hide
 ```
 ```@example class
-plot_compare("lg(a_th)", "lg(csb²)")
+plot_compare("lg(a_th)", "lg(csb²)") # hide
 # TODO: Ṫ
 ```
 
 ### Perturbations
 
 ```@example class
-plot_compare("lg(a_pt)", ["Ψ", "Φ"])
+plot_compare("lg(a_pt)", ["Ψ", "Φ"]) # hide
 ```
 ```@example class
-plot_compare("lg(a_pt)", ["δb", "δc"])
-```
-
-```@example class
-run(`class`)
-nothing
-```
-
-```@example class
-run(`make --version`)
-```
-
-```@example class
-run(`cc --version`)
-```
-
-```@example class
-pwd()
-```
-
-```@example class
-isdir("../../class_public")
-```
-
-```@example class
-isfile("../../class_public/class")
+plot_compare("lg(a_pt)", ["δb", "δc"]) # hide
 ```
