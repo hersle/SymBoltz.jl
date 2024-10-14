@@ -93,10 +93,10 @@ Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
-function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-10, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     T = typeof(pars)
-    params = Dict([pars; M.k => 0.0]) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
+    params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
     vars = setdiff(keys(params), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     vars = T([var => params[var] for var in vars]) # like u0
@@ -104,16 +104,16 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
 
     # First solve background forwards or backwards from today
     if backwards
-        ics = [vars; M.g.a => 1.0]
-        M.initE && push!(ics, M.g.ℰ => 1.0)
+        push!(vars, M.g.a => 1.0)
+        M.initE && push!(vars, M.g.ℰ => 1.0)
         tspan = (0.0, -4.0) # integrate backwards
         aterm = aini # terminate at initial scale factor
     else
-        ics = [vars; M.g.a => aini]
+        push!(vars, M.g.a => aini)
         tspan = (0.0, +4.0) # integrate forwards
         aterm = 1.0 # terminate today
     end
-    bg_prob = ODEProblem(M.bg, ics, tspan, pars; guesses, fully_determined = true)
+    bg_prob = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true)
     callback = callback_terminator(M.bg, M.g.a, aterm)
     debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
     if debug_initialization
@@ -125,9 +125,9 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     end
     bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
     if debug_initialization
-        ics = unknowns(isys) .=> bg_sol[unknowns(isys)][begin]
+        vars = unknowns(isys) .=> bg_sol[unknowns(isys)][begin]
         println("Found variable values")
-        println(join(ics, "\n"))
+        println(join(vars, "\n"))
     end
     check_solution(bg_sol.retcode)
 
@@ -150,7 +150,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
 end
 
 function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = true, kwargs...)
-    ks = k_dimensionless.(ks, Dict(pars)[M.g.h])
+    ks = k_dimensionless.(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -158,20 +158,22 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards) # should solve again if given keyword arguments, like saveat
-        pars = [pars;
-            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]) # TODO: more time points, spline log(t)?
+        pars = merge(pars, Dict(
+            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
             M.pt.b.rec.cs²spline => spline(th_sol_spline[M.b.rec.cs²], th_sol_spline[M.t])
-        ]
+        ))
     end
 
     ki = 1.0
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ki]; fully_determined = true) # TODO: why do I need this???
+    ics0 = Dict(ics0)
+    push!(pars, k => ki)
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true) # TODO: why do I need this???
     #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(M.pt, ics0, (tini, tend), [pars; k => ks[i]], fully_determined = true) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
+        return ODEProblem(M.pt, ics0, (tini, tend), merge(pars, Dict(k => ks[i])), fully_determined = true) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
         #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
         prob_new = remake(prob, u0 = [
             M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]
@@ -288,18 +290,17 @@ end
 
 
 function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
-    guesses = [pars[2] for pars in pars_varying]
-    pars_varying = [pars[1] for pars in pars_varying]
     funcs = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
 
     function f(vals_varying, _)
-        pars = [pars_fixed; pars_varying .=> vals_varying] # merge fixed and varying parameters
+        pars = merge(pars_fixed, Dict(keys(pars_varying) .=> vals_varying))
         sol = solve(M, pars; kwargs...) # solve cosmology
         return sol[funcs][:, end] # evaluate all expressions at final time (e.g. today)
     end
 
-    prob = NonlinearProblem(f, guesses)
+    guess = collect(values(pars_varying))
+    prob = NonlinearProblem(f, guess)
     sol = solve(prob, solver; show_trace = Val(verbose)) # TODO: speed up!
     check_solution(sol.retcode)
-    return pars_varying .=> sol.u
+    return keys(pars_varying) .=> sol.u
 end

@@ -22,7 +22,7 @@ M = ΛCDM()
 θ_strs = ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
 θ0 = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
 
-P(k, θ) = power_spectrum(solve(M, θ_syms .=> θ, k), M.c, k)
+P(k, θ) = power_spectrum(solve(M, Dict(θ_syms .=> θ), k), M.c, k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad

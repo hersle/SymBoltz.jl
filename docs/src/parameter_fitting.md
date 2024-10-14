@@ -75,13 +75,15 @@ function dL(z, sol::CosmologySolution)
 end
 
 function dL(z, M::CosmologyModel, Ωm0, h)
-    return dL(z, solve(M, [
+    pars = Dict(
         M.γ.T0 => 2.7,
         M.ν.Neff => 3.0,
         M.b.Ω0 => 0.0,
         M.c.Ω0 => Ωm0, # TODO: create matter-only model
         M.g.h => h
-    ], thermo = false))
+    )
+    sol = solve(M, pars, thermo = false)
+    return dL(z, sol)
 end
 
 # Show example predictions

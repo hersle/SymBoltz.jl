@@ -92,25 +92,24 @@ M2 = ΛCDM(Λ = X, name = :w0waCDM, Λanalytical = true)
 Now set some parameters and solve both models up to one perturbation wavenumber.
 For the ΛCDM model:
 ```@example ext
-θ1 = [
-    M1.γ.T0 => 2.7
-    M1.c.Ω0 => 0.27
-    M1.b.Ω0 => 0.05
-    M1.ν.Neff => 3.0
-    M1.g.h => 0.7
+θ1 = Dict(
+    M1.γ.T0 => 2.7,
+    M1.c.Ω0 => 0.27,
+    M1.b.Ω0 => 0.05,
+    M1.ν.Neff => 3.0,
+    M1.g.h => 0.7,
     M1.b.rec.Yp => 0.25
-]
+)
 ks = 1.0
 sol1 = solve(M1, θ1, ks)
 ```
 And for the w₀wₐCDM model:
 ```@example ext
-θ2 = [
-    θ1; # extend previous parameter list
-    M2.X.w0 => -0.9
-    M2.X.wa => 0.2
+θ2 = merge(θ1, Dict(
+    M2.X.w0 => -0.9,
+    M2.X.wa => 0.2,
     M2.X.cs² => 1.0
-]
+))
 sol2 = solve(M2, θ2, ks)
 ```
 

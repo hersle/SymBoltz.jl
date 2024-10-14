@@ -9,7 +9,7 @@ SymBoltz.RMΛ
 ```@example RMΛ
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = RMΛ()
-pars = [M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0] # TODO: don't pass h and T0 to avoid infinite loop
+pars = Dict(M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0) # TODO: don't pass h and T0 to avoid infinite loop
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
 p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ; N = 10000)
@@ -43,12 +43,11 @@ SymBoltz.w0waCDM
 ```@example w0waCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
 M = w0waCDM()
-pars = [
-    parameters_Planck18(M);
-    M.X.w0 => -0.9;
-    M.X.wa => 0.2;
-    M.X.cs² => 1.0;
-]
+pars = merge(parameters_Planck18(M), Dict(
+    M.X.w0 => -0.9,
+    M.X.wa => 0.2,
+    M.X.cs² => 1.0
+))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
 p1 = plot(sol, log10(M.g.a), M.X.w)
@@ -68,10 +67,10 @@ using SymBoltz, ModelingToolkit
 M = BDΛCDM()
 D = Differential(M.t)
 
-pars_fixed = [parameters_Planck18(M); M.G.ω => 100.0; D(M.G.ϕ) => 0.0] # unspecified: M.Λ.Ω0, M.G.ϕ
-pars_guess = [M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7] # initial guesses for shooting method
+pars_fixed = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω0, M.G.ϕ
+pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7) # initial guesses for shooting method
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
-pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
+pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 ```
 Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
@@ -114,7 +113,7 @@ using SymBoltz, ModelingToolkit, Plots
 V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
 D = Differential(M.t)
-pars = [parameters_Planck18(M); M.Q.ϕ => 1; M.Q.V0 => 1e-2; M.Q.N => 2]
-sol = solve(M, pars, thermo = false; guesses = [D(M.Q.ϕ) => +1.0])
+pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
+sol = solve(M, pars, thermo = false; guesses = [D(M.Q.ϕ) => +1.0], reltol = 1e-10)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```

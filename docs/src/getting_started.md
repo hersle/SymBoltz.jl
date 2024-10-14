@@ -41,14 +41,14 @@ equations(M.G)
 Next, we set our desired cosmological parameters and wavenumbers, and solve the model:
 ```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
-pars = [
-    M.γ.T0 => 2.7
-    M.c.Ω0 => 0.27
-    M.b.Ω0 => 0.05
-    M.ν.Neff => 3.0
-    M.g.h => 0.7
+pars = Dict(
+    M.γ.T0 => 2.7,
+    M.c.Ω0 => 0.27,
+    M.b.Ω0 => 0.05,
+    M.ν.Neff => 3.0,
+    M.g.h => 0.7,
     M.b.rec.Yp => 0.25
-]
+)
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 sol = solve(M, pars, ks)
 ```

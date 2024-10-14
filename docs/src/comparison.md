@@ -22,7 +22,7 @@ using Printf
 
 lmax = 6
 M = SymBoltz.ΛCDM() # TODO: pass lmax
-pars = [SymBoltz.parameters_Planck18(M); M.ν.Neff => 3.046]
+pars = merge(SymBoltz.parameters_Planck18(M), Dict(M.ν.Neff => 3.046))
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -39,7 +39,6 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
 end
 
 function output_class(pars, k::Real; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
-    pars = Dict(pars)
     in = Dict(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
