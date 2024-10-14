@@ -89,15 +89,15 @@ using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
 M = SymBoltz.BDRMΛ()
 D = Differential(M.t)
 
-pars_fixed = [M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0] # unspecified: M.Λ.Ω0, M.G.ϕ
-pars_guess = [M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7] # initial guesses for shooting method
+pars_fixed = Dict(M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω0, M.G.ϕ
+pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7) # initial guesses for shooting method
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
-pars = [pars_fixed; pars_shoot] # merge fixed and shooting parameters
+pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 
-ks = [1e-0] / u"Mpc"
-sol = solve(M, pars, ks, backwards = false) # TODO: set background integration direction during model creation
+k = 1e-0 / u"Mpc"
+sol = solve(M, pars, k, backwards = false) # TODO: set background integration direction during model creation
 p1 = plot(sol, log10(M.g.a), M.G.G; N = 10000)
-p2 = plot(sol, ks[1], log10(M.g.a), M.G.δϕ; N = 50000)
+p2 = plot(sol, k, log10(M.g.a), M.G.δϕ; N = 50000)
 plot(p1, p2, layout = (2, 1))
 ```
 
