@@ -302,5 +302,5 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
     prob = NonlinearProblem(f, guess)
     sol = solve(prob, solver; show_trace = Val(verbose)) # TODO: speed up!
     check_solution(sol.retcode)
-    return keys(pars_varying) .=> sol.u
+    return Dict(keys(pars_varying) .=> sol.u)
 end
