@@ -15,14 +15,15 @@
 Create a ΛCDM model.
 """
 function ΛCDM(;
+    lmax = 6,
     recombination = true,
     acceleration = false,
     Λanalytical = false,
     g = metric(),
     G = general_relativity(g; acceleration),
-    γ = photons(g),
-    ν = massless_neutrinos(g),
-    h = massive_neutrinos(g),
+    γ = photons(g; lmax),
+    ν = massless_neutrinos(g; lmax),
+    h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, name = :b),
     Λ = cosmological_constant(g; analytical = Λanalytical),

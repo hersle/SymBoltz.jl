@@ -20,8 +20,7 @@ using DataInterpolations
 using Plots; Plots.default(label=nothing)
 using Printf
 
-lmax = 6
-M = SymBoltz.ΛCDM() # TODO: pass lmax
+M = SymBoltz.ΛCDM(; lmax)
 pars = merge(SymBoltz.parameters_Planck18(M), Dict(M.ν.Neff => 3.046))
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
@@ -67,7 +66,7 @@ function output_class(pars, k::Real; exec="class", inpath="/tmp/symboltz_class/i
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
         "l_max_ur" => lmax,
-        "l_max_ncdm" => 4, # TODO: parameter
+        "l_max_ncdm" => lmax,
         "background_verbose" => 2,
     )
 

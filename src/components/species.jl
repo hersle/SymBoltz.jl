@@ -143,11 +143,11 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
 end
 
 """
-    massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
+    massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
 
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
-function massless_neutrinos(g; lmax=6, name = :ν, kwargs...)
+function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     ν = radiation(g; name, kwargs...) |> thermodynamics |> complete
 
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
@@ -176,11 +176,11 @@ end
 
 # TODO: use vector equations and simplify loops
 """
-    massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
+    massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
 
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
-function massive_neutrinos(g; nx=5, lmax=4, name = :h, kwargs...)
+function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     pars = @parameters Ω0_massless ρ0_massless Ω0 ρ0 m T0 y0
     vars = @variables ρ(t) T(t) y(t) P(t) w(t) cs²(t) δ(t) σ(t) θ(t) ψ(t)[1:nx,0:lmax+1]
 
