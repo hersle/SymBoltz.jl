@@ -85,6 +85,8 @@ function extract_order(sys::ODESystem, orders)
     return sys0
 end
 
+have(s) = !isnothing(s) # shorthand for checking if we have a given species
+
 function spline(y, x)
     # remove duplicate x values
     i = unique(i -> (x[i], y[i]), eachindex(x)) # indices of unique values
