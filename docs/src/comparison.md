@@ -85,6 +85,12 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
         "Omega_dcdmdr" => 0.0,
+
+        # approximations (see include/precisions.h)
+        "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
+        "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
+        "radiation_streaming_approximation" => 0, # turn off
+        "ur_fluid_approximation" => 3, # turn off
     )
 
     run_class(in, exec, inpath, outpath)
@@ -127,7 +133,6 @@ sol = Dict(
     "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), .- sol2[M.b.rec.τ̇] * (SymBoltz.k0 * h)),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cs²]), # TODO: becomes negative; fix
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
-    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
 
@@ -200,15 +205,15 @@ nothing # hide
 ### Background
 
 ```@example class
-plot_compare("a_bg", "t"; lgx=true, lgy=true) # TODO: my initial t is strictly speaking wrong, though?
+plot_compare("a_bg", "t"; lgx=true, lgy=true) # TODO: my initial t is strictly speaking wrong, though? # hide
 ```
 ```@example class
-plot_compare("a_bg", "E"; lgx=true, lgy=true)
+plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide
 ```
 
 ### Thermodynamics
 ```@example class
-plot_compare("a_th", "τ̇"; lgx=true, lgy=true)
+plot_compare("a_th", "τ̇"; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_th", "Xe"; lgx=true, lgy=false) # hide
@@ -218,7 +223,7 @@ plot_compare("a_th", "Tb"; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
-# TODO: Ṫ
+# TODO: Ṫ # hide
 ```
 
 ### Perturbations
@@ -227,5 +232,8 @@ plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 plot_compare("a_pt", ["Ψ", "Φ"] ; lgx=true) # hide
 ```
 ```@example class
-plot_compare("a_pt", ["δb", "δc"]; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["δb", "δc", "δγ"]; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("a_pt", ["θb", "θc", "θγ"]; lgx=true, lgy=true) # hide
 ```
