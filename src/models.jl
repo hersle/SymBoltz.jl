@@ -39,14 +39,14 @@ function ΛCDM(;
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
     )
     have(ν) && have(γ) && merge!(defs, Dict(
-        ν.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0,
-        ν.Ω0 => (ν.Neff/3) * 7/8 * (4/11)^(4/3) * γ.Ω0
+        ν.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # TODO: check (unused if only have massless neutrinos)
+        ν.Ω0 => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω0
     ))
     have(ν) && have(γ) && have(h) && merge!(defs, Dict( # TODO: shouldn't need ν
         h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
         h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
     ))
-    push!(defs, fν => have(ν) ? ν.ρ0 / (ν.ρ0 + ν.ρ0) : 0.0)
+    push!(defs, fν => have(ν) ? ν.ρ0 / (γ.ρ0 + ν.ρ0) : 0)
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
         G.P ~ sum(s.P for s in species) # TODO: only if G has P
