@@ -25,51 +25,51 @@ pars = Dict(
 )
 ks = 10 .^ range(-3, 0, length=100) / u&quot;Mpc&quot;
 sol = solve(M, pars, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution with stages
-  1. background: solved with Rodas5P, 31 points
-  2. thermodynamics: solved with Rodas5P, 13785 points
-  3. perturbations: solved with KenCarp4, 54-339 points, x100 k ∈ [4.282749400000001, 4282.749400000001] H₀/c (linear interpolation in-between)</code></pre><p>To solve only the background, you can simply omit the <code>ks</code> argument: <code>solve(prob, pars)</code>.</p><h2 id="3.-Access-the-solution"><a class="docs-heading-anchor" href="#3.-Access-the-solution">3. Access the solution</a><a id="3.-Access-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Access-the-solution" title="Permalink"></a></h2><p>You are now free to do whatever you want with the solution object. It can be called like</p><ul><li><code>sol(t, y)</code> to get the variable(s) <span>$y(t)$</span> as a function of conformal time(s) <span>$t$</span>, or</li><li><code>sol(k, t, y)</code> to get the variable(s) <span>$y(k,t)$</span> as a function of the wavenumber(s) <span>$k$</span> and conformal time(s) <span>$t$</span>.</li></ul><p><code>y</code> can be <em>any</em> symbolic variable(s) in the model <code>M</code>. The solution will automatically interpolate linearly in <span>$\log(k)$</span>, and with the ODE solver&#39;s custom interpolator in <span>$t$</span>.</p><p>For example, to get the reduced Hubble function <span>$E(t) = H(t) / H_0$</span> for 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
+  1. background: solved with Rodas5P, 30 points
+  2. thermodynamics: solved with Rodas5P, 13796 points
+  3. perturbations: solved with KenCarp4, 60-334 points, x100 k ∈ [4.282749400000001, 4282.749400000001] H₀/c (linear interpolation in-between)</code></pre><p>To solve only the background, you can simply omit the <code>ks</code> argument: <code>solve(prob, pars)</code>.</p><h2 id="3.-Access-the-solution"><a class="docs-heading-anchor" href="#3.-Access-the-solution">3. Access the solution</a><a id="3.-Access-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Access-the-solution" title="Permalink"></a></h2><p>You are now free to do whatever you want with the solution object. It can be called like</p><ul><li><code>sol(t, y)</code> to get the variable(s) <span>$y(t)$</span> as a function of conformal time(s) <span>$t$</span>, or</li><li><code>sol(k, t, y)</code> to get the variable(s) <span>$y(k,t)$</span> as a function of the wavenumber(s) <span>$k$</span> and conformal time(s) <span>$t$</span>.</li></ul><p><code>y</code> can be <em>any</em> symbolic variable(s) in the model <code>M</code>. The solution will automatically interpolate linearly in <span>$\log(k)$</span>, and with the ODE solver&#39;s custom interpolator in <span>$t$</span>.</p><p>For example, to get the reduced Hubble function <span>$E(t) = H(t) / H_0$</span> for 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
 Es = sol(ts, M.g.E)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">300-element Vector{Float64}:
- 8.409294210126998e11
- 7.735242378738376e11
- 7.115216864720432e11
- 6.544887691044451e11
- 6.020271872320596e11
- 5.537705612311106e11
- 5.0938187285900183e11
- 4.6855111259811914e11
- 4.309931154724998e11
- 3.964455702427483e11
+ 9.632964016467462e11
+ 8.852901101123376e11
+ 8.1360041068068e11
+ 7.477158431971334e11
+ 6.8716635750158e11
+ 6.315199611030634e11
+ 5.803796381914694e11
+ 5.3338051803112427e11
+ 4.9018727255515594e11
+ 4.5049172461316797e11
  ⋮
- 2.101260245847847
- 1.8822694861015616
- 1.6914028328056152
- 1.525818544938288
- 1.38302750729402
- 1.2608516826168439
- 1.1573815804067862
- 1.0709378614476985
- 1.000028014189519</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100×300 Matrix{Float64}:
- 0.661701  0.661699  0.661697  …  0.49171     0.471944    0.447145
- 0.661701  0.661699  0.661697     0.490896    0.471162    0.446405
- 0.661701  0.661699  0.661697     0.49        0.470302    0.44559
- 0.661701  0.661699  0.661697     0.489014    0.469356    0.444694
- 0.661701  0.661699  0.661697     0.487933    0.468318    0.443709
- 0.661701  0.661699  0.661697  …  0.486745    0.467177    0.44263
- 0.661701  0.661699  0.661697     0.485445    0.46593     0.441447
- 0.661701  0.661699  0.661697     0.484023    0.464565    0.440154
- 0.661701  0.661699  0.661697     0.482472    0.463076    0.438742
- 0.661701  0.661699  0.661697     0.480779    0.461451    0.437204
+ 2.1162176981796987
+ 1.893776820104421
+ 1.700037461512365
+ 1.532083560318982
+ 1.3873611897537421
+ 1.2636360740554975
+ 1.1589526214387997
+ 1.0715922860847673
+ 1.000028259261397</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100×300 Matrix{Float64}:
+ 0.716174  0.716172  0.71617   …  0.521552    0.500485    0.474003
+ 0.716174  0.716172  0.71617      0.520479    0.499456    0.473029
+ 0.716174  0.716172  0.71617      0.5193      0.498325    0.471958
+ 0.716174  0.716172  0.71617      0.518007    0.497083    0.470782
+ 0.716174  0.716172  0.71617      0.516589    0.495723    0.469493
+ 0.716174  0.716172  0.71617   …  0.515037    0.494232    0.468082
+ 0.716174  0.716172  0.71617      0.513341    0.492604    0.46654
+ 0.716174  0.716172  0.71617      0.51149     0.490829    0.464859
+ 0.716174  0.716172  0.71617      0.509475    0.488895    0.463027
+ 0.716174  0.716172  0.71617      0.507283    0.486791    0.461034
  ⋮                             ⋱                          
- 0.661701  0.661692  0.661683     0.00412206  0.00395615  0.00374806
- 0.661701  0.66169   0.66168      0.00368844  0.00353998  0.00335379
- 0.661701  0.661689  0.661678     0.00329851  0.00316574  0.00299923
- 0.661701  0.661688  0.661675     0.00294806  0.00282939  0.00268058
- 0.661701  0.661686  0.661672  …  0.00263337  0.00252737  0.00239444
- 0.661701  0.661684  0.661668     0.00235102  0.00225638  0.00213771
- 0.661701  0.661682  0.661664     0.00209782  0.00201338  0.00190749
- 0.661701  0.661679  0.661659     0.00187095  0.00179565  0.0017012
- 0.661701  0.661676  0.661653     0.0016678   0.00160067  0.00151648</code></pre><p>This can be plotted with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
-plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="73a5ccd8.svg" alt="Example block output"/><p>We can also calculate the power spectrum for a desired species (here: cold dark matter with <code>M.c</code>):</p><pre><code class="language-julia hljs">Ps = power_spectrum(sol, M.c, ks)
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="74ee7f9c.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+ 0.716174  0.716166  0.716158     0.0036778   0.00352906  0.00334215
+ 0.716174  0.716165  0.716156     0.00328967  0.00315662  0.00298944
+ 0.716174  0.716164  0.716154     0.00294082  0.00282188  0.00267242
+ 0.716174  0.716162  0.716152     0.00262754  0.00252127  0.00238774
+ 0.716174  0.716161  0.716149  …  0.00234638  0.00225148  0.00213224
+ 0.716174  0.716159  0.716146     0.00209419  0.00200949  0.00190307
+ 0.716174  0.716157  0.716142     0.00186819  0.00179263  0.00169769
+ 0.716174  0.716155  0.716138     0.00166577  0.00159839  0.00151374
+ 0.716174  0.716153  0.716133     0.00148456  0.00142452  0.00134907</code></pre><p>This can be plotted with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="f82f3e3e.svg" alt="Example block output"/><p>We can also calculate the power spectrum for a desired species (here: cold dark matter with <code>M.c</code>):</p><pre><code class="language-julia hljs">Ps = power_spectrum(sol, M.c, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="b4d9a1dd.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
 Cls = Cl(M, pars, ls)
-plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing) # TODO: fix</code></pre><img src="d70552e3.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 15 October 2024 10:48">Tuesday 15 October 2024</span>. Using Julia version 1.11.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing) # TODO: fix</code></pre><img src="ad86f420.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 15 October 2024 13:46">Tuesday 15 October 2024</span>. Using Julia version 1.11.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
