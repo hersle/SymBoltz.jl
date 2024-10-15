@@ -5,8 +5,9 @@ function parameters_Planck18(M::CosmologyModel)
         M.g.h => h,
         M.γ.T0 => 2.7255,
         M.c.Ω0 => 0.1200 / h^2,
-        M.b.Ω0 => 0.02237 / h^2,
-        M.b.rec.Yp => 0.2454
+        M.b.Ω0 => 0.0224 / h^2,
+        M.b.rec.Yp => 0.2454,
+        M.ν.Neff => 2.99 # TODO: vs 3.046 or 3.044?
 
         # TODO: how to handle
         # 1) backwards with default for Λ.Ω0? --> skip E = 1
