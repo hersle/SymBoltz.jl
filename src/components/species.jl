@@ -152,9 +152,6 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
 
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
-    defs = [
-        Neff => 3.046
-    ]
     eqs1 = [
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
@@ -171,7 +168,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
-    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...))
+    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, name, kwargs...))
 end
 
 # TODO: use vector equations and simplify loops

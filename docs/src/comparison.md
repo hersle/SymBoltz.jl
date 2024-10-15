@@ -22,8 +22,9 @@ using Plots; Plots.default(label=nothing)
 using Printf
 
 lmax = 6
-M = SymBoltz.ΛCDM(; lmax, ν = nothing, h = nothing, Λanalytical = true)
+M = SymBoltz.ΛCDM(; lmax, h = nothing, Λanalytical = true)
 pars = SymBoltz.parameters_Planck18(M)
+pars[M.ν.Neff] = 3.044 # TODO
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -72,7 +73,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "Omega_cdm" => pars[M.c.Ω0],
 
         # neutrinos # TODO: set neutrino stuff to 0 unless otherwise specified
-        "N_ur" => 0.0,
+        "N_ur" => pars[M.ν.Neff],
         "N_ncdm" => 0.0, # TODO
         "m_ncdm" => 0.00, # TODO
         "T_ncdm" => 0.0, # TODO (pars.Neff/3)^(1/4) * (4/11)^(1/3), # TODO: set properly
@@ -122,7 +123,7 @@ sol = Dict(
     "t" => (sol1["bg"]["conf.time[Mpc]"], sol2[M.t] / (h * SymBoltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[M.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.γ.ρ] / (3/8π)),
-    #"ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.ν.ρ] / (3/8π)),
+    "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.ν.ρ] / (3/8π)),
     "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.c.ρ] / (3/8π)),
     "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.b.ρ] / (3/8π)),
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.Λ.ρ] / (3/8π)),
@@ -143,12 +144,12 @@ sol = Dict(
     "δb" => (sol1["pt"]["delta_b"], sol2[1, M.b.δ]), # TODO: sign?
     "δc" => (sol1["pt"]["delta_cdm"], sol2[1, M.c.δ]), # TODO: sign?
     "δγ" => (sol1["pt"]["delta_g"], sol2[1, M.γ.δ]),
-    #"δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
+    "δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
     #"δmν" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
     "θb" => (sol1["pt"]["theta_b"], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
-    #"θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)), # TODO: is *3 correct?
+    "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)), # TODO: is *3 correct?
     #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)), # TODO: correct???
     #"Π" => (sol1["pt"]["shear_g"], sol2[1, M.γ.Θ[2]] * -2),
     #"P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.ΘP0] * -4), # TODO: is -4 correct ???
@@ -186,8 +187,8 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         y1, y2 = sol[ylabel]
         y1 = y1[i1s]
         y2 = y2[i2s]
-        plot!(p[1], xplot(x1), yplot(y1); color = 1, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xlabel = xlab(xlabel), legend_position = :topright)
-        plot!(p[1], xplot(x2), yplot(y2); color = 2, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
+        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xlabel = xlab(xlabel), legend_position = :topright)
+        plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
 
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
@@ -210,6 +211,9 @@ plot_compare("a_bg", "t"; lgx=true, lgy=true) # TODO: my initial t is strictly s
 ```@example class
 plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide
 ```
+```@example class
+plot_compare("a_bg", ["ργ", "ρν", "ρb", "ρc", "ρΛ"]; lgx=true, lgy=true) # hide
+```
 
 ### Thermodynamics
 ```@example class
@@ -229,11 +233,11 @@ plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 ### Perturbations
 
 ```@example class
-plot_compare("a_pt", ["Ψ", "Φ"] ; lgx=true) # hide
+plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 ```
 ```@example class
-plot_compare("a_pt", ["δb", "δc", "δγ"]; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["δb", "δc", "δγ", "δν"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("a_pt", ["θb", "θc", "θγ"]; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
 ```
