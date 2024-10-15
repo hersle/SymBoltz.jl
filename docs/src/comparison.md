@@ -89,7 +89,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         # approximations (see include/precisions.h)
         "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
-        "radiation_streaming_approximation" => 0, # turn off
+        "radiation_streaming_approximation" => 3, # turn off
         "ur_fluid_approximation" => 3, # turn off
     )
 
