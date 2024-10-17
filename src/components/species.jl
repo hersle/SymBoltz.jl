@@ -3,11 +3,12 @@
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
-function species_constant_eos(g, w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, kwargs...)
+function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ0 Ω0) : []
-    vars = @variables ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) u(t) u′(t)
+    vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cs²(t) u(t) u′(t)
     eqs0 = [
+        w ~ _w # equation of state
         P ~ w * ρ # equation of state
         analytical ? (ρ ~ ρ0 * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ

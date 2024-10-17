@@ -1,95 +1,110 @@
 # Creating extended models
 
 This tutorial shows how to create extended (beyond-ΛCDM) models.
+As a simple example, we replace the cosmological constant with equation of state ``w(t) = -1`` by w₀wₐ dark energy with equation of state
+```math
+w(t) = \frac{P(t)}{ρ(t)} = w_0 + w_a (1 - a(t)),
+```
+turning the ΛCDM model into the w₀wₐCDM model,
+as suggested by [Chevallier, Polarski (2000)](https://arxiv.org/abs/gr-qc/0009008) and [Linder (2002)](https://arxiv.org/abs/astro-ph/0208512).
 
-As a simple example, we will replace the cosmological constant Λ with equation of state $P(t) / \rho(t) = w(t) = -1$ in the pure ΛCDM model
-with the w₀wₐ-parametrization from [Chevallier, Polarski (2000)](https://arxiv.org/abs/gr-qc/0009008) and [Linder (2002)](https://arxiv.org/abs/astro-ph/0208512) with equation of state
-```math
-w(t) = w_0 + w_a (1 - a(t)).
+SymBoltz represents each component of the Einstein-Boltzmann equations as a [`ModelingToolkit.ODESystem`](https://docs.sciml.ai/ModelingToolkit/stable/systems/ODESystem/#ModelingToolkit.ODESystem).
+These are effectively incomplete "chunks" of logically related parameters, variables, equations and initial conditions
+that are composed together into a complete cosmological model.
+A cosmological model can be modified by adding or replacing components.
+
+## 1. Create the reference model
+
+First, we create the reference model that is to be extended.
+We will modify the standard ΛCDM model:
+```@example ext
+using SymBoltz
+M1 = ΛCDM(Λanalytical = true)
 ```
-With this equation of state, solving the background continuity equation
-```math
-\frac{\mathrm{d} \rho(t)}{\mathrm{d}t} = -3 H(t) \, (ρ(t) + P(t)) = -3 H(t) \, \rho(t) \, (1 + w(t))
+The cosmological constant species is stored in the component `M1.Λ`.
+Here are the equations we will remove:
+```@example ext
+equations(M1.Λ)
 ```
-with the ansatz $\rho(t) = \rho(t_0) \, a(t)^m \exp(n (1 - a(t)))$
-gives $m = -3 (1 + w_0 + w_a)$, $n = -3 w_a$ and hence
+
+## 2. Create the extended component
+
+The background continuity equation
+``\dot{ρ}(t) = -3 H(t) \, ρ(t) \, (1 + w(t))``
+can be solved analytically with the w₀wₐ equation of state and the ansatz
 ```math
-\rho(t) = \rho(t_0) \, a(t)^{1 + w_0 + w_a} \exp(w_a (1 - a(t))).
+ρ(t) = ρ(t_0) \, a(t)^m \exp(n (1 - a(t))),
 ```
-Following [Bertschinger & Ma (equation 30)](https://arxiv.org/pdf/astro-ph/9506072#%5B%7B%22num%22%3A70%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C387%5D), the perturbation equations are
+giving ``m = -3 (1 + w_0 + w_a)`` and ``n = -3 w_a``.
+The perturbation equations are
 ```math
 \begin{aligned}
 \dot{δ} &= -(1 + w) (θ - 3 \dot{Φ}) - 3 \frac{\dot{a}}{a} (c_s^2 - w) δ, \\
 \dot{θ} &= -\frac{\dot{a}}{a} (1 - 3w) θ - \frac{\dot{w}}{1+w} θ + \frac{c_s^2}{1+w} k^2 δ - k^2 σ + k^2 Ψ,
 \end{aligned}
 ```
-with initial (adiabatic) conditions $δ = -\frac{3}{2} (1+w) Ψ$ and $θ = \frac{1}{2} k^2 t Ψ$.
+with (adiabatic) initial conditions ``δ = -\frac{3}{2} (1+w) Ψ`` and ``θ = \frac{1}{2} k^2 t Ψ``,
+following [Bertschinger and Ma (equation 30)](https://arxiv.org/pdf/astro-ph/9506072#%5B%7B%22num%22%3A70%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C387%5D).
 
-## Create the symbolic component
-
-SymBoltz.jl represents each component of the Einstein-Boltzmann equations as a partial/incomplete [`ModelingToolkit.jl`](https://docs.sciml.ai/ModelingToolkit/) `ODESystem`.
-These are effectively "chunks" of logically related parameters, variables, equations and initial conditions
-that are composed together into a full/complete cosmological model.
-Let us create a component for the w₀wₐ-parametrization:
+Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:
 ```@example ext
-using ModelingToolkit # must be loaded to create custom components
-using SymBoltz: t, D, ϵ, k # load conformal time and perturbation book-keeper
+using ModelingToolkit # load to create custom components
+using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wavenumber and perturbation book-keeper variables
+g = M1.g # reuse metric component from the original model
 
-# Create a function that creates a symbolic w0wa dark energy component
-function w0wa(g; kwargs...)
-    # 1. Create parameters
-    pars = @parameters w0 wa ρ0 Ω0 cs²
+# 1. Create parameters (will resurface as tunable numbers in the full model)
+pars = @parameters w0 wa ρ0 Ω0 cs²
 
-    # 2. Create variables
-    vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
+# 2. Create variables
+vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 
-    # 3. Specify background equations (~ is equality in ModelingToolkit)
-    eqs0 = [
-        w ~ w0 + wa * (1 - g.a) # equation of state
-        ẇ ~ D(w)
-        ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
-        P ~ w * ρ # pressure
-    ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
+# 3. Specify equations (~ means equality in ModelingToolkit)
+eqs = [
+    # Background equations (of order O(ϵ⁰)
+    w ~ w0 + wa * (1 - g.a) # equation of state
+    ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
+    P ~ w * ρ # pressure
 
-    # 4. Specify perturbation (O(ϵ⁰)) equations (D is the conformal time derivative)
-    eqs1 = [
-        D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ # energy overdensity
-        D(θ) ~ -g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
-        σ ~ 0 # shear stress
-    ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
+    # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
+    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ) * ϵ # energy overdensity
+    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
+    σ * ϵ ~ 0 # shear stress
+]
 
-    # 5. Specify initial conditions for perturbations
-    ics1 = [
-        δ ~ -3/2 * (1+w) * g.Ψ
-        θ ~ 1/2 * (k^2*t) * g.Ψ
-    ] .|> SymBoltz.O(ϵ^1)
+# 4. Specify initial conditions (for perturbations)
+initialization_eqs = [
+    δ * ϵ ~ -3/2 * (1+w) * g.Ψ * ϵ
+    θ * ϵ ~ 1/2 * (k^2*t) * g.Ψ * ϵ
+]
 
-    # 6. Specify relationships between parameters
-    defaults = [
-        ρ0 => 3/8π * Ω0
-    ]
+# 5. Specify parameter relationships
+defaults = [
+    ρ0 => 3/8π * Ω0 # set ρ0 from Ω0
+]
 
-    # 7. Pack everything into an ODE system
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, kwargs...)
-end
+# 6. Pack into an ODE system called "X"
+@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, defaults)
 ```
 
-## Create the standard and extended models
+Note that the w₀wₐ component only knows about itself (and the metric),
+but is completely unaware of the theory of gravity, other species and other components.
+Its "job" is only to expose the variables like `ρ`, `P`, `δ` and `σ` that source the Einstein equations.
+This connection is made when the component is used to create a full cosmological model, as we will do next.
 
-We can now create both the standard ΛCDM model,
-and then recreate it with the cosmological constant replaced by the w₀wₐ-component to construct the extended w₀wₐCDM model:
+## 3. Create the extended model
+
+Finally, we create a new `ΛCDM` model, but replace `Λ` by `X`, and call it the `w0waCDM` model:
 ```@example ext
-# TODO: start with M1 from the very top, then add M2 later
-using SymBoltz
-M1 = ΛCDM(name = :ΛCDM, Λanalytical = true)
-
-X = w0wa(M1.g; name = :X)
 M2 = ΛCDM(Λ = X, name = :w0waCDM, Λanalytical = true)
+```
+Now `M2.Λ` no longer exists, but `M2.X` contains our new equations:
+```@example ext
+equations(M2.X)
 ```
 
 ## Solve and compare the models
 
-Now set some parameters and solve both models up to one perturbation wavenumber.
+To test, let us set some parameters and solve both models with one perturbation mode.
 For the ΛCDM model:
 ```@example ext
 θ1 = Dict(
@@ -112,13 +127,16 @@ And for the w₀wₐCDM model:
 ))
 sol2 = solve(M2, θ2, ks)
 ```
-
-Let us compare $H$ as a function of the (logarithm of the) scale factor $a$:
+Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
 ```@example ext
-lgas = range(-3, 0, length=500)
+lgas = range(-3, 0, length=500) # log10(a)
 H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
 H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
+Ψ1s = sol1(log10(M1.g.a), ks, lgas, M1.g.Ψ)
+Ψ2s = sol2(log10(M2.g.a), ks, lgas, M2.g.Ψ)
 
 using Plots
-plot(lgas, H2s ./ H1s; xlabel = "lg(a)", ylabel = "H₂ / H₁", label = nothing)
+# TODO: make convenience plot method that compares two models
+plot(lgas, H2s ./ H1s; xlabel = "lg(a)", label = "H₂ / H₁")
+plot!(lgas, Ψ1s ./ Ψ2s; xlabel = "lg(a)", label = "Ψ₂ / Ψ₁")
 ```
