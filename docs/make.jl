@@ -2,6 +2,9 @@ using Documenter, SymBoltz
 
 ENV["JULIA_DEBUG"] = "Documenter" # make Documenter.jl output more verbose
 
+using Latexify
+set_default(starred = true) # equation numbering looks bad
+
 makedocs(
     sitename = "SymBoltz",
     pages = [
