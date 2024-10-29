@@ -93,14 +93,13 @@ Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
-function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = [], kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
-    T = typeof(pars)
     params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
     vars = setdiff(keys(params), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
-    vars = T([var => params[var] for var in vars]) # like u0
-    pars = T([par => params[par] for par in pars]) # like p
+    vars = Dict(var => params[var] for var in vars) # like u0
+    pars = Dict(par => params[par] for par in pars) # like p
 
     # First solve background forwards or backwards from today
     if backwards
