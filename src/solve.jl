@@ -34,12 +34,13 @@ end
 
 function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
     if debug
-        sys = complete(debugize(sys)) # TODO: make work with massive neutrinos
+        sys = debugize(sys) # TODO: make work with massive neutrinos
     end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys; spline_thermo))
-    return CosmologyModel(complete(sys), bg, th, pt, initE, spline_thermo)
+    sys = complete(sys; flatten = false)
+    return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
 end
 
 # Forward property access to full system
@@ -59,8 +60,8 @@ unknowns(M::CosmologyModel) = unknowns(M.sys)
 parameters(M::CosmologyModel) = parameters(M.sys)
 initialization_equations(M::CosmologyModel) = initialization_equations(M.sys)
 defaults(M::CosmologyModel) = defaults(M.sys)
-
-Base.show(io::IO, M::CosmologyModel) = print(io, chop(sprint(print_tree, M.sys))) # chop off last excessive newline
+hierarchy(M::CosmologyModel) = hierarchy(M.sys)
+Base.show(io::IO, mime::MIME"text/plain", M::CosmologyModel) = show(io, mime, M.sys) # chop off last excessive newline
 
 struct CosmologySolution
     bg::ODESolution

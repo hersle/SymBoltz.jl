@@ -113,20 +113,3 @@ derivative(s, t) = DataInterpolations.derivative(s, t)
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
-
-# implement tree interface for hierarchical systems
-using AbstractTrees
-using SymbolicUtils
-function AbstractTrees.children(sys::ODESystem; variables = false)
-    syss = collect(sys.systems)
-    if variables && isempty(syss)
-        return union(unknowns(sys), observed(sys), parameters(sys))
-    else
-        return syss
-    end
-end
-function AbstractTrees.children(var::SymbolicUtils.BasicSymbolic)
-    return []
-end
-AbstractTrees.printnode(io::IO, sys::ODESystem) = print(io, sys.name)
-AbstractTrees.printnode(io::IO, var::SymbolicUtils.BasicSymbolic) = print(io, var)
