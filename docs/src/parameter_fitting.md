@@ -64,25 +64,23 @@ theoretically, we solve the standard ΛCDM model:
 # TODO: generalize to non-flat
 using SymBoltz, DataInterpolations
 
-M = ΛCDM()
+M = RMΛ()
 
 function dL(z, sol::CosmologySolution)
     a = @. 1 / (z + 1)
-    t = sol(M.g.z, z, M.t) / sol.bg.ps[M.g.H0]
-    t0 = sol(M.g.z, 0, M.t) / sol.bg.ps[M.g.H0]
+    t = sol(M.g.z, z, M.t / M.g.H0)
+    t0 = sol(M.g.z, 0, M.t / M.g.H0)
     r = @. SymBoltz.c * (t0 .- t)
     return @. r / a / SymBoltz.Gpc
 end
 
 function dL(z, M::CosmologyModel, Ωm0, h)
     pars = Dict(
-        M.γ.T0 => 2.7,
-        M.ν.Neff => 3.0,
-        M.b.Ω0 => 0.0,
-        M.c.Ω0 => Ωm0, # TODO: create matter-only model
-        M.g.h => h
+        M.r.Ω0 => 5e-5,
+        M.m.Ω0 => Ωm0,
+        M.g.h => h, M.r.T0 => 0.0 # TODO: don't set
     )
-    sol = solve(M, pars, thermo = false)
+    sol = solve(M, pars; thermo = false)
     return dL(z, sol)
 end
 
@@ -112,7 +110,7 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, M) # condition model on data
-chain = sample(sn, NUTS(), MCMCSerial(), 200, 1) # TODO: NUTS() # TODO: MCMCThreads()
+chain = sample(sn, NUTS(), MCMCThreads(), 200, 2)
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:

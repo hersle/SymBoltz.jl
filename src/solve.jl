@@ -210,7 +210,7 @@ end
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
     if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
-        return sol.th.ps[i] # assume all parameters are in background/thermodynamics
+        return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly?
     else
         return stack(sol.th[i, j])
     end

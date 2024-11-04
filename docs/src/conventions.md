@@ -16,7 +16,3 @@ The conventions in the code are inspired by the [seminal paper by Ma and Bertsch
 - In background and perturbation equations, all numbers are dimensionless, defined as their dimensionful counterparts in units of $H_0$, $G$ and $c$.
   For example, `ρ` is mass density in units of $H_0^2/G$, i.e. the dimensionless number $\rho_\text{code} = \rho_\text{phys} / (H_0^2/G)$.
 - In recombination equations, all quantities are in SI units. (TODO: make everything consistent in Mpc units?)
-
-## Component abbreviations
-
-TODO

@@ -1,6 +1,6 @@
 # Comparison to other codes
 
-TODO
+TODO: rethink table
 
 | Feature                  | [SymBoltz.jl](https://github.com/hersle/SymBoltz.jl) | [CAMB](https://camb.info/)    | [CLASS](https://lesgourg.github.io/class_public/class.html) |
 | :----------------------: | :--------------------------------------------------: | :---------------------------: | :---------------------------------------------------------: |
@@ -64,11 +64,11 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
         # baryons
         "Omega_b" => pars[M.b.Ω0],
-        "YHe" => pars[M.b.rec.Yp], # TODO: disable recombination and reionization?
-        "recombination" => "recfast", # or HyREC
+        "YHe" => pars[M.b.rec.Yp],
+        "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => 1,
         "recfast_Heswitch" => 6,
-        "reio_parametrization" => "reio_none",
+        "reio_parametrization" => "reio_none", # TODO: enable
 
         # cold dark matter
         "Omega_cdm" => pars[M.c.Ω0],
@@ -114,7 +114,7 @@ end
 
 k = 1e0 / u"Mpc" # 1/Mpc # disagreement on smaller scales
 sol1 = solve_class(pars, k)
-sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # TODO: KenCarp4 and Kvaerno5 "emulate" radiation streaming, while Rodas5P continues in an exact way
+sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
@@ -133,24 +133,24 @@ sol = Dict(
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
     "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), .- sol2[M.b.rec.τ̇] * (SymBoltz.k0 * h)),
-    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cs²]), # TODO: becomes negative; fix
+    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cs²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
 
     # perturbations
     "a_pt" => (sol1["pt"]["a"], sol2[1, M.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2[1, M.g.Φ]), # TODO: same?
-    "Ψ" => (sol1["pt"]["psi"], sol2[1, M.g.Ψ]), # TODO: same?
-    "δb" => (sol1["pt"]["delta_b"], sol2[1, M.b.δ]), # TODO: sign?
-    "δc" => (sol1["pt"]["delta_cdm"], sol2[1, M.c.δ]), # TODO: sign?
+    "Φ" => (sol1["pt"]["phi"], sol2[1, M.g.Φ]),
+    "Ψ" => (sol1["pt"]["psi"], sol2[1, M.g.Ψ]),
+    "δb" => (sol1["pt"]["delta_b"], sol2[1, M.b.δ]),
+    "δc" => (sol1["pt"]["delta_cdm"], sol2[1, M.c.δ]),
     "δγ" => (sol1["pt"]["delta_g"], sol2[1, M.γ.δ]),
     "δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
     #"δmν" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
     "θb" => (sol1["pt"]["theta_b"], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
-    "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)), # TODO: is *3 correct?
+    "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
     #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)), # TODO: correct???
     #"Π" => (sol1["pt"]["shear_g"], sol2[1, M.γ.Θ[2]] * -2),
     #"P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.ΘP0] * -4), # TODO: is -4 correct ???
@@ -200,14 +200,13 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
     hline!(p[end], [0.0]; color = :black, linewidth = 2, linestyle = :dash, ylabel = "|y₂-y₁| / max(|y₁|, |y₂|) / %", z_order = 1)
     return p
 end
-# TODO: compare relative errors between un-log10-ed quantities
 nothing # hide
 ```
 
 ### Background
 
 ```@example class
-plot_compare("a_bg", "t"; lgx=true, lgy=true) # TODO: my initial t is strictly speaking wrong, though? # hide
+plot_compare("a_bg", "t"; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide

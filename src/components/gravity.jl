@@ -33,7 +33,6 @@ end
 
 # TODO: potential
 # TODO: mass
-# TODO: optionally solve F1 directly for D(a) > 0 with quadratic formula
 """
     brans_dicke(g; name = :G, kwargs...)
 
@@ -59,7 +58,7 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         push!(ics0, F1 |> O(ϵ^0))
     else
         append!(eqs0, [
-            D(a) ~ -a/2*D(ϕ)/ϕ + √((a/2*D(ϕ)/ϕ)^2 + 8*Num(π)/3*ρ*a^4/ϕ + ω/6*(a*D(ϕ)/ϕ)^2) # TODO: Symbolics.symbolic_solve F1 for ȧ
+            D(a) ~ -a/2*D(ϕ)/ϕ + √((a/2*D(ϕ)/ϕ)^2 + 8*Num(π)/3*ρ*a^4/ϕ + ω/6*(a*D(ϕ)/ϕ)^2) # solve quadratic equation for ȧ # TODO: Symbolics.symbolic_solve
             Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
         ] .|> O(ϵ^0))
     end
