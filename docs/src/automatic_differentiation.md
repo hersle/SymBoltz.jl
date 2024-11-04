@@ -10,25 +10,24 @@ This technique [can also differentiate any other quantity](@ref "General approac
 
 ## 1. Wrap the evaluation
 
-*We* must first decide which parameters $\theta$ the power spectrum $P(k; \theta)$ will be considered a function of.
-To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(\Omega_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):
+First, we must decide which parameters $\theta$ the power spectrum $P(k; \theta)$ should be considered a function of.
+To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(T_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):
 ```@example ad
 using SymBoltz
-
 M = ΛCDM()
 
-# define ordering and values of parameters
-θ_syms = [M.γ.T0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] # symbolic indices
-θ_strs = ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"] # plot labels
-θ0 = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25] # numerical values
-
-P(k, θ) = power_spectrum(solve(M, Dict(θ_syms .=> θ), k), M.c, k)
+function P(k, θ)
+   pars = Dict([M.γ.T0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
+   sol = solve(M, pars, k)
+   return power_spectrum(sol, M.c, k)
+end
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
+θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25]
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
-Ps = P(ks, θ0)
+Ps = P(ks, θ)
 ```
 This can be plotted with
 ```@example ad
@@ -41,13 +40,17 @@ plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel
 To get $\partial \lg P / \partial \lg \theta$, we can simply pass the wrapper function `P(k, θ)` through [`ForwardDiff.jacobian`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian):
 ```@example ad
 using ForwardDiff
-lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # ForwardDiff.jacobian needs an array -> array function
-dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ0))
+lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # in log-space
+dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ))
 ```
 The matrix element `dlgP_dlgθs[i, j]` now contains $\partial \lg P(k_i) / \partial \lg \theta_j$.
 We can plot them all at once:
 ```@example ad
-plot(log10.(ks/u"1/Mpc"), dlgP_dlgθs; xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
+plot(
+   log10.(ks/u"1/Mpc"), dlgP_dlgθs;
+   xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
+   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
+)
 ```
 
 ## Get values and derivatives together
@@ -57,13 +60,21 @@ If you need both, it is faster to calculate them simultaneously with the package
 ```@example ad
 using DiffResults
 
-Pres = DiffResults.JacobianResult(ks/u"1/Mpc", θ0) # allocate buffer for value+derivatives for a function with θ0-sized input and ks-sized output
-Pres = ForwardDiff.jacobian!(Pres, lgP, log10.(θ0)) # evaluate value+derivatives of lgP(log10.(θ0)) and store the results in Pres
-lgPs = DiffResults.value(Pres) # extract value
+# Following DiffResults documentation:
+Pres = DiffResults.JacobianResult(ks/u"1/Mpc", θ) # allocate buffer for values+derivatives for a function with θ-sized input and ks-sized output
+Pres = ForwardDiff.jacobian!(Pres, lgP, log10.(θ)) # evaluate values+derivatives of lgP(log10.(θ)) and store the results in Pres
+lgPs = DiffResults.value(Pres) # extract values
 dlgP_dlgθs = DiffResults.jacobian(Pres) # extract derivatives
 
-p1 = plot(log10.(ks/u"1/Mpc"), lgPs; ylabel = "lg(P/Mpc³)", label = nothing)
-p2 = plot(log10.(ks/u"1/Mpc"), dlgP_dlgθs; xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)", labels = "θᵢ=" .* θ_strs)
+p1 = plot(
+   log10.(ks/u"1/Mpc"), lgPs;
+   ylabel = "lg(P/Mpc³)", label = nothing
+)
+p2 = plot(
+   log10.(ks/u"1/Mpc"), dlgP_dlgθs;
+   xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
+   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
+)
 plot(p1, p2, layout=(2, 1), size = (600, 600))
 ```
 
