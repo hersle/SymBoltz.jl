@@ -60,7 +60,8 @@ Create a particle species for the cosmological constant (with equation of state 
 function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
     Λ = species_constant_eos(g, -1; name, analytical, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cs² ~ -1] .|> O(ϵ^1), t, vars, []; name)) # manually set perturbations to zero
+    description = "Cosmological constant"
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cs² ~ -1] .|> O(ϵ^1), t, vars, []; name, description)) # manually set perturbations to zero
 end
 
 """
@@ -91,7 +92,8 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
     defaults = [
         ρ0 => 3/8π * Ω0
     ]
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, kwargs...)
+    description = "w₀wₐ (CPL) dark energy"
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, description, kwargs...)
 end
 
 """
@@ -140,7 +142,8 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     else
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
-    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...))
+    description = "Photon radiation"
+    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, description, kwargs...))
 end
 
 """
@@ -169,7 +172,8 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
-    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, name, kwargs...))
+    description = "Massless neutrinos"
+    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, name, description, kwargs...))
 end
 
 # TODO: use vector equations and simplify loops
@@ -226,7 +230,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ] .|> O(ϵ^1))
     end
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
+    description = "Massive neutrinos"
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
 """
@@ -236,7 +241,8 @@ Create a particle species for cold dark matter in the spacetime with metric `g`.
 """
 function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
-    c = extend(c, ODESystem([c.cs² ~ 0] .|> O(ϵ^1), t, [], []; name))
+    description = "Cold dark matter"
+    c = extend(c, ODESystem([c.cs² ~ 0] .|> O(ϵ^1), t, [], []; name, description))
     return c
 end
 
@@ -253,7 +259,8 @@ function baryons(g; recombination=true, name = :b, kwargs...)
         vars = @variables τ(t) τ̇(t) ρb(t) Tγ(t) cs²(t)
         @named rec = ODESystem([τ ~ 0, τ̇ ~ 0, cs² ~ 0], t, vars, [])
     end
-    b = extend(b, ODESystem([b.cs² ~ rec.cs²] .|> O(ϵ^1), t, [], []; name))
+    description = "Baryonic matter"
+    b = extend(b, ODESystem([b.cs² ~ rec.cs²] .|> O(ϵ^1), t, [], []; name, description))
     b = compose(b, rec)
     return b
 end
@@ -284,5 +291,6 @@ function quintessence(g, v; name = :Q, kwargs...)
         σ ~ 0
         cs² ~ 0
     ] .|> O(ϵ^1)
+    description = "Quintessence dark energy"
     return ODESystem([eqs0; eqs1], t; name, kwargs...)
 end

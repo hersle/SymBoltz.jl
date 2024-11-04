@@ -43,6 +43,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         fHe => Yp / (mHe/mH*(1-Yp))
         τ => 0.0
     ]
+    description = "Baryon-photon recombination thermodynamics (RECFAST)"
     return ODESystem([
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
@@ -99,7 +100,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
 
         τ̇ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
         D(τ) ~ τ̇
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cs²], [Yp, fHe]; initialization_eqs, defaults, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cs²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)

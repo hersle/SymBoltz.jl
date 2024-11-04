@@ -39,7 +39,7 @@ function identity(sys)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
+    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
 function debugize(sys)
@@ -81,7 +81,7 @@ function extract_order(sys::ODESystem, orders)
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name)
+    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
     return sys0
 end
 

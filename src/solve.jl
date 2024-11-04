@@ -60,7 +60,7 @@ unknowns(M::CosmologyModel) = unknowns(M.sys)
 parameters(M::CosmologyModel) = parameters(M.sys)
 initialization_equations(M::CosmologyModel) = initialization_equations(M.sys)
 defaults(M::CosmologyModel) = defaults(M.sys)
-hierarchy(M::CosmologyModel) = hierarchy(M.sys)
+hierarchy(M::CosmologyModel; describe=true, kwargs...) = hierarchy(M.sys; describe, kwargs...)
 Base.show(io::IO, mime::MIME"text/plain", M::CosmologyModel) = show(io, mime, M.sys) # chop off last excessive newline
 
 struct CosmologySolution
