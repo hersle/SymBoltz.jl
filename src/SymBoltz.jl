@@ -5,7 +5,7 @@ import ModelingToolkit: unknowns, observed, parameters, equations, initializatio
 export unknowns, observed, parameters, equations, initialization_equations, defaults, hierarchy
 
 using ModelingToolkit
-using DifferentialEquations
+using OrdinaryDiffEq
 using NonlinearSolve
 using DataInterpolations
 
