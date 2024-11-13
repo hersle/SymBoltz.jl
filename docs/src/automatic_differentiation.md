@@ -1,6 +1,6 @@
 # Using automatic differentiation
 
-This tutorial shows how to compute the (cold dark matter) power spectrum $P(k; \theta)$
+This tutorial shows how to compute the power spectrum $P(k; \theta)$
 and its (logarithmic) derivatives
 ```math
 \frac{\partial \lg P}{\partial \lg \theta_i}
@@ -19,7 +19,7 @@ M = ΛCDM()
 function P(k, θ)
    pars = Dict([M.γ.T0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
    sol = solve(M, pars, k)
-   return power_spectrum(sol, M.c, k)
+   return power_spectrum(sol, k)
 end
 ```
 It is now easy to evaluate the power spectrum:
@@ -47,9 +47,9 @@ The matrix element `dlgP_dlgθs[i, j]` now contains $\partial \lg P(k_i) / \part
 We can plot them all at once:
 ```@example ad
 plot(
-   log10.(ks/u"1/Mpc"), dlgP_dlgθs;
-   xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
+    log10.(ks/u"1/Mpc"), dlgP_dlgθs;
+    xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
 )
 ```
 

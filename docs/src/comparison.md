@@ -82,6 +82,10 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "l_max_ur" => lmax,
         "l_max_ncdm" => lmax,
 
+        # primordial power spectrum
+        "A_s" => 2e-9, # TODO
+        "n_s" => 1.0, # TODO
+
         # other stuff
         "Omega_k" => 0.0,
         "Omega_fld" => 0.0,
@@ -97,7 +101,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
     run_class(in, exec, inpath, outpath)
     output = Dict()
-    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1)]
+    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1), ("P", "_pk.dat", 3)]
         file = outpath * filename
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
@@ -157,6 +161,17 @@ sol = Dict(
     #"P1" => (sol1["pt"]["pol1_g"], sol2[1, M.γ.ΘP[1]] * -4), # TODO: is -4 correct ???
     #"P2" => (sol1["pt"]["pol2_g"], sol2[1, M.γ.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
+
+# power spectrum
+ks = sol1["P"]["k(h/Mpc)"] * h # 1/Mpc
+Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
+Ps_class = Ps_class[ks .> 1e-3]
+ks = ks[ks .> 1e-3]
+Ps = power_spectrum(M, pars, ks / u"Mpc") / u"Mpc^3"
+sol = merge(sol, Dict(
+    "k" => (ks, ks),
+    "P" => (Ps_class, Ps)
+))
 ```
 ```@setup class
 function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
@@ -240,4 +255,10 @@ plot_compare("a_pt", ["δb", "δc", "δγ", "δν"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
+```
+
+### Power spectrum
+
+```@example class
+plot_compare("k", "P"; lgx=true, lgy=true)
 ```

@@ -80,9 +80,9 @@ using Plots
 plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc", log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
-We can also calculate the power spectrum for a desired species (here: cold dark matter with `M.c`):
+We can also calculate the power spectrum:
 ```@example getting_started
-Ps = power_spectrum(sol, M.c, ks)
+Ps = power_spectrum(sol, ks)
 plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```
 Similarly, we can calculate the angular CMB power spectrum:
