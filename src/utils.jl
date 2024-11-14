@@ -1,4 +1,5 @@
 import SpecialFunctions: zeta as ζ
+import Symbolics: taylor
 using SymbolicIndexingInterface: variable_index
 using QuadGK
 
@@ -50,21 +51,7 @@ O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
-function extract_order(expr, order)
-    if order == 0
-        return substitute(expr, ϵ => 0)
-    else
-        expr = Differential(ϵ)(expr) |> expand_derivatives # differentiate away one power of ϵ^order -> order*ϵ^(order-1)
-        expr = expr / order # remove prefactor from differentiation
-        return extract_order(expr, order - 1)
-    end
-end
-
-function extract_order(eq::Equation, order)
-    return extract_order(eq.lhs, order) ~ extract_order(eq.rhs, order)
-end
-
-function extract_order(sys::ODESystem, orders)
+function taylor(sys::ODESystem, ϵ, orders)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
@@ -73,16 +60,15 @@ function extract_order(sys::ODESystem, orders)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
-    eqs = vcat((extract_order.(eqs, order) for order in orders)...)
-    ieqs = vcat((extract_order.(ieqs, order) for order in orders)...)
+    eqs = taylor(eqs, ϵ, orders)
+    ieqs = taylor(ieqs, ϵ, orders)
 
     # remove resulting trivial equations
     trivial_eqs = [0 ~ 0, 0 ~ -0.0]
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    sys0 = ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
-    return sys0
+    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
 have(s) = !isnothing(s) # shorthand for checking if we have a given species

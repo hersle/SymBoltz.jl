@@ -10,7 +10,7 @@ function background(sys)
 end
 
 function thermodynamics(sys)
-    return transform((sys, _) -> extract_order(sys, [0]), sys)
+    return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
 function perturbations(sys; spline_thermo = true)
@@ -18,7 +18,7 @@ function perturbations(sys; spline_thermo = true)
         @named rec = thermodynamics_recombination_splined()
         sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
     end
-    return transform((sys, _) -> extract_order(sys, [0, 1]), sys)
+    return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
 end
 
 struct CosmologyModel
