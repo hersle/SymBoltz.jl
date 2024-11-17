@@ -66,7 +66,8 @@ function ΛCDM(;
     if Λanalytical
         push!(defs, species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])) # TODO: unsafe outside GR
     end
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name)
+    description = "Standard cosmological constant and cold dark matter cosmological model"
+    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name, description)
     M = compose(connections, g, G, species...)
     return CosmologyModel(M; initE, kwargs...)
 end

@@ -58,7 +58,8 @@ end
 Create a particle species for the cosmological constant (with equation of state `w ~ -1`) in the spacetime with metric `g`.
 """
 function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
-    Λ = species_constant_eos(g, -1; name, analytical, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
+    description = "Cosmological constant"
+    Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
     description = "Cosmological constant"
     return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cs² ~ -1] .|> O(ϵ^1), t, vars, []; name); description) # manually set perturbations to zero
@@ -103,7 +104,8 @@ Create a particle species for photons in the spacetime with metric `g`.
 """
 function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
-    γ = radiation(g; name, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
+    description = "Photons"
+    γ = radiation(g; name, description, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
     vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G(t)[0:lmax]
     defs = [
@@ -152,7 +154,8 @@ end
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
 function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
-    ν = radiation(g; name, kwargs...) |> thermodynamics |> complete
+    description = "Massless neutrinos"
+    ν = radiation(g; name, description, kwargs...) |> thermodynamics |> complete
 
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
@@ -230,7 +233,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ] .|> O(ϵ^1))
     end
-    description = "Massive neutrinos"
+    description = "Massive neutrino"
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
@@ -252,7 +255,8 @@ end
 Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination=true, name = :b, kwargs...)
-    b = matter(g; θinteract=true, name, kwargs...) |> complete
+    description = "Baryons"
+    b = matter(g; θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g)
     else
