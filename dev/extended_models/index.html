@@ -17,18 +17,18 @@ M1 = ΛCDM(Λanalytical = true)</code></pre><pre class="documenter-example-outpu
   ⋮
 <span class="sgr1">Parameters (30):</span> see parameters(ν)
   DEF
-  H0 [defaults to 3.24078e-18h]
   C [defaults to 1//2]
   ϵ [defaults to 1]
+  k [defaults to NaN]
   ⋮
 <span class="sgr1">Initialization equations (63):</span> see initialization_equations(sys)</code></pre><p>The cosmological constant species is stored in the component <code>M1.Λ</code>. Here are the equations we will remove:</p><pre><code class="language-julia hljs">equations(M1.Λ)</code></pre><p class="math-container">\[ \begin{align*}
 \delta\left( t \right) \epsilon &amp;= 0 \\
 \theta\left( t \right) \epsilon &amp;= 0 \\
 \sigma\left( t \right) \epsilon &amp;= 0 \\
-\mathtt{cs^2}\left( t \right) \epsilon &amp;=  - \epsilon \\
+\mathtt{c_s^2}\left( t \right) \epsilon &amp;=  - \epsilon \\
 w\left( t \right) &amp;= -1 \\
 P\left( t \right) &amp;= \rho\left( t \right) w\left( t \right) \\
-\rho\left( t \right) &amp;= \left( a\left( t \right) \right)^{ - 3 \left( 1 + w\left( t \right) \right)} \mathtt{{\rho}0} \\
+\rho\left( t \right) &amp;= \left( a\left( t \right) \right)^{ - 3 \left( 1 + w\left( t \right) \right)} \mathtt{\rho{_0}} \\
 \Omega\left( t \right) &amp;= 8.3776 \rho\left( t \right)
 \end{align*}
  \]</p><h2 id="2.-Create-the-extended-component"><a class="docs-heading-anchor" href="#2.-Create-the-extended-component">2. Create the extended component</a><a id="2.-Create-the-extended-component-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Create-the-extended-component" title="Permalink"></a></h2><p>The background continuity equation <span>$\dot{ρ}(t) = -3 H(t) \, ρ(t) \, (1 + w(t))$</span> can be solved analytically with the w₀wₐ equation of state and the ansatz</p><p class="math-container">\[ρ(t) = ρ(t_0) \, a(t)^m \exp(n (1 - a(t))),\]</p><p>giving <span>$m = -3 (1 + w_0 + w_a)$</span> and <span>$n = -3 w_a$</span>. The perturbation equations are</p><p class="math-container">\[\begin{aligned}
@@ -39,7 +39,7 @@ using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wave
 g = M1.g # reuse metric component from the original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
-pars = @parameters w0 wa ρ0 Ω0 cs²
+pars = @parameters w0 wa ρ₀ Ω₀ cₛ²
 
 # 2. Create variables
 vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
@@ -48,12 +48,12 @@ vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 eqs = [
     # Background equations (of order O(ϵ⁰)
     w ~ w0 + wa * (1 - g.a) # equation of state
-    ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
+    ρ ~ ρ₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
     P ~ w * ρ # pressure
 
     # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
-    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ) * ϵ # energy overdensity
-    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
+    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ) * ϵ # energy overdensity
+    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
     σ * ϵ ~ 0 # shear stress
 ]
 
@@ -65,16 +65,16 @@ initialization_eqs = [
 
 # 5. Specify parameter relationships
 defaults = [
-    ρ0 =&gt; 3/8π * Ω0 # set ρ0 from Ω0
+    ρ₀ =&gt; 3/8π * Ω₀ # set ρ₀ from Ω₀
 ]
 
 # 6. Pack into an ODE system called &quot;X&quot;
 @named X = ODESystem(eqs, t, vars, pars; initialization_eqs, defaults)</code></pre><p class="math-container">\[ \begin{align*}
 w\left( t \right) &amp;= \mathtt{w0} + \mathtt{wa} \left( 1 - a\left( t \right) \right) \\
-\rho\left( t \right) &amp;= \left( \left|a\left( t \right)\right| \right)^{ - 3 \left( 1 + \mathtt{w0} + \mathtt{wa} \right)} e^{ - 3 \mathtt{wa} \left( 1 - a\left( t \right) \right)} \mathtt{{\rho}0} \\
+\rho\left( t \right) &amp;= \left( \left|a\left( t \right)\right| \right)^{ - 3 \left( 1 + \mathtt{w0} + \mathtt{wa} \right)} e^{ - 3 \mathtt{wa} \left( 1 - a\left( t \right) \right)} \mathtt{\rho{_0}} \\
 P\left( t \right) &amp;= \rho\left( t \right) w\left( t \right) \\
-\frac{\mathrm{d} \delta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left(  - 3 \Phi\left( t \right) + \theta\left( t \right) \right) \left( -1 - w\left( t \right) \right) - 3 \left( \mathtt{cs^2} - w\left( t \right) \right) \mathscr{E}\left( t \right) \delta\left( t \right) \right) \epsilon \\
-\frac{\mathrm{d} \theta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{cs^2} \delta\left( t \right)}{1 + w\left( t \right)} + \frac{ - \theta\left( t \right) \frac{\mathrm{d} w\left( t \right)}{\mathrm{d}t}}{1 + w\left( t \right)} - \mathscr{E}\left( t \right) \left( 1 - 3 w\left( t \right) \right) - k^{2} \sigma\left( t \right) + k^{2} \Psi\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \delta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left(  - 3 \Phi\left( t \right) + \theta\left( t \right) \right) \left( -1 - w\left( t \right) \right) - 3 \left( \mathtt{c_s^2} - w\left( t \right) \right) \mathscr{E}\left( t \right) \delta\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \theta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{c_s^2} \delta\left( t \right)}{1 + w\left( t \right)} + \frac{ - \theta\left( t \right) \frac{\mathrm{d} w\left( t \right)}{\mathrm{d}t}}{1 + w\left( t \right)} - \mathscr{E}\left( t \right) \left( 1 - 3 w\left( t \right) \right) - k^{2} \sigma\left( t \right) + k^{2} \Psi\left( t \right) \right) \epsilon \\
 \sigma\left( t \right) \epsilon &amp;= 0
 \end{align*}
  \]</p><p>Note that the w₀wₐ component only knows about itself (and the metric), but is completely unaware of the theory of gravity, other species and other components. Its &quot;job&quot; is only to expose the variables like <code>ρ</code>, <code>P</code>, <code>δ</code> and <code>σ</code> that source the Einstein equations. This connection is made when the component is used to create a full cosmological model, as we will do next.</p><h2 id="3.-Create-the-extended-model"><a class="docs-heading-anchor" href="#3.-Create-the-extended-model">3. Create the extended model</a><a id="3.-Create-the-extended-model-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Create-the-extended-model" title="Permalink"></a></h2><p>Finally, we create a new <code>ΛCDM</code> model, but replace <code>Λ</code> by <code>X</code>, and call it the <code>w0waCDM</code> model:</p><pre><code class="language-julia hljs">M2 = ΛCDM(Λ = X, name = :w0waCDM, Λanalytical = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">Model w0waCDM:</span> Standard cosmological constant and cold dark matter cosmological model
@@ -94,22 +94,22 @@ P\left( t \right) &amp;= \rho\left( t \right) w\left( t \right) \\
   ⋮
 <span class="sgr1">Parameters (33):</span> see parameters(ν)
   DEF
-  H0 [defaults to 3.24078e-18h]
   C [defaults to 1//2]
   ϵ [defaults to 1]
+  k [defaults to NaN]
   ⋮
 <span class="sgr1">Initialization equations (65):</span> see initialization_equations(sys)</code></pre><p>Now <code>M2.Λ</code> no longer exists, but <code>M2.X</code> contains our new equations:</p><pre><code class="language-julia hljs">equations(M2.X)</code></pre><p class="math-container">\[ \begin{align*}
 w\left( t \right) &amp;= \mathtt{w0} + \mathtt{wa} \left( 1 - a\left( t \right) \right) \\
-\rho\left( t \right) &amp;= \left( \left|a\left( t \right)\right| \right)^{ - 3 \left( 1 + \mathtt{w0} + \mathtt{wa} \right)} e^{ - 3 \mathtt{wa} \left( 1 - a\left( t \right) \right)} \mathtt{{\rho}0} \\
+\rho\left( t \right) &amp;= \left( \left|a\left( t \right)\right| \right)^{ - 3 \left( 1 + \mathtt{w0} + \mathtt{wa} \right)} e^{ - 3 \mathtt{wa} \left( 1 - a\left( t \right) \right)} \mathtt{\rho{_0}} \\
 P\left( t \right) &amp;= \rho\left( t \right) w\left( t \right) \\
-\frac{\mathrm{d} \delta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left(  - 3 \Phi\left( t \right) + \theta\left( t \right) \right) \left( -1 - w\left( t \right) \right) - 3 \left( \mathtt{cs^2} - w\left( t \right) \right) \mathscr{E}\left( t \right) \delta\left( t \right) \right) \epsilon \\
-\frac{\mathrm{d} \theta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{cs^2} \delta\left( t \right)}{1 + w\left( t \right)} + \frac{ - \theta\left( t \right) \frac{\mathrm{d} w\left( t \right)}{\mathrm{d}t}}{1 + w\left( t \right)} - \mathscr{E}\left( t \right) \left( 1 - 3 w\left( t \right) \right) - k^{2} \sigma\left( t \right) + k^{2} \Psi\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \delta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left(  - 3 \Phi\left( t \right) + \theta\left( t \right) \right) \left( -1 - w\left( t \right) \right) - 3 \left( \mathtt{c_s^2} - w\left( t \right) \right) \mathscr{E}\left( t \right) \delta\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \theta\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{c_s^2} \delta\left( t \right)}{1 + w\left( t \right)} + \frac{ - \theta\left( t \right) \frac{\mathrm{d} w\left( t \right)}{\mathrm{d}t}}{1 + w\left( t \right)} - \mathscr{E}\left( t \right) \left( 1 - 3 w\left( t \right) \right) - k^{2} \sigma\left( t \right) + k^{2} \Psi\left( t \right) \right) \epsilon \\
 \sigma\left( t \right) \epsilon &amp;= 0
 \end{align*}
  \]</p><h2 id="Solve-and-compare-the-models"><a class="docs-heading-anchor" href="#Solve-and-compare-the-models">Solve and compare the models</a><a id="Solve-and-compare-the-models-1"></a><a class="docs-heading-anchor-permalink" href="#Solve-and-compare-the-models" title="Permalink"></a></h2><p>To test, let us set some parameters and solve both models with one perturbation mode. For the ΛCDM model:</p><pre><code class="language-julia hljs">θ1 = Dict(
-    M1.γ.T0 =&gt; 2.7,
-    M1.c.Ω0 =&gt; 0.27,
-    M1.b.Ω0 =&gt; 0.05,
+    M1.γ.T₀ =&gt; 2.7,
+    M1.c.Ω₀ =&gt; 0.27,
+    M1.b.Ω₀ =&gt; 0.05,
     M1.ν.Neff =&gt; 3.0,
     M1.g.h =&gt; 0.7,
     M1.b.rec.Yp =&gt; 0.25
@@ -121,11 +121,11 @@ sol1 = solve(M1, θ1, ks)</code></pre><pre class="documenter-example-output"><co
   3. perturbations: solved with KenCarp4, 55-55 points, x1 k ∈ [1.0, 1.0] H₀/c (linear interpolation in-between)</code></pre><p>And for the w₀wₐCDM model:</p><pre><code class="language-julia hljs">θ2 = merge(θ1, Dict(
     M2.X.w0 =&gt; -0.9,
     M2.X.wa =&gt; 0.2,
-    M2.X.cs² =&gt; 1.0
+    M2.X.cₛ² =&gt; 1.0
 ))
 sol2 = solve(M2, θ2, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution with stages
   1. background: solved with Rodas5P, 31 points
-  2. thermodynamics: solved with Rodas5P, 14113 points
+  2. thermodynamics: solved with Rodas5P, 14114 points
   3. perturbations: solved with KenCarp4, 54-54 points, x1 k ∈ [1.0, 1.0] H₀/c (linear interpolation in-between)</code></pre><p>Let us compare <span>$H(t)$</span> and <span>$Ψ(k,t)$</span> at equal scale factors <span>$a(t)$</span>:</p><pre><code class="language-julia hljs">lgas = range(-3, 0, length=500) # log10(a)
 H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
 H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
@@ -135,4 +135,4 @@ H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
 using Plots
 # TODO: make convenience plot method that compares two models
 plot(lgas, H2s ./ H1s; xlabel = &quot;lg(a)&quot;, label = &quot;H₂ / H₁&quot;)
-plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="33173031.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Sunday 17 November 2024 15:37">Sunday 17 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="c814387a.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 18 November 2024 14:14">Monday 18 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
