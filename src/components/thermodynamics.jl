@@ -15,7 +15,7 @@ end
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
     @parameters Yp fHe # fHe = nHe/nH
-    @variables Xe(t) ne(t) τ(t) τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cs²(t) λe(t)
+    @variables Xe(t) ne(t) τ(t) τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cₛ²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -28,7 +28,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
     λwtf = 260.0463e-9; fwtf = c/λwtf; Ewtf = h*fwtf # TODO: wtf is this?
-    αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T0=1e4) = F * 1e-19 * a * (T/T0)^b / (1 + c * (T/T0)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
+    αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
     αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
@@ -48,12 +48,12 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
-        D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H0 * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
+        D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H₀ * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         DTb ~ D(Tb)
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
-        cs² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        cₛ² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
 
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
@@ -63,7 +63,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         KH ~ KH0 + KH1
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺+1e-10)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺+1e-10))
-        D(XH⁺) ~ -g.a/g.H0 * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H0 on left because side t is physical t/(1/H0)
+        D(XH⁺) ~ -g.a/g.H₀ * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side t is physical t/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
@@ -75,7 +75,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
               (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
-        DXHe⁺_singlet ~ -g.a/g.H0 * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
+        DXHe⁺_singlet ~ -g.a/g.H₀ * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # He⁺ + e⁻ triplet recombination
         αHe3 ~ αHe3_fit(Tb)
@@ -85,7 +85,7 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2 # TODO: fails at extremely early times
         CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
                (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-        DXHe⁺_triplet ~ -g.a/g.H0 * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+        DXHe⁺_triplet ~ -g.a/g.H₀ * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
 
         # He⁺ + e⁻ total recombination
         D(XHe⁺) ~ DXHe⁺_singlet + DXHe⁺_triplet
@@ -98,9 +98,9 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        τ̇ ~ -g.a/g.H0 * ne * σT * c # common optical depth τ
+        τ̇ ~ -g.a/g.H₀ * ne * σT * c # common optical depth τ
         D(τ) ~ τ̇
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cs²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cₛ²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
@@ -109,19 +109,19 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
         eqs = []
     else
         @named rec = thermodynamics_recombination_recfast(bg.g)
-        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H0^2/G, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H0=1 units to SI units)
+        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H₀^2/G, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
     end
     th = ODESystem(eqs, t; kwargs...)
     return compose(th, rec, bg)
 end
 
 function thermodynamics_recombination_splined(; kwargs...)
-    vars = @variables τ(t) τ̇(t) cs²(t) #Tb(t)
-    pars = @parameters τspline::CubicSpline cs²spline::CubicSpline #(Tbspline::CubicSpline)(..)
+    vars = @variables τ(t) τ̇(t) cₛ²(t) #Tb(t)
+    pars = @parameters τspline::CubicSpline cₛ²spline::CubicSpline #(Tbspline::CubicSpline)(..)
     return ODESystem([
         τ ~ value(τspline, t)
         τ̇ ~ derivative(τspline, t)
-        cs² ~ value(cs²spline, t)
+        cₛ² ~ value(cₛ²spline, t)
         #Tb ~ exp(Tbspline(log(t)))
     ], t, vars, pars; kwargs...) # connect perturbation τ with spline evaluation
 end

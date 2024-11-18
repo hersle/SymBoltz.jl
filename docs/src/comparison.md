@@ -58,12 +58,12 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "h" => pars[M.g.h],
 
         # photons
-        "T_cmb" => pars[M.γ.T0],
+        "T_cmb" => pars[M.γ.T₀],
         "l_max_g" => lmax,
         "l_max_pol_g" => lmax,
 
         # baryons
-        "Omega_b" => pars[M.b.Ω0],
+        "Omega_b" => pars[M.b.Ω₀],
         "YHe" => pars[M.b.rec.Yp],
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => 1,
@@ -71,7 +71,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "reio_parametrization" => "reio_none", # TODO: enable
 
         # cold dark matter
-        "Omega_cdm" => pars[M.c.Ω0],
+        "Omega_cdm" => pars[M.c.Ω₀],
 
         # neutrinos # TODO: set neutrino stuff to 0 unless otherwise specified
         "N_ur" => pars[M.ν.Neff],
@@ -137,7 +137,7 @@ sol = Dict(
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
     "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), .- sol2[M.b.rec.τ̇] * (SymBoltz.k0 * h)),
-    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cs²]),
+    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 

@@ -39,32 +39,32 @@ function ΛCDM(;
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
     )
     have(ν) && have(γ) && merge!(defs, Dict(
-        ν.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # TODO: check (unused if only have massless neutrinos)
-        ν.Ω0 => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω0
+        ν.T₀ => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T₀, # TODO: check (unused if only have massless neutrinos)
+        ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀
     ))
     have(ν) && have(γ) && have(h) && merge!(defs, Dict( # TODO: shouldn't need ν
-        h.T0 => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T0, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        h.Ω0_massless => 7/8 * (h.T0/γ.T0)^4 * γ.Ω0 # Ω0 for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        h.T₀ => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T₀, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
+        h.Ω₀_massless => 7/8 * (h.T₀/γ.T₀)^4 * γ.Ω₀ # Ω₀ for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
     ))
-    push!(defs, fν => have(ν) ? ν.ρ0 / (γ.ρ0 + ν.ρ0) : 0)
+    push!(defs, fν => have(ν) ? ν.ρ₀ / (γ.ρ₀ + ν.ρ₀) : 0)
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
         G.P ~ sum(s.P for s in species) # TODO: only if G has P
-        b.rec.ρb ~ b.ρ * g.H0^2/GN # kg/m³ (convert from H0=1 units to SI units)
+        b.rec.ρb ~ b.ρ * g.H₀^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
-        G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) # total pressure perturbation
+        G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
-        b.θinteraction ~ k^2*b.cs²*b.δ + -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
+        b.θinteraction ~ k^2*b.cₛ²*b.δ + -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
     if Λanalytical
-        push!(defs, species[end].Ω0 => 1 - sum(s.Ω0 for s in species[begin:end-1])) # TODO: unsafe outside GR
+        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: unsafe outside GR
     end
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name, description)
@@ -104,7 +104,7 @@ function RMΛ(;
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
-        G.δP ~ sum(s.δ * s.ρ * s.cs² for s in species) # total pressure perturbation
+        G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
     defs = [

@@ -68,17 +68,17 @@ M = RMΛ()
 
 function dL(z, sol::CosmologySolution)
     a = @. 1 / (z + 1)
-    t = sol(M.g.z, z, M.t / M.g.H0)
-    t0 = sol(M.g.z, 0, M.t / M.g.H0)
+    t = sol(M.g.z, z, M.t / M.g.H₀)
+    t0 = sol(M.g.z, 0, M.t / M.g.H₀)
     r = @. SymBoltz.c * (t0 .- t)
     return @. r / a / SymBoltz.Gpc
 end
 
 function dL(z, M::CosmologyModel, Ωm0, h)
     pars = Dict(
-        M.r.Ω0 => 5e-5,
-        M.m.Ω0 => Ωm0,
-        M.g.h => h, M.r.T0 => 0.0 # TODO: don't set
+        M.r.Ω₀ => 5e-5,
+        M.m.Ω₀ => Ωm0,
+        M.g.h => h, M.r.T₀ => 0.0 # TODO: don't set
     )
     sol = solve(M, pars; thermo = false)
     return dL(z, sol)

@@ -9,7 +9,7 @@ SymBoltz.RMΛ
 ```@example RMΛ
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = RMΛ()
-pars = Dict(M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0) # TODO: don't pass h and T0 to avoid infinite loop
+pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0) # TODO: don't pass h and T₀ to avoid infinite loop
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
 p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ; N = 10000)
@@ -46,7 +46,7 @@ M = w0waCDM()
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.2,
-    M.X.cs² => 1.0
+    M.X.cₛ² => 1.0
 ))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
@@ -67,8 +67,8 @@ using SymBoltz, ModelingToolkit
 M = BDΛCDM()
 D = Differential(M.t)
 
-pars_fixed = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω0, M.G.ϕ
-pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7) # initial guesses for shooting method
+pars_fixed = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
+pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.7) # initial guesses for shooting method
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
 pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 ```
@@ -89,8 +89,8 @@ using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
 M = SymBoltz.BDRMΛ()
 D = Differential(M.t)
 
-pars_fixed = Dict(M.r.Ω0 => 5e-5, M.m.Ω0 => 0.3, M.g.h => 1.0, M.r.T0 => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω0, M.G.ϕ
-pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω0 => 0.7) # initial guesses for shooting method
+pars_fixed = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω₀, M.G.ϕ
+pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.7) # initial guesses for shooting method
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
 pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 

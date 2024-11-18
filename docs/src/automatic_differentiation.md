@@ -17,7 +17,7 @@ using SymBoltz
 M = ΛCDM()
 
 function P(k, θ)
-   pars = Dict([M.γ.T0, M.c.Ω0, M.b.Ω0, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
+   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
    sol = solve(M, pars, k)
    return power_spectrum(sol, k)
 end

@@ -42,9 +42,9 @@ Next, we set our desired cosmological parameters and wavenumbers, and solve the 
 ```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = Dict(
-    M.γ.T0 => 2.7,
-    M.c.Ω0 => 0.27,
-    M.b.Ω0 => 0.05,
+    M.γ.T₀ => 2.7,
+    M.c.Ω₀ => 0.27,
+    M.b.Ω₀ => 0.05,
     M.ν.Neff => 3.0,
     M.g.h => 0.7,
     M.b.rec.Yp => 0.25

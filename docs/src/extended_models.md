@@ -53,7 +53,7 @@ using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wave
 g = M1.g # reuse metric component from the original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
-pars = @parameters w0 wa ρ0 Ω0 cs²
+pars = @parameters w0 wa ρ₀ Ω₀ cₛ²
 
 # 2. Create variables
 vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
@@ -62,12 +62,12 @@ vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 eqs = [
     # Background equations (of order O(ϵ⁰)
     w ~ w0 + wa * (1 - g.a) # equation of state
-    ρ ~ ρ0 * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
+    ρ ~ ρ₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
     P ~ w * ρ # pressure
 
     # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
-    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cs² - w) * δ) * ϵ # energy overdensity
-    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cs² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
+    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ) * ϵ # energy overdensity
+    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
     σ * ϵ ~ 0 # shear stress
 ]
 
@@ -79,7 +79,7 @@ initialization_eqs = [
 
 # 5. Specify parameter relationships
 defaults = [
-    ρ0 => 3/8π * Ω0 # set ρ0 from Ω0
+    ρ₀ => 3/8π * Ω₀ # set ρ₀ from Ω₀
 ]
 
 # 6. Pack into an ODE system called "X"
@@ -108,9 +108,9 @@ To test, let us set some parameters and solve both models with one perturbation 
 For the ΛCDM model:
 ```@example ext
 θ1 = Dict(
-    M1.γ.T0 => 2.7,
-    M1.c.Ω0 => 0.27,
-    M1.b.Ω0 => 0.05,
+    M1.γ.T₀ => 2.7,
+    M1.c.Ω₀ => 0.27,
+    M1.b.Ω₀ => 0.05,
     M1.ν.Neff => 3.0,
     M1.g.h => 0.7,
     M1.b.rec.Yp => 0.25
@@ -123,7 +123,7 @@ And for the w₀wₐCDM model:
 θ2 = merge(θ1, Dict(
     M2.X.w0 => -0.9,
     M2.X.wa => 0.2,
-    M2.X.cs² => 1.0
+    M2.X.cₛ² => 1.0
 ))
 sol2 = solve(M2, θ2, ks)
 ```

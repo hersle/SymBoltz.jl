@@ -45,7 +45,7 @@ function k_dimensionless(k, h)
     return k
 end
 function k_dimensionless(k::Unitful.Quantity, h)
-    H0 = h * H100 # s⁻¹
-    k0 = (H0 / c) / u"m"
+    H₀ = h * H100 # s⁻¹
+    k0 = (H₀ / c) / u"m"
     return NoUnits.(k / k0)
 end
