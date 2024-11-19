@@ -1,5 +1,5 @@
 import CommonSolve: solve
-#import SymbolicIndexingInterface: all_variable_symbols, getname
+import SymbolicIndexingInterface: setp # all_variable_symbols, getname
 
 function background(sys)
     sys = thermodynamics(sys)
@@ -164,30 +164,16 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
         ))
     end
 
-    ki = 1.0
+    kset! = setp(M.pt, M.k) # function that sets k on a problem
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
-    push!(pars, k => ki)
+    push!(pars, k => ks[1])
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true) # TODO: why do I need this???
-    #sol0 = solve(prob0, solver; reltol, kwargs...)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        return ODEProblem(M.pt, ics0, (tini, tend), merge(pars, Dict(k => ks[i])), fully_determined = true) # TODO: use remake https://github.com/SciML/OrdinaryDiffEq.jl/pull/2228, https://github.com/SciML/ModelingToolkit.jl/issues/2799 etc. is fixed
-        #= # TODO: this should work if I use defaults for perturbation ICs, but that doesnt work as it should because the initialization system becomes overdefined and 
-        prob_new = remake(prob, u0 = [
-            M.pt.th.bg.g.a => sol0[M.pt.th.bg.g.a][begin]
-            M.pt.g1.Φ => sol0[M.pt.g1.Φ][begin]
-            M.pt.cdm.θ => (ks[i]/ki)^2 * sol0[M.pt.cdm.θ][begin]
-            M.pt.bar.θ => (ks[i]/ki)^2 * sol0[M.pt.bar.θ][begin]
-            M.pt.ph.F[1] => (ks[i]/ki)^1 * sol0[M.pt.ph.F[1]][begin]
-            M.pt.neu.F[1] => (ks[i]/ki)^1 * sol0[M.pt.neu.F[1]][begin]
-            M.pt.neu.F[2] => (ks[i]/ki)^2 * sol0[M.pt.neu.F[2]][begin]
-            collect(M.pt.mneu.ψ[:,1] .=> (ks[i]/ki)^1 * sol0[M.pt.mneu.ψ[:,1]][begin])...
-            collect(M.pt.mneu.ψ[:,2] .=> (ks[i]/ki)^2 * sol0[M.pt.mneu.ψ[:,2]][begin])...
-        ], tspan = (tini, 4.0), p = [k => ks[i]], use_defaults = true)
-        return prob_new # BUG: prob_new's u0 does not match solution[begin]
-        =#
+        kset!(ode_prob, ks[i])
+        return ode_prob
     end)
     ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
     for i in 1:length(ode_sols)
