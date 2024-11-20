@@ -1,10 +1,13 @@
 ---
 title: |
-    | ![](media/einstein_boltzmann.png){height=55%}
-    | SymBoltz.jl: A symbolically modular, approximation-free and differentiable Einstein-Boltzmann solver
-    | 
+    | ![](media/einstein_boltzmann.png){height=60%}
+    | SymBoltz.jl: A symbolically modular,
+    | approximation-free and differentiable
+    | linear Einstein-Boltzmann solver
+    | \tiny 
     | \scriptsize ![](media/github.png){height=0.75em} \textcolor{black}{Code \& documentation:} [github.com/hersle/SymBoltz.jl](https://github.com/hersle/SymBoltz.jl)
-#titlegraphic: media/components_baumann.pdf
+    | \tiny 
+    | \tiny \textcolor{black}{Herman Sletmoen / special curriculum AST9051SP}
 colorlinks: true
 header-includes: |
     \usepackage{emoji}
@@ -177,8 +180,9 @@ Year                  Code                                                      
 
 # Feature 1: symbolic modularity
 
-\scriptsize
+- \small Let a modeling library build full model from partial submodels:
 
+\tiny
 ```
 julia> M = ΛCDM(); hierarchy(M)
 ΛCDM: Standard cosmological constant and cold dark matter cosmological model
@@ -193,34 +197,31 @@ julia> M = ΛCDM(); hierarchy(M)
 └─ Λ: Cosmological constant
 ```
 
+- \small Represent all equations symbolically:
 
-# Add a new species: CLASS
+\tiny
+```
+julia> equations(M.G)
+4-element Vector{Symbolics.Equation}:
+ Differential(t)(a(t)) ~ sqrt((8//3)*ρ(t)*(a(t)^4)*π)
+ Δ(t) ~ Differential(t)(Differential(t)(a(t))) + (-(Differential(t)(a(t))^2)*(1 + (-3P(t)) / ρ(t))) / (2a(t))
+ Differential(t)(Φ(t))*ϵ ~ ((-(k^2)*Φ(t)) / (3ℰ(t)) + ((-4//3)*δρ(t)*(a(t)^2)*π) / ℰ(t) - ℰ(t)*Ψ(t))*ϵ
+ (k^2)*(-Ψ(t) + Φ(t))*ϵ ~ 12Π(t)*(a(t)^2)*π*ϵ
+```
 
-Official advice: CTRL+F for `"species"`
 
-TODO: add picture of `grep _fld`?
+# Example: add $w₀wₐ$ dark energy: SymBoltz
 
-- Add input parameter hooks in `input.c`
-- Define indices `background.c` and `perturbations.c` (maybe `thermodynamics.c`)
-- Write down governing equations in `background.c` and `perturbations.c` (maybe `thermodynamics.c`)
-- Define columns and save output in `background.c` and `perturbations.c` (maybe `thermodynamics.c`)
-- Save output in `background.c`
-- Handle all combos of independent/dependent input parameters (e.g. shooting) in `input.c`
-- Always wrap in `if (has_species == _TRUE_) {...}`
-- Add input parameter hooks to Python wrapper, too.
-
-Observation: most of these should be common to a modeling library
-
-# Add a new species: SymBoltz
-
-Everything related to *one species* should be in *one place*:
+Everything related to one species should be in one place:
 
 \tiny
 
 ```julia
-M = ΛCDM()
+using SymBoltz, ModelingToolkit
+using SymBoltz: t, k, ϵ, O, D
 
-g = M.g
+# 1) Create w₀wₐ dark energy component
+g = SymBoltz.metric()
 pars = @parameters w₀ wₐ ρ₀ Ω₀ cₛ²
 vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 eqs = [
@@ -240,17 +241,228 @@ defaults = [
 ]
 @named X = ODESystem(eqs, t, vars, pars; initialization_eqs, defaults)
 
-M′ = ΛCDM(Λ = X; name = :w₀wₐCDM)
+# 2) Create extended model and solve it
+M = ΛCDM(Λ = X; name = :w₀wₐCDM, Λanalytical = true)
+pars = merge(parameters_Planck18(M), Dict(M.X.w₀ => -1.0, M.X.wₐ => 0.0, M.X.cₛ² => 1.0))
+sol = solve(M, pars)
 ```
+
+
+# Example: add $w₀wₐ$ dark energy: CLASS {.allowframebreaks}
+
+[Official advice](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Coding.pdf): `grep -Rn _fld include/ source/ python/`
+
+\small
+1. Read input parameters and handle parameter dependencies:
+
+\tiny
+```
+source/input.c:3177:  class_call(parser_read_double(pfc,"Omega_fld",&param2,&flag2,errmsg),
+source/input.c:3186:             "'Omega_Lambda' or 'Omega_fld' must be left unspecified, except if 'Omega_scf' is set and < 0.");
+source/input.c:3189:             "You have entered 'Omega_scf' < 0 , so you have to specify both 'Omega_lambda' and 'Omega_fld'.");
+source/input.c:3215:    pba->Omega0_fld = param2;
+source/input.c:3216:    Omega_tot += pba->Omega0_fld;
+source/input.c:3232:    pba->Omega0_fld = 1. - pba->Omega0_k - Omega_tot;
+source/input.c:3234:      printf(" -> matched budget equations by adjusting Omega_fld = %g\n",pba->Omega0_fld);
+source/input.c:3248:  if (pba->Omega0_fld != 0.) {
+source/input.c:3285:      class_read_double("w0_fld",pba->w0_fld);
+source/input.c:3286:      class_read_double("wa_fld",pba->wa_fld);
+source/input.c:3287:      class_read_double("cs2_fld",pba->cs2_fld);
+source/input.c:3292:      class_read_double("w0_fld",pba->w0_fld);
+source/input.c:3294:      class_read_double("cs2_fld",pba->cs2_fld);
+```
+
+\small
+2. Add parameter hooks to Python wrapper, too:
+
+\tiny
+```
+python/cclassy.pxd:91:        double Omega0_fld
+python/cclassy.pxd:92:        double w0_fld
+python/cclassy.pxd:93:        double wa_fld
+python/cclassy.pxd:94:        double cs2_fld
+```
+
+\small
+3. Declare background variables and indices
+
+\tiny
+```
+include/background.h:104:  double Omega0_fld;       /**< \f$ \Omega_{0 de} \f$: fluid */
+include/background.h:110:  double w0_fld;   /**< \f$ w0_{DE} \f$: current fluid equation of state parameter */
+include/background.h:111:  double wa_fld;   /**< \f$ wa_{DE} \f$: fluid equation of state parameter derivative */
+include/background.h:112:  double cs2_fld;  /**< \f$ c^2_{s~DE} \f$: sound speed of the fluid in the frame comoving with the fluid (so, this is
+include/background.h:169:  int index_bg_rho_fld;       /**< fluid density */
+include/background.h:170:  int index_bg_w_fld;         /**< fluid equation of state */
+include/background.h:257:  int index_bi_rho_fld; /**< {B} fluid density */
+include/background.h:289:  short has_fld;       /**< presence of fluid with constant w and cs2? */
+include/background.h:416:  int background_w_fld(
+include/background.h:419:                       double * w_fld,
+include/background.h:420:                       double * dw_over_da_fld,
+include/background.h:421:                       double * integral_fld);
+```
+
+\framebreak
+\small
+4. Compute background
+
+\tiny
+```
+source/background.c:398:  double w_fld, dw_over_da, integral_fld;
+source/background.c:540:  if (pba->has_fld == _TRUE_) {
+source/background.c:542:    /* get rho_fld from vector of integrated variables */
+source/background.c:543:    pvecback[pba->index_bg_rho_fld] = pvecback_B[pba->index_bi_rho_fld];
+source/background.c:545:    /* get w_fld from dedicated function */
+source/background.c:546:    class_call(background_w_fld(pba,a,&w_fld,&dw_over_da,&integral_fld), pba->error_message, pba->error_message);
+source/background.c:547:    pvecback[pba->index_bg_w_fld] = w_fld;
+source/background.c:550:    // pvecback[pba->index_bg_rho_fld] = pba->Omega0_fld * pow(pba->H0,2) / pow(a,3.*(1.+pba->w0_fld+pba->wa_fld)) * exp(3.*pba->wa_fld*(a-1.));
+source/background.c:551:    // But now everthing is integrated numerically for a given w_fld(a) defined in the function background_w_fld.
+source/background.c:553:    rho_tot += pvecback[pba->index_bg_rho_fld];
+source/background.c:554:    p_tot += w_fld * pvecback[pba->index_bg_rho_fld];
+source/background.c:555:    dp_dloga += (a*dw_over_da-3*(1+w_fld)*w_fld)*pvecback[pba->index_bg_rho_fld];
+source/background.c:664:int background_w_fld(
+source/background.c:667:                     double * w_fld,
+source/background.c:668:                     double * dw_over_da_fld,
+source/background.c:669:                     double * integral_fld
+source/background.c:680:    *w_fld = pba->w0_fld + pba->wa_fld * (1. - a);
+source/background.c:715:    *dw_over_da_fld = - pba->wa_fld;
+source/background.c:738:    *integral_fld = 3.*((1.+pba->w0_fld+pba->wa_fld)*log(1./a) + pba->wa_fld*(a-1.));
+source/background.c:985:  pba->has_fld = _FALSE_;
+source/background.c:1012:  if (pba->Omega0_fld != 0.)
+source/background.c:1013:    pba->has_fld = _TRUE_;
+source/background.c:1080:  class_define_index(pba->index_bg_rho_fld,pba->has_fld,index_bg,1);
+source/background.c:1081:  class_define_index(pba->index_bg_w_fld,pba->has_fld,index_bg,1);
+source/background.c:1166:  class_define_index(pba->index_bi_rho_fld,pba->has_fld,index_bi,1);
+source/background.c:1744:  double w_fld, dw_over_da, integral_fld;
+source/background.c:1778:  if (pba->has_fld == _TRUE_) {
+source/background.c:1780:    class_call(background_w_fld(pba,0.,&w_fld,&dw_over_da,&integral_fld), pba->error_message, pba->error_message);
+source/background.c:1782:    class_test(w_fld >= 1./3.,
+source/background.c:1785:               w_fld);
+source/background.c:2150:  double rho_fld_today;
+source/background.c:2151:  double w_fld,dw_over_da_fld,integral_fld;
+source/background.c:2240:  if (pba->has_fld == _TRUE_) {
+source/background.c:2242:    /* rho_fld today */
+source/background.c:2243:    rho_fld_today = pba->Omega0_fld * pow(pba->H0,2);
+source/background.c:2245:    /* integrate rho_fld(a) from a_ini to a_0, to get rho_fld(a_ini) given rho_fld(a0) */
+source/background.c:2246:    class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, pba->error_message);
+source/background.c:2248:    /* Note: for complicated w_fld(a) functions with no simple
+source/background.c:2251:       [(1+w_fld)/a] da] (e.g. with the Romberg method?) instead of
+source/background.c:2252:       calling background_w_fld */
+source/background.c:2254:    /* rho_fld at initial time */
+source/background.c:2255:    pvecback_integration[pba->index_bi_rho_fld] = rho_fld_today * exp(integral_fld);
+source/background.c:2453:  class_store_columntitle(titles,"(.)rho_fld",pba->has_fld);
+source/background.c:2454:  class_store_columntitle(titles,"(.)w_fld",pba->has_fld);
+source/background.c:2526:    class_store_double(dataptr,pvecback[pba->index_bg_rho_fld],pba->has_fld,storeidx);
+source/background.c:2527:    class_store_double(dataptr,pvecback[pba->index_bg_w_fld],pba->has_fld,storeidx);
+source/background.c:2652:  if (pba->has_fld == _TRUE_) {
+source/background.c:2654:    dy[pba->index_bi_rho_fld] = -3.*(1.+pvecback[pba->index_bg_w_fld])*y[pba->index_bi_rho_fld];
+```
+
+\small
+5. Declare perturbation variables
+
+\tiny
+```
+include/perturbations.h:247:  short has_source_delta_fld;  /**< do we need source for delta of dark energy? */
+include/perturbations.h:261:  short has_source_theta_fld;  /**< do we need source for theta of dark energy? */
+include/perturbations.h:294:  int index_tp_delta_fld;  /**< index value for delta of dark energy */
+include/perturbations.h:310:  int index_tp_theta_fld;   /**< index value for theta of dark energy */
+include/perturbations.h:478:  int index_pt_delta_fld;  /**< dark energy density in true fluid case */
+include/perturbations.h:479:  int index_pt_theta_fld;  /**< dark energy velocity in true fluid case */
+```
+
+\small
+6. Compute perturbations
+
+\tiny
+```
+source/perturbations.c:472:          class_store_double(dataptr,tk[ppt->index_tp_delta_fld],ppt->has_source_delta_fld,storeidx);
+source/perturbations.c:501:          class_store_double(dataptr,tk[ppt->index_tp_theta_fld],ppt->has_source_theta_fld,storeidx);
+source/perturbations.c:560:      class_store_columntitle(titles,"d_fld",pba->has_fld);
+source/perturbations.c:589:      class_store_columntitle(titles,"t_fld",pba->has_fld);
+source/perturbations.c:712:  double w_fld_ini, w_fld_0,dw_over_da_fld,integral_fld;
+source/perturbations.c:1187:  ppt->has_source_delta_fld = _FALSE_;
+source/perturbations.c:1202:  ppt->has_source_theta_fld = _FALSE_;
+source/perturbations.c:1294:        if (pba->has_fld == _TRUE_)
+source/perturbations.c:1295:          ppt->has_source_delta_fld = _TRUE_;
+source/perturbations.c:1325:        if (pba->has_fld == _TRUE_)
+source/perturbations.c:1326:          ppt->has_source_theta_fld = _TRUE_;
+source/perturbations.c:1401:      class_define_index(ppt->index_tp_delta_fld,  ppt->has_source_delta_fld, index_type,1);
+source/perturbations.c:1415:      class_define_index(ppt->index_tp_theta_fld,  ppt->has_source_theta_fld, index_type,1);
+source/perturbations.c:3360:      class_store_columntitle(ppt->scalar_titles, "delta_rho_fld", pba->has_fld);
+source/perturbations.c:3361:      class_store_columntitle(ppt->scalar_titles, "rho_plus_p_theta_fld", pba->has_fld);
+source/perturbations.c:3362:      class_store_columntitle(ppt->scalar_titles, "delta_p_fld", pba->has_fld);
+source/perturbations.c:3941:      class_define_index(ppv->index_pt_delta_fld,pba->has_fld,index_pt,1); /* fluid density */
+source/perturbations.c:3942:      class_define_index(ppv->index_pt_theta_fld,pba->has_fld,index_pt,1); /* fluid velocity */
+source/perturbations.c:4402:      if (pba->has_fld == _TRUE_) {
+source/perturbations.c:4405:          ppv->y[ppv->index_pt_delta_fld] =
+source/perturbations.c:4406:            ppw->pv->y[ppw->pv->index_pt_delta_fld];
+source/perturbations.c:4408:          ppv->y[ppv->index_pt_theta_fld] =
+source/perturbations.c:4409:            ppw->pv->y[ppw->pv->index_pt_theta_fld];
+source/perturbations.c:5281:  double w_fld,dw_over_da_fld,integral_fld;
+source/perturbations.c:5458:      if (pba->has_fld == _TRUE_) {
+source/perturbations.c:5460:        class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, ppt->error_message);
+source/perturbations.c:5463:          ppw->pv->y[ppw->pv->index_pt_delta_fld] = - ktau_two/4.*(1.+w_fld)*(4.-3.*pba->cs2_fld)/(4.-6.*w_fld+3.*pba->cs2_fld) * ppr->curvature_ini * s2_squared; /* from 1004.5509 */ //TBC: curvature
+source/perturbations.c:5465:          ppw->pv->y[ppw->pv->index_pt_theta_fld] = - k*ktau_three/4.*pba->cs2_fld/(4.-6.*w_fld+3.*pba->cs2_fld) * ppr->curvature_ini * s2_squared; /* from 1004.5509 */ //TBC:curvature
+source/perturbations.c:5740:      if ((pba->has_fld == _TRUE_) && (pba->use_ppf == _FALSE_)) {
+source/perturbations.c:5742:        class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, ppt->error_message);
+source/perturbations.c:5744:        ppw->pv->y[ppw->pv->index_pt_delta_fld] -= 3*(1.+w_fld)*a_prime_over_a*alpha;
+source/perturbations.c:5745:        ppw->pv->y[ppw->pv->index_pt_theta_fld] += k*k*alpha;
+source/perturbations.c:6719:  double w_fld,dw_over_da_fld,integral_fld;
+source/perturbations.c:6727:  double w_prime_fld, ca2_fld;
+source/perturbations.c:6730:  double rho_fld, p_fld, rho_fld_prime, p_fld_prime;
+source/perturbations.c:6732:  double Gamma_fld, S, S_prime, theta_t, theta_t_prime, rho_plus_p_theta_fld_prime;
+source/perturbations.c:7109:    if (pba->has_fld == _TRUE_) {
+source/perturbations.c:7111:      class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, ppt->error_message);
+source/perturbations.c:7112:      w_prime_fld = dw_over_da_fld * a_prime_over_a * a;
+source/perturbations.c:7115:        ppw->delta_rho_fld = ppw->pvecback[pba->index_bg_rho_fld]*y[ppw->pv->index_pt_delta_fld];
+source/perturbations.c:7116:        ppw->rho_plus_p_theta_fld = (1.+w_fld)*ppw->pvecback[pba->index_bg_rho_fld]*y[ppw->pv->index_pt_theta_fld];
+source/perturbations.c:7117:        ca2_fld = w_fld - w_prime_fld / 3. / (1.+w_fld) / a_prime_over_a;
+source/perturbations.c:7119:        ppw->delta_p_fld = pba->cs2_fld * ppw->delta_rho_fld + (pba->cs2_fld-ca2_fld)*(3*a_prime_over_a*ppw->rho_plus_p_theta_fld/k/k);
+source/perturbations.c:7387:  double w_fld,dw_over_da_fld,integral_fld;
+source/perturbations.c:7787:    /* delta_fld */
+source/perturbations.c:7788:    if (ppt->has_source_delta_fld == _TRUE_) {
+source/perturbations.c:7789:      _set_source_(ppt->index_tp_delta_fld) = ppw->delta_rho_fld/pvecback[pba->index_bg_rho_fld]
+source/perturbations.c:7790:        + 3.*a_prime_over_a*(1.+pvecback[pba->index_bg_w_fld])*theta_over_k2; // N-body gauge correction
+source/perturbations.c:7903:    /* theta_fld */
+source/perturbations.c:7904:    if (ppt->has_source_theta_fld == _TRUE_) {
+source/perturbations.c:7906:      class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, ppt->error_message);
+source/perturbations.c:7908:      _set_source_(ppt->index_tp_theta_fld) = ppw->rho_plus_p_theta_fld/(1.+w_fld)/pvecback[pba->index_bg_rho_fld]
+source/perturbations.c:8472:    class_store_double(dataptr, ppw->delta_rho_fld, pba->has_fld, storeidx);
+source/perturbations.c:8473:    class_store_double(dataptr, ppw->rho_plus_p_theta_fld, pba->has_fld, storeidx);
+source/perturbations.c:8474:    class_store_double(dataptr, ppw->delta_p_fld, pba->has_fld, storeidx);
+source/perturbations.c:8683:  double w_fld,dw_over_da_fld,w_prime_fld,integral_fld;
+source/perturbations.c:9269:    if (pba->has_fld == _TRUE_) {
+source/perturbations.c:9276:        class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, ppt->error_message);
+source/perturbations.c:9277:        w_prime_fld = dw_over_da_fld * a_prime_over_a * a;
+source/perturbations.c:9279:        ca2 = w_fld - w_prime_fld / 3. / (1.+w_fld) / a_prime_over_a;
+source/perturbations.c:9280:        cs2 = pba->cs2_fld;
+source/perturbations.c:9284:        dy[pv->index_pt_delta_fld] =
+source/perturbations.c:9285:          -(1+w_fld)*(y[pv->index_pt_theta_fld]+metric_continuity)
+source/perturbations.c:9286:          -3.*(cs2-w_fld)*a_prime_over_a*y[pv->index_pt_delta_fld]
+source/perturbations.c:9287:          -9.*(1+w_fld)*(cs2-ca2)*a_prime_over_a*a_prime_over_a*y[pv->index_pt_theta_fld]/k2;
+source/perturbations.c:9291:        dy[pv->index_pt_theta_fld] = /* fluid velocity */
+source/perturbations.c:9292:          -(1.-3.*cs2)*a_prime_over_a*y[pv->index_pt_theta_fld]
+source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fld]
+```
+
+- I left out many lines
+
+- This did not need thermodynamics modifications
+
+- This did not need to use the shooting method for parameters
+
+- A lot of boilerplate; eliminated with a modeling library
+
 
 # Architecture: monolithic vs. modular
 
 :::::::::::::: {.columns}
 ::: {.column width="50%"}
-![monolithic](media/monolithic.png)
+![CLASS is monolithic](media/monolithic.png){height=3.5cm}
 :::
 ::: {.column width="50%"}
-![modular](media/modular.png)
+![SymBoltz is modular](media/modular.png){height=3.5cm}
 :::
 ::::::::::::::
 
@@ -474,7 +686,7 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 
 # DifferentialEquations.jl: "#1 differential equations library"
 
-![](media/de_comparison.pdf)
+![\tiny \emoji{salt} [Made by the main developer of DifferentialEquations.jl](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/)](media/de_comparison_cropped.pdf)
 
 # ModelingToolkit.jl: symbolic-numeric modeling language
 
@@ -483,9 +695,7 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 - Generate system $\symbfit{y}^\prime(t) = \symbfit{f}(\symbfit{y}(t))$ or $\symbfit{F}(\symbfit{y}^\prime(t), \symbfit{y}(t), t) = \symbf{0}$
 - Generate analytical Jacobian matrix
 
-# ModelingToolkit.jl: my contributions
-
-- Still maturing
+# ModelingToolkit.jl still maturing. My contributions
 
 ![](media/issues.png){width=49%}
 ![](media/prs.png){width=49%}
@@ -530,12 +740,32 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 
 # Future plans:
 
-- Symbolic tensor library for model building
-   - Compute $\Gamma^\alpha_{\beta\gamma}$, $R^\alpha_{\beta\gamma\delta}$, $R_{\alpha\beta}$, $G_{\alpha\beta}$, ... easily
-   - Specify full equations of motion; then expand perturbatively
-- Handle initial conditions symbolically
-- Unit checking
-- CMB power spectrum
+\small
+
+Initial                                      Future
+-------------------------------------------- -------------------------------------
+\emoji{green-square}  Baryons (with RECFAST) \emoji{red-square} Non-linear: halo fit / $N$-body
+\emoji{green-square}  Photons                \emoji{red-square} Unit support
+\emoji{green-square}  Cold dark matter       \emoji{red-square} Symbolic tensor library ($G_{\mu\nu} = \ldots$)
+\emoji{green-square}  Massless neutrinos     \emoji{red-square} Symbolic initial conditions
+\emoji{yellow-square} Massive neutrinos      \emoji{red-square} Synchronous gauge
+\emoji{green-square}  Cosmological constant  \emoji{red-square} Non-flat geometry
+\emoji{green-square}  Quintessence           \emoji{red-square} GPU support
+\emoji{green-square}  $w₀wₐ$ dark energy     \emoji{red-square} Interface with samplers?
+\emoji{green-square}  General Relativity     \emoji{red-square} Better representation of interactions
+\emoji{green-square}  Brans-Dicke gravity
+\emoji{green-square}  Symbolic modularity
+\emoji{green-square}  Approximation-free
+\emoji{green-square}  Differentiable
+\emoji{green-square}  Newtonian gauge
+\emoji{green-square}  Matter power spectrum
+\emoji{yellow-square} CMB power spectrum
+\emoji{green-square}  Convenient post proc
+\emoji{yellow-square} Performance
+\emoji{yellow-square} Documentation
+\emoji{green-square}  Continuous integration
+\emoji{yellow-square} Comparison with CLASS
+\emoji{green-square}  Shooting
 
 # Miscellaneous
 
@@ -555,9 +785,14 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 
 - [Lesgourges' CLASS presentations](https://lesgourg.github.io/courses.html): [content](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Content.pdf), [coding](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Coding.pdf), [exercises](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Exercises.pdf)
 
-- [Implicit ODE solver source](https://www.epfl.ch/labs/anchp/wp-content/uploads/2018/05/part2-1.pdf)
+- Bolt.jl talks: [2022](https://www.cosmologyfromhome.com/wp-content/uploads/2022/06/cfh2022_Sullivan_James.pdf), [2023](https://indico.cmb-s4.org/event/51/contributions/1359/subcontributions/137/attachments/1016/2543/CMBS4_23_Bolt.pdf), [2023](https://cosmologyfromhome.com/wp-content/uploads/2023/06/cfh2023-James-Sullivan.pdf)
+
+- [CMB codes (CAMB, including symbolic module)](https://cosmologist.info/notes/Boltzmann_Nov21.pdf)
+
 
 ---
+
+- [Implicit ODE solver source](https://www.epfl.ch/labs/anchp/wp-content/uploads/2018/05/part2-1.pdf)
 
 - Chris Rackauckas' StackExchange answers [BDF vs implicit](https://scicomp.stackexchange.com/questions/27178/bdf-vs-implicit-runge-kutta-time-stepping) and [stiff solver time complexity](https://scicomp.stackexchange.com/questions/28617/comparing-algorithmic-complexity-ode-solvers-big-o?noredirect=1&lq=1)
 
@@ -568,6 +803,10 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 - [Øyvind's presentation](https://www.mn.uio.no/fysikk/english/research/groups/theory/theory-seminars/2024_christiansen.pdf)
 
 - [CLASS: "TCA could even be removed](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Content.pdf#page=47)
+
+- [Gradient accelerated cosmology](https://inspirehep.net/files/9f87e256e18469eebaffec47bc385028)
+
+- [How nuisance parameters slows down inference](https://arxiv.org/abs/2301.11895)
 
 # Miscellaneous
 
