@@ -38,9 +38,11 @@ monofont: JuliaMono
 
    3. Differentiable
 
-4. Why start from scratch in Julia?
+4. Synergy between new features
 
-5. Future
+5. Why start over in Julia?
+
+6. Current state and future plans
 
 # Cosmology is at a crossroads
 
@@ -446,6 +448,8 @@ source/perturbations.c:9292:          -(1.-3.*cs2)*a_prime_over_a*y[pv->index_pt
 source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fld]
 ```
 
+\small
+
 - I left out many lines
 
 - This did not need thermodynamics modifications
@@ -459,10 +463,10 @@ source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fl
 
 :::::::::::::: {.columns}
 ::: {.column width="50%"}
-![CLASS is monolithic](media/monolithic.png){height=3.5cm}
+![CLASS is monolithic](media/monolithic.png){height=4.2cm}
 :::
 ::: {.column width="50%"}
-![SymBoltz is modular](media/modular.png){height=3.5cm}
+![SymBoltz is modular](media/modular.png){height=4.2cm}
 :::
 ::::::::::::::
 
@@ -509,11 +513,30 @@ child { node[comp] (cc) {Cosmological\\constant}};
 - Code should automatically transform full equations into necessary computational stages (background, thermodynamics, perturbations, LOS, ...)
 
 
-# Feature 2: approximation-free
+# Feature 2: approximation-free stiffness treatment {.allowframebreaks}
 
-![Problem: Einstein-Boltzmann ODEs are *very* stiff! [ ](https://peakptandwellness.com/blog/16707/Helpful-Stretches-to-Combat-Stiff-Legs-from-Your-Friendly-Physical-Therapist)](media/stiffness_edited.png){width=60%}
+![Problem: Einstein-Boltzmann ODEs are *very* stiff!](media/stiffness_edited.png){width=90%}
 
+\framebreak
+
+Stiffness often occurs with multiple \textcolor{red}{(inverse) time scales}, e.g.:
+$$\frac{\mathrm{d} θ_b}{\mathrm{d}t} = -\textcolor{red}{ℋ} θ_b + \textcolor{red}{k^2} cₛ² δ_b - \textcolor{red}{\tau^{-1}} \frac{4ρ_γ}{3ρᵦ} (θ_γ - θ_b)$$
+
+Explicit Runge-Kutta integrators explode:
+
+```{=latex}
+\begin{center}
+```
 ![](media/stiff_ode.png){width=60%}
+```{=latex}
+\end{center}
+```
+
+Two cures:
+
+1. Explicit integrators with approximate equations (non-stiff)
+
+2. Implicit integrators without approximate equations (stiff)
 
 # Solution 1: explicit integrators with approximations
 
@@ -532,15 +555,16 @@ Remove stiffness with approximations for
 - analog for interacting dark radiation,
 
 - analog for other extended models.
+
 :::
 ::: {.column width="39%"}
 ![[CLASS approximations](https://arxiv.org/pdf/1104.2933)](media/approximations.png){height=50%}
 :::
 ::::::::::::::
 
-\emoji{green-square} Fast
+\emoji{green-square} Explicit and fewer equations $\implies$ fast
 
-\emoji{red-square} Scales poorly in model space, complicates physics and numerics
+\emoji{red-square} Scales poorly in model space, switching equations complicates physics and numerics
 
 # Solution 2: implicit integrators without approximations
 
@@ -557,13 +581,36 @@ $$\textstyle y_{n+1} = y_n + h \sum_{i=1}^s b_i k_i, \quad k_i = f(t_n + c_i h, 
 
   - Sparse matrix methods become important for large systems!
 
-\emoji{green-square} Scales well in model space
+\emoji{green-square} Every equation written *once*, scales well in model space
 
 \emoji{red-square} Slower (but fast enough?)
 
-# Feature 3: differentiability
+# Feature 3: differentiability {.allowframebreaks}
 
-![Derivatives of matter power spectrum wrt. parameters](media/power_spectrum_diff.png){height=80%}
+Derivatives are important in
+
+- optimization (e.g. parameter inference; Monte Carlo methods),
+
+- machine learning (e.g. emulators, gradient descent method),
+
+- implicit ODE methods (e.g. stiff Boltzmann equations),
+
+- any calculation using derivatives (e.g. Fisher forecasts),
+
+- pedagogical understanding of how output is sensitive to input.
+
+\framebreak
+
+\tiny
+```julia
+using ForwardDiff
+lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # in log-space
+dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ))
+```
+
+\normalsize
+
+![Derivatives of matter power spectrum wrt. parameters](media/power_spectrum_diff.png){height=60%}
 
 # Method 1: manual differentiation
 
@@ -575,9 +622,9 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 ∂L(w₁,w₂) = [∂L₁(w₁,w₂), ∂L₂(w₁,w₂)]
 ```
 
-\emoji{green-square} Exact
+\emoji{green-square} Exact, fast
 
-\emoji{red-square} Tedious, scales horribly, only explicit expressions
+\emoji{red-square} Tedious, error-prone, no implicit expressions
 
 # Method 2: symbolic differentiation
 
@@ -593,9 +640,9 @@ function ∂L(w₁,w₂)
 end
 ```
 
-\emoji{green-square} Exact
+\emoji{green-square} Exact, fast evaluation
 
-\emoji{red-square} Scales horribly, only explicit expressions
+\emoji{red-square} Cumbersome setup, limited control flow, no implicit expressions
 
 
 # Method 3: numerical differentiation (finite differences)
@@ -608,9 +655,9 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 ∂L(w₁,w₂; ϵ=1e-5) = [∂L₁(w₁,w₂;ϵ), ∂L₂(w₁,w₂;ϵ)]
 ```
 
-\emoji{green-square} Simple, reuses original code
+\emoji{green-square} Simple, reuses code
 
-\emoji{red-square} Depends on $\epsilon$, unstable, time \emph{or} space complexity $\mathcal{O(n)}$ for $\nabla f(x_1,\ldots,x_n)$
+\emoji{red-square} Depends on $\epsilon$, unstable, time $\mathcal{O(n)}$ for $\nabla f(x_1,\ldots,x_n)$
 
 
 # Method 4: automatic differentiation ("autodiff")
@@ -622,23 +669,9 @@ using ForwardDiff
 ∂L(w₁,w₂) = ForwardDiff.gradient(L, [w₁,w₂]) # ???
 ```
 
-\emoji{green-square} Simple, reuses code, stable, no $\epsilon$, handles any function
+\emoji{green-square} Fast, simple for user, reuses code, stable, no $\epsilon$, handles any function
 
-\emoji{red-square} Runtime $\mathcal{O}(n)$, needs full source code
-
-# Automatic differentiation: motivation
-
-Gradients are important in
-
-- Optimization (e.g. parameter inference; Metropolis-Hastings $\rightarrow$ Hamiltonian Monte Carlo)
-
-- Machine learning tools (e.g. emulators)
-
-- Implicit ODE methods (e.g. stiff Boltzmann equations)
-
-- Any calculation with derivatives as input (e.g. Fisher forecasts)
-
-- Pedagogical aspect: understand how output changes with input
+\emoji{red-square} Needs full source code, difficult to implement efficiently
 
 # Automatic differentiation: intuition
 
@@ -648,59 +681,111 @@ Let the compiler transform code for $f(x)$ into code for $f\prime(x)$.
 
 Chain rule on $f(x) = f_3(f_2(f_1(x)))$ can be traversed in two ways:
 
-- $\displaystyle \frac{\partial f}{\partial x} = \left( \frac{\partial f_3}{\partial f_2} \left( \frac{\partial f_2}{\partial f_1} \left( \frac{\partial f_1}{\partial x} \right) \right) \right) \quad\rightarrow\quad \text{forward-mode}$
+- $\displaystyle \frac{\partial f}{\partial x} = \left( \frac{\partial f_3}{\partial f_2} \cdot \left( \frac{\partial f_2}{\partial f_1} \cdot \left( \frac{\partial f_1}{\partial x} \right) \right) \right) \quad\rightarrow\quad \text{forward-mode}$
 
-- $\displaystyle \frac{\partial f}{\partial x} = \left( \left( \left( \frac{\partial f_3}{\partial f_2} \right) \frac{\partial f_2}{\partial f_1} \right) \frac{\partial f_1}{\partial x} \right) \quad\rightarrow\quad \text{reverse-mode}$
+- $\displaystyle \frac{\partial f}{\partial x} = \left( \left( \left( \frac{\partial f_3}{\partial f_2} \right) \cdot \frac{\partial f_2}{\partial f_1} \right) \cdot \frac{\partial f_1}{\partial x} \right) \quad\rightarrow\quad \text{reverse-mode}$
 
-# Automatic differentiation: forward-mode
+Leads to two very different methods!
 
-# Automatic differentiation: reverse-mode
+# Automatic differentiation: forward-mode {.allowframebreaks}
+
+![ ](media/function.png){width=80%}
+
+\framebreak
+![ ](media/fwd1.png){width=80%}
+
+\framebreak
+![ ](media/fwd2.png){width=80%}
+
+\framebreak
+![ ](media/fwd3.png){width=80%}
+
+\framebreak
+![ ](media/fwd4.png){width=80%}
+
+\framebreak
+![ ](media/fwd5.png){width=80%}
+
+# Automatic differentiation: reverse-mode {.allowframebreaks}
+
+![ ](media/function.png){width=80%}
+
+\framebreak
+![ ](media/rev1.png){width=80%}
+
+\framebreak
+![ ](media/rev2.png){width=80%}
+
+\framebreak
+![ ](media/rev3.png){width=80%}
+
+\framebreak
+![ ](media/rev4.png){width=80%}
+
+\framebreak
+![ ](media/rev5.png){width=80%}
 
 
-# Differentiable programming
+# Automatic differentiation: forward-mode vs. reverse-mode
 
-AD needs source access: spawned new "programming paradigm"
+Have function
+$f: \mathbb{R}^m \rightarrow \mathbb{R}^n$.
+Want Jacobian
+$J = \partial f_i / \partial f_j$.
 
-Reverse-mode AD largely turned into a compiler and language design problem
+- Forward-mode: $m$ sweeps, faster when $m < n$ (more outputs)
 
-# Differentiation methods
+- Reverse-mode: $n$ sweeps, faster when $m > n$ (more inputs)
+
+![In practice, reverse mode requires careful building of expression graph, storing intermediate values, checkpointing, etc.](media/ad_speed.png){width=80%}
+
+
+# Automatic differentiation: implementation {.allowframebreaks}
+
+\small
+
+- **Source transformation:** equivalent to symbolic differentiation, limited control flow to information available at compile time.
+
+- **Operator overloading:** new number types with derivative rules, stores value *and* derivative ("duals"/"adjoints").
+
+- **Memory management:**
+
+  - **Forward-mode:** Easy! Store additional derivative component.
+
+  - **Reverse-mode:** Hard! Derivatives from backwards pass needs values from forward pass stored in memory ("tape").
+
+![**Checkpointing:** trade memory $\leftrightarrow$ time by doing reverse-mode in steps](media/checkpointing.png){width=50%}
+
+\framebreak
+
+- **Interception:** define a special function to compute one function's contribution to $J$ at any point in the call hierarchy (e.g. matrix methods, ODE solver, Newton's method, etc.).
+
+  - Favors languages with *multiple dispatch* (e.g. Julia).
+
+Automatic differentiation is a modern compiler/language design problem.
+
+# Comparison of differentiation methods
 
 [![](media/differentiation.png)](https://fmin.xyz/docs/methods/Autograd.html)
 
 # Cheap gradient principle
 
-$\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
-*independent of $n$!*
+![](media/adbook.png){width=10%} \footnotesize
+*Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation (A. Griewank, A. Walther)*:
 
-# Why start from scratch in Julia?
+!["$\text{simulation time} \approx \text{gradient time}$"](media/cheap_gradient_principle.png)
 
-- Differentiable programs need entire source code
-- Modular (SymBoltz) vs. monolithic (CLASS)
-- Simplify construction of alternative models
-- Want to contribute to cosmology environment in Julia
-- Julia has excellent ODE, modeling and AD libraries: best tool for the job?
-- Perturbation theory is computer food
-- "Bottom-up" alternative to "top-down" generalized EFT approaches
-- Focus on high-level equations instead of low-level perturbations
+# Cheap gradient principle
 
+:::::::::::::: {.columns}
+::: {.column width="25%"}
+[![](media/adbook.png)](https://epubs.siam.org/doi/abs/10.1137/1.9780898717761.ch4)
+:::
+::: {.column width="75%"}
+!["$\text{simulation time} \approx \text{gradient time}$"](media/cheap_gradient_principle.png)
+:::
+::::::::::::::
 
-# DifferentialEquations.jl: "#1 differential equations library"
-
-![\tiny \emoji{salt} [Made by the main developer of DifferentialEquations.jl](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/)](media/de_comparison_cropped.pdf)
-
-# ModelingToolkit.jl: symbolic-numeric modeling language
-
-- Component-based model building
-- Automatic symbolic index management
-- Generate system $\symbfit{y}^\prime(t) = \symbfit{f}(\symbfit{y}(t))$ or $\symbfit{F}(\symbfit{y}^\prime(t), \symbfit{y}(t), t) = \symbf{0}$
-- Generate analytical Jacobian matrix
-
-# ModelingToolkit.jl still maturing. My contributions
-
-![](media/issues.png){width=49%}
-![](media/prs.png){width=49%}
-
-# ForwardDiff.jl: forward mode automatic differentiation
 
 # New features
 
@@ -738,6 +823,34 @@ $\mathcal{O}(\text{simulation}) \sim \mathcal{O}(\text{optimization})$
 \end{tikzpicture}
 \end{center}
 
+# Why start over in Julia?
+
+- New symbolic modular architecture
+
+- Differentiable programs need entire source code
+
+- Want to contribute to cosmology environment in Julia
+
+- Julia has excellent modeling, ODE and AD libraries!
+
+# ModelingToolkit.jl: symbolic-numeric modeling language
+
+- Component-based model building
+- Automatic symbolic index management
+- Generate system $\symbfit{y}^\prime(t) = \symbfit{f}(\symbfit{y}(t))$ or $\symbfit{F}(\symbfit{y}^\prime(t), \symbfit{y}(t), t) = \symbf{0}$
+- Generate analytical Jacobian matrix
+
+# ModelingToolkit.jl: still maturing; my contributions
+
+![](media/issues.png){width=49%}
+![](media/prs.png){width=49%}
+
+# DifferentialEquations.jl: "#1 differential equations library"
+
+![\tiny \emoji{salt} [Made by the main developer of DifferentialEquations.jl](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/)](media/de_comparison_cropped.pdf)
+
+# ForwardDiff.jl: forward mode automatic differentiation
+
 # Future plans:
 
 \small
@@ -753,7 +866,7 @@ Initial                                      Future
 \emoji{green-square}  Quintessence           \emoji{red-square} GPU support
 \emoji{green-square}  $w₀wₐ$ dark energy     \emoji{red-square} Interface with samplers?
 \emoji{green-square}  General Relativity     \emoji{red-square} Better representation of interactions
-\emoji{green-square}  Brans-Dicke gravity
+\emoji{green-square}  Brans-Dicke gravity    \emoji{red-square} Reverse-mode autodiff
 \emoji{green-square}  Symbolic modularity
 \emoji{green-square}  Approximation-free
 \emoji{green-square}  Differentiable
