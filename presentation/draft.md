@@ -666,7 +666,7 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 
 using ForwardDiff
-∂L(w₁,w₂) = ForwardDiff.gradient(L, [w₁,w₂]) # ???
+∂L(w₁,w₂) = ForwardDiff.gradient(L, [w₁,w₂])
 ```
 
 \emoji{green-square} Fast, simple for user, reuses code, stable, no $\epsilon$, handles any function
