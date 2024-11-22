@@ -30,7 +30,7 @@ monofont: JuliaMono
 
 2. Boltzmann solvers
 
-3. New features
+3. New features in SymBoltz.jl
 
    1. Symbolic modularity
 
@@ -48,141 +48,133 @@ monofont: JuliaMono
 
 ![ ](media/crossroads_meme_edited.jpg){height=75%}
 
-# ΛCDM model: components
+# Challenges with the ΛCDM model
 
-\begin{center}
-\begin{tikzpicture}[
-   font=\scriptsize,
-   comp/.style = {draw, circle, fill=gray, minimum size = 2.0cm, align=center},
-   grow cyclic,
-   level 1/.append style = {level distance = 3.3cm, sibling angle = 60},
-   interaction/.style = {latex-latex, thick},
-]
-\node[comp] (grav) {Gravity} [interaction]
-child { node[comp] (bar) {Baryons}}
-child { node[comp] (pho) {Photons}}
-child { node[comp] (neu) {Massless\\neutrinos}}
-child { node[comp] (mneu) {Massive\\neutrinos}}
-child { node[comp] (cdm) {Cold dark\\matter}}
-child { node[comp] (cc) {Cosmological\\constant}};
-\draw[interaction] (bar) -- node[above=, sloped, align=center] {Thomson\\scattering} (pho);
-\end{tikzpicture}
-\end{center}
+:::::::::::::: {.columns align=center}
+::: {.column width="65%"}
 
-# ΛCDM model: challenges
+- [$H₀$ tension](https://arxiv.org/abs/2105.05208)
 
-- [$H₀$ and $S₈$ tensions](https://arxiv.org/abs/2105.05208)
+ 
+
+- [$S₈$ tension](https://arxiv.org/abs/2105.05208)
+
+ 
 
 - [$Λ$ problem](https://arxiv.org/abs/2105.05208)
 
+ 
+
 - [Anisotropically distributed quasars](https://arxiv.org/abs/2009.14826)
 
-- [Surprisingly massive early galaxies (JWST)](https://arxiv.org/abs/2309.13100)
+ 
+
+- [Too massive early galaxies (JWST)](https://arxiv.org/abs/2309.13100)
+
+ 
 
 - [Excess ISW signal from supervoids](https://arxiv.org/abs/1811.07812) 
 
-- [DESI observations](https://arxiv.org/pdf/2404.08056)
+ 
 
-Cosmologists are exploring alternative models.
+- [DESI favors dynamical dark energy](https://arxiv.org/abs/2404.03002)
 
-# Alternative models
+ 
+
+- ...
+
+:::
+::: {.column width="35%"}
+
+![[2105.05208](https://arxiv.org/abs/2105.05208)](media/H0_tension.png)
+
+![[2404.03002](https://arxiv.org/abs/2404.03002)](media/desi_de.png)
+
+:::
+::::::::::::::
+
+# Alternative models are being explored
 
 ![Beyond ΛCDM panel, Oslo 2015 ([1512.05356](https://arxiv.org/abs/1512.05356)).](media/vote_edited.png){width=95%}
 
-# Alternative models: e.g. modified gravity
+# Alternative models are being explored: e.g. modified gravity
 
 [![](https://www.tessabaker.space/images/map_slide_v2.pdf){width=95%}](https://www.tessabaker.space/images/map_slide_v2.pdf)
 
-# Boltzmann solvers are fundamental cosmology tools
+# Models are tested with Boltzmann solvers
 
 [![Used in most cosmological analyses](media/hammer_edited.jpeg)](https://www.reddit.com/r/photoshopbattles/comments/cfxzzg/battle_366_bigger_splash_via_previous_winner/)
 
-# An Einstein-Boltzmann solver typically ...
+# What does an Einstein-Boltzmann do?
 
-1. reads input parameters
+\scriptsize
+1. Read input parameters $\Omega_{m0}$, $\Omega_{b0}$, $T_{\gamma 0}$, $N_\mathrm{eff}$, $A_s$, $n_s$, $\ldots$
 
-2. solves background ODEs
+\scriptsize
 
-   - $H^2 = \frac{8 \pi G}{3} \rho$
+2. Solve background ODEs:
+   $$\tiny
+   \begin{gathered}
+   \dot{a}^2 = \frac{8\pi}{3} \rho a^4, \quad
+   \ddot{a} = \frac{\dot{a}^2}{a} - \frac{4\pi}{3} (\rho + 3P) a^3, \quad
+   \dot{ρ}_s = -3 ℋ (ρ_s + P_s), \quad
+   P_s = w_s \rho_s, \quad
+   \ldots
+   \end{gathered}
+   $$
+\scriptsize
 
-3. solves thermodynamics ODEs
+3. Solve thermodynamics ODEs:
+   $$\tiny
+   \begin{gathered}
+   \dot{x}_H = a C \left [\beta(T_b) (1-x_H) - n_H \alpha^{(2)}(T_b) x_H^2 \right], \quad
+   \ldots
+   \end{gathered}
+   $$
+\scriptsize
 
-   - $\frac{\mathrm{d} x_e}{\mathrm{d} t} = \ldots$
+4. Solve perturbation ODEs:
+   $$\tiny
+   \begin{gathered}
+   \dot{Φ} = -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ, \quad Φ - Ψ = \frac{12\pi a^2 Π}{k^2}, \\
+   \dot{δ}_s = -(1+w_s) (θ_s-3\dot{Φ}) - 3 ℋ (cₛ²-w_s)δ_s, \quad
+   \dot{θ}_s = -ℋ(1-3w_s)θ_s + \frac{cₛ² k^2 δ_s}{1+w_s} + k^2 Ψ + \ldots
+   \end{gathered}
+   $$
+\scriptsize
 
-4. solves perturbation ODEs
+5. Solve line-of-sight ODEs
+   $$\tiny
+   \begin{gathered}
+   \dot{\Theta}_l = \left[ g \left( Θ₀+Ψ+\frac{Π}{4} \right) + \frac{g u_b}{k} + e^{-τ} (Ψ-Φ)′ + \frac{3 (gΠ)″}{4 k^2}  \right] j_l\big((k (\tau_0-\tau)\big)
+   \end{gathered}
+   $$
+\scriptsize
 
-   - $\dot{Φ} = -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ$
-
-5. solves line of sight ODEs
-
-6. computes spectra
-
-7. writes output
-
-# An Einstein-Boltzmann solver ...
-... solves the (gravitational) Einstein equations
-$$
-%\underset{\underset{\mathllap{\text{spacetime geometry}}}{\uparrow}}{G_{\mu \nu}} = \frac{8 \pi G}{c^4} \underset{\underset{\mathrlap{\text{energy-momentum content}}}{\uparrow}}{T_{\mu \nu}}
-\scriptsize{\textcolor{gray}{\text{geometry} \rightarrow \quad}} G_{\mu\nu} = \frac{8 \pi G}{c^4} T_{\mu\nu} \scriptsize{\textcolor{gray}{\quad \leftarrow \text{content}}}
-$$
-coupled to particle species, each described by Boltzmann equations
-$$\left( p^\mu \frac{\partial}{\partial x^\mu} - \Gamma^\mu_{\alpha \beta} p^\alpha p^\beta \frac{\partial}{\partial p^\mu} \right) \underset{\textcolor{gray}{\underset{\mathclap{\text{distribution function}}}{\uparrow}}}{f_s} = C[f_s] \textcolor{gray}{\quad \leftarrow \text{interactions}}$$
-to 1st perturbative order around a homo. and iso. FLRW spacetime
-$$\mathrm{d}s^2 = a^2 (-1-2 \Psi) \mathrm{d}t^2 + a^2 (1 - 2 \Phi) \mathrm{d}\mathbf{x}^2$$
-(with lots of pre- and post-processing).
-
-# An Einstein-Boltzmann solver solves the ODEs ...
-
-$$
-\begin{aligned}
-%\dot{\phantom{x}} &= \mathrm{d}/\mathrm{d} \tau, \\
-\dot{a} &= \sqrt{\frac{8 \pi}{3} \rho} \, a^2, \\
-\ddot{a} &= \frac{\dot{a}^2}{a} - \frac{4\pi}{3} (\rho + 3P) a^3, \\
-\dot{Φ} &= -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ, \\
-k^2 (Φ - Ψ) &= 12\pi a^2 Π, \\
-\dot{ρ}_s &= -3 ℋ (ρ_s + P_s), \\
-P_s &= w_s \rho_s, \\
-\dot{δ}_s &= -(1+w_s) (θ_s-3\dot{Φ}) - 3 ℰ (cₛ²-w_s)δ_s, \\
-\dot{θ}_s &= -ℋ(1-3w_s)θ_s - \frac{\dot{w}_s θ_s}{1+w_s} + \frac{cₛ² k^2 δ_s}{1+w_s}  - k^2 σ_s + k^2 Ψ, \\
-&\vdots
-\end{aligned}
-$$
-
----
-
-# An Einstein-Boltzmann solver outputs e.g. ...
-
-:::::::::::::: {.columns}
-::: {.column width="50%"}
-![Matter power spectrum](media/matter_power_spectrum.png){height=3.5cm}
-:::
-::: {.column width="50%"}
-![CMB power spectrum](media/cmb_power_spectrum.png){height=3.5cm}
-:::
-::::::::::::::
+6. Output some function of the unknowns (observables), like $P(k)$ or $C_l$.
 
 
 # History of Boltzmann solvers
 
 \scriptsize
 
-Year                  Code                                                                                                 Lang.   New features                                     
---------------------- ---------------------------------------------------------------------------------------------------- ------- ------------------------------------------------- ------
-1995                   [COSMICS](https://arxiv.org/abs/astro-ph/9506072) [ ](https://arxiv.org/pdf/astro-ph/9506070)       Fortran First proper treatment; seminal paper             \emoji{headstone}
-1996                   [CMBFAST](https://arxiv.org/abs/astro-ph/9603033)                                                   Fortran Line-of-sight integration (lower $l_\text{max}$)  \emoji{headstone}
-2000                   [CAMB](https://arxiv.org/abs/astro-ph/9911177)                                                      Fortran Further development, closed models                \emoji{sports-medal}
-2003                   [CMBEASY](https://arxiv.org/abs/astro-ph/0302138)                                                   C++     Code structure, object-oriented                   \emoji{headstone}
-2011                   [CLASS](https://arxiv.org/abs/1104.2932)                                                            C/Py    User-friendliness, flexibility, accuracy control  \emoji{sports-medal}
-2017                   [PyCosmo](https://arxiv.org/abs/1708.05177)                                                         Py/C++  Symbolics, C++ code gen., sparsity optim.         \emoji{hatching-chick}
-2021                   [Bolt](https://github.com/xzackli/Bolt.jl/)                                                         Julia   Differentiable, approx.-free?                     \emoji{hatching-chick}
-2024                   [DISCO-EB](https://arxiv.org/abs/2311.03291)                                                        Py/Jax  Differentiable, approx.-free?                     \emoji{hatching-chick}
-2025                   [SymBoltz](https://github.com/hersle/SymBoltz.jl)?                                                  Julia   Symbolic modularity, approx.-free, differentiable \emoji{hatching-chick}
+**Year**              **Code**                                                                                             **Lang.**  **New features**                                   
+--------------------- ---------------------------------------------------------------------------------------------------- ---------- ------------------------------------------------- ------
+1995                  [COSMICS](https://arxiv.org/abs/astro-ph/9506072) [ ](https://arxiv.org/pdf/astro-ph/9506070)        Fortran    First proper treatment; seminal paper             \emoji{headstone}
+1996                  [CMBFAST](https://arxiv.org/abs/astro-ph/9603033)                                                    Fortran    Line-of-sight integration (lower $l_\text{max}$)  \emoji{headstone}
+2000                  [CAMB](https://arxiv.org/abs/astro-ph/9911177)                                                       Fortran    Further development, closed models                \emoji{sports-medal}
+2003                  [CMBEASY](https://arxiv.org/abs/astro-ph/0302138)                                                    C++        Code structure, object-oriented                   \emoji{headstone}
+2011                  [CLASS](https://arxiv.org/abs/1104.2932)                                                             C          User-friendliness, flexibility, accuracy control  \emoji{sports-medal}
+2017                  [PyCosmo](https://arxiv.org/abs/1708.05177)                                                          Py/C++     Symbolics, C++ code gen., sparsity optim.         \emoji{hatching-chick}
+2021                  [Bolt](https://github.com/xzackli/Bolt.jl/)                                                          Julia      Differentiable, approx.-free?                     \emoji{hatching-chick}
+2024                  [DISCO-EB](https://arxiv.org/abs/2311.03291)                                                         Py/Jax     Differentiable, approx.-free?                     \emoji{hatching-chick}
+2025                  [SymBoltz](https://github.com/hersle/SymBoltz.jl)?                                                   Julia      Symbolic modularity, approx.-free, differentiable \emoji{hatching-chick}
 
 ... and all forks thereof; e.g. [EFTCAMB](https://arxiv.org/abs/1312.5742), [HiCLASS](https://arxiv.org/abs/1909.01828), ...
 
 # Feature 1: symbolic modularity
 
-- \small Let a modeling library build full model from partial submodels:
+- \small Build full model from partial submodels:
 
 \tiny
 ```
@@ -211,10 +203,11 @@ julia> equations(M.G)
  (k^2)*(-Ψ(t) + Φ(t))*ϵ ~ 12Π(t)*(a(t)^2)*π*ϵ
 ```
 
+- \small Give equations to a modeling library and benefit.
 
 # Example: add $w₀wₐ$ dark energy: SymBoltz
 
-Everything related to one species should be in one place:
+- Everything related to one species should be in one place:
 
 \tiny
 
@@ -252,9 +245,9 @@ sol = solve(M, pars)
 
 # Example: add $w₀wₐ$ dark energy: CLASS {.allowframebreaks}
 
+\footnotesize
 [Official advice](https://lesgourg.github.io/class-tour/Padova/CLASS_Padova_Coding.pdf): `grep -Rn _fld include/ source/ python/`
 
-\small
 1. Read input parameters and handle parameter dependencies:
 
 \tiny
@@ -274,7 +267,7 @@ source/input.c:3292:      class_read_double("w0_fld",pba->w0_fld);
 source/input.c:3294:      class_read_double("cs2_fld",pba->cs2_fld);
 ```
 
-\small
+\footnotesize
 2. Add parameter hooks to Python wrapper, too:
 
 \tiny
@@ -285,7 +278,9 @@ python/cclassy.pxd:93:        double wa_fld
 python/cclassy.pxd:94:        double cs2_fld
 ```
 
-\small
+\framebreak
+
+\footnotesize
 3. Declare background variables and indices
 
 \tiny
@@ -304,8 +299,7 @@ include/background.h:420:                       double * dw_over_da_fld,
 include/background.h:421:                       double * integral_fld);
 ```
 
-\framebreak
-\small
+\footnotesize
 4. Compute background
 
 \tiny
@@ -360,7 +354,7 @@ source/background.c:2652:  if (pba->has_fld == _TRUE_) {
 source/background.c:2654:    dy[pba->index_bi_rho_fld] = -3.*(1.+pvecback[pba->index_bg_w_fld])*y[pba->index_bi_rho_fld];
 ```
 
-\small
+\footnotesize
 5. Declare perturbation variables
 
 \tiny
@@ -373,7 +367,7 @@ include/perturbations.h:478:  int index_pt_delta_fld;  /**< dark energy density 
 include/perturbations.h:479:  int index_pt_theta_fld;  /**< dark energy velocity in true fluid case */
 ```
 
-\small
+\footnotesize
 6. Compute perturbations
 
 \tiny
@@ -448,38 +442,60 @@ source/perturbations.c:9292:          -(1.-3.*cs2)*a_prime_over_a*y[pv->index_pt
 source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fld]
 ```
 
+\footnotesize
+
+- I left out *many* lines
+
+- Fortunately, this model did not need thermodynamics modifications
+
+- A lot of boilerplate!
+
+
+# Architecture: CLASS vs. SymBoltz {.allowframebreaks}
+
 \small
-
-- I left out many lines
-
-- This did not need thermodynamics modifications
-
-- This did not need to use the shooting method for parameters
-
-- A lot of boilerplate; eliminated with a modeling library
-
-
-# Architecture: monolithic vs. modular
 
 :::::::::::::: {.columns}
 ::: {.column width="50%"}
 ![CLASS is monolithic](media/monolithic.png){height=4.2cm}
+
+\emoji{red-square} Structure is overwhelming
+
+\emoji{red-square} Extensions encourage duplication
+
+\emoji{green-square} More customizable
+
 :::
 ::: {.column width="50%"}
 ![SymBoltz is modular](media/modular.png){height=4.2cm}
+
+\emoji{green-square} Structure is clearly separated
+
+\emoji{green-square} Extensions encourage modularity
+
+\emoji{red-square} Less customizable
+
 :::
 ::::::::::::::
 
-# Architecure: SymBoltz / modular
+\framebreak
 
 :::::::::::::: {.columns}
 ::: {.column width="50%"}
 
-![](media/organization_class.png){height=50%}
+![CLASS is structured computationally](media/organization_class.png){height=50%}
+
+\emoji{red-square} Friendly towards programmers
+
+\emoji{red-square} Scales worse in model space
+
+\emoji{green-square} Easier to debug
 
 :::
 ::: {.column width="50%"}
 
+\begin{figure}
+\scalebox{0.55}{
 \begin{tikzpicture}[
    font=\scriptsize,
    comp/.style = {draw, circle, fill=gray, minimum size = 2.0cm, align=center},
@@ -496,21 +512,39 @@ child { node[comp] (cdm) {Cold dark\\matter}}
 child { node[comp] (cc) {Cosmological\\constant}};
 \draw[interaction] (bar) -- node[above=, sloped, align=center] {Thomson\\scattering} (pho);
 \end{tikzpicture}
+}
+\caption{SymBoltz is structured physically}
+\end{figure}
+
+\emoji{green-square} Friendly to modelers
+
+\emoji{green-square} Scales better in model space
+
+\emoji{red-square} Harder to debug
 
 :::
 ::::::::::::::
 
 
-# In my *opinion*:
+# Benefits from using a modeling library
 
-- CLASS' monolithic structure doesn't scale well in model space
+- Automatically index variables
 
-  - massive number of forks leads to fragmentation (TODO: fork graph?)
+- Automatically validate consistency and units of equations
 
+- Automatically compute observeds from unknowns (e.g. $\Psi$)
 
-- User should be able to just write down the full set of (background + perturbation) equations
-- Code should automatically read input and write output
-- Code should automatically transform full equations into necessary computational stages (background, thermodynamics, perturbations, LOS, ...)
+- Automatically compute Jacobian sparsity pattern
+
+- Automatically transform equations to more stable form
+
+- Automatically generate performant code
+
+- Automatically parallellize independent equations (GPUs?)
+
+- Automatically display model equations
+
+Goal: modeler should be able to just write down all equations!
 
 
 # Feature 2: approximation-free stiffness treatment {.allowframebreaks}
@@ -522,21 +556,26 @@ child { node[comp] (cc) {Cosmological\\constant}};
 Stiffness often occurs with multiple \textcolor{red}{(inverse) time scales}, e.g.:
 $$\frac{\mathrm{d} θ_b}{\mathrm{d}t} = -\textcolor{red}{ℋ} θ_b + \textcolor{red}{k^2} cₛ² δ_b - \textcolor{red}{\tau^{-1}} \frac{4ρ_γ}{3ρᵦ} (θ_γ - θ_b)$$
 
-Explicit Runge-Kutta integrators explode:
-
-```{=latex}
-\begin{center}
-```
-![](media/stiff_ode.png){width=60%}
-```{=latex}
-\end{center}
-```
-
 Two cures:
 
-1. Explicit integrators with approximate equations (non-stiff)
+1. Explicit integrators with approximate non-stiff equations
 
-2. Implicit integrators without approximate equations (stiff)
+2. Implicit integrators with full stiff equations
+
+Can change ODE solver with 1 line of code:
+\tiny
+```julia
+solve(M, pars, k; solver = RK4())      # explicit, fails
+solve(M, pars, k; solver = Tsit5())    # explicit, fails
+
+solve(M, pars, k; solver = Rodas5P())  # implicit, works
+solve(M, pars, k; solver = KenCarp4()) # implicit, works
+solve(M, pars, k; solver = Kvaerno5()) # implicit, works
+solve(M, pars, k; solver = QNDF())     # implicit, works
+solve(M, pars, k; solver = QBDF())     # implicit, works
+```
+\normalsize
+
 
 # Solution 1: explicit integrators with approximations
 
@@ -550,21 +589,25 @@ Remove stiffness with approximations for
 
 - ultra-relativistic fluid (UFA),
 
-- analog for massive neutrinos,
+- same for massive neutrinos,
 
-- analog for interacting dark radiation,
+- same for interacting dark radiation,
 
-- analog for other extended models.
+- ...
 
 :::
 ::: {.column width="39%"}
-![[CLASS approximations](https://arxiv.org/pdf/1104.2933)](media/approximations.png){height=50%}
+![CLASS approx. ([1104.2933](https://arxiv.org/pdf/1104.2933))](media/approximations.png){height=50%}
 :::
 ::::::::::::::
 
+Myth: "[unavoidable](https://arxiv.org/pdf/1104.2932)", alternatives "[impossible](https://cosmologist.info/notes/CAMB.pdf)".
+
 \emoji{green-square} Explicit and fewer equations $\implies$ fast
 
-\emoji{red-square} Scales poorly in model space, switching equations complicates physics and numerics
+\emoji{red-square} Approximate, switching eqs. complicates physics and numerics
+
+\emoji{red-square} Extensions reintroduce stiffness, scales poorly in model space
 
 # Solution 2: implicit integrators without approximations
 
@@ -575,36 +618,47 @@ $$\textstyle y_{n+1} = y_n + h \sum_{i=1}^s b_i k_i, \quad k_i = f(t_n + c_i h, 
 
 - $A = [a_{ij}]$ general: $\implies$ $\mathbf{k}$ given **implicitly** from $\mathbf{z}$ in
   $$\underbrace{\left[ I - (A \otimes I) J(\mathbf{z}_n) \right]}_\text{$sd \times sd$ matrix} \mathbf{z}_{n+1} = -\mathbf{z}_n + (A \otimes I) F(\mathbf{z}_n)$$
-  - Need accurate $J_{ij} = \partial f_i / \partial y_j$: automatic differentiation > finite differences
-
+  - Need accurate $J_{ij} = \partial f_i / \partial y_j$ (auto. diff. > fin. diff.)
   - Reduce cost by LU factorizing and reusing $I - (A \otimes I) J(\mathbf{z}_n)$
+  - Sparse matrix methods important for large systems!
 
-  - Sparse matrix methods become important for large systems!
-
-\emoji{green-square} Every equation written *once*, scales well in model space
+\emoji{green-square} Accurate, no switching, clear physics, scales well in model space
 
 \emoji{red-square} Slower (but fast enough?)
 
 # Feature 3: differentiability {.allowframebreaks}
 
-Derivatives are important in
+:::::::::::::: {.columns}
+::: {.column width="50%"}
 
-- optimization (e.g. parameter inference; Monte Carlo methods),
+Derivatives are important in:
 
-- machine learning (e.g. emulators, gradient descent method),
+ 
 
-- implicit ODE methods (e.g. stiff Boltzmann equations),
+- **Optimization:** parameter inference, Monte Carlo methods
 
-- any calculation using derivatives (e.g. Fisher forecasts),
+- **Machine learning:** training emulators
 
-- pedagogical understanding of how output is sensitive to input.
+- **Implicit ODE solvers:** stiff Boltzmann eqs.
+
+- **Calculations:** forecasts
+
+- **Sensitivity analysis:** $∂(\mathrm{output}) / ∂(\mathrm{input})$
+
+:::
+::: {.column width="50%"}
+
+![Parameter inference from next-gen. surveys must explore large $\mathcal{O}(100)$-dim. parameter spaces ([2305.06347](https://arxiv.org/abs/2305.06347)).](media/high_dimensional_inference.png){height=75%}
+
+:::
+::::::::::::::
 
 \framebreak
 
 \tiny
 ```julia
 using ForwardDiff
-lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # in log-space
+lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3")
 dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ))
 ```
 
@@ -620,6 +674,11 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 ∂L₁(w₁,w₂) = w₂/w₁ + (w₂/w₁) / (2*√(w₂*log(w₁)))
 ∂L₂(w₁,w₂) = log(w₁) + log(w₁) / (2*√(w₂))
 ∂L(w₁,w₂) = [∂L₁(w₁,w₂), ∂L₂(w₁,w₂)]
+
+
+
+
+
 ```
 
 \emoji{green-square} Exact, fast
@@ -653,6 +712,11 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 ∂L₁(w₁,w₂; ϵ=1e-5) = (L(w₁+ϵ/2,w₂) - L(w₁-ϵ/2,w₂)) / ϵ
 ∂L₂(w₁,w₂; ϵ=1e-5) = (L(w₁,w₂+ϵ/2) - L(w₁,w₂-ϵ/2)) / ϵ
 ∂L(w₁,w₂; ϵ=1e-5) = [∂L₁(w₁,w₂;ϵ), ∂L₂(w₁,w₂;ϵ)]
+
+
+
+
+
 ```
 
 \emoji{green-square} Simple, reuses code
@@ -666,16 +730,22 @@ L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 L(w₁,w₂) = w₂*log(w₁) + √(w₂*log(w₁))
 
 using ForwardDiff
-∂L(w₁,w₂) = ForwardDiff.gradient(L, [w₁,w₂]) # ???
+∂L(w₁,w₂) = ForwardDiff.gradient(L, [w₁,w₂])
+
+
+
+
+
+
 ```
 
-\emoji{green-square} Fast, simple for user, reuses code, stable, no $\epsilon$, handles any function
+\emoji{green-square} Fast, simple for user, reuses code, stable, no $\epsilon$, any function
 
 \emoji{red-square} Needs full source code, difficult to implement efficiently
 
 # Automatic differentiation: intuition
 
-Any computer program is a (big) composite function $f(x) = f_n(f_{n-1}(\cdots f_2(f_1(x))))$ of elementary operations $f_i(x)$.
+Any computer program is one (big) composite function $f(x) = f_n(f_{n-1}(\cdots f_2(f_1(x))))$ of elementary operations $f_i$.
 
 Let the compiler transform code for $f(x)$ into code for $f\prime(x)$.
 
@@ -684,8 +754,6 @@ Chain rule on $f(x) = f_3(f_2(f_1(x)))$ can be traversed in two ways:
 - $\displaystyle \frac{\partial f}{\partial x} = \left( \frac{\partial f_3}{\partial f_2} \cdot \left( \frac{\partial f_2}{\partial f_1} \cdot \left( \frac{\partial f_1}{\partial x} \right) \right) \right) \quad\rightarrow\quad \text{forward-mode}$
 
 - $\displaystyle \frac{\partial f}{\partial x} = \left( \left( \left( \frac{\partial f_3}{\partial f_2} \right) \cdot \frac{\partial f_2}{\partial f_1} \right) \cdot \frac{\partial f_1}{\partial x} \right) \quad\rightarrow\quad \text{reverse-mode}$
-
-Leads to two very different methods!
 
 # Automatic differentiation: forward-mode {.allowframebreaks}
 
@@ -740,7 +808,7 @@ $J = \partial f_i / \partial f_j$.
 ![In practice, reverse mode requires careful building of expression graph, storing intermediate values, checkpointing, etc.](media/ad_speed.png){width=80%}
 
 
-# Automatic differentiation: implementation {.allowframebreaks}
+# Automatic differentiation: implementation
 
 \small
 
@@ -754,26 +822,13 @@ $J = \partial f_i / \partial f_j$.
 
   - **Reverse-mode:** Hard! Derivatives from backwards pass needs values from forward pass stored in memory ("tape").
 
-![**Checkpointing:** trade memory $\leftrightarrow$ time by doing reverse-mode in steps](media/checkpointing.png){width=50%}
+![**Checkpointing:** trade memory $\leftrightarrow$ time by doing reverse-mode in steps](media/checkpointing.png){width=45%}
 
-\framebreak
-
-- **Interception:** define a special function to compute one function's contribution to $J$ at any point in the call hierarchy (e.g. matrix methods, ODE solver, Newton's method, etc.).
-
-  - Favors languages with *multiple dispatch* (e.g. Julia).
-
-Automatic differentiation is a modern compiler/language design problem.
+AD has become a compiler/language design problem.
 
 # Comparison of differentiation methods
 
 [![](media/differentiation.png)](https://fmin.xyz/docs/methods/Autograd.html)
-
-# Cheap gradient principle
-
-![](media/adbook.png){width=10%} \footnotesize
-*Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation (A. Griewank, A. Walther)*:
-
-!["$\text{simulation time} \approx \text{gradient time}$"](media/cheap_gradient_principle.png)
 
 # Cheap gradient principle
 
@@ -835,15 +890,10 @@ Automatic differentiation is a modern compiler/language design problem.
 
 # ModelingToolkit.jl: symbolic-numeric modeling language
 
-- Component-based model building
-- Automatic symbolic index management
-- Generate system $\symbfit{y}^\prime(t) = \symbfit{f}(\symbfit{y}(t))$ or $\symbfit{F}(\symbfit{y}^\prime(t), \symbfit{y}(t), t) = \symbf{0}$
-- Generate analytical Jacobian matrix
-
-# ModelingToolkit.jl: still maturing; my contributions
-
 ![](media/issues.png){width=49%}
 ![](media/prs.png){width=49%}
+
+Still maturing; I have contributed quite a bit.
 
 # DifferentialEquations.jl: "#1 differential equations library"
 
@@ -879,6 +929,54 @@ Initial                                      Future
 \emoji{green-square}  Continuous integration
 \emoji{yellow-square} Comparison with CLASS
 \emoji{green-square}  Shooting
+
+# An Einstein-Boltzmann solver ...
+... solves the (gravitational) Einstein equations
+$$
+%\underset{\underset{\mathllap{\text{spacetime geometry}}}{\uparrow}}{G_{\mu \nu}} = \frac{8 \pi G}{c^4} \underset{\underset{\mathrlap{\text{energy-momentum content}}}{\uparrow}}{T_{\mu \nu}}
+\scriptsize{\textcolor{gray}{\text{geometry} \rightarrow \quad}} G_{\mu\nu} = \frac{8 \pi G}{c^4} T_{\mu\nu} \scriptsize{\textcolor{gray}{\quad \leftarrow \text{content}}}
+$$
+coupled to particle species, each described by Boltzmann equations
+$$\left( p^\mu \frac{\partial}{\partial x^\mu} - \Gamma^\mu_{\alpha \beta} p^\alpha p^\beta \frac{\partial}{\partial p^\mu} \right) \underset{\textcolor{gray}{\underset{\mathclap{\text{distribution function}}}{\uparrow}}}{f_s} = C[f_s] \textcolor{gray}{\quad \leftarrow \text{interactions}}$$
+to 1st perturbative order around a homo. and iso. FLRW spacetime
+$$\mathrm{d}s^2 = a^2 (-1-2 \Psi) \mathrm{d}t^2 + a^2 (1 - 2 \Phi) \mathrm{d}\mathbf{x}^2$$
+(with lots of pre- and post-processing).
+
+# An Einstein-Boltzmann solver solves the ODEs ...
+
+$$
+\begin{aligned}
+%\dot{\phantom{x}} &= \mathrm{d}/\mathrm{d} \tau, \\
+\dot{a} &= \sqrt{\frac{8 \pi}{3} \rho} \, a^2, \\
+\ddot{a} &= \frac{\dot{a}^2}{a} - \frac{4\pi}{3} (\rho + 3P) a^3, \\
+\dot{Φ} &= -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ, \\
+k^2 (Φ - Ψ) &= 12\pi a^2 Π, \\
+\dot{ρ}_s &= -3 ℋ (ρ_s + P_s), \\
+P_s &= w_s \rho_s, \\
+\dot{δ}_s &= -(1+w_s) (θ_s-3\dot{Φ}) - 3 ℰ (cₛ²-w_s)δ_s, \\
+\dot{θ}_s &= -ℋ(1-3w_s)θ_s - \frac{\dot{w}_s θ_s}{1+w_s} + \frac{cₛ² k^2 δ_s}{1+w_s}  - k^2 σ_s + k^2 Ψ, \\
+&\vdots
+\end{aligned}
+$$
+
+---
+
+# An Einstein-Boltzmann solver outputs e.g. ...
+
+:::::::::::::: {.columns}
+::: {.column width="50%"}
+![Matter power spectrum](media/matter_power_spectrum.png){height=3.5cm}
+:::
+::: {.column width="50%"}
+![CMB power spectrum](media/cmb_power_spectrum.png){height=3.5cm}
+:::
+::::::::::::::
+
+# Automatic differentiation: implementation II
+
+- **Interception:** define a special function to compute one function's contribution to $J$ at any point in the call hierarchy (e.g. matrix methods, ODE solver, Newton's method, etc.).
+
+  - Favors languages with *multiple dispatch* (e.g. Julia).
 
 # Miscellaneous
 
