@@ -40,13 +40,31 @@ monofont: JuliaMono
 
 4. Synergy between new features
 
-5. Why start over in Julia?
-
-6. Current state and future plans
+5. Current state and future plans
 
 # Cosmology is at a crossroads
 
 ![ ](media/crossroads_meme_edited.jpg){height=75%}
+
+# ΛCDM model
+
+\centering
+\begin{tikzpicture}[
+   font=\scriptsize,
+   comp/.style = {draw, circle, fill=gray, minimum size = 2.0cm, align=center},
+   grow cyclic,
+   level 1/.append style = {level distance = 3.3cm, sibling angle = 60},
+   interaction/.style = {latex-latex, thick},
+]
+\node[comp] (grav) {Gravity} [interaction]
+child { node[comp] (bar) {Baryons}}
+child { node[comp] (pho) {Photons}}
+child { node[comp] (neu) {Massless\\neutrinos}}
+child { node[comp] (mneu) {Massive\\neutrinos}}
+child { node[comp] (cdm) {Cold dark\\matter}}
+child { node[comp] (cc) {Cosmological\\constant}};
+\draw[interaction] (bar) -- node[above=, sloped, align=center] {Thomson\\scattering} (pho);
+\end{tikzpicture}
 
 # Challenges with the ΛCDM model
 
@@ -203,7 +221,7 @@ julia> equations(M.G)
  (k^2)*(-Ψ(t) + Φ(t))*ϵ ~ 12Π(t)*(a(t)^2)*π*ϵ
 ```
 
-- \small Give equations to a modeling library and benefit.
+- \small Give equations to a modeling library that generates fast code.
 
 # Example: add $w₀wₐ$ dark energy: SymBoltz
 
@@ -341,9 +359,6 @@ source/background.c:2242:    /* rho_fld today */
 source/background.c:2243:    rho_fld_today = pba->Omega0_fld * pow(pba->H0,2);
 source/background.c:2245:    /* integrate rho_fld(a) from a_ini to a_0, to get rho_fld(a_ini) given rho_fld(a0) */
 source/background.c:2246:    class_call(background_w_fld(pba,a,&w_fld,&dw_over_da_fld,&integral_fld), pba->error_message, pba->error_message);
-source/background.c:2248:    /* Note: for complicated w_fld(a) functions with no simple
-source/background.c:2251:       [(1+w_fld)/a] da] (e.g. with the Romberg method?) instead of
-source/background.c:2252:       calling background_w_fld */
 source/background.c:2254:    /* rho_fld at initial time */
 source/background.c:2255:    pvecback_integration[pba->index_bi_rho_fld] = rho_fld_today * exp(integral_fld);
 source/background.c:2453:  class_store_columntitle(titles,"(.)rho_fld",pba->has_fld);
@@ -528,30 +543,47 @@ child { node[comp] (cc) {Cosmological\\constant}};
 
 # Benefits from using a modeling library
 
-- Automatically index variables
+[ModelingToolkit.jl](https://github.com/SciML/ModelingToolkit.jl) can automatically ...
 
-- Automatically validate consistency and units of equations
 
-- Automatically compute observeds from unknowns (e.g. $\Psi$)
+- generate performant numerical code
 
-- Automatically compute Jacobian sparsity pattern
+- index variables
 
-- Automatically transform equations to more stable form
+- validate consistency and units of equations
 
-- Automatically generate performant code
+- lazily compute observeds from unknowns (e.g. $\Psi$ from $\Phi$)
 
-- Automatically parallellize independent equations (GPUs?)
+- find Jacobian sparsity pattern
 
-- Automatically display model equations
+- transform equations to more stable form
+
+- parallellize independent equations (GPUs?)
+
+- display model equations
 
 Goal: modeler should be able to just write down all equations!
 
 
-# Feature 2: approximation-free stiffness treatment {.allowframebreaks}
+# ModelingToolkit.jl: symbolic-numeric modeling language
 
-![Problem: Einstein-Boltzmann ODEs are *very* stiff!](media/stiffness_edited.png){width=90%}
+![](media/issues.png){width=49%}
+![](media/prs.png){width=49%}
 
-\framebreak
+Still maturing; I have contributed quite a bit.
+
+
+# Feature 2: approximation-free stiffness treatment
+
+\small
+
+```{=latex}
+\begin{center}
+```
+![](media/stiffness_edited.png){width=60%}
+```{=latex}
+\end{center}
+```
 
 Stiffness often occurs with multiple \textcolor{red}{(inverse) time scales}, e.g.:
 $$\frac{\mathrm{d} θ_b}{\mathrm{d}t} = -\textcolor{red}{ℋ} θ_b + \textcolor{red}{k^2} cₛ² δ_b - \textcolor{red}{\tau^{-1}} \frac{4ρ_γ}{3ρᵦ} (θ_γ - θ_b)$$
@@ -559,23 +591,7 @@ $$\frac{\mathrm{d} θ_b}{\mathrm{d}t} = -\textcolor{red}{ℋ} θ_b + \textcolor{
 Two cures:
 
 1. Explicit integrators with approximate non-stiff equations
-
 2. Implicit integrators with full stiff equations
-
-Can change ODE solver with 1 line of code:
-\tiny
-```julia
-solve(M, pars, k; solver = RK4())      # explicit, fails
-solve(M, pars, k; solver = Tsit5())    # explicit, fails
-
-solve(M, pars, k; solver = Rodas5P())  # implicit, works
-solve(M, pars, k; solver = KenCarp4()) # implicit, works
-solve(M, pars, k; solver = Kvaerno5()) # implicit, works
-solve(M, pars, k; solver = QNDF())     # implicit, works
-solve(M, pars, k; solver = QBDF())     # implicit, works
-```
-\normalsize
-
 
 # Solution 1: explicit integrators with approximations
 
@@ -595,13 +611,15 @@ Remove stiffness with approximations for
 
 - ...
 
+![](media/tca.png)
+
 :::
 ::: {.column width="39%"}
 ![CLASS approx. ([1104.2933](https://arxiv.org/pdf/1104.2933))](media/approximations.png){height=50%}
 :::
 ::::::::::::::
 
-Myth: "[unavoidable](https://arxiv.org/pdf/1104.2932)", alternatives "[impossible](https://cosmologist.info/notes/CAMB.pdf)".
+**Myth:** approximations "[unavoidable](https://arxiv.org/pdf/1104.2932)", stiff eqs. "[impossible](https://cosmologist.info/notes/CAMB.pdf)".
 
 \emoji{green-square} Explicit and fewer equations $\implies$ fast
 
@@ -626,6 +644,31 @@ $$\textstyle y_{n+1} = y_n + h \sum_{i=1}^s b_i k_i, \quad k_i = f(t_n + c_i h, 
 
 \emoji{red-square} Slower (but fast enough?)
 
+# DifferentialEquations.jl: "#1 differential equations library"
+
+![\tiny \emoji{salt} [Made by the main developer of DifferentialEquations.jl](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/)](media/de_comparison_cropped.pdf)
+
+# Easily change ODE solver
+
+SymBoltz can use [any DifferentialEquations.jl solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/) with 1 LOC:
+
+```julia
+solve(M, pars, k; solver = RK4())      # explicit, fails
+solve(M, pars, k; solver = Tsit5())    # explicit, fails
+
+solve(M, pars, k; solver = Rodas5P())  # implicit, works
+solve(M, pars, k; solver = KenCarp4()) # implicit, works
+solve(M, pars, k; solver = Kvaerno5()) # implicit, works
+solve(M, pars, k; solver = QNDF())     # implicit, works
+solve(M, pars, k; solver = QBDF())     # implicit, works
+```
+
+CLASS has only 2 hardcoded solvers:
+
+   - RK4 (explicit)
+
+   - NDF15 (implicit)
+
 # Feature 3: differentiability {.allowframebreaks}
 
 :::::::::::::: {.columns}
@@ -635,9 +678,9 @@ Derivatives are important in:
 
  
 
-- **Optimization:** parameter inference, Monte Carlo methods
+- **Optimization:** parameter inference, Monte Carlo methods (HMC, NUTS)
 
-- **Machine learning:** training emulators
+- **Machine learning:** training emulators (gradient descent)
 
 - **Implicit ODE solvers:** stiff Boltzmann eqs.
 
@@ -749,6 +792,8 @@ Any computer program is one (big) composite function $f(x) = f_n(f_{n-1}(\cdots 
 
 Let the compiler transform code for $f(x)$ into code for $f\prime(x)$.
 
+ 
+
 Chain rule on $f(x) = f_3(f_2(f_1(x)))$ can be traversed in two ways:
 
 - $\displaystyle \frac{\partial f}{\partial x} = \left( \frac{\partial f_3}{\partial f_2} \cdot \left( \frac{\partial f_2}{\partial f_1} \cdot \left( \frac{\partial f_1}{\partial x} \right) \right) \right) \quad\rightarrow\quad \text{forward-mode}$
@@ -805,7 +850,7 @@ $J = \partial f_i / \partial f_j$.
 
 - Reverse-mode: $n$ sweeps, faster when $m > n$ (more inputs)
 
-![In practice, reverse mode requires careful building of expression graph, storing intermediate values, checkpointing, etc.](media/ad_speed.png){width=80%}
+![](media/ad_speed.png)
 
 
 # Automatic differentiation: implementation
@@ -824,11 +869,7 @@ $J = \partial f_i / \partial f_j$.
 
 ![**Checkpointing:** trade memory $\leftrightarrow$ time by doing reverse-mode in steps](media/checkpointing.png){width=45%}
 
-AD has become a compiler/language design problem.
-
-# Comparison of differentiation methods
-
-[![](media/differentiation.png)](https://fmin.xyz/docs/methods/Autograd.html)
+AD has turned into a new compiler/language design problem.
 
 # Cheap gradient principle
 
@@ -841,6 +882,9 @@ AD has become a compiler/language design problem.
 :::
 ::::::::::::::
 
+# Comparison of differentiation methods
+
+[![](media/differentiation.png)](https://fmin.xyz/docs/methods/Autograd.html)
 
 # New features
 
@@ -851,7 +895,7 @@ AD has become a compiler/language design problem.
    joiner/.style={midway, sloped, black, font=\scriptsize},
    arrow/.style={-latex, thick, red},
 ]
-\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\extensibility};
+\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\modularity};
 \node[pillar, fill=gray] (app) at (240:6cm) {Approximation-\\free};
 \node[pillar, fill=gray] (dif) at (300:6cm) {Automatic\\differentiation};
 \end{tikzpicture}
@@ -866,7 +910,7 @@ AD has become a compiler/language design problem.
    joiner/.style={midway, sloped, black, font=\scriptsize},
    arrow/.style={-latex, thick, red},
 ]
-\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\extensibility};
+\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\modularity};
 \node[pillar, fill=gray] (app) at (240:6cm) {Approximation-\\free};
 \node[pillar, fill=gray] (dif) at (300:6cm) {Automatic\\differentiation};
 \draw[arrow] (sym.305) -- node[joiner, above] {$J$ sparsity detection} (dif.115);
@@ -878,57 +922,31 @@ AD has become a compiler/language design problem.
 \end{tikzpicture}
 \end{center}
 
-# Why start over in Julia?
+# Current state and future plans
 
-- New symbolic modular architecture
+\footnotesize
 
-- Differentiable programs need entire source code
-
-- Want to contribute to cosmology environment in Julia
-
-- Julia has excellent modeling, ODE and AD libraries!
-
-# ModelingToolkit.jl: symbolic-numeric modeling language
-
-![](media/issues.png){width=49%}
-![](media/prs.png){width=49%}
-
-Still maturing; I have contributed quite a bit.
-
-# DifferentialEquations.jl: "#1 differential equations library"
-
-![\tiny \emoji{salt} [Made by the main developer of DifferentialEquations.jl](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/)](media/de_comparison_cropped.pdf)
-
-# ForwardDiff.jl: forward mode automatic differentiation
-
-# Future plans:
-
-\small
-
-Initial                                      Future
--------------------------------------------- -------------------------------------
-\emoji{green-square}  Baryons (with RECFAST) \emoji{red-square} Non-linear: halo fit / $N$-body
-\emoji{green-square}  Photons                \emoji{red-square} Unit support
-\emoji{green-square}  Cold dark matter       \emoji{red-square} Symbolic tensor library ($G_{\mu\nu} = \ldots$)
-\emoji{green-square}  Massless neutrinos     \emoji{red-square} Symbolic initial conditions
-\emoji{yellow-square} Massive neutrinos      \emoji{red-square} Synchronous gauge
-\emoji{green-square}  Cosmological constant  \emoji{red-square} Non-flat geometry
-\emoji{green-square}  Quintessence           \emoji{red-square} GPU support
-\emoji{green-square}  $w₀wₐ$ dark energy     \emoji{red-square} Interface with samplers?
-\emoji{green-square}  General Relativity     \emoji{red-square} Better representation of interactions
-\emoji{green-square}  Brans-Dicke gravity    \emoji{red-square} Reverse-mode autodiff
-\emoji{green-square}  Symbolic modularity
-\emoji{green-square}  Approximation-free
+Initial                                          Future
+------------------------------------------------ -------------------------------------
+\emoji{green-square}  Baryons+photons (RECFAST)  \emoji{red-square} Non-linear: halo fit / $N$-body
+\emoji{green-square}  Cold dark matter           \emoji{red-square} Symbolic tensor library ($G_{\mu\nu} = \ldots$)
+\emoji{green-square}  Massless neutrinos         \emoji{red-square} Symbolic initial conditions
+\emoji{yellow-square} Massive neutrinos          \emoji{red-square} Unit support
+\emoji{green-square}  Cosmological constant      \emoji{red-square} Non-flat geometry
+\emoji{yellow-square}  Quintessence              \emoji{red-square} GPU support
+\emoji{green-square}  $w₀wₐ$ dark energy         \emoji{red-square} Interface with samplers?
+\emoji{green-square}  General Relativity         \emoji{red-square} Better representation of interactions
+\emoji{yellow-square}  Brans-Dicke gravity       \emoji{red-square} Reverse-mode autodiff
+\emoji{green-square}  Symbolic modularity        \emoji{red-square} Specialized ODE autodiff
+\emoji{green-square}  Approximation-free         
 \emoji{green-square}  Differentiable
-\emoji{green-square}  Newtonian gauge
 \emoji{green-square}  Matter power spectrum
 \emoji{yellow-square} CMB power spectrum
-\emoji{green-square}  Convenient post proc
+\emoji{green-square}  Easy post processing
 \emoji{yellow-square} Performance
-\emoji{yellow-square} Documentation
-\emoji{green-square}  Continuous integration
+\emoji{green-square}  Shooting method
+\emoji{yellow-square} CI, documentation, ...
 \emoji{yellow-square} Comparison with CLASS
-\emoji{green-square}  Shooting
 
 # An Einstein-Boltzmann solver ...
 ... solves the (gravitational) Einstein equations
@@ -977,6 +995,18 @@ $$
 - **Interception:** define a special function to compute one function's contribution to $J$ at any point in the call hierarchy (e.g. matrix methods, ODE solver, Newton's method, etc.).
 
   - Favors languages with *multiple dispatch* (e.g. Julia).
+
+# Why start over in Julia?
+
+- New symbolic modular architecture
+
+- Differentiable programs need entire source code
+
+- Want to contribute to cosmology environment in Julia
+
+- Julia has excellent modeling, ODE and AD libraries!
+
+# ForwardDiff.jl: forward mode automatic differentiation
 
 # Miscellaneous
 
