@@ -82,7 +82,7 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         P ~ w * ρ # pressure
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
     eqs1 = [
-        D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
+        D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
         D(θ) ~ -g.ℰ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
         σ ~ 0 # shear stress
     ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations

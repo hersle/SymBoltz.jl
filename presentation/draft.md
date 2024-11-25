@@ -227,11 +227,14 @@ julia> equations(M.G)
 
 # Example: add $w₀wₐ$ dark energy: SymBoltz vs. CLASS
 
+Governing equations:
+
 $$
 \begin{aligned}
 w &= \frac{P}{\rho} = w_0 + w_a (1-a), \\
 \frac{\mathrm{d}\rho}{\mathrm{d}\tau} &= -3 ℋ (\rho+P) \quad \rightarrow \quad \rho = ρ₀ a^{-3 (1 + w_0 + w_a)} e^{-3 w_a (1-a)}, \\
-\frac{\mathrm{d}\delta}{\mathrm{d}\tau} &= -ℋ (1-3w)\theta - \frac{\frac{\mathrm{d}w}{\mathrm{d}\tau}}{1+w}\theta + \frac{c_s^2}{1+w} k^2 \delta - k^2 \sigma + k^2 \Psi, \\
+\frac{\mathrm{d}\delta}{\mathrm{d}\tau} &= -\Big(1+w\Big)\Big(\theta-3\frac{\mathrm{d}\Phi}{\mathrm{d}\tau}\Big) - 3 ℋ (c_s^2 - w) \delta, \\
+\frac{\mathrm{d}\theta}{\mathrm{d}\tau} &= -ℋ (1-3w)\theta - \frac{\frac{\mathrm{d}w}{\mathrm{d}\tau}}{1+w}\theta + \frac{c_s^2}{1+w} k^2 \delta - k^2 \sigma + k^2 \Psi, \\
 \sigma &= 0 \\
 \end{aligned}
 $$
@@ -254,7 +257,7 @@ eqs = [
     O(ϵ^0)(w ~ w₀ + wₐ * (1 - g.a))
     O(ϵ^0)(ρ ~ ρ₀ * g.a^(-3 * (1 + w₀ + wₐ)) * exp(-3 * wₐ * (1 - g.a)))
     O(ϵ^0)(P ~ w * ρ)
-    O(ϵ^1)(D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ)
+    O(ϵ^1)(D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℰ * (cₛ² - w) * δ)
     O(ϵ^1)(D(θ) ~ -g.ℰ * (1 - 3*w) - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ)
     O(ϵ^1)(σ ~ 0)
 ]
