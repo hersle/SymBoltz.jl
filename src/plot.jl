@@ -23,7 +23,7 @@ end
     return xs, ys
 end
 
-@recipe function plot(sol::CosmologySolution, k, x, y; N = nothing)
+@recipe function plot(sol::CosmologySolution, k, x, y; N = nothing, klabel=true)
     ts = get_ts(sol, N)
 
     xlabel --> (x isa AbstractArray ? "" : x)
@@ -43,7 +43,7 @@ end
             end
 
             # label wavenumber with dummy plot
-            if iv == 1
+            if iv == 1 && klabel
                 @series begin
                     linestyle := :solid
                     color := color

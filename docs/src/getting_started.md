@@ -77,7 +77,8 @@ Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same
 This can be plotted with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
 ```@example getting_started
 using Plots
-plot(sol, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc", log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
+ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the power spectrum:
@@ -90,4 +91,18 @@ Similarly, we can calculate the angular CMB power spectrum:
 ls = 10:10:1000
 Cls = Cl(M, pars, ls)
 plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing) # TODO: fix
+```
+
+And here is a condensed plot with several quantities:
+```@example getting_started
+p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
+plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
+plot!(p[3], sol, log10(M.g.a), log10(M.g.H / M.g.H₀))
+plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.rec.Xe])
+plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
+plot!(p[6], sol, ks[1], log10(M.g.a), log10(abs(M.b.rec.τ)), klabel = false)
+plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
+plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ])), klabel = false)
 ```
