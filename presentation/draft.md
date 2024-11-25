@@ -26,7 +26,7 @@ monofont: JuliaMono
 
 # Outline
 
-1. Current state of cosmology
+1. Cosmology today
 
 2. Boltzmann solvers
 
@@ -56,7 +56,7 @@ monofont: JuliaMono
    level 1/.append style = {level distance = 3.3cm, sibling angle = 60},
    interaction/.style = {latex-latex, thick},
 ]
-\node[comp] (grav) {Gravity} [interaction]
+\node[comp] (grav) {General\\relativity} [interaction]
 child { node[comp] (bar) {Baryons}}
 child { node[comp] (pho) {Photons}}
 child { node[comp] (neu) {Massless\\neutrinos}}
@@ -123,7 +123,7 @@ child { node[comp] (cc) {Cosmological\\constant}};
 
 [![Used in most cosmological analyses](media/hammer_edited.jpeg)](https://www.reddit.com/r/photoshopbattles/comments/cfxzzg/battle_366_bigger_splash_via_previous_winner/)
 
-# What does an Einstein-Boltzmann do?
+# What does an Einstein-Boltzmann do? {.allowframebreaks}
 
 \scriptsize
 1. Read input parameters $\Omega_{m0}$, $\Omega_{b0}$, $T_{\gamma 0}$, $N_\mathrm{eff}$, $A_s$, $n_s$, $\ldots$
@@ -133,11 +133,10 @@ child { node[comp] (cc) {Cosmological\\constant}};
 2. Solve background ODEs:
    $$\tiny
    \begin{gathered}
-   \dot{a}^2 = \frac{8\pi}{3} \rho a^4, \quad
-   \ddot{a} = \frac{\dot{a}^2}{a} - \frac{4\pi}{3} (\rho + 3P) a^3, \quad
-   \dot{ρ}_s = -3 ℋ (ρ_s + P_s), \quad
-   P_s = w_s \rho_s, \quad
-   \ldots
+   \left(\frac{\mathrm{d}a}{\mathrm{d}\tau}\right)^2 = \frac{8\pi}{3} \rho a^4, \quad
+   \frac{\mathrm{d}^2 a}{\mathrm{d}\tau^2} = \frac{1}{a} \left(\frac{\mathrm{d}a}{\mathrm{d}\tau}\right)^2 - \frac{4\pi}{3} (\rho + 3P) a^3, \quad
+   \frac{\mathrm{d}{ρ}_s}{\mathrm{d}\tau} = -3 ℋ (ρ_s + P_s), \quad
+   P_s = w_s \rho_s
    \end{gathered}
    $$
 \scriptsize
@@ -145,7 +144,7 @@ child { node[comp] (cc) {Cosmological\\constant}};
 3. Solve thermodynamics ODEs:
    $$\tiny
    \begin{gathered}
-   \dot{x}_H = a C \left [\beta(T_b) (1-x_H) - n_H \alpha^{(2)}(T_b) x_H^2 \right], \quad
+   \frac{\mathrm{d}x_H}{\mathrm{d}\tau} = a C \left [\beta(T_b) (1-x_H) - n_H \alpha^{(2)}(T_b) x_H^2 \right], \quad
    \ldots
    \end{gathered}
    $$
@@ -154,9 +153,9 @@ child { node[comp] (cc) {Cosmological\\constant}};
 4. Solve perturbation ODEs:
    $$\tiny
    \begin{gathered}
-   \dot{Φ} = -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ, \quad Φ - Ψ = \frac{12\pi a^2 Π}{k^2}, \\
-   \dot{δ}_s = -(1+w_s) (θ_s-3\dot{Φ}) - 3 ℋ (cₛ²-w_s)δ_s, \quad
-   \dot{θ}_s = -ℋ(1-3w_s)θ_s + \frac{cₛ² k^2 δ_s}{1+w_s} + k^2 Ψ + \ldots
+   \frac{\mathrm{d}Φ}{\mathrm{d}\tau} = -\frac{4\pi}{3} a^2 ℋ \delta\rho - \frac{k^2}{3 ℋ} Φ - ℋ Ψ, \quad Φ - Ψ = \frac{12\pi a^2 Π}{k^2}, \\
+   \frac{\mathrm{d} δ_s}{\mathrm{d}\tau} = -\Big(1+w_s\Big) \Big(θ_s-3\frac{\mathrm{d}Φ}{\mathrm{d}\tau}\Big) - 3 ℋ (cₛ²-w_s)δ_s, \quad
+   \frac{\mathrm{d}θ_s}{\mathrm{d}\tau} = -ℋ(1-3w_s)θ_s + \frac{cₛ² k^2 δ_s}{1+w_s} + k^2 Ψ + \ldots
    \end{gathered}
    $$
 \scriptsize
@@ -164,13 +163,16 @@ child { node[comp] (cc) {Cosmological\\constant}};
 5. Solve line-of-sight ODEs
    $$\tiny
    \begin{gathered}
-   \dot{\Theta}_l = \left[ g \left( Θ₀+Ψ+\frac{Π}{4} \right) + \frac{g u_b}{k} + e^{-τ} (Ψ-Φ)′ + \frac{3 (gΠ)″}{4 k^2}  \right] j_l\big((k (\tau_0-\tau)\big)
+   \frac{\mathrm{d}\Theta_l}{\mathrm{d}\tau} = \left[ g \left( Θ₀+Ψ+\frac{Π}{4} \right) + \frac{g u_b}{k} + e^{-τ} \frac{\mathrm{d}}{\mathrm{d}\tau}(Ψ-Φ) + \frac{3}{4 k^2} \frac{\mathrm{d}^2}{\mathrm{d}\tau^2} (gΠ) \right] j_l\big((k (\tau_0-\tau)\big)
    \end{gathered}
    $$
 \scriptsize
 
 6. Output some function of the unknowns (observables), like $P(k)$ or $C_l$.
 
+\framebreak
+
+[![](media/output.png)](https://hersle.github.io/SymBoltz.jl/dev/getting_started/)
 
 # History of Boltzmann solvers
 
@@ -222,6 +224,17 @@ julia> equations(M.G)
 ```
 
 - \small Give equations to a modeling library that generates fast code.
+
+# Example: add $w₀wₐ$ dark energy: SymBoltz vs. CLASS
+
+$$
+\begin{aligned}
+w &= \frac{P}{\rho} = w_0 + w_a (1-a), \\
+\frac{\mathrm{d}\rho}{\mathrm{d}\tau} &= -3 ℋ (\rho+P) \quad \rightarrow \quad \rho = ρ₀ a^{-3 (1 + w_0 + w_a)} e^{-3 w_a (1-a)}, \\
+\frac{\mathrm{d}\delta}{\mathrm{d}\tau} &= -ℋ (1-3w)\theta - \frac{\frac{\mathrm{d}w}{\mathrm{d}\tau}}{1+w}\theta + \frac{c_s^2}{1+w} k^2 \delta - k^2 \sigma + k^2 \Psi, \\
+\sigma &= 0 \\
+\end{aligned}
+$$
 
 # Example: add $w₀wₐ$ dark energy: SymBoltz
 
@@ -478,7 +491,7 @@ source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fl
 
 \emoji{red-square} Extensions encourage duplication
 
-\emoji{green-square} More customizable
+\emoji{green-square} Full freedom
 
 :::
 ::: {.column width="50%"}
@@ -488,7 +501,7 @@ source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fl
 
 \emoji{green-square} Extensions encourage modularity
 
-\emoji{red-square} Less customizable
+\emoji{red-square} More constrained
 
 :::
 ::::::::::::::
@@ -504,7 +517,7 @@ source/perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fl
 
 \emoji{red-square} Scales worse in model space
 
-\emoji{green-square} Easier to debug
+\emoji{green-square} Easier to follow?
 
 :::
 ::: {.column width="50%"}
@@ -531,11 +544,11 @@ child { node[comp] (cc) {Cosmological\\constant}};
 \caption{SymBoltz is structured physically}
 \end{figure}
 
-\emoji{green-square} Friendly to modelers
+\emoji{green-square} Friendly towards modelers
 
 \emoji{green-square} Scales better in model space
 
-\emoji{red-square} Harder to debug
+\emoji{red-square} Harder to debug?
 
 :::
 ::::::::::::::
@@ -545,24 +558,25 @@ child { node[comp] (cc) {Cosmological\\constant}};
 
 [ModelingToolkit.jl](https://github.com/SciML/ModelingToolkit.jl) can automatically ...
 
-
 - generate performant numerical code
 
-- index variables
+- index ODE variables
+
+- reduce ODE order to 1 (e.g. $\mathrm{d^2}a/\mathrm{d}\tau^2 = \ldots$)
 
 - validate consistency and units of equations
 
 - lazily compute observeds from unknowns (e.g. $\Psi$ from $\Phi$)
 
-- find Jacobian sparsity pattern
+- calculate Jacobian and find its sparsity pattern
 
-- transform equations to more stable form
+- transform equations to more stable forms
 
 - parallellize independent equations (GPUs?)
 
 - display model equations
 
-Goal: modeler should be able to just write down all equations!
+**Goal:** modeler should be able to just write down all equations!
 
 
 # ModelingToolkit.jl: symbolic-numeric modeling language
@@ -575,8 +589,6 @@ Still maturing; I have contributed quite a bit.
 
 # Feature 2: approximation-free stiffness treatment
 
-\small
-
 ```{=latex}
 \begin{center}
 ```
@@ -584,6 +596,8 @@ Still maturing; I have contributed quite a bit.
 ```{=latex}
 \end{center}
 ```
+
+\small
 
 Stiffness often occurs with multiple \textcolor{red}{(inverse) time scales}, e.g.:
 $$\frac{\mathrm{d} θ_b}{\mathrm{d}t} = -\textcolor{red}{ℋ} θ_b + \textcolor{red}{k^2} cₛ² δ_b - \textcolor{red}{\tau^{-1}} \frac{4ρ_γ}{3ρᵦ} (θ_γ - θ_b)$$
@@ -619,7 +633,7 @@ Remove stiffness with approximations for
 :::
 ::::::::::::::
 
-**Myth:** approximations "[unavoidable](https://arxiv.org/pdf/1104.2932)", stiff eqs. "[impossible](https://cosmologist.info/notes/CAMB.pdf)".
+**Myth:** approximations "[unavoidable](https://arxiv.org/pdf/1104.2932)"; stiff eqs. "[impossible](https://cosmologist.info/notes/CAMB.pdf)".
 
 \emoji{green-square} Explicit and fewer equations $\implies$ fast
 
@@ -642,7 +656,7 @@ $$\textstyle y_{n+1} = y_n + h \sum_{i=1}^s b_i k_i, \quad k_i = f(t_n + c_i h, 
 
 \emoji{green-square} Accurate, no switching, clear physics, scales well in model space
 
-\emoji{red-square} Slower (but fast enough?)
+\emoji{red-square} Slower (but fast enough? CLASS defaults to implicit method)
 
 # DifferentialEquations.jl: "#1 differential equations library"
 
@@ -667,7 +681,7 @@ CLASS has only 2 hardcoded solvers:
 
    - RK4 (explicit)
 
-   - NDF15 (implicit)
+   - NDF15 (implicit, default)
 
 # Feature 3: differentiability {.allowframebreaks}
 
@@ -790,53 +804,97 @@ using ForwardDiff
 
 Any computer program is one (big) composite function $f(x) = f_n(f_{n-1}(\cdots f_2(f_1(x))))$ of elementary operations $f_i$.
 
-Let the compiler transform code for $f(x)$ into code for $f\prime(x)$.
+- Let compiler transform code for $f(x)$ into code for $f\prime(x)$.
 
  
 
 Chain rule on $f(x) = f_3(f_2(f_1(x)))$ can be traversed in two ways:
 
-- $\displaystyle \frac{\partial f}{\partial x} = \left( \frac{\partial f_3}{\partial f_2} \cdot \left( \frac{\partial f_2}{\partial f_1} \cdot \left( \frac{\partial f_1}{\partial x} \right) \right) \right) \quad\rightarrow\quad \text{forward-mode}$
+- $\displaystyle \frac{\partial f}{\partial x} = \frac{\partial f_3}{\partial f_2} \cdot \frac{\partial f_2}{\partial f_1} \cdot \frac{\partial f_1}{\partial x} \quad\rightarrow\quad \text{reverse-mode}$
 
-- $\displaystyle \frac{\partial f}{\partial x} = \left( \left( \left( \frac{\partial f_3}{\partial f_2} \right) \cdot \frac{\partial f_2}{\partial f_1} \right) \cdot \frac{\partial f_1}{\partial x} \right) \quad\rightarrow\quad \text{reverse-mode}$
+- $\displaystyle \frac{\partial f}{\partial x} = \frac{\partial f_1}{\partial x} \cdot \frac{\partial f_2}{\partial f_1} \cdot \frac{\partial f_3}{\partial f_2} \quad\rightarrow\quad \text{forward-mode}$
 
 # Automatic differentiation: forward-mode {.allowframebreaks}
+
+[Example](https://fmin.xyz/docs/methods/Autograd.html):
 
 ![ ](media/function.png){width=80%}
 
 \framebreak
 ![ ](media/fwd1.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in forward pass
+
 \framebreak
 ![ ](media/fwd2.png){width=80%}
+
+- Values evaluated in forward pass
+
+- Derivatives evaluated in forward pass
 
 \framebreak
 ![ ](media/fwd3.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in forward pass
+
 \framebreak
 ![ ](media/fwd4.png){width=80%}
+
+- Values evaluated in forward pass
+
+- Derivatives evaluated in forward pass
 
 \framebreak
 ![ ](media/fwd5.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in forward pass
+
 # Automatic differentiation: reverse-mode {.allowframebreaks}
+
+[Same example](https://fmin.xyz/docs/methods/Autograd.html):
 
 ![ ](media/function.png){width=80%}
 
 \framebreak
 ![ ](media/rev1.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in reverse pass
+
 \framebreak
 ![ ](media/rev2.png){width=80%}
+
+- Values evaluated in forward pass
+
+- Derivatives evaluated in reverse pass
 
 \framebreak
 ![ ](media/rev3.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in reverse pass
+
 \framebreak
 ![ ](media/rev4.png){width=80%}
 
+- Values evaluated in forward pass
+
+- Derivatives evaluated in reverse pass
+
 \framebreak
 ![ ](media/rev5.png){width=80%}
+
+- Values evaluated in forward pass
+
+- Derivatives evaluated in reverse pass
 
 
 # Automatic differentiation: forward-mode vs. reverse-mode
@@ -850,7 +908,7 @@ $J = \partial f_i / \partial f_j$.
 
 - Reverse-mode: $n$ sweeps, faster when $m > n$ (more inputs)
 
-![](media/ad_speed.png)
+[![](media/ad_speed.png)](https://fmin.xyz/docs/methods/Autograd.html)
 
 
 # Automatic differentiation: implementation
@@ -882,7 +940,7 @@ AD has turned into a new compiler/language design problem.
 :::
 ::::::::::::::
 
-# Comparison of differentiation methods
+# Summary of differentiation methods
 
 [![](media/differentiation.png)](https://fmin.xyz/docs/methods/Autograd.html)
 
@@ -895,7 +953,7 @@ AD has turned into a new compiler/language design problem.
    joiner/.style={midway, sloped, black, font=\scriptsize},
    arrow/.style={-latex, thick, red},
 ]
-\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\modularity};
+\node[pillar, fill=gray] (sym) at (0:0cm) {Easy\\symbolic\\modularity};
 \node[pillar, fill=gray] (app) at (240:6cm) {Approximation-\\free};
 \node[pillar, fill=gray] (dif) at (300:6cm) {Automatic\\differentiation};
 \end{tikzpicture}
@@ -910,7 +968,7 @@ AD has turned into a new compiler/language design problem.
    joiner/.style={midway, sloped, black, font=\scriptsize},
    arrow/.style={-latex, thick, red},
 ]
-\node[pillar, fill=gray] (sym) at (0:0cm) {Easy symbolic\\modularity};
+\node[pillar, fill=gray] (sym) at (0:0cm) {Easy\\symbolic\\modularity};
 \node[pillar, fill=gray] (app) at (240:6cm) {Approximation-\\free};
 \node[pillar, fill=gray] (dif) at (300:6cm) {Automatic\\differentiation};
 \draw[arrow] (sym.305) -- node[joiner, above] {$J$ sparsity detection} (dif.115);
@@ -947,6 +1005,10 @@ Initial                                          Future
 \emoji{green-square}  Shooting method
 \emoji{yellow-square} CI, documentation, ...
 \emoji{yellow-square} Comparison with CLASS
+
+# The end
+
+![![](media/github.png){height=0.75em} Code & documentation: [github.com/hersle/SymBoltz.jl](https://github.com/hersle/SymBoltz.jl)](media/einstein_boltzmann.png)
 
 # An Einstein-Boltzmann solver ...
 ... solves the (gravitational) Einstein equations
