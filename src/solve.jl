@@ -1,5 +1,6 @@
 import CommonSolve: solve
 import SymbolicIndexingInterface: setp # all_variable_symbols, getname
+import OhMyThreads: TaskLocalValue
 
 function background(sys)
     sys = thermodynamics(sys)
@@ -149,7 +150,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
     return CosmologySolution(bg_sol, th_sol, [], nothing)
 end
 
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, kwargs...)
     ks = k_dimensionless.(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -164,18 +165,26 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
         ))
     end
 
+    if Threads.nthreads() == 1 && thread
+        @warn "Multi-threading was requested, but Julia is running with 1 thread."
+        thread = false
+    end
+
     kset! = setp(M.pt, M.k) # function that sets k on a problem
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
     push!(pars, k => ks[1])
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true) # TODO: why do I need this???
-    ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (ode_prob, i, _) -> begin
+    ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
+    ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
+        ode_prob = ode_prob_tlv[]
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
         kset!(ode_prob, ks[i])
         return ode_prob
     end)
-    ode_sols = solve(ode_probs, solver, EnsembleThreads(), trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
+    alg = thread ? EnsembleThreads() : EnsembleSerial()
+    ode_sols = solve(ode_probs, solver, alg, trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
     for i in 1:length(ode_sols)
         check_solution(ode_sols[i].retcode)
     end
