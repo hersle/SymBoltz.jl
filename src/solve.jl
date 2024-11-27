@@ -143,6 +143,12 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         th_prob = ODEProblem(M.th, ics, (tini, tend), pars; guesses, fully_determined = true)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
         check_solution(th_sol.retcode)
+
+        # Offset optical depth, so it's 0 today
+        idx_τ = variable_index(M.th, M.b.rec.τ)
+        for i in 1:length(th_sol.u)
+            th_sol.u[i][idx_τ] -= th_sol.u[end][idx_τ]
+        end
     else
         th_sol = bg_sol
     end
@@ -160,7 +166,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards) # should solve again if given keyword arguments, like saveat
         pars = merge(pars, Dict(
-            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ] .- th_sol_spline[M.b.rec.τ][end], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
+            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
             M.pt.b.rec.cₛ²spline => spline(th_sol_spline[M.b.rec.cₛ²], th_sol_spline[M.t])
         ))
     end

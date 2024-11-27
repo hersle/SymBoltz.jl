@@ -37,8 +37,8 @@ end
 
 # this one is less elegant, but more numerically stable
 function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
-    sol = solve(M, pars, ks; saveat = ts, kwargs...)
-    τ = sol[M.b.rec.τ] .- sol[M.b.rec.τ][end] # make τ = 0 today # TODO: assume ts[end] is today
+    sol = solve(M, pars, ks; saveat = ts, verbose=true, kwargs...)
+    τ = sol[M.b.rec.τ] # TODO: assume ts[end] is today
     τ′ = D_spline(τ, ts)
     g = @. -τ′ * exp(-τ)
     
