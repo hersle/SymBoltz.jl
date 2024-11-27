@@ -47,7 +47,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
         "background_verbose" => 2,
-        "output" => "mPk", # need one to evolve perturbations # TODO: CMB
+        "output" => "mPk, tCl", # need one to evolve perturbations
 
         "k_output_values" => k,
         "ic" => "ad",
@@ -101,7 +101,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
     run_class(in, exec, inpath, outpath)
     output = Dict()
-    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1), ("P", "_pk.dat", 3)]
+    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1), ("P", "_pk.dat", 3), ("Cl", "_cl.dat", 6)]
         file = outpath * filename
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
@@ -122,7 +122,7 @@ sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precisi
 
 # map results from both codes to common convention
 h = pars[M.g.h]
-sol = Dict(
+sols = Dict(
     # background
     "a_bg" => (1 ./ (sol1["bg"]["z"] .+ 1), sol2[M.g.a]),
     "t" => (sol1["bg"]["conf.time[Mpc]"], sol2[M.t] / (h * SymBoltz.k0)),
@@ -162,18 +162,27 @@ sol = Dict(
     #"P2" => (sol1["pt"]["pol2_g"], sol2[1, M.γ.ΘP[2]] * -4), # TODO: is -4 correct ???
 )
 
-# power spectrum
+# matter power spectrum
 ks = sol1["P"]["k(h/Mpc)"] * h # 1/Mpc
 Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
 Ps_class = Ps_class[ks .> 1e-3]
 ks = ks[ks .> 1e-3]
 Ps = power_spectrum(M, pars, ks / u"Mpc"; verbose=true) / u"Mpc^3"
-sol = merge(sol, Dict(
+
+# CMB power spectrum
+ls = sol1["Cl"]["l"]
+ls = Int.(ls[begin:10:end])
+Cls_class = sol1["Cl"]["TT"]
+Cls_class = Cls_class[begin:10:end]
+Cls = Cl(M, pars, ls)
+
+sols = merge(sols, Dict(
     "k" => (ks, ks),
-    "P" => (Ps_class, Ps)
+    "P" => (Ps_class, Ps),
+    "l" => (ls, ls),
+    "Cl" => (Cls_class, Cls)
 ))
-```
-```@setup class
+
 function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
     if !(ylabels isa AbstractArray)
         ylabels = [ylabels]
@@ -189,7 +198,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
     title = join([(@sprintf "%s = %.3f" s Dict(pars)[s]) for s in keys(Dict(pars))], ", ") * (@sprintf ", k = %.2e / Mpc" k / u"1/Mpc")
     plot!(p[1]; title, titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
     for (i, ylabel) in enumerate(ylabels)
-        x1, x2 = sol[xlabel]
+        x1, x2 = sols[xlabel]
         x1min, x1max = extrema(x1)
         x2min, x2max = extrema(x2)
         xmin = max(x1min, x2min)
@@ -200,7 +209,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         x2 = x2[i2s]
         x = x2[begin+1:end-1] # compare ratios at SymBoltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
 
-        y1, y2 = sol[ylabel]
+        y1, y2 = sols[ylabel]
         y1 = y1[i1s]
         y2 = y2[i2s]
         plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xlabel = xlab(xlabel), legend_position = :topright)
@@ -260,5 +269,8 @@ plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
 ### Power spectrum
 
 ```@example class
-plot_compare("k", "P"; lgx=true, lgy=true)
+plot_compare("k", "P"; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("l", "Cl") # TODO: fix # hide
 ```
