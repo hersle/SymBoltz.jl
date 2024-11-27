@@ -165,8 +165,6 @@ sols = Dict(
 # matter power spectrum
 ks = sol1["P"]["k(h/Mpc)"] * h # 1/Mpc
 Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
-Ps_class = Ps_class[ks .> 1e-3]
-ks = ks[ks .> 1e-3]
 Ps = power_spectrum(M, pars, ks / u"Mpc"; verbose=true) / u"Mpc^3"
 
 # CMB power spectrum
