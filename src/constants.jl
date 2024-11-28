@@ -45,7 +45,18 @@ function k_dimensionless(k, h)
     return k
 end
 function k_dimensionless(k::Unitful.Quantity, h)
+    # TODO: don't duplicate
     H₀ = h * H100 # s⁻¹
     k0 = (H₀ / c) / u"m"
-    return NoUnits.(k / k0)
+    return NoUnits(k / k0)
+end
+function k_dimensionless(k::AbstractArray, h)
+    T = eltype(k)
+    if eltype(k) <: Unitful.Quantity
+        H₀ = h * H100 # s⁻¹
+        k0 = (H₀ / c) / u"m"
+        return NoUnits.(k / k0)
+    else
+        return k
+    end
 end

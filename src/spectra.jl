@@ -64,7 +64,10 @@ end
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
-function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::AbstractArray; integrator = SimpsonEven())
+# TODO: take in symbolic expr?
+function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven())
+    @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
+
     ts = exp.(lnts)
     t0 = ts[end]
 
@@ -78,7 +81,7 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
         k = ks[ik]
         for it in eachindex(ts)
             t = ts[it]
-            St = Ss[it,ik] * t
+            St = Ss[ik,it] * t # multiply S(k,t) to get (S(k, log(t)))
             kΔt = k * (t0-t)
             sphericalbesseljfast!(Jls_all[threadid()], ls_all, kΔt) # TODO: reuse ∂Θ_∂lnt's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
@@ -97,15 +100,13 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(M::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
-    sol = solve(M, pars, ks_S; kwargs...)
+function Θl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
     Ss = sol(ks, exp.(lnts), M.S)
-    Ss = transpose(Ss) # TODO: remove?
-    return Θl(ls, ks, lnts, Ss)
+    return Θl(Ss, ls, ks, lnts)
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::AbstractArray; integrator = SimpsonEven())
+function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
     Cls = similar(Θls, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
     dCl_dks_with0 = [zeros(eltype(Θls), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
@@ -119,24 +120,32 @@ function Cl(ls::AbstractArray, ks::AbstractRange, Θls::AbstractArray, P0s::Abst
     return Cls
 end
 
-function Cl(M::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, ks_S::AbstractArray; kwargs...)
-    Θls = Θl(M, ls, ks, lnts, pars, ks_S; kwargs...)
+function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray)
+    Ss = sol(ks, exp.(lnts), sol.M.S)
+    Θls = Θl(Ss, ls, ks, lnts)
     P0s = P0(ks)
-    return Cl(ls, ks, Θls, P0s)
+    return Cl(Θls, P0s, ls, ks)
 end
 
-function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/8, Δkt0_S = 10.0, kt0max_lmax = 2.0, kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
-    bg_sol = solve(M, pars) # TODO: take in solution object instead!
+function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+    @assert issorted(ls)
+    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
+    return Cl(sol, ls, ks, lnts)
+end
 
-    ti, t0 = bg_sol[t][begin] + 1e-10, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
+function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.05, kwargs...)
+    # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
+    kmin = Δk
+    ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
+    sol = solve(M, pars, ks; kwargs...)
+
+    ti, t0 = sol[t][begin] + 1e-10, sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
     lnts = range(log(ti), log(t0), step=Δlnt) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
-    Δk = Δkt0 / t0
-    Δk_S = Δkt0_S / t0
-    kmax = kt0max_lmax * ls[end] / t0
-    ks_S = range(Δk, kmax, step = Δk_S)
-    ks_Cl = range(ks_S[begin], ks_S[end], length = length(ks_S) * Int(floor(Δkt0_S/Δkt0))) # use integer multiple so endpoints are the same
+    ks = range(ks[begin], ks[end], length = length(ks) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
 
-    return Cl(M, pars, ls, ks_Cl, lnts, ks_S; kwargs...)
+    return sol, ks, lnts
 end
+
+Dl(Cl, l) = @. Cl * l * (l+1) / 2π

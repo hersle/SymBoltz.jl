@@ -65,6 +65,7 @@ hierarchy(M::CosmologyModel; describe=true, kwargs...) = hierarchy(M.sys; descri
 Base.show(io::IO, mime::MIME"text/plain", M::CosmologyModel) = show(io, mime, M.sys) # chop off last excessive newline
 
 struct CosmologySolution
+    M::CosmologyModel
     bg::ODESolution
     th::ODESolution
     ks::AbstractArray
@@ -155,11 +156,12 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         th_sol = bg_sol
     end
 
-    return CosmologySolution(bg_sol, th_sol, [], nothing)
+    return CosmologySolution(M, bg_sol, th_sol, [], nothing)
 end
 
+# TODO: pass background solution to avoid recomputing it
 function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, kwargs...)
-    ks = k_dimensionless.(ks, pars[M.g.h])
+    ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -196,7 +198,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     for i in 1:length(ode_sols)
         check_solution(ode_sols[i].retcode)
     end
-    return CosmologySolution(th_sol.bg, th_sol.th, ks, ode_sols)
+    return CosmologySolution(M, th_sol.bg, th_sol.th, ks, ode_sols)
 end
 
 function solve(M::CosmologyModel, pars, k::Number; kwargs...)
@@ -234,7 +236,7 @@ function (sol::CosmologySolution)(t, idxs)
 end
 
 function (sol::CosmologySolution)(k::Number, t, idxs)
-    k = k_dimensionless.(k, sol.bg.ps[:h])
+    k = k_dimensionless(k, sol.bg.ps[:h])
 
     isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
 
