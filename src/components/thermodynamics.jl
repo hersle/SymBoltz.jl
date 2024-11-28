@@ -15,7 +15,7 @@ end
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; kwargs...)
     @parameters Yp fHe # fHe = nHe/nH
-    @variables Xe(t) ne(t) τ(t) τ̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cₛ²(t) λe(t)
+    @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) v(t) v̇(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cₛ²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -100,7 +100,10 @@ function thermodynamics_recombination_recfast(g; kwargs...)
 
         τ̇ ~ -g.a/g.H₀ * ne * σT * c # common optical depth τ
         D(τ) ~ τ̇
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, Tb, Tγ, μ, cₛ²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
+        v ~ D(exp(-τ)) # visibility function
+        v̇ ~ D(v)
+        τ̈ ~ D(τ̇)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, v, v̇, Tb, Tγ, μ, cₛ²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
@@ -116,11 +119,14 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
 end
 
 function thermodynamics_recombination_splined(; kwargs...)
-    vars = @variables τ(t) τ̇(t) cₛ²(t) #Tb(t)
+    vars = @variables τ(t) τ̇(t) τ̈(t) cₛ²(t) v(t) v̇(t) #Tb(t)
     pars = @parameters τspline::CubicSpline cₛ²spline::CubicSpline #(Tbspline::CubicSpline)(..)
     return ODESystem([
         τ ~ value(τspline, t)
         τ̇ ~ derivative(τspline, t)
+        τ̈ ~ derivative(τspline, t, 2) # TODO: unstable?
+        v ~ -τ̇ * exp(-τ) # TODO: do automatically
+        v̇ ~ (-τ̈ + τ̇^2) * exp(-τ)
         cₛ² ~ value(cₛ²spline, t)
         #Tb ~ exp(Tbspline(log(t)))
     ], t, vars, pars; kwargs...) # connect perturbation τ with spline evaluation

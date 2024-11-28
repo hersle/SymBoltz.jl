@@ -170,15 +170,16 @@ Ps = power_spectrum(M, pars, ks / u"Mpc"; verbose=true) / u"Mpc^3"
 # CMB power spectrum
 ls = sol1["Cl"]["l"]
 ls = Int.(ls[begin:10:end])
-Cls_class = sol1["Cl"]["TT"]
-Cls_class = Cls_class[begin:10:end]
+Dls_class = sol1["Cl"]["TT"]
+Dls_class = Dls_class[begin:10:end]
 Cls = Cl(M, pars, ls)
+Dls = @. Cls * ls * (ls + 1) / 2π
 
 sols = merge(sols, Dict(
     "k" => (ks, ks),
     "P" => (Ps_class, Ps),
     "l" => (ls, ls),
-    "Cl" => (Cls_class, Cls)
+    "Dl" => (Dls_class, Dls)
 ))
 
 function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
@@ -270,5 +271,5 @@ plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
 plot_compare("k", "P"; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("l", "Cl") # TODO: fix # hide
+plot_compare("l", "Dl") # TODO: fix # hide
 ```

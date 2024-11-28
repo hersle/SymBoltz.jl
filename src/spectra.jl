@@ -5,13 +5,13 @@ using ForwardDiff
 using Base.Threads
 
 # primordial power spectrum
-P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns
+P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
 
 # power spectrum
 function power_spectrum(sol::CosmologySolution, k)
     tend = sol[t][end]
     M = sol.pts[1].prob.f.sys
-    ρm = M.c.ρ + M.b.ρ
+    ρm = M.c.ρ + M.b.ρ # TODO: massive neutrinos
     return P0(k) .* sol(k, tend, [M.k^2*M.g.Φ / (4*Num(π)*M.g.a^2*ρm)])[:, 1, 1] .^ 2 # Baumann (4.4.172)
 end
 
@@ -20,22 +20,8 @@ function power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs.
     return power_spectrum(sol, k)
 end
 
-
-#= # TODO: make work again?
-# source function
-# this one is more elegant, but a little numerically unstable (would really like to use this one)
-function S_observed(pt::PerturbationsSystem, ts::AbstractArray, ks::AbstractArray, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp)
-    pt_sols = solve(pt, ks, Ωγ0, Ων0, Ωc0, Ωb0, h, Yp; saveat = ts)
-    Ss = zeros(eltype([Ωγ0, Ων0, Ωc0, Ωb0, h, Yp]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
-    @threads for ik in eachindex(ks)
-        pt_sol = pt_sols[ik]
-        Ss[:,ik] .= pt_sol[pt.ssys.S] # whether this gives a accurate CMB spectrum depends on the perturbation ODE solver (e.g. KenCarp{4,47,5,58}) and its reltol
-    end
-    return Ss
-end
-=#
-
-# this one is less elegant, but more numerically stable
+# this one is less elegant, but more numerically stable?
+#=
 function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
     sol = solve(M, pars, ks; saveat = ts, verbose=true, kwargs...)
     τ = sol[M.b.rec.τ] # TODO: assume ts[end] is today
@@ -59,16 +45,7 @@ function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars
 
     return Ss
 end
-
-function S(M::CosmologyModel, ts::AbstractArray, ksfine::AbstractArray, pars, kscoarse::AbstractArray; kwargs...)
-    Sscoarse = S_splined(M::CosmologyModel, ts, kscoarse, pars) # TODO: restore S_observed
-    Ssfine = similar(Sscoarse, (length(ts), length(ksfine)))
-    for it in eachindex(ts)
-        Sscoarset = @view Sscoarse[it,:]
-        Ssfine[it,:] .= spline(Sscoarset, kscoarse)(ksfine)
-    end
-    return Ssfine
-end
+=#
 
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
@@ -120,9 +97,10 @@ function Θl(ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, Ss::Abst
     return Θls
 end
 
-function Θl(M::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, args...; kwargs...)
-    ts = exp.(lnts)
-    Ss = S(M, ts, ks, pars, args...; kwargs...)
+function Θl(M::CosmologyModel, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
+    sol = solve(M, pars, ks_S; kwargs...)
+    Ss = sol(ks, exp.(lnts), M.S)
+    Ss = transpose(Ss) # TODO: remove?
     return Θl(ls, ks, lnts, Ss)
 end
 
@@ -147,16 +125,18 @@ function Cl(M::CosmologyModel, pars, ls::AbstractArray, ks::AbstractRange, lnts:
     return Cl(ls, ks, Θls, P0s)
 end
 
-function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/4, Δkt0_S = 50.0, observe = false)
-    bg_sol = solve(M, pars)
+function Cl(M::CosmologyModel, pars, ls::AbstractArray; Δlnt = 0.03, Δkt0 = 2π/8, Δkt0_S = 10.0, kt0max_lmax = 2.0, kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+    bg_sol = solve(M, pars) # TODO: take in solution object instead!
 
     ti, t0 = bg_sol[t][begin] + 1e-10, bg_sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
     ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
     lnts = range(log(ti), log(t0), step=Δlnt) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
 
-    kt0max = 2.0 * ls[end]
-    ks_Cl = range_until(0, kt0max, Δkt0; skip_start=true) ./ t0
-    ks_S = range_until(0, kt0max, Δkt0_S; skip_start=true) ./ t0 # Δk = 50/t0
+    Δk = Δkt0 / t0
+    Δk_S = Δkt0_S / t0
+    kmax = kt0max_lmax * ls[end] / t0
+    ks_S = range(Δk, kmax, step = Δk_S)
+    ks_Cl = range(ks_S[begin], ks_S[end], length = length(ks_S) * Int(floor(Δkt0_S/Δkt0))) # use integer multiple so endpoints are the same
 
-    return Cl(M, pars, ls, ks_Cl, lnts, ks_S; observe)
+    return Cl(M, pars, ls, ks_Cl, lnts, ks_S; kwargs...)
 end

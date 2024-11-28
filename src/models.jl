@@ -32,6 +32,7 @@ function ΛCDM(;
 )
     species = filter(have, [γ, ν, c, b, h, Λ])
     pars = @parameters C fν
+    vars = @variables S(t)
     defs = Dict(
         k => NaN, # make background shut up # TODO: avoid
         C => 1//2, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
@@ -60,6 +61,7 @@ function ΛCDM(;
         b.θinteraction ~ -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
+        S ~ b.rec.v * (γ.F[0]/4 + g.Ψ + γ.Π/4) + (b.rec.v̇*b.u+b.rec.v*D(b.u))/k + exp(-b.rec.τ)*D(g.Ψ+g.Φ) # + 3/(4*k^2)*gΠ″ # θ₀ = F₀/4? # TODO: include all terms # TODO: split up into S_SW, S_ISW, S_Doppler, ...
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
@@ -67,7 +69,7 @@ function ΛCDM(;
         push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: unsafe outside GR
     end
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = ODESystem([eqs0; eqs1], t, [], [pars; k]; defaults = defs, name, description)
+    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     M = compose(connections, g, G, species...)
     return CosmologyModel(M; initE, kwargs...)
 end
