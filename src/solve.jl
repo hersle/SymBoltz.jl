@@ -145,9 +145,11 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         check_solution(th_sol.retcode)
 
         # Offset optical depth, so it's 0 today
-        idx_τ = variable_index(M.th, M.b.rec.τ)
-        for i in 1:length(th_sol.u)
-            th_sol.u[i][idx_τ] -= th_sol.u[end][idx_τ]
+        if have(M.sys, :b)
+            idx_τ = variable_index(M.th, M.b.rec.τ)
+            for i in 1:length(th_sol.u)
+                th_sol.u[i][idx_τ] -= th_sol.u[end][idx_τ]
+            end
         end
     else
         th_sol = bg_sol
