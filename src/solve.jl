@@ -160,6 +160,11 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
 end
 
 # TODO: pass background solution to avoid recomputing it
+"""
+    solve(M::CosmologyModel, pars, ks; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+
+Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
+"""
 function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 

@@ -19,7 +19,7 @@ makedocs(
             "components.md",
             "models.md"
         ],
-        "conventions.md",
+        "solution.md",
         "comparison.md",
         "benchmarks.md",
     ],
