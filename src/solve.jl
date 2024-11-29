@@ -89,14 +89,14 @@ end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
+# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
+# TODO: shoot to reach E = 1 today when integrating forwards
 """
     solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-10, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
-# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-# TODO: shoot to reach E = 1 today when integrating forwards
-function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
@@ -115,7 +115,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         tspan = (0.0, +4.0) # integrate forwards
         aterm = 1.0 # terminate today
     end
-    bg_prob = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true)
+    bg_prob = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
     callback = callback_terminator(M.bg, M.g.a, aterm)
     debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
     if debug_initialization
@@ -141,7 +141,7 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
         tend = tini + Δt
         ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][iini]
         ics = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt(t)"), ics) # remove ȧ initial condition
-        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; guesses, fully_determined = true)
+        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; guesses, fully_determined = true, jac, sparse)
         th_sol = solve(th_prob, solver; reltol, kwargs...)
         check_solution(th_sol.retcode)
 
@@ -160,15 +160,15 @@ function solve(M::CosmologyModel, pars; aini = 1e-7, solver = Rodas5P(), reltol 
 end
 
 # TODO: pass background solution to avoid recomputing it
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    th_sol = solve(M, pars; aini, backwards, kwargs...)
+    th_sol = solve(M, pars; aini, backwards, jac, sparse, kwargs...)
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
-        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards) # should solve again if given keyword arguments, like saveat
+        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse) # should solve again if given keyword arguments, like saveat
         pars = merge(pars, Dict(
             M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
             M.pt.b.rec.τ̇spline => spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t]),
@@ -181,12 +181,13 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
         thread = false
     end
 
+    # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
     kset! = setp(M.pt, M.k) # function that sets k on a problem
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
     push!(pars, k => ks[1])
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true) # TODO: why do I need this???
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse) # TODO: why do I need this???
     ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
         ode_prob = ode_prob_tlv[]
