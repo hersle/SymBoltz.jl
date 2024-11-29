@@ -21,6 +21,7 @@ makedocs(
         ],
         "conventions.md",
         "comparison.md",
+        "benchmarks.md",
     ],
     pagesonly = true, # only process files listed in pages (useful for testing)
 )
