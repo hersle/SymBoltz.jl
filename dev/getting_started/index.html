@@ -6,13 +6,13 @@
   γ: Photon radiation
   ν: Massless neutrinos
   ⋮
-<span class="sgr1">Equations (187):</span>
-  187 standard: see equations(ν)
-<span class="sgr1">Unknowns (114):</span> see unknowns(ν)
+<span class="sgr1">Equations (193):</span>
+  193 standard: see equations(ν)
+<span class="sgr1">Unknowns (120):</span> see unknowns(ν)
   S(t)
-  a(t)
-  ℰ(t)
-  E(t)
+  S_SW(t)
+  S_ISW(t)
+  S_Dop(t)
   ⋮
 <span class="sgr1">Parameters (28):</span> see parameters(ν)
   DEF
@@ -74,18 +74,18 @@ Es = sol(ts, M.g.E)</code></pre><pre class="documenter-example-output"><code cla
  ⋮                             ⋱                          
  0.716174  0.716166  0.716158     0.0036778   0.00352906  0.00334215
  0.716174  0.716165  0.716156     0.00328967  0.00315662  0.00298944
- 0.716174  0.716164  0.716154     0.00294082  0.00282188  0.00267243
+ 0.716174  0.716164  0.716154     0.00294082  0.00282188  0.00267242
  0.716174  0.716162  0.716152     0.00262755  0.00252128  0.00238774
  0.716174  0.716161  0.716149  …  0.00234638  0.00225148  0.00213224
- 0.716174  0.716159  0.716146     0.0020942   0.00200949  0.00190307
+ 0.716174  0.716159  0.716146     0.0020942   0.0020095   0.00190307
  0.716174  0.716157  0.716142     0.00186819  0.00179263  0.00169769
- 0.716174  0.716155  0.716138     0.00166577  0.0015984   0.00151374
+ 0.716174  0.716155  0.716138     0.00166576  0.0015984   0.00151374
  0.716174  0.716153  0.716133     0.00148457  0.00142452  0.00134908</code></pre><p>This can be plotted with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
-plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="75bd54f9.svg" alt="Example block output"/><p>We can also calculate the power spectrum:</p><pre><code class="language-julia hljs">Ps = power_spectrum(sol, ks)
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="4b2744d4.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="984be3ee.svg" alt="Example block output"/><p>We can also calculate the power spectrum:</p><pre><code class="language-julia hljs">Ps = power_spectrum(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="fb29a188.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
 Cls = Cl(M, pars, ls)
-plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing) # TODO: fix</code></pre><img src="09d29b20.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing) # TODO: fix</code></pre><img src="af56a670.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
 plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
 plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
 plot!(p[3], sol, log10(M.g.a), log10(M.g.H / M.g.H₀))
@@ -94,4 +94,4 @@ plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
 plot!(p[6], sol, ks[1], log10(M.g.a), log10(abs(M.b.rec.τ)), klabel = false)
 plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
 plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
-plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ])), klabel = false)</code></pre><img src="50693c22.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Thursday 28 November 2024 16:38">Thursday 28 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ])), klabel = false)</code></pre><img src="4d035baa.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Friday 29 November 2024 12:02">Friday 29 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
