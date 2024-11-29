@@ -21,31 +21,27 @@ function power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs.
 end
 
 # this one is less elegant, but more numerically stable?
-#=
-function S_splined(M::CosmologyModel, ts::AbstractArray, ks::AbstractArray, pars; kwargs...)
-    sol = solve(M, pars, ks; saveat = ts, verbose=true, kwargs...)
-    τ = sol[M.b.rec.τ] # TODO: assume ts[end] is today
-    τ′ = D_spline(τ, ts)
-    g = @. -τ′ * exp(-τ)
-    
-    # TODO: add source functions as observed perturbation functions?
-    Ss = zeros(eltype([par[2] for par in pars]), (length(ts), length(ks))) # TODO: change order to get DenseArray during integrations?
+# TODO: saveat = ts
+function S_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    M = sol.M
+    Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
+
+    τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
+    v = .-D_spline(τ, ts) .* exp.(.-τ)
     @threads for ik in eachindex(ks)
         k = ks[ik]
-        Θ0 = sol[ik, M.γ.F[0]]
-        Ψ = sol[ik, M.g.Ψ]
-        Φ = sol[ik, M.g.Φ]
-        Π = sol[ik, M.γ.Π]
-        ub = sol[ik, M.b.u]
-        gub′ = D_spline(g .* ub, ts) # TODO: why is the observed version messy?
-        Ψ_minus_Φ′ = D_spline(Ψ .- Φ, ts) # TODO: use pt_sol(..., Val{1}) when this is fixed: https://github.com/SciML/ModelingToolkit.jl/issues/2697 and https://github.com/SciML/ModelingToolkit.jl/pull/2574 # TODO: why is the observed version so messy?
-        gΠ″ = D_spline(g .* Π, ts; order = 2) # TODO: why is the observed version messy?
-        @. Ss[:,ik] = g*(Θ0+Ψ+Π/4) + gub′/k + exp(-τ)*Ψ_minus_Φ′ + 3/(4*k^2)*gΠ″ # SW + Doppler + ISW + polarization
+        idxs = [M.γ.F[0]/4, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u] # TODO: Θ0 = F0/4?
+        out = sol(k, ts, idxs)
+        Θ0, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
+        S_SW = v .* (Θ0 .+ Ψ .+ Π/4)
+        S_ISW = exp.(.-τ) .* D_spline(Ψ .+ Φ, ts)
+        S_Dop = D_spline(v .* ub, ts) / k # (b.rec.v̇*b.u+b.rec.v*D(b.u))/k
+        S_pol = 3/(4*k^2) .* D_spline(v .* Π, ts; order = 2)  #(b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
+        @. Ss[ik,:] = S_SW + S_ISW + S_Dop + S_pol # TODO: include all terms
     end
 
     return Ss
 end
-=#
 
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
@@ -101,7 +97,7 @@ function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::Abst
 end
 
 function Θl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
-    Ss = sol(ks, exp.(lnts), M.S)
+    Ss = S_splined(sol, ks, exp.(lnts)) # sol(ks, exp.(lnts), M.S)
     return Θl(Ss, ls, ks, lnts)
 end
 
