@@ -32,7 +32,7 @@ function ΛCDM(;
 )
     species = filter(have, [γ, ν, c, b, h, Λ])
     pars = @parameters C fν
-    vars = @variables S(t)
+    vars = @variables S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     defs = Dict(
         k => NaN, # make background shut up # TODO: avoid
         C => 1//2, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
@@ -61,7 +61,11 @@ function ΛCDM(;
         b.θinteraction ~ -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
-        S ~ b.rec.v * (γ.F[0]/4 + g.Ψ + γ.Π/4) + (b.rec.v̇*b.u+b.rec.v*D(b.u))/k + exp(-b.rec.τ)*D(g.Ψ+g.Φ) # + 3/(4*k^2)*gΠ″ # θ₀ = F₀/4? # TODO: include all terms # TODO: split up into S_SW, S_ISW, S_Doppler, ...
+        S_SW ~ b.rec.v * (γ.F[0]/4 + g.Ψ + γ.Π/4) # θ₀ = F₀/4?
+        S_ISW ~ exp(-b.rec.τ)*D(g.Ψ+g.Φ)
+        S_Dop ~ (b.rec.v̇*b.u+b.rec.v*D(b.u))/k
+        S_pol ~ 3/(4*k^2) * (b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
+        S ~ S_SW + S_ISW + S_Dop + 0*S_pol # TODO: include all terms
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
