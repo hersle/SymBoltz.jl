@@ -14,9 +14,9 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true)
+function perturbations(sys; spline_thermo = true, spline_concrete = true)
     if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
-        @named rec = thermodynamics_recombination_splined()
+        @named rec = thermodynamics_recombination_splined(; spline_concrete)
         sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
     end
     return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
@@ -33,13 +33,13 @@ struct CosmologyModel
     spline_thermo::Bool # whether to spline thermodynamics in perturbations
 end
 
-function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
+function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, spline_concrete = true, debug = false)
     if debug
         sys = debugize(sys) # TODO: make work with massive neutrinos
     end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
-    pt = structural_simplify(perturbations(sys; spline_thermo))
+    pt = structural_simplify(perturbations(sys; spline_thermo, spline_concrete))
     sys = complete(sys; flatten = false)
     return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
 end
@@ -161,11 +161,11 @@ end
 
 # TODO: pass background solution to avoid recomputing it
 """
-    solve(M::CosmologyModel, pars, ks; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    solve(M::CosmologyModel, pars, ks; aini = 1e-7, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-11, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -182,7 +182,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-7, solver =
     end
 
     if Threads.nthreads() == 1 && thread
-        @warn "Multi-threading was requested, but Julia is running with 1 thread."
+        @warn "Multi-threading was requested, but Julia is running with 1 thread. Restart Julia with more threads to enable multi-threading, or pass thread = false to explicitly disable it."
         thread = false
     end
 

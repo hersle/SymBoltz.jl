@@ -120,9 +120,19 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
     return compose(th, rec, bg)
 end
 
-function thermodynamics_recombination_splined(; kwargs...)
+function thermodynamics_recombination_splined(; spline_concrete = true, kwargs...)
+    # For optimal performance, the type of all spline parameters should be concrete
+    # With spline_concrete = true, this is done and is faster, but breaks AD compatibility
+    # With spline_concrete = false is slower, but maintains AD compatibility
+    # See https://docs.sciml.ai/ModelingToolkit/dev/tutorials/callable_params/#Callable-parameters-and-interpolating-data)
+    # and @inferred tests in https://github.com/SciML/ModelingToolkit.jl/pull/2995/files
+    # TODO: automatically rebuild problem with AD types
+    T = spline_concrete ? typeof(CubicSpline([0.0, 1.0, 2.0], [0.0, 1.0, 2.0])) : CubicSpline
+    if isconcretetype(T)
+        @warn "This model is incompatible with automatic differentiation. Rebuild it with spline_concrete = false to enable automatic differentiation compatibility at a performance cost. This will be fixed in the future."
+    end
     vars = @variables τ(t) τ̇(t) τ̈(t) τ⃛(t) cₛ²(t) v(t) v̇(t) v̈(t) #Tb(t)
-    pars = @parameters τspline::CubicSpline τ̇spline::CubicSpline cₛ²spline::CubicSpline #(Tbspline::CubicSpline)(..)
+    pars = @parameters τspline::T τ̇spline::T cₛ²spline::T #Tbspline::T # TODO: use callable parameters instead?
     return ODESystem([
         τ ~ value(τspline, t)
         τ̇ ~ derivative(τspline, t)
