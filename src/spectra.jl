@@ -4,10 +4,18 @@ using DataInterpolations
 using ForwardDiff
 using Base.Threads
 
-# primordial power spectrum
-P0(k, As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
+"""
+    P0(k; As=2e-9)
 
-# power spectrum
+Compute the primordial power spectrum with amplitude `As` at the wavenumber(s) `k`.
+"""
+P0(k; As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
+
+"""
+    power_spectrum(sol::CosmologySolution, k)
+
+Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k`.
+"""
 function power_spectrum(sol::CosmologySolution, k)
     tend = sol[t][end]
     M = sol.pts[1].prob.f.sys
@@ -15,6 +23,12 @@ function power_spectrum(sol::CosmologySolution, k)
     return P0(k) .* sol(k, tend, [M.k^2*M.g.Φ / (4*Num(π)*M.g.a^2*ρm)])[:, 1, 1] .^ 2 # Baumann (4.4.172)
 end
 
+"""
+    power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
+
+Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k`.
+The `solver` and other `kwargs` are passed to `solve`.
+"""
 function power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
     sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
     return power_spectrum(sol, k)
@@ -123,6 +137,12 @@ function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::
     return Cl(Θls, P0s, ls, ks)
 end
 
+
+"""
+    Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
+
+Compute the ``C_l``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
+"""
 function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
     @assert issorted(ls)
     sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)

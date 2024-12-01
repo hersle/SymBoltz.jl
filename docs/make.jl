@@ -20,6 +20,7 @@ makedocs(
             "models.md"
         ],
         "solution.md",
+        "spectra.md",
         "comparison.md",
         "benchmarks.md",
     ],
