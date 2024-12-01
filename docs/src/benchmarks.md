@@ -4,29 +4,27 @@
     This page is a work in progress.
 
 ```@example bench
-using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, LinearSolve, BenchmarkTools
+using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, LinearSolve, BenchmarkTools, Plots
 M = SymBoltz.ΛCDM(h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
-ks = 10 .^ range(-5, 1, length=10) / u"Mpc"
-```
+N = 20
+ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 
-```@example bench
 # TODO: make proper; sort; test accuracy; work-precision diagram?
 # TODO: test different linsolve and nlsolve
-reltol = 1e-5
-optss = [
-    (solver = TRBDF2,),
-    (solver = KenCarp4,),
-    (solver = KenCarp47,),
-    (solver = Kvaerno5,),
-    (solver = Rodas5P,), # TODO: Rodas5?
-    (solver = QNDF,),
-    (solver = QBDF,),
-]
-for opts in optss
-    print("$(opts.solver) (reltol = $(reltol)): ")
-    solver = opts.solver()
-    timing = @benchmark sol = solve($M, $pars, $ks; solver = $solver, thread=false)
-    println("($(mean(timing).time / 1e9) ± $(std(timing).time)) s")
+# TODO: use BenchmarkTools.BenchmarkGroup
+solvers = [TRBDF2(), AutoTsit5(TRBDF2()), KenCarp4(), AutoTsit5(KenCarp4()), KenCarp47(), Kvaerno5(), Rodas5P(), QNDF()] # TODO: Rodas5?
+timings = []
+solve_with(solver; reltol = 1e-5) = solve(M, pars, ks; solver, reltol, thread=false)
+for solver in solvers
+    timing = @benchmark solve_with($solver)
+    push!(timings, timing)
 end
+bar(
+    SymBoltz.solvername.(solvers),
+    map(t -> mean(t.times/N)/1e6, timings),
+    yerror = map(t -> std(t.times/N)/1e6, timings),
+    ylabel = "time per k-mode / ms", label = false,
+    permute = (:x, :y) # make bar plot horizontal
+)
 ```

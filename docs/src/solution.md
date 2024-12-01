@@ -1,4 +1,4 @@
-# Solution interface
+# Solving
 
 Once a [cosmological model](@ref "Models") has been constructed, it can be solved for some given parameters:
 
@@ -51,3 +51,5 @@ For the [standard ΛCDM model](@ref "Standard ΛCDM"), some good solvers are:
 - `KenCarp4` (and `KenCarp47`): Fast. Handles medium stiffness. Default perturbation solver.
 - `Kvaerno5`: Behaves similar to `KenCarp4`. Slightly more accurate. Slightly slower.
 - `TRBDF2`: Very fast. Decent accuracy. Handles severe stiffness.
+
+See also the [solver benchmarks](@ref "Benchmarks").

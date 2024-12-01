@@ -72,18 +72,20 @@ struct CosmologySolution
     pts::Union{EnsembleSolution, Nothing}
 end
 
+solvername(alg) = string(nameof(typeof(alg)))
+solvername(alg::CompositeAlgorithm) = join(solvername.(alg.algs), "+")
+
 function Base.show(io::IO, sol::CosmologySolution)
     print(io, "Cosmology solution with stages")
-    print(io, "\n  1. background: solved with $(nameof(typeof(sol.bg.alg))), $(length(sol.bg)) points")
+    print(io, "\n  1. background: solved with $(solvername(sol.bg.alg)), $(length(sol.bg)) points")
     if !isnothing(sol.th)
-        print(io, "\n  2. thermodynamics: solved with $(nameof(typeof(sol.th.alg))), $(length(sol.th)) points")
+        print(io, "\n  2. thermodynamics: solved with $(solvername(sol.th.alg)), $(length(sol.th)) points")
     end
     if !isnothing(sol.pts)
-        solver = nameof(typeof(only(unique(map(pt -> pt.alg, sol.pts)))))
         kmin, kmax = extrema(map(pt -> pt.prob.ps[SymBoltz.k], sol.pts))
         nmin, nmax = extrema(map(pt -> length(pt), sol.pts))
         n = length(sol.pts)
-        print(io, "\n  3. perturbations: solved with $solver, $nmin-$nmax points, x$(n) k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
+        print(io, "\n  3. perturbations: solved with $(solvername(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
     end
 end
 
