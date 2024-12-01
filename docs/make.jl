@@ -25,5 +25,6 @@ makedocs(
         "benchmarks.md",
     ],
     pagesonly = true, # only process files listed in pages (useful for testing)
+    linkcheck = true, warnonly = [:linkcheck, :cross_references], # warn if documentation has dead links
 )
 deploydocs(repo = "github.com/hersle/SymBoltz.jl.git")
