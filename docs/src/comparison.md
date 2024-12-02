@@ -136,10 +136,12 @@ sols = Dict(
 
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
-    "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), .- sol2[M.b.rec.τ̇] * (SymBoltz.k0 * h)),
+    "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.τ̇] * (SymBoltz.k0*h)),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
+    "τ" => (-log.(reverse(sol1["th"]["exp(-kappa)"])), sol2[M.b.rec.τ]),
+    "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (SymBoltz.k0*h)),
     #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
 
     # perturbations
@@ -242,6 +244,12 @@ plot_compare("a_bg", ["ργ", "ρν", "ρb", "ρc", "ρΛ"]; lgx=true, lgy=true)
 ### Thermodynamics
 ```@example class
 plot_compare("a_th", "τ̇"; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("a_th", "τ"; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("a_th", "v"; lgx=true, lgy=false) # hide
 ```
 ```@example class
 plot_compare("a_th", "Xe"; lgx=true, lgy=false) # hide
