@@ -1,15 +1,29 @@
 using RecipesBase
+using Roots
 
-function get_ts(sol::CosmologySolution, N::Union{Nothing, Int})
-    ts = sol[t]
-    if !isnothing(N)
-        ts = sinh.(range(asinh.(extrema(ts))..., length=N))
-    end
-    return ts
+function get_ts(sol::CosmologySolution)
+    return sol[t]
 end
 
-@recipe function plot(sol::CosmologySolution, x, y; N = nothing)
-    ts = get_ts(sol, N)
+function get_ts(sol::CosmologySolution, k)
+    k = k_dimensionless(k, sol.bg.ps[:h])
+    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
+    i1 = max(i1, 1)
+    t1, t2 = sol[i1, t], sol[i2, t]
+    return sort!(unique!([t1; t2]))
+end
+
+# Get the time when some variable equals some value
+# TODO: use for something
+function get_ts_when(sol::CosmologySolution, var, val)
+    allequal(sign.(diff(sol[var]))) || error("$var is not monotonically increasing/decreasing")
+    f(t) = sol(t, var) - val # var(t) == val when f(t) == 0
+    t0 = sum(sol[t][[begin,end]]) / 2 # initial guess at middle time
+    return find_zero(f, t0)
+end
+
+@recipe function plot(sol::CosmologySolution, x, y)
+    ts = get_ts(sol)
     xs = sol(ts, x)
     ys = sol(ts, y)
     xlabel --> (x isa AbstractArray ? "" : x)
@@ -23,15 +37,14 @@ end
     return xs, ys
 end
 
-@recipe function plot(sol::CosmologySolution, k, x, y; N = nothing, klabel=true)
-    ts = get_ts(sol, N)
-
+@recipe function plot(sol::CosmologySolution, k, x, y; klabel=true)
     xlabel --> (x isa AbstractArray ? "" : x)
     ylabel --> (y isa AbstractArray ? "" : y)
 
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
+            ts = get_ts(sol, k[ik])
             color = ik
             xs = sol(k[ik], ts, x)
             ys = sol(k[ik], ts, y[iv])

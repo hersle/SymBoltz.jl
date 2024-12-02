@@ -244,16 +244,20 @@ function (sol::CosmologySolution)(t, idxs)
     return v
 end
 
+function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
+    kmin, kmax = extrema(sol.ks)
+    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
+    i2 = searchsortedfirst(sol.ks, k) # index above target k
+    i1 = i2 - 1 # index below target k ()
+    return i1, i2
+end
+
 function (sol::CosmologySolution)(k::Number, t, idxs)
     k = k_dimensionless(k, sol.bg.ps[:h])
 
     isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
 
-    kmin, kmax = extrema(sol.ks)
-    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
-
-    i2 = searchsortedfirst(sol.ks, k) # index above target k
-    i1 = i2 - 1 # index below target k ()
+    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
 
     v2 = sol.pts[i2](t; idxs)
     if i1 == 0

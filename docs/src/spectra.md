@@ -1,4 +1,4 @@
-# Spectra
+# Sources and spectra
 
 ## Primordial power spectra
 

@@ -1,4 +1,4 @@
-# Solving
+# Solution handling
 
 Once a [cosmological model](@ref "Models") has been constructed, it can be solved for some given parameters:
 
