@@ -116,7 +116,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
     return output
 end
 
-k = 1e0 / u"Mpc" # 1/Mpc # disagreement on smaller scales
+k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
 sol2 = solve(M, pars, k) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
