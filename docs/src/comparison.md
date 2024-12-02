@@ -156,10 +156,11 @@ sols = Dict(
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
     "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
     #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)), # TODO: correct???
-    #"Π" => (sol1["pt"]["shear_g"], sol2[1, M.γ.Θ[2]] * -2),
-    #"P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.ΘP0] * -4), # TODO: is -4 correct ???
-    #"P1" => (sol1["pt"]["pol1_g"], sol2[1, M.γ.ΘP[1]] * -4), # TODO: is -4 correct ???
-    #"P2" => (sol1["pt"]["pol2_g"], sol2[1, M.γ.ΘP[2]] * -4), # TODO: is -4 correct ???
+    "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.F[2] / 2]), # TODO: factor 2 difference
+    "σν" => (sol1["pt"]["shear_ur"], sol2[1, M.ν.F[2] / 2]), # TODO: factor 2 difference
+    "P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.G[0]]),
+    "P1" => (sol1["pt"]["pol1_g"], sol2[1, M.γ.G[1]]),
+    "P2" => (sol1["pt"]["pol2_g"], sol2[1, M.γ.G[2]]),
 )
 
 # matter power spectrum
@@ -263,6 +264,12 @@ plot_compare("a_pt", ["δb", "δc", "δγ", "δν"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("a_pt", ["σγ", "σν"]; lgx=true) # hide
+```
+```@example class
+plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true) # hide
 ```
 
 ### Power spectrum
