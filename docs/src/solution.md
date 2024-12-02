@@ -41,6 +41,18 @@ as = sol(ts, M.g.a) # scale factors
 nothing # hide
 ```
 
+## Shooting method parametrization
+
+It is common to parametrize some models not by initial conditions or constant parameters, but by values of variables at some (non-initial) time, like today.
+This is exactly like the boundary conditions of a boundary value problem.
+SymBoltz.jl supports such parametrizations with the shooting method:
+
+```@docs
+shoot
+```
+
+Example usage is shown on the [models page](@ref "Models").
+
 ## Choice of solver
 
 In principle, models can be solved with any [DifferentialEquations.jl ODE solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/).
