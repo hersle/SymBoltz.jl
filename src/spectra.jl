@@ -75,8 +75,9 @@ end
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 # TODO: take in symbolic expr?
-function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven())
+function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
     @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
+    verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
 
     ts = exp.(lnts)
     t0 = ts[end]
@@ -112,7 +113,7 @@ end
 
 function Θl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
     Ss = S_splined(sol, ks, exp.(lnts)) # sol(ks, exp.(lnts), M.S)
-    return Θl(Ss, ls, ks, lnts)
+    return Θl(Ss, ls, ks, lnts; kwargs...)
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -130,9 +131,9 @@ function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::Abst
     return Cls
 end
 
-function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray)
+function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
     Ss = sol(ks, exp.(lnts), sol.M.S)
-    Θls = Θl(Ss, ls, ks, lnts)
+    Θls = Θl(Ss, ls, ks, lnts; kwargs...)
     P0s = P0(ks)
     return Cl(Θls, P0s, ls, ks)
 end
@@ -143,10 +144,10 @@ end
 
 Compute the ``C_l``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
 """
-function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
     @assert issorted(ls)
     sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    return Cl(sol, ls, ks, lnts)
+    return Cl(sol, ls, ks, lnts; integrator)
 end
 
 function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.05, kwargs...)
