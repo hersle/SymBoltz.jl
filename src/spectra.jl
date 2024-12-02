@@ -41,17 +41,15 @@ function S_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
 
     τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
-    v = .-D_spline(τ, ts) .* exp.(.-τ)
+    v = -D_spline(τ, ts) .* exp.(-τ)
     @threads for ik in eachindex(ks)
         k = ks[ik]
-        idxs = [M.γ.F[0]/4, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u] # TODO: Θ0 = F0/4?
+        idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
         out = sol(k, ts, idxs)
-        Θ0, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
-        S_SW = v .* (Θ0 .+ Ψ .+ Π/4)
-        S_ISW = exp.(.-τ) .* D_spline(Ψ .+ Φ, ts)
-        S_Dop = D_spline(v .* ub, ts) / k # (b.rec.v̇*b.u+b.rec.v*D(b.u))/k
-        S_pol = 3/(4*k^2) .* D_spline(v .* Π, ts; order = 2)  #(b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
-        @. Ss[ik,:] = S_SW + S_ISW + S_Dop + S_pol # TODO: include all terms
+        δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
+        Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + exp.(-τ) .* D_spline(Ψ + Φ, ts) + D_spline(v .* ub, ts) / k + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.57) with Φ → -Φ and polarization
+        #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
+        #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
     end
 
     return Ss
@@ -67,6 +65,10 @@ function sphericalbesseljfast!(out, ls::AbstractRange, x)
     end
     return out
 end
+# TODO: test and compare to fast!
+function sphericalbesseljslow!(out, ls::AbstractRange, x)
+    out .= sphericalbesselj.(ls, x)
+end
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(t0-tini)
@@ -75,6 +77,7 @@ end
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 # TODO: take in symbolic expr?
+# TODO: use tasks, not threads!
 function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
     @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
@@ -131,8 +134,9 @@ function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::Abst
     return Cls
 end
 
+# TODO: try to disable CLASS' want_lcmb_full_limber?
 function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
-    Ss = sol(ks, exp.(lnts), sol.M.S)
+    Ss = S_splined(sol, ks, exp.(lnts)) # TODO: restore sol(ks, exp.(lnts), sol.M.S)
     Θls = Θl(Ss, ls, ks, lnts; kwargs...)
     P0s = P0(ks)
     return Cl(Θls, P0s, ls, ks)
@@ -150,7 +154,7 @@ function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = Simps
     return Cl(sol, ls, ks, lnts; integrator)
 end
 
-function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.05, kwargs...)
+function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     kmin = Δk
     ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
