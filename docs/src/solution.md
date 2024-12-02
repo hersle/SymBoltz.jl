@@ -47,7 +47,8 @@ In principle, models can be solved with any [DifferentialEquations.jl ODE solver
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
 For the [standard ΛCDM model](@ref "Standard ΛCDM"), some good solvers are:
 
-- `Rodas5P`: Slow for large systems. Very accurate. Handles severe stiffness. Default background solver.
+- `Rodas4P`: Slow for large systems. Very accurate. Handles extreme stiffness. Default background solver.
+- `Rodas5P`: Slow for large systems. Very accurate. Handles severe stiffness.
 - `KenCarp4` (and `KenCarp47`): Fast. Handles medium stiffness. Default perturbation solver.
 - `Kvaerno5`: Behaves similar to `KenCarp4`. Slightly more accurate. Slightly slower.
 - `TRBDF2`: Very fast. Decent accuracy. Handles severe stiffness.

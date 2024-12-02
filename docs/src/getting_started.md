@@ -57,7 +57,7 @@ To solve only the background, you can simply omit the `ks` argument: `solve(prob
 
 ## 3. Access the solution
 
-You are now free to [do whatever you want with the solution object](@ref "Solution interface").
+You are now free to [do whatever you want with the solution object](@ref "Solution handling").
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
 ```@example getting_started
 ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
