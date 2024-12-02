@@ -94,11 +94,11 @@ end
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
 """
-    solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas5P(), reltol = 1e-10, kwargs...)
+    solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-8, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
-function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-8, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
@@ -163,11 +163,11 @@ end
 
 # TODO: pass background solution to avoid recomputing it
 """
-    solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
