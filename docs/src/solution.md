@@ -41,6 +41,19 @@ as = sol(ts, M.g.a) # scale factors
 nothing # hide
 ```
 
+## Plotting the solution
+
+SymBoltz.jl includes [plot recipes](https://docs.juliaplots.org/latest/recipes/) for easily visualizing the solution.
+It works similarly to the solution accessing: call `plot(sol, [wavenumber(s),] x_expr, y_expr)` to plot `y_expr` as a function of `x_expr`.
+For example, to plot some of the same quantities that we obtained above:
+```@example sol
+using Plots
+p1 = plot(sol, log10(M.g.a), (M.b.ρ + M.c.ρ) / M.G.ρ)
+p2 = plot(sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
+p3 = plot(sol, ks[1:3], log10(M.g.a), M.g.Φ / M.g.Ψ) # exclude last k, where Φ and Ψ cross 0
+plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
+```
+
 ## Shooting method parametrization
 
 It is common to parametrize some models not by initial conditions or constant parameters, but by values of variables at some (non-initial) time, like today.
