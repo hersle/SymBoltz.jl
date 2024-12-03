@@ -95,8 +95,8 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         # approximations (see include/precisions.h)
         "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
-        "radiation_streaming_approximation" => 3, # turn off
-        "ur_fluid_approximation" => 3, # turn off
+        #"radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
+        "ur_fluid_approximation" => 3, # turns off UFA
     )
 
     run_class(in, exec, inpath, outpath)
@@ -111,6 +111,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         head = string.(head[2:end]) # remove #
         data = data[:,begin:length(head)] # remove extra empty data rows because of CLASS' messed up names
         data = Matrix{Float64}(data)
+        println("Read ", filename, " with ", join(size(data), "x"), " numbers")
         output[name] = Dict(head[i] => data[:,i] for i in eachindex(head))
     end
     return output
@@ -118,7 +119,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(M, pars, k) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
