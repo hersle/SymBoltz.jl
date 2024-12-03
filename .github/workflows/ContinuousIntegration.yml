@@ -69,6 +69,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+          JULIA_DEBUG: "Documenter"
 #      - name: Run doctests
 #        shell: julia --project=docs --color=yes {0}
 #        run: |
