@@ -94,11 +94,11 @@ end
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
 """
-    solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas5P(), reltol = 1e-10, kwargs...)
+    solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
-function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas5P(), reltol = 1e-15, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
     params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
@@ -163,11 +163,11 @@ end
 
 # TODO: pass background solution to avoid recomputing it
 """
-    solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-9, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -176,6 +176,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse) # should solve again if given keyword arguments, like saveat
+        # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
         pars = merge(pars, Dict(
             M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
             M.pt.b.rec.τ̇spline => spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t]),
@@ -307,6 +308,11 @@ function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
 end
 
 
+"""
+    shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
+
+Solve a cosmological model with fixed parameters, while varying some parameters (from their initial guesses) until the given `conditions` at the end time are satisfied.
+"""
 function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
     funcs = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
 

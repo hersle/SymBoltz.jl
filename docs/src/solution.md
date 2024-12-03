@@ -41,13 +41,26 @@ as = sol(ts, M.g.a) # scale factors
 nothing # hide
 ```
 
+## Shooting method parametrization
+
+It is common to parametrize some models not by initial conditions or constant parameters, but by values of variables at some (non-initial) time, like today.
+This is exactly like the boundary conditions of a boundary value problem.
+SymBoltz.jl supports such parametrizations with the shooting method:
+
+```@docs
+shoot
+```
+
+Example usage is shown on the [models page](@ref "Models").
+
 ## Choice of solver
 
 In principle, models can be solved with any [DifferentialEquations.jl ODE solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/).
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
 For the [standard ΛCDM model](@ref "Standard ΛCDM"), some good solvers are:
 
-- `Rodas5P`: Slow for large systems. Very accurate. Handles severe stiffness. Default background solver.
+- `Rodas4P`: Slow for large systems. Very accurate. Handles extreme stiffness. Default background solver.
+- `Rodas5P`: Slow for large systems. Very accurate. Handles severe stiffness.
 - `KenCarp4` (and `KenCarp47`): Fast. Handles medium stiffness. Default perturbation solver.
 - `Kvaerno5`: Behaves similar to `KenCarp4`. Slightly more accurate. Slightly slower.
 - `TRBDF2`: Very fast. Decent accuracy. Handles severe stiffness.

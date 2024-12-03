@@ -13,13 +13,18 @@ ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 # TODO: make proper; sort; test accuracy; work-precision diagram?
 # TODO: test different linsolve and nlsolve
 # TODO: use BenchmarkTools.BenchmarkGroup
-solvers = [TRBDF2(), AutoTsit5(TRBDF2()), KenCarp4(), AutoTsit5(KenCarp4()), KenCarp47(), Kvaerno5(), Rodas5P(), QNDF()] # TODO: Rodas5?
+solvers = [TRBDF2(), AutoTsit5(TRBDF2()), KenCarp4(), AutoTsit5(KenCarp4()), KenCarp47(), Kvaerno5(), Rodas5P(), Rodas5(), Rodas4(), Rodas4P(), QNDF()]
 timings = []
 solve_with(solver; reltol = 1e-5) = solve(M, pars, ks; solver, reltol, thread=false)
 for solver in solvers
     timing = @benchmark solve_with($solver)
     push!(timings, timing)
 end
+
+# Sort by efficiency
+idxs = sortperm(map(t -> mean(t.times), timings))
+solvers, timings = solvers[idxs], timings[idxs]
+
 bar(
     SymBoltz.solvername.(solvers),
     map(t -> mean(t.times/N)/1e6, timings),
