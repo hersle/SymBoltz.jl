@@ -5,6 +5,9 @@ ENV["JULIA_DEBUG"] = "Documenter" # make Documenter.jl output more verbose
 using Latexify
 set_default(starred = true) # equation numbering looks bad
 
+using Base.Threads
+println("Julia is running with $(nthreads()) threads")
+
 makedocs(
     sitename = "SymBoltz",
     pages = [
