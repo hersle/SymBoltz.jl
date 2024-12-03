@@ -64,12 +64,18 @@ jobs:
           using Pkg
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-docdeploy@v1
+#      - uses: julia-actions/julia-buildpkg@v1
+#      - uses: julia-actions/julia-docdeploy@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+#          JULIA_DEBUG: "Documenter"
+      - name: Build and deploy documentation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
           JULIA_DEBUG: "Documenter"
+        run: julia --project=docs/ --color=yes docs/make.jl
 #      - name: Run doctests
 #        shell: julia --project=docs --color=yes {0}
 #        run: |
