@@ -58,7 +58,7 @@ jobs:
           make --directory class_public class
           mkdir -p $HOME/.local/bin/
           ln -s $PWD/class_public/class $HOME/.local/bin/ # ~/.local/bin is in $PATH, so now the command "class" is available
-      - name: Configure doc environment
+      - name: Configure documentation environment
         shell: julia --project=docs --color=yes {0}
         run: |
           using Pkg
