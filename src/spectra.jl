@@ -35,34 +35,6 @@ function power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs.
     return power_spectrum(sol, k)
 end
 
-# this one is less elegant, but more numerically stable?
-# TODO: saveat = ts
-function S_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
-    M = sol.M
-    Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
-
-    τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
-    v = -D_spline(τ, ts) .* exp.(-τ)
-    @threads for ik in eachindex(ks)
-        k = ks[ik]
-        idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
-        out = sol(k, ts, idxs)
-        δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
-        Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + exp.(-τ) .* D_spline(Ψ + Φ, ts) + D_spline(v .* ub, ts) / k + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.57) with Φ → -Φ and polarization
-        #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
-        #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
-    end
-
-    return Ss
-end
-
-# TODO: Common base structure
-function SE_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
-    M = sol.M
-    t0 = sol[t][end]
-    return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
-end
-
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
 #sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
@@ -86,53 +58,119 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 # TODO: use tasks, not threads!
-function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
+"""
+    integrate_los(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
+
+Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the source function values `Ss` against the spherical kind-1 Bessel functions `jₗ` for the given `ks` and `ls`.
+The element `Ss[i,j]` holds the source function value ``S(k[i], exp(lnts[j]))``.
+"""
+function integrate_los(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; t0 = exp(lnts[end]), integrator = SimpsonEven(), verbose = true)
     @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
 
-    ts = exp.(lnts)
-    t0 = ts[end]
-
-    Θls = similar(Ss, (length(ks), length(ls)))
-    ∂Θ_∂lnt = [similar(Ss, (length(ls), length(ts))) for _ in 1:nthreads()] # TODO: best to do array of arrays without using @view, or to use matrix + @view?
+    Is = similar(Ss, (length(ks), length(ls)))
+    ∂I_∂lnt = [similar(Ss, (length(ls), length(lnts))) for _ in 1:nthreads()] # TODO: best to do array of arrays without using @view, or to use matrix + @view?
     lmin, lmax = extrema(ls)
     ls_all = lmin:1:lmax # range with step 1
     Jls_all = [zeros(length(ls_all)) for _ in 1:nthreads()] # separate workspace per thread
 
     @threads for ik in eachindex(ks)
         k = ks[ik]
-        for it in eachindex(ts)
-            t = ts[it]
+        for it in eachindex(lnts)
+            t = exp(lnts[it])
             St = Ss[ik,it] * t # multiply S(k,t) to get (S(k, log(t)))
             kΔt = k * (t0-t)
             sphericalbesseljfast!(Jls_all[threadid()], ls_all, kΔt) # TODO: reuse ∂Θ_∂lnt's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
                 l = ls[il]
                 Jl = Jls_all[threadid()][1+l-lmin]
-                ∂Θ_∂lnt[threadid()][il,it] = St * Jl
+                ∂I_∂lnt[threadid()][il,it] = St * Jl
                 # TODO: integrate in this loop instead?
             end
         end
         for il in eachindex(ls)
-            integrand = @view ∂Θ_∂lnt[threadid()][il,:]
-            Θls[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting Θl(tini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            integrand = @view ∂I_∂lnt[threadid()][il,:]
+            Is[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting I(tini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
 
-    return Θls
+    return Is
 end
 
-#=
-function Θl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
-    Ss = S_splined(sol, ks, exp.(lnts)) # sol(ks, exp.(lnts), M.S)
-    return Θl(Ss, ls, ks, lnts; kwargs...)
+# this one is less elegant, but more numerically stable?
+# TODO: saveat = ts
+# TODO: restore sol(ks, exp.(lnts), sol.M.S)
+"""
+    ST(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+
+Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
+"""
+function ST(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    M = sol.M
+    Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
+
+    τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
+    v = -D_spline(τ, ts) .* exp.(-τ)
+    @threads for ik in eachindex(ks)
+        k = ks[ik]
+        idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
+        out = sol(k, ts, idxs)
+        δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
+        Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + exp.(-τ) .* D_spline(Ψ + Φ, ts) + D_spline(v .* ub, ts) / k + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.57) with Φ → -Φ and polarization
+        #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
+        #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
+    end
+
+    return Ss
 end
-=#
+
+"""
+    SE(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+
+Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating in the solution object.
+"""
+function SE(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    M = sol.M
+    t0 = sol[t][end]
+    return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
+end
+
+# TODO: increase Δlnt. should use same Δlnt in T and E when cross-correlating. TE seems to need ≲ 0.01
+"""
+    ΘlT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+
+Calculate photon temperature multipoles today by line-of-sight integration.
+"""
+function ΘlT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+    tmin, tmax = extrema(sol[sol.M.t])
+    lnts = range(log(tmin), log(tmax), step=Δlnt)
+    STs = ST(sol, ks, exp.(lnts))
+    return integrate_los(STs, ls, ks, lnts; kwargs...)
+end
+
+"""
+    ΘlE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+
+Calculate photon E-mode polarization multipoles today by line-of-sight integration.
+"""
+function ΘlE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+    tmin, tmax = extrema(sol[sol.M.t])
+    lnts = range(log(tmin), log(tmax), step=Δlnt)
+    SEs = SE(sol, ks, exp.(lnts))
+    return integrate_los(SEs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+# TODO: take scalar l as input
+"""
+    Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+
+Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P0(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
+"""
 function Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different size")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
+
     Cls = similar(ΘlAs, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
     dCl_dks_with0 = [zeros(eltype(ΘlAs), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
@@ -145,80 +183,33 @@ function Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::
     return Cls
 end
 
-# TODO: try to disable CLASS' want_lcmb_full_limber?
-function ClTT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
-    Ss = S_splined(sol, ks, exp.(lnts)) # TODO: restore sol(ks, exp.(lnts), sol.M.S)
-    Θls = Θl(Ss, ls, ks, lnts; kwargs...)
+"""
+    Cl(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+
+Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
+"""
+function Cl(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    sol, ks = solve_for_Cl(M, pars, ls[end]; kwargs...)
+    ΘlTs = 'T' in join(modes) ? ΘlT(sol, ls, ks; kwargs...) : nothing
+    ΘlEs = 'E' in join(modes) ? ΘlE(sol, ls, ks; kwargs...) : nothing
     P0s = P0(ks)
-    return Cl(Θls, Θls, P0s, ls, ks)
+    Cls = []
+    for mode in modes
+        mode == :TT && push!(Cls, Cl(ΘlTs, ΘlTs, P0s, ls, ks))
+        mode == :EE && push!(Cls, Cl(ΘlEs, ΘlEs, P0s, ls, ks))
+        mode == :TE && push!(Cls, Cl(ΘlTs, ΘlEs, P0s, ls, ks))
+    end
+    return Cls
 end
-
-
-"""
-    ClTT(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
-
-Compute the ``C_l^{TT}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
-"""
-function ClTT(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
-    @assert issorted(ls)
-    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    return ClTT(sol, ls, ks, lnts; integrator)
-end
-
-function ClEE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
-    Ss = SE_splined(sol, ks, exp.(lnts))
-    Θls = Θl(Ss, ls, ks, lnts; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # TODO: write multiplication once
-    P0s = P0(ks)
-    return Cl(Θls, Θls, P0s, ls, ks)
-end
-
-"""
-    ClEE(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
-
-Compute the ``C_l^{EE}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
-"""
-function ClEE(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
-    @assert issorted(ls)
-    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    lnts = range(-4, 0, step=step(lnts)) # cut away early/late times (e.g. S blows up today)
-    return ClEE(sol, ls, ks, lnts; integrator)
-end
-
-function ClTE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
-    SAs = S_splined(sol, ks, exp.(lnts))
-    SBs = SE_splined(sol, ks, exp.(lnts))
-    ΘlAs = Θl(SAs, ls, ks, lnts; kwargs...)
-    ΘlBs = Θl(SBs, ls, ks, lnts; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # TODO: write multiplication once
-    P0s = P0(ks)
-    return Cl(ΘlAs, ΘlBs, P0s, ls, ks)
-end
-
-"""
-    ClTE(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
-
-Compute the ``C_l^{TE}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
-"""
-function ClTE(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
-    @assert issorted(ls)
-    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    lnts = range(-4, 0, step=step(lnts)) # cut away early/late times (e.g. S blows up today) # TODO: ok for TE, too?
-    return ClTE(sol, ls, ks, lnts; integrator)
-end
-
+Cl(mode::Symbol, args...; kwargs...) = only(Cl([mode], args...; kwargs...))
 
 function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     kmin = Δk
     ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
     sol = solve(M, pars, ks; kwargs...)
-
-    ti, t0 = sol[t][begin] + 1e-10, sol[t][end] # add tiny number to ti; otherwise the lengths of ts and ODESolution(... ; saveat = ts) differs by 1
-    ti, t0 = ForwardDiff.value.([ti, t0]) # TODO: do I lose some gradient information here?! no? ti/t0 is just a shift of the integration interval?
-    lnts = range(log(ti), log(t0), step=Δlnt) # logarithmic spread to capture early-time oscillations # TODO: dynamic/adaptive spacing!
-
     ks = range(ks[begin], ks[end], length = length(ks) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
-
-    return sol, ks, lnts
+    return sol, ks
 end
 
 Dl(Cl, l) = @. Cl * l * (l+1) / 2π

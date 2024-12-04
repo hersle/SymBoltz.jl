@@ -36,9 +36,7 @@ plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabe
 ## CMB power spectra
 
 ```@docs
-SymBoltz.ClTT
-SymBoltz.ClEE
-SymBoltz.ClTE
+SymBoltz.Cl
 ```
 
 #### Example
@@ -50,9 +48,8 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ls = 10:5:1500
 
-ClTTs = SymBoltz.ClTT(M, pars, ls); DlTTs = SymBoltz.Dl(ClTTs, ls)
-ClEEs = SymBoltz.ClEE(M, pars, ls); DlEEs = SymBoltz.Dl(ClEEs, ls)
-ClTEs = SymBoltz.ClTE(M, pars, ls); DlTEs = SymBoltz.Dl(ClTEs, ls)
+ClTTs, ClEEs, ClTEs = SymBoltz.Cl([:TT, :EE, :TE], M, pars, ls)
+DlTTs, DlEEs, DlTEs = [SymBoltz.Dl(Cls, ls) for Cls in [ClTTs, ClEEs, ClTEs]]
 
 pTT = plot(ls, DlTTs / 1e-12; ylabel = "Dₗᵀᵀ / 10⁻¹²")
 pEE = plot(ls, DlEEs / 1e-12; ylabel = "Dₗᴱᴱ / 10⁻¹²")
