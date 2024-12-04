@@ -130,14 +130,15 @@ end
 =#
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
-    Cls = similar(Θls, length(ls))
+function Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+    size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different size")
+    eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
+    Cls = similar(ΘlAs, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
-    dCl_dks_with0 = [zeros(eltype(Θls), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
+    dCl_dks_with0 = [zeros(eltype(ΘlAs), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
 
     @threads for il in eachindex(ls)
-        integrand = @view Θls[:,il]
-        @. dCl_dks_with0[threadid()][2:end] = 2/π * ks^2 * P0s * integrand^2
+        @. dCl_dks_with0[threadid()][2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
         Cls[il] = integrate(ks_with0, dCl_dks_with0[threadid()], integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
@@ -149,7 +150,7 @@ function ClTT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts
     Ss = S_splined(sol, ks, exp.(lnts)) # TODO: restore sol(ks, exp.(lnts), sol.M.S)
     Θls = Θl(Ss, ls, ks, lnts; kwargs...)
     P0s = P0(ks)
-    return Cl(Θls, P0s, ls, ks)
+    return Cl(Θls, Θls, P0s, ls, ks)
 end
 
 
@@ -166,10 +167,9 @@ end
 
 function ClEE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
     Ss = SE_splined(sol, ks, exp.(lnts))
-    Θls = Θl(Ss, ls, ks, lnts; kwargs...)
-    Θls .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    Θls = Θl(Ss, ls, ks, lnts; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # TODO: write multiplication once
     P0s = P0(ks)
-    return Cl(Θls, P0s, ls, ks)
+    return Cl(Θls, Θls, P0s, ls, ks)
 end
 
 """
@@ -183,6 +183,28 @@ function ClEE(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = Sim
     lnts = range(-4, 0, step=step(lnts)) # cut away early/late times (e.g. S blows up today)
     return ClEE(sol, ls, ks, lnts; integrator)
 end
+
+function ClTE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
+    SAs = S_splined(sol, ks, exp.(lnts))
+    SBs = SE_splined(sol, ks, exp.(lnts))
+    ΘlAs = Θl(SAs, ls, ks, lnts; kwargs...)
+    ΘlBs = Θl(SBs, ls, ks, lnts; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # TODO: write multiplication once
+    P0s = P0(ks)
+    return Cl(ΘlAs, ΘlBs, P0s, ls, ks)
+end
+
+"""
+    ClTE(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
+
+Compute the ``C_l^{TE}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
+"""
+function ClTE(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+    @assert issorted(ls)
+    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
+    lnts = range(-4, 0, step=step(lnts)) # cut away early/late times (e.g. S blows up today) # TODO: ok for TE, too?
+    return ClTE(sol, ls, ks, lnts; integrator)
+end
+
 
 function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1

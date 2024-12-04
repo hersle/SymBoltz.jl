@@ -39,6 +39,6 @@ export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyModel, CosmologySolution
 export solve, shoot
 export parameters_Planck18
-export power_spectrum, ClTT, ClEE, Dl
+export power_spectrum, ClTT, ClEE, ClTE, Dl
 
 end
