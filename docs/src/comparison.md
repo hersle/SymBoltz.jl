@@ -176,7 +176,7 @@ ls = sol1["Cl"]["l"]
 ls = Int.(ls[begin:10:end])
 Dls_class = sol1["Cl"]["TT"]
 Dls_class = Dls_class[begin:10:end]
-Cls = Cl(M, pars, ls; verbose=true)
+Cls = SymBoltz.ClTT(M, pars, ls; verbose=true)
 Dls = SymBoltz.Dl(Cls, ls)
 
 sols = merge(sols, Dict(

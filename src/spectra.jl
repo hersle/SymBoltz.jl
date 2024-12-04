@@ -56,6 +56,13 @@ function S_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     return Ss
 end
 
+# TODO: Common base structure
+function SE_splined(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    M = sol.M
+    t0 = sol[t][end]
+    return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
+end
+
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
 #sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
@@ -115,10 +122,12 @@ function Θl(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::Abst
     return Θls
 end
 
+#=
 function Θl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange, pars, ks_S; kwargs...)
     Ss = S_splined(sol, ks, exp.(lnts)) # sol(ks, exp.(lnts), M.S)
     return Θl(Ss, ls, ks, lnts; kwargs...)
 end
+=#
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
@@ -136,7 +145,7 @@ function Cl(Θls::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::Abst
 end
 
 # TODO: try to disable CLASS' want_lcmb_full_limber?
-function Cl(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
+function ClTT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
     Ss = S_splined(sol, ks, exp.(lnts)) # TODO: restore sol(ks, exp.(lnts), sol.M.S)
     Θls = Θl(Ss, ls, ks, lnts; kwargs...)
     P0s = P0(ks)
@@ -145,14 +154,34 @@ end
 
 
 """
-    Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
+    ClTT(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
 
-Compute the ``C_l``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
+Compute the ``C_l^{TT}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
 """
-function Cl(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+function ClTT(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
     @assert issorted(ls)
     sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    return Cl(sol, ls, ks, lnts; integrator)
+    return ClTT(sol, ls, ks, lnts; integrator)
+end
+
+function ClEE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray, lnts::AbstractArray; kwargs...)
+    Ss = SE_splined(sol, ks, exp.(lnts))
+    Θls = Θl(Ss, ls, ks, lnts; kwargs...)
+    Θls .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    P0s = P0(ks)
+    return Cl(Θls, P0s, ls, ks)
+end
+
+"""
+    ClEE(M::CosmologyModel, pars::Dict, ls::AbstractArray; kwargs...)
+
+Compute the ``C_l^{EE}``'s of the CMB power spectrum from the cosmological model `M` with parameters `pars` at angular wavenumbers `ls`.
+"""
+function ClEE(M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...) # TODO: Δlnt shifts Cls <->, Δkt0 seems fine, should test interpolation with Δkt0_S! kt0max_lmax?
+    @assert issorted(ls)
+    sol, ks, lnts = solve_for_Cl(M, pars, ls[end]; kwargs...)
+    lnts = range(-4, 0, step=step(lnts)) # cut away early/late times (e.g. S blows up today)
+    return ClEE(sol, ls, ks, lnts; integrator)
 end
 
 function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)

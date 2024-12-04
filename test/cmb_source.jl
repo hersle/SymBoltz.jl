@@ -33,7 +33,7 @@ plot(ks, Θl2s[:,1], xlims=(0,100))
 # 3) CMB power spectrum
 
 P0s = SymBoltz.P0(ks)
-Cl2s = SymBoltz.Cl(Θl2s, P0s, ls, ks)
+Cl2s = SymBoltz.ClTT(Θl2s, P0s, ls, ks)
 Dl2s = SymBoltz.Dl(Cl2s, ls)
 
 plot(ls, Dl2s)
@@ -42,28 +42,45 @@ plot(ls, Dl2s)
 
 p = plot()
 for Δk in [2π/16, 2π/32]
-    Cls = SymBoltz.Cl(M, pars, ls; Δk, verbose=true)
+    Cls = SymBoltz.ClTT(M, pars, ls; Δk, verbose=true)
     Dls = SymBoltz.Dl(Cls, ls)
     plot!(p, ls, Dls; label = "Δk = $Δk")
 end
 
 p = plot()
 for Δk_S in [10.0, 5.0, 2.5]
-    Cls = SymBoltz.Cl(M, pars, ls; Δk_S, verbose=true)
+    Cls = SymBoltz.ClTT(M, pars, ls; Δk_S, verbose=true)
     Dls = SymBoltz.Dl(Cls, ls)
     plot!(p, ls, Dls; label = "Δk_S = $Δk_S")
 end
 
 p = plot()
 for Δlnt in [0.09, 0.06, 0.03]
-    Cls = SymBoltz.Cl(M, pars, ls; Δlnt, verbose=true)
+    Cls = SymBoltz.ClTT(M, pars, ls; Δlnt, verbose=true)
     Dls = SymBoltz.Dl(Cls, ls)
     plot!(p, ls, Dls; label = "Δlnt = $Δlnt")
 end
 
 p = plot()
 for F in [1.0, 1.5, 2.0]
-    Cls = SymBoltz.Cl(M, pars, ls; kmax = F * ls[end], verbose=true)
+    Cls = SymBoltz.ClTT(M, pars, ls; kmax = F * ls[end], verbose=true)
     Dls = SymBoltz.Dl(Cls, ls)
     plot!(p, ls, Dls; label = "kmax/lmax = $F")
 end
+
+# E-mode source functions
+ls = 10:5:3000
+sol, ks, lnts = SymBoltz.solve_for_Cl(M, pars, ls[end])
+lnts = range(-4, +0, step=step(lnts)) # cut away early/late times (e.g. S blows up today)
+Ss = SymBoltz.SE_splined(sol, ks, exp.(lnts))
+#plot(lnts, Ss'; label=nothing)
+
+Θls = SymBoltz.Θl(Ss, ls, ks, lnts)
+Θls .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+
+#plot(ks, Θls, xlims=(0,100))
+
+P0s = SymBoltz.P0(ks)
+Cls = SymBoltz.ClTT(Θls, P0s, ls, ks)
+Dls = SymBoltz.Dl(Cls, ls)
+plot(log10.(ls), Dls)

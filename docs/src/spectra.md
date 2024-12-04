@@ -36,7 +36,8 @@ plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabe
 ## CMB power spectra
 
 ```@docs
-SymBoltz.Cl
+SymBoltz.ClTT
+SymBoltz.ClEE
 ```
 
 #### Example
@@ -46,10 +47,14 @@ SymBoltz.Cl
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-ls = 10:10:1500
-Cls = SymBoltz.Cl(M, pars, ls)
-Dls = SymBoltz.Dl(Cls, ls)
-plot(ls, Dls; xlabel = "l", ylabel = "Dₗ")
+ls = 10:5:1500
+
+ClTTs = SymBoltz.ClTT(M, pars, ls); DlTTs = SymBoltz.Dl(ClTTs, ls)
+ClEEs = SymBoltz.ClEE(M, pars, ls); DlEEs = SymBoltz.Dl(ClEEs, ls)
+
+pTT = plot(ls, DlTTs; ylabel = "Dₗᵀᵀ")
+pEE = plot(ls, DlEEs; ylabel = "Dₗᴱᴱ", xlabel = "l")
+plot(pTT, pEE, layout = (2, 1), size = (600, 600), legend = nothing)
 ```
 
 ## Two-point correlation function
