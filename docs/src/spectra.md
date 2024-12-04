@@ -51,3 +51,22 @@ Cls = SymBoltz.Cl(M, pars, ls)
 Dls = SymBoltz.Dl(Cls, ls)
 plot(ls, Dls; xlabel = "l", ylabel = "Dₗ")
 ```
+
+## Two-point correlation function
+
+```@docs
+SymBoltz.correlation_function
+```
+
+#### Example
+
+```@example
+using SymBoltz, Unitful, UnitfulAstro, Plots
+M = SymBoltz.ΛCDM()
+pars = SymBoltz.parameters_Planck18(M)
+ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
+sol = solve(M, pars, ks)
+rs, ξs = SymBoltz.correlation_function(sol)
+rs = rs / (SymBoltz.k0*sol.bg.ps[:h]) * u"Mpc" # TODO: auto units
+plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
+```

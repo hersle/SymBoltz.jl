@@ -3,6 +3,7 @@ using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using ForwardDiff
 using Base.Threads
+using TwoFAST
 
 """
     P0(k; As=2e-9)
@@ -170,3 +171,21 @@ function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S =
 end
 
 Dl(Cl, l) = @. Cl * l * (l+1) / 2π
+
+"""
+    correlation_function(sol::CosmologySolution; N = 2048, spline = true)
+
+Compute the two-point correlation function in real space by Fourier transforming the matter power spectrum of `sol` with `N` points the FFTLog algorithm implemented in TwoFAST.
+Returns `N` radii and correlation function values (e.g. `r`, `ξ`).
+"""
+function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
+    ks = sol.ks
+    if spline
+        P = CubicSpline(power_spectrum(sol, ks), ks) # create spline interpolation (fast)
+    else
+        P(k) = only(power_spectrum(sol, k)) # use solution's built-in interpolation (elegant)
+    end
+    kmin, kmax = extrema(ks)
+    rmin = 2π / kmax
+    return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
+end
