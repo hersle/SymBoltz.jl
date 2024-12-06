@@ -29,13 +29,9 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
 [compat]
-MatterPower = "0.5.0"
 ModelingToolkit = "9.50.0"
 OhMyThreads = "0.7.0"
 OrdinaryDiffEq = "6.90.1"
 Roots = "2.2.2"
 Symbolics = "6.19.0"
 TwoFAST = "0.1.5"
-
-[sources]
-MatterPower = {url = "https://github.com/komatsu5147/MatterPower.jl"}
