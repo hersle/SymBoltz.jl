@@ -6,33 +6,34 @@ using Base.Threads
 using TwoFAST
 
 """
-    P0(k; As=2e-9)
+    spectrum_primordial(k; As=2e-9)
 
 Compute the primordial power spectrum with amplitude `As` at the wavenumber(s) `k`.
 """
-P0(k; As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
+spectrum_primordial(k; As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
 
 """
-    power_spectrum(sol::CosmologySolution, k)
+    spectrum_matter(sol::CosmologySolution, k)
 
 Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k`.
 """
-function power_spectrum(sol::CosmologySolution, k)
+function spectrum_matter(sol::CosmologySolution, k)
     tend = sol[t][end]
     M = sol.pts[1].prob.f.sys
     ρm = M.c.ρ + M.b.ρ # TODO: massive neutrinos
-    return P0(k) .* sol(k, tend, [M.k^2*M.g.Φ / (4*Num(π)*M.g.a^2*ρm)])[:, 1, 1] .^ 2 # Baumann (4.4.172)
+    P0 = spectrum_primordial(k)
+    return P0 .* sol(k, tend, [M.k^2*M.g.Φ / (4*Num(π)*M.g.a^2*ρm)])[:, 1, 1] .^ 2 # Baumann (4.4.172)
 end
 
 """
-    power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
+    spectrum_matter(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
 
 Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k`.
 The `solver` and other `kwargs` are passed to `solve`.
 """
-function power_spectrum(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
+function spectrum_matter(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs...)
     sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
-    return power_spectrum(sol, k)
+    return spectrum_matter(sol, k)
 end
 
 # TODO: contribute back to Bessels.jl
@@ -59,12 +60,12 @@ end
 # TODO: take in symbolic expr?
 # TODO: use tasks, not threads!
 """
-    integrate_los(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
+    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
 
 Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the source function values `Ss` against the spherical kind-1 Bessel functions `jₗ` for the given `ks` and `ls`.
 The element `Ss[i,j]` holds the source function value ``S(k[i], exp(lnts[j]))``.
 """
-function integrate_los(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; t0 = exp(lnts[end]), integrator = SimpsonEven(), verbose = true)
+function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; t0 = exp(lnts[end]), integrator = SimpsonEven(), verbose = true)
     @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
 
@@ -101,11 +102,11 @@ end
 # TODO: saveat = ts
 # TODO: restore sol(ks, exp.(lnts), sol.M.S)
 """
-    ST(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
 
 Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
 """
-function ST(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.M
     Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
 
@@ -125,11 +126,11 @@ function ST(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
 end
 
 """
-    SE(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
 
 Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating in the solution object.
 """
-function SE(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.M
     t0 = sol[t][end]
     return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
@@ -137,37 +138,37 @@ end
 
 # TODO: increase Δlnt. should use same Δlnt in T and E when cross-correlating. TE seems to need ≲ 0.01
 """
-    ΘlT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function ΘlT(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
-    STs = ST(sol, ks, exp.(lnts))
-    return integrate_los(STs, ls, ks, lnts; kwargs...)
+    STs = source_temperature(sol, ks, exp.(lnts))
+    return los_integrate(STs, ls, ks, lnts; kwargs...)
 end
 
 """
-    ΘlE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function ΘlE(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
-    SEs = SE(sol, ks, exp.(lnts))
-    return integrate_los(SEs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    SPs = source_polarization(sol, ks, exp.(lnts))
+    return los_integrate(SPs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 # TODO: take scalar l as input
 """
-    Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
 
 Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P0(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
 """
-function Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different size")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
@@ -184,26 +185,26 @@ function Cl(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::
 end
 
 """
-    Cl(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
 """
-function Cl(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
-    sol, ks = solve_for_Cl(M, pars, ls[end]; kwargs...)
-    ΘlTs = 'T' in join(modes) ? ΘlT(sol, ls, ks; kwargs...) : nothing
-    ΘlEs = 'E' in join(modes) ? ΘlE(sol, ls, ks; kwargs...) : nothing
-    P0s = P0(ks)
+function spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    sol, ks = solve_for_cmb(M, pars, ls[end]; kwargs...)
+    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks; kwargs...) : nothing
+    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks; kwargs...) : nothing
+    P0s = spectrum_primordial(ks)
     Cls = []
     for mode in modes
-        mode == :TT && push!(Cls, Cl(ΘlTs, ΘlTs, P0s, ls, ks))
-        mode == :EE && push!(Cls, Cl(ΘlEs, ΘlEs, P0s, ls, ks))
-        mode == :TE && push!(Cls, Cl(ΘlTs, ΘlEs, P0s, ls, ks))
+        mode == :TT && push!(Cls, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks))
+        mode == :EE && push!(Cls, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks))
+        mode == :TE && push!(Cls, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks))
     end
     return Cls
 end
-Cl(mode::Symbol, args...; kwargs...) = only(Cl([mode], args...; kwargs...))
+spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function solve_for_Cl(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
+function solve_for_cmb(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     kmin = Δk
     ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
@@ -223,9 +224,9 @@ Returns `N` radii and correlation function values (e.g. `r`, `ξ`).
 function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     ks = sol.ks
     if spline
-        P = CubicSpline(power_spectrum(sol, ks), ks) # create spline interpolation (fast)
+        P = CubicSpline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
     else
-        P(k) = only(power_spectrum(sol, k)) # use solution's built-in interpolation (elegant)
+        P(k) = only(spectrum_matter(sol, k)) # use solution's built-in interpolation (elegant)
     end
     kmin, kmax = extrema(ks)
     rmin = 2π / kmax

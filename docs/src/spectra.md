@@ -3,7 +3,7 @@
 ## Primordial power spectra
 
 ```@docs
-SymBoltz.P0
+SymBoltz.spectrum_primordial
 ```
 
 #### Example
@@ -12,14 +12,14 @@ SymBoltz.P0
 # TODO: create InflationModel or something
 using SymBoltz, Unitful, UnitfulAstro, Plots
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-Ps = SymBoltz.P0(ks; As = 2.1e-9)
+Ps = spectrum_primordial(ks; As = 2.1e-9)
 plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
 ```
 
 ## Matter power spectra
 
 ```@docs
-SymBoltz.power_spectrum
+SymBoltz.spectrum_matter
 ```
 
 #### Example
@@ -30,7 +30,7 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
 sol = solve(M, pars, ks)
-Ps = SymBoltz.power_spectrum(sol, ks)
+Ps = spectrum_matter(sol, ks)
 plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)")
 
 # SymBoltz does not natively compute the non-linear matter power spectrum,
@@ -48,7 +48,7 @@ plot!(log10.(ks*u"Mpc"), log10.(Pk_halofit.(ustrip(ks))); label = "non-linear (h
 ## CMB power spectra
 
 ```@docs
-SymBoltz.Cl
+SymBoltz.spectrum_cmb
 ```
 
 #### Example
@@ -60,7 +60,7 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ls = 10:5:1500
 
-ClTTs, ClEEs, ClTEs = SymBoltz.Cl([:TT, :EE, :TE], M, pars, ls)
+ClTTs, ClEEs, ClTEs = spectrum_cmb([:TT, :EE, :TE], M, pars, ls)
 DlTTs, DlEEs, DlTEs = [SymBoltz.Dl(Cls, ls) for Cls in [ClTTs, ClEEs, ClTEs]]
 
 pTT = plot(ls, DlTTs / 1e-12; ylabel = "Dₗᵀᵀ / 10⁻¹²")
@@ -83,7 +83,7 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(M, pars, ks)
-rs, ξs = SymBoltz.correlation_function(sol)
+rs, ξs = correlation_function(sol)
 rs = rs / (SymBoltz.k0*sol.bg.ps[:h]) * u"Mpc" # TODO: auto units
 plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
 ```

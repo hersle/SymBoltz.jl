@@ -49,7 +49,7 @@ pars = Dict(
     M.g.h => 0.7,
     M.b.rec.Yp => 0.25
 )
-ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
+ks = 10 .^ range(-4, 1, length=100) / u"Mpc"
 sol = solve(M, pars, ks)
 ```
 
@@ -77,13 +77,13 @@ plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 
 We can also calculate the power spectrum:
 ```@example getting_started
-Ps = power_spectrum(sol, ks)
+Ps = spectrum_matter(sol, ks)
 plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```
 Similarly, we can calculate the angular CMB power spectrum:
 ```@example getting_started
 ls = 10:10:1000
-Cls = Cl(:TT, M, pars, ls)
+Cls = spectrum_cmb(:TT, M, pars, ls)
 plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing) # TODO: fix
 ```
 
