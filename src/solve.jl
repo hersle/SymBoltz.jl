@@ -223,6 +223,14 @@ end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
+function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
+    if ModelingToolkit.isparameter(i) && i !== t # don't catch independent variable as parameter
+        return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly?
+    else
+        return sol.th[i]
+    end
+end
+# TODO: unite above and below!
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
     if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
         return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly?

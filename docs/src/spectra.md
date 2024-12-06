@@ -28,9 +28,26 @@ SymBoltz.power_spectrum
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-Ps = SymBoltz.power_spectrum(M, pars, ks)
-plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
+ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
+sol = solve(M, pars, ks)
+Ps = SymBoltz.power_spectrum(sol, ks)
+plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)")
+
+# SymBoltz does not natively compute the non-linear matter power spectrum,
+# but can easily interface with Julia packages that does it. For example:
+using MatterPower # https://github.com/komatsu5147/MatterPower.jl
+using DataInterpolations
+lgPspl = CubicSpline(log.(ustrip(Ps)), log.(ustrip(ks)); extrapolate=true)
+Pk(k) = exp(lgPspl(log(k)))
+halofit_params = MatterPower.setup_halofit(Pk)
+Ωm0 = sol[M.c.Ω₀ + M.b.Ω₀]
+Pk_halofit(k) = MatterPower.halofit(Pk, halofit_params, Ωm0, ustrip(k))
+plot!(log10.(ks*u"Mpc"), log10.(Pk_halofit.(ustrip(ks))); label = "non-linear (halofit / MatterPower.jl)", legend_position = :bottomleft)
+```
+
+### Non-linear
+
+```@example
 ```
 
 ## CMB power spectra
