@@ -4,6 +4,7 @@ using DataInterpolations
 using ForwardDiff
 using Base.Threads
 using TwoFAST
+using MatterPower
 
 """
     spectrum_primordial(k; As=2e-9)
@@ -35,6 +36,30 @@ function spectrum_matter(M::CosmologyModel, pars, k; solver = KenCarp4(), kwargs
     sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
     return spectrum_matter(sol, k)
 end
+
+"""
+    spectrum_matter_nonlinear(sol::CosmologySolution, k)
+
+Compute the nonlinear matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` using halofit implemented in MatterPower.jl.
+"""
+function spectrum_matter_nonlinear(sol::CosmologySolution, k)
+    P = spectrum_matter(sol, k)
+    lgPspl = CubicSpline(log.(ustrip(P)), log.(ustrip(k)); extrapolate=true)
+    Pf(k) = exp(lgPspl(log(k)))
+    halofit_params = MatterPower.setup_halofit(Pf)
+    Ωm0 = sol[sol.M.c.Ω₀ + sol.M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
+    Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
+    PNL = Pf_halofit.(k)
+
+    # if the input add units, multiply it back into the output
+    Punit = only(unique(unit.(P)))
+    if !isnothing(Punit)
+        PNL *= Punit
+    end
+
+    return PNL
+end
+
 
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)

@@ -39,6 +39,6 @@ export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyModel, CosmologySolution
 export solve, shoot
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_cmb, correlation_function
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function
 
 end
