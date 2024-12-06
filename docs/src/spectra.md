@@ -45,11 +45,6 @@ Pk_halofit(k) = MatterPower.halofit(Pk, halofit_params, Ωm0, ustrip(k))
 plot!(log10.(ks*u"Mpc"), log10.(Pk_halofit.(ustrip(ks))); label = "non-linear (halofit / MatterPower.jl)", legend_position = :bottomleft)
 ```
 
-### Non-linear
-
-```@example
-```
-
 ## CMB power spectra
 
 ```@docs
