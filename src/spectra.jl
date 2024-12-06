@@ -60,6 +60,27 @@ function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     return PNL
 end
 
+# TODO: generalize to arbitrary field?
+"""
+    variance_matter(sol::CosmologySolution, R)
+
+Compute the variance ``⟨δ²⟩`` of the *linear* matter density field with a top-hat filter with radius `R`.
+Wraps the implementation in MatterPower.jl.
+"""
+function variance_matter(sol::CosmologySolution, R)
+    k = sol.ks
+    P = spectrum_matter(sol, k)
+    lgPspl = CubicSpline(log.(P), log.(k); extrapolate=true)
+    Pf(k) = exp(lgPspl(log(k)))
+    R = 1 / k_dimensionless(1 / R, sol[sol.M.g.h]) # make dimensionless
+    return MatterPower.sigma2(Pf, R)
+end
+"""
+    stddev_matter(sol::CosmologySolution, R)
+
+Compute the standard deviation ``√(⟨δ²⟩)`` of the *linear* matter density field with a top-hat filter with radius `R`.
+"""
+stddev_matter(sol::CosmologySolution, R) = √(variance_matter(sol, R))
 
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)

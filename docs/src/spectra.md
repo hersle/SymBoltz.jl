@@ -83,3 +83,27 @@ rs, ξs = correlation_function(sol)
 rs = rs / (SymBoltz.k0*sol.bg.ps[:h]) * u"Mpc" # TODO: auto units
 plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
 ```
+
+## Matter density fluctuations
+
+```@docs
+SymBoltz.variance_matter
+SymBoltz.stddev_matter
+```
+
+```@example
+using SymBoltz, Unitful, UnitfulAstro, Plots
+M = SymBoltz.ΛCDM()
+pars = SymBoltz.parameters_Planck18(M)
+ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
+sol = solve(M, pars, ks)
+
+h = sol[M.g.h]
+Rs = 10 .^ range(0, 2, length=100) * u"Mpc"
+σs = map(R -> stddev_matter(sol, R), Rs) # TODO: define solution broadcast
+plot(log10.(Rs/(u"Mpc"/h)), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "lg(σ)", label = nothing)
+
+R8 = 8 * u"Mpc"/h
+σ8 = stddev_matter(sol, R8)
+scatter!((log10(R8/(u"Mpc"/h)), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
+```
