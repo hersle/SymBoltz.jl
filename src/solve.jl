@@ -167,15 +167,15 @@ end
 
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    th_sol = solve(M, pars; aini, backwards, jac, sparse, kwargs...)
+    th_sol = solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg, kwargs...)
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
-        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse) # should solve again if given keyword arguments, like saveat
+        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
         # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
         pars = merge(pars, Dict(
             M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?

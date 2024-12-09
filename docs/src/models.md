@@ -42,7 +42,7 @@ SymBoltz.w0waCDM
 
 ```@example w0waCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
-M = w0waCDM()
+M = w0waCDM(; Λanalytical = false)
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.2,
@@ -64,11 +64,11 @@ SymBoltz.BDΛCDM
 Shoot for parameters that give `E = G = 1` today:
 ```@example BDΛCDM
 using SymBoltz, ModelingToolkit
-M = BDΛCDM()
+M = BDΛCDM(; Λanalytical = false)
 D = Differential(M.t)
 
 pars_fixed = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
-pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.7) # initial guesses for shooting method
+pars_guess = Dict(M.G.ϕ => 0.95, M.Λ.ρ => 0.5) # initial guesses for shooting method
 pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo = false, backwards = false) # exact solutions
 pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 ```
@@ -76,8 +76,8 @@ Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
 using Unitful, UnitfulAstro, Plots
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-sol = solve(M, pars, ks, backwards = false)
-p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.85, 1.15))
+sol = solve(M, pars, ks; backwards = false, reltol_bg = 1e-5) # TODO: unstable
+p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
@@ -95,9 +95,9 @@ pars_shoot = shoot(M, pars_fixed, pars_guess, [M.g.ℰ ~ 1, M.G.G ~ 1]; thermo =
 pars = merge(pars_fixed, pars_shoot) # merge fixed and shooting parameters
 
 k = 1e-0 / u"Mpc"
-sol = solve(M, pars, k, backwards = false) # TODO: set background integration direction during model creation
-p1 = plot(sol, log10(M.g.a), M.G.G; N = 10000)
-p2 = plot(sol, k, log10(M.g.a), M.G.δϕ; N = 50000)
+sol = solve(M, pars, k; backwards = false) # TODO: set background integration direction during model creation
+p1 = plot(sol, log10(M.g.a), M.G.G)
+p2 = plot(sol, k, log10(M.g.a), M.G.δϕ)
 plot(p1, p2, layout = (2, 1))
 ```
 
@@ -114,6 +114,6 @@ V(ϕ) = V0 * ϕ^N
 M = QCDM(V)
 D = Differential(M.t)
 pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
-sol = solve(M, pars, thermo = false; guesses = [D(M.Q.ϕ) => +1.0], reltol = 1e-10)
+sol = solve(M, pars; thermo = false, guesses = [D(M.Q.ϕ) => +1.0], reltol = 1e-10)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```

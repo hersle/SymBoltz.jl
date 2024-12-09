@@ -47,7 +47,8 @@ pars = Dict(
     M.b.Ω₀ => 0.05,
     M.ν.Neff => 3.0,
     M.g.h => 0.7,
-    M.b.rec.Yp => 0.25
+    M.b.rec.Yp => 0.25,
+    M.h.m => 0.06 * SymBoltz.eV / SymBoltz.c^2
 )
 ks = 10 .^ range(-4, 1, length=100) / u"Mpc"
 sol = solve(M, pars, ks)

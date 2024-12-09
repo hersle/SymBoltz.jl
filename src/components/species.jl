@@ -71,16 +71,22 @@ end
 Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in the spacetime with metric `g`.
 """
 function w0wa(g; name = :X, analytical = false, kwargs...)
-    @assert analytical # TODO: non-analytical
-    pars = @parameters w0 wa ρ₀ Ω₀ cₛ²
+    pars = @parameters w0 wa cₛ²
     vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
     # TODO: generate equations with a generic species_eos function
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
         ẇ ~ D(w)
-        ρ ~ ρ₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a)) # energy density # TODO: get rid of abs
         P ~ w * ρ # pressure
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
+    if analytical
+        append!(pars, @parameters ρ₀ Ω₀)
+        push!(eqs0, ρ ~ ρ₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
+        defaults = Dict(ρ₀ => 3/(8*Num(π)) * Ω₀)
+    else
+        push!(eqs0, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
+        defaults = Dict()
+    end
     eqs1 = [
         D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
         D(θ) ~ -g.ℰ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
@@ -90,9 +96,6 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         δ ~ -3/2 * (1+w) * g.Ψ
         θ ~ 1/2 * (k^2*t) * g.Ψ
     ] .|> SymBoltz.O(ϵ^1)
-    defaults = [
-        ρ₀ => 3/(8*Num(π)) * Ω₀
-    ]
     description = "w₀wₐ (CPL) dark energy"
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, description, kwargs...)
 end

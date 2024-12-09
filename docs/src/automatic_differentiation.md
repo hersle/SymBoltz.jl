@@ -17,7 +17,7 @@ using SymBoltz
 M = ΛCDM(; spline_concrete = false)
 
 function P(k, θ)
-   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
+   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m] .=> θ)
    sol = solve(M, pars, k)
    return spectrum_matter(sol, k)
 end
@@ -25,7 +25,7 @@ end
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
-θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25]
+θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06 * SymBoltz.eV/SymBoltz.c^2]
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 Ps = P(ks, θ)
 ```
@@ -49,7 +49,7 @@ We can plot them all at once:
 plot(
     log10.(ks/u"1/Mpc"), dlgP_dlgθs;
     xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh"]
 )
 ```
 
