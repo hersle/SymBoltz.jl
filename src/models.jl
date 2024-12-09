@@ -44,8 +44,7 @@ function ΛCDM(;
         ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀
     ))
     have(ν) && have(γ) && have(h) && merge!(defs, Dict( # TODO: shouldn't need ν
-        h.T₀ => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T₀, # same as for massless neutrinos # TODO: are the massive neutrino density parameters correct?
-        h.Ω₀_massless => 7/8 * (h.T₀/γ.T₀)^4 * γ.Ω₀ # Ω₀ for corresponding massless neutrinos # TODO: reconcile with class? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/background.c#L1561
+        h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS/Bolt uses something slightly different
     ))
     push!(defs, fν => have(ν) ? ν.ρ₀ / (γ.ρ₀ + ν.ρ₀) : 0)
     eqs0 = [

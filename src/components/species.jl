@@ -113,14 +113,14 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ]
     eqs1 = [
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * τ̇/k * (θb - θ)
+        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * τ̇/k * (θb - θ) # TODO: error in last term?
         D(F[2]) ~ 2//5*k*F[1] - 3//5*k*F[3] + 9//10*τ̇*F[2] - 1//10*τ̇*(G[0]+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]... # TODO: Π in last term here?
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]
         δ ~ F[0]
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
-        Π ~ F[2] + G[0] + G[2]
+        Π ~ F[2] + G[0] + G[2] # TODO: is this the same as Θ0?
         γ.cₛ² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
@@ -186,10 +186,11 @@ end
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
-    pars = @parameters Ω₀_massless ρ₀_massless Ω₀ ρ₀ m T₀ y₀
+    pars = @parameters m T₀ # Ω₀ ρ₀ y₀
     vars = @variables ρ(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) ψ(t)[1:nx,0:lmax+1]
 
-    f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)?
+    degen = 2 # degeneracy factor # TODO: 2?
+    f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)? see Dodelson exercise 3.9
     dlnf0_dlnx(x) = -x / (1 + exp(-x))
     x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T₀) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
     ∫dx_x²_f0(f) = sum(collect(f) .* W) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f0(x)
@@ -201,8 +202,9 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     eqs0 = [
         T ~ T₀ / g.a
         y ~ m*c^2 / (kB*T)
-        ρ ~ ρ₀_massless/g.a^4 * Iρ(y) / Iρ(0) # have ρ = Cρ * Iρ(y) / a⁴, so Cρ = ρ₀ * 1⁴ / Iρ(y₀) # TODO: div by Iρ(0) or Iρ(y₀)?
-        P ~ 1/3 * ρ₀_massless/g.a^4 * IP(y) / Iρ(0) # have P = CP * IP(y) / a⁴, and in the early universe Iρ(y→0) → IP(y→0) and P/ρ = CP * IP(y) / (Cρ * Iρ(y)) → CP/Cρ → 1/3, so CP = Cρ/3 # TODO: div by Iρ(0) or Iρ(y₀)?
+        # TODO: can also compute number density n
+        ρ ~ degen/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ(y) / (g.H₀^2*c^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT)
+        P ~ degen/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP(y) / (g.H₀^2*c^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT)
         w ~ P / ρ
     ] .|> O(ϵ^0)
     eqs1 = [
@@ -211,13 +213,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
         cₛ² ~ ∫dx_x²_f0(@. x^2/E(x, y)*ψ[:,0]) / ∫dx_x²_f0(@. E(x, y)*ψ[:,0])
     ] .|> O(ϵ^1)
-    defs = [
-        Ω₀ => Ω₀_massless * Iρ(y₀) / Iρ(0) # ≈ Ω₀_massless * (3ζ(3)/2)/(7π^4/120) * y₀ for y₀ → ∞
-        ρ₀ => 3/(8*Num(π)) * Ω₀
-        ρ₀_massless => 3/8π * Ω₀_massless
-        m => 0.02 * eV/c^2 # one massive neutrino with this mass # TODO: specify by user
-        y₀ => m*c^2 / (kB*T₀)
-    ]
+    # TODO: use defaults to set Ω₀ parameters etc. (e.g. with Λanalytical)?
     ics1 = []
     for i in 1:nx
         append!(eqs1, [

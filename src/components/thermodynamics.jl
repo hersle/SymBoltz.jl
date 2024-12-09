@@ -114,7 +114,7 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
         eqs = []
     else
         @named rec = thermodynamics_recombination_recfast(bg.g)
-        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H₀^2/G, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
+        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H₀^2/GN, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
     end
     th = ODESystem(eqs, t; kwargs...)
     return compose(th, rec, bg)

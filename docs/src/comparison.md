@@ -24,8 +24,9 @@ using Plots; Plots.default(label=nothing)
 using Printf
 
 lmax = 6
-M = SymBoltz.ΛCDM(; lmax, h = nothing, Λanalytical = true)
+M = SymBoltz.ΛCDM(; lmax) # TODO: fix perturbations when massive neutrinos are present
 pars = SymBoltz.parameters_Planck18(M)
+push!(pars, M.h.m => 0.06 * SymBoltz.eV/SymBoltz.c^2)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -75,10 +76,9 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
         # neutrinos # TODO: set neutrino stuff to 0 unless otherwise specified
         "N_ur" => pars[M.ν.Neff],
-        "N_ncdm" => 0.0, # TODO
-        "m_ncdm" => 0.00, # TODO
-        "T_ncdm" => 0.0, # TODO (pars.Neff/3)^(1/4) * (4/11)^(1/3), # TODO: set properly
-        #"Omega_ur" => 7/8 * (pars[M.ν.Neff]/3) * (4/11)^(4/3) * pars.Ωγ0, # TODO: set properly! # massless neutrinos # TODO: proper Neff
+        "N_ncdm" => 1,
+        "m_ncdm" => pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2), # in eV/c^2
+        "T_ncdm" => (4/11)^(1/3), # TODO: CLASS uses something slightly different?
         "l_max_ur" => lmax,
         "l_max_ncdm" => lmax,
 
@@ -133,7 +133,8 @@ sols = Dict(
     "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.c.ρ] / (3/8π)),
     "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.b.ρ] / (3/8π)),
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.Λ.ρ] / (3/8π)),
-    #"ρmν" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.h.ρ] / (3/8π)),
+    "ρh" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.h.ρ] / (3/8π)),
+    "wh" => (sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.w]),
 
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
@@ -239,7 +240,10 @@ plot_compare("a_bg", "t"; lgx=true, lgy=true) # hide
 plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("a_bg", ["ργ", "ρν", "ρb", "ρc", "ρΛ"]; lgx=true, lgy=true) # hide
+plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lgy=true) # hide
+```
+```@example class
+plot_compare("a_bg", ["wh"]; lgx=true) # hide
 ```
 
 ### Thermodynamics
