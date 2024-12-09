@@ -230,7 +230,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         ] .|> O(ϵ^1))
     end
     description = "Massive neutrino"
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
 end
 
 """

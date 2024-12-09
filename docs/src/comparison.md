@@ -26,7 +26,6 @@ using Printf
 lmax = 6
 M = SymBoltz.ΛCDM(; lmax) # TODO: fix perturbations when massive neutrinos are present
 pars = SymBoltz.parameters_Planck18(M)
-push!(pars, M.h.m => 0.06 * SymBoltz.eV/SymBoltz.c^2)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -119,7 +118,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(M, pars, k) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
