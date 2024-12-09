@@ -223,12 +223,15 @@ end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
-function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j = :)
-    if ModelingToolkit.isparameter(i) && i !== t && (j == :) # don't catch independent variable as parameter
+function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
+    if ModelingToolkit.isparameter(i) && i !== t # don't catch independent variable as parameter
         return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly?
     else
-        return stack(sol.th[i, j])
+        return sol.th[i]
     end
+end
+function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j)
+    return stack(sol.th[i, j])
 end
 Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
@@ -319,7 +322,7 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
     function f(vals_varying, _)
         pars = merge(pars_fixed, Dict(keys(pars_varying) .=> vals_varying))
         sol = solve(M, pars; kwargs...) # solve cosmology
-        return sol[funcs][:, end] # evaluate all expressions at final time (e.g. today)
+        return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
     end
 
     guess = collect(values(pars_varying))

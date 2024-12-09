@@ -19,7 +19,7 @@ M = ΛCDM(; spline_concrete = false)
 function P(k, θ)
    pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp] .=> θ)
    sol = solve(M, pars, k)
-   return power_spectrum(sol, k)
+   return spectrum_matter(sol, k)
 end
 ```
 It is now easy to evaluate the power spectrum:

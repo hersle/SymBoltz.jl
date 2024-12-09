@@ -3,7 +3,7 @@
 ## Primordial power spectra
 
 ```@docs
-SymBoltz.P0
+SymBoltz.spectrum_primordial
 ```
 
 #### Example
@@ -12,14 +12,15 @@ SymBoltz.P0
 # TODO: create InflationModel or something
 using SymBoltz, Unitful, UnitfulAstro, Plots
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-Ps = SymBoltz.P0(ks; As = 2.1e-9)
+Ps = spectrum_primordial(ks; As = 2.1e-9)
 plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
 ```
 
 ## Matter power spectra
 
 ```@docs
-SymBoltz.power_spectrum
+SymBoltz.spectrum_matter
+SymBoltz.spectrum_matter_nonlinear
 ```
 
 #### Example
@@ -28,17 +29,22 @@ SymBoltz.power_spectrum
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-Ps = SymBoltz.power_spectrum(M, pars, ks)
-plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
+ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
+sol = solve(M, pars, ks)
+
+# Linear power spectrum
+Ps = spectrum_matter(sol, ks)
+plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)")
+
+# Nonlinear power spectrum (from halofit)
+Ps = spectrum_matter_nonlinear(sol, ks)
+plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", legend_position = :bottomleft)
 ```
 
 ## CMB power spectra
 
 ```@docs
-SymBoltz.ClTT
-SymBoltz.ClEE
-SymBoltz.ClTE
+SymBoltz.spectrum_cmb
 ```
 
 #### Example
@@ -50,9 +56,8 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ls = 10:5:1500
 
-ClTTs = SymBoltz.ClTT(M, pars, ls); DlTTs = SymBoltz.Dl(ClTTs, ls)
-ClEEs = SymBoltz.ClEE(M, pars, ls); DlEEs = SymBoltz.Dl(ClEEs, ls)
-ClTEs = SymBoltz.ClTE(M, pars, ls); DlTEs = SymBoltz.Dl(ClTEs, ls)
+ClTTs, ClEEs, ClTEs = spectrum_cmb([:TT, :EE, :TE], M, pars, ls)
+DlTTs, DlEEs, DlTEs = [SymBoltz.Dl(Cls, ls) for Cls in [ClTTs, ClEEs, ClTEs]]
 
 pTT = plot(ls, DlTTs / 1e-12; ylabel = "Dₗᵀᵀ / 10⁻¹²")
 pEE = plot(ls, DlEEs / 1e-12; ylabel = "Dₗᴱᴱ / 10⁻¹²")
@@ -74,7 +79,31 @@ M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(M, pars, ks)
-rs, ξs = SymBoltz.correlation_function(sol)
+rs, ξs = correlation_function(sol)
 rs = rs / (SymBoltz.k0*sol.bg.ps[:h]) * u"Mpc" # TODO: auto units
 plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
+```
+
+## Matter density fluctuations
+
+```@docs
+SymBoltz.variance_matter
+SymBoltz.stddev_matter
+```
+
+```@example
+using SymBoltz, Unitful, UnitfulAstro, Plots
+M = SymBoltz.ΛCDM()
+pars = SymBoltz.parameters_Planck18(M)
+ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
+sol = solve(M, pars, ks)
+
+h = sol[M.g.h]
+Rs = 10 .^ range(0, 2, length=100) * u"Mpc"
+σs = map(R -> stddev_matter(sol, R), Rs) # TODO: define solution broadcast
+plot(log10.(Rs/(u"Mpc"/h)), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "lg(σ)", label = nothing)
+
+R8 = 8 * u"Mpc"/h
+σ8 = stddev_matter(sol, R8)
+scatter!((log10(R8/(u"Mpc"/h)), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
 ```
