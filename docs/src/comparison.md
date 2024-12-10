@@ -14,18 +14,19 @@ TODO: rethink table
 
 [This comparison script](https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md) automatically builds the latest version of the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) and compares its results to the latest version of SymBoltz:
 
-```@setup class
+```@example class
 using SymBoltz
+lmax = 6
+M = SymBoltz.ΛCDM(; lmax) # TODO: fix perturbations when massive neutrinos are present
+pars = SymBoltz.parameters_Planck18(M)
+```
+```@setup class
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
 using Plots; Plots.default(label=nothing)
 using Printf
-
-lmax = 6
-M = SymBoltz.ΛCDM(; lmax) # TODO: fix perturbations when massive neutrinos are present
-pars = SymBoltz.parameters_Planck18(M)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -197,9 +198,8 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
     ylab(y) = lgy ? "lg(|$y|)" : y
 
     # TODO: relative or absolute comparison (of quantities close to 0)
-    p = plot(; layout=grid(2, 1, heights=(2/3, 1/3)), size = (800, 700))
-    title = join([(@sprintf "%s = %.3f" s Dict(pars)[s]) for s in keys(Dict(pars))], ", ") * (@sprintf ", k = %.2e / Mpc" k / u"1/Mpc")
-    plot!(p[1]; title, titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
+    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
+    plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
     for (i, ylabel) in enumerate(ylabels)
         x1, x2 = sols[xlabel]
         x1min, x1max = extrema(x1)
@@ -215,16 +215,15 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         y1, y2 = sols[ylabel]
         y1 = y1[i1s]
         y2 = y2[i2s]
-        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xlabel = xlab(xlabel), legend_position = :topright)
+        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "", legend_position = :topright)
         plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
 
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
         r = @. abs(y2-y1) / max(abs(y1), abs(y2))
-        plot!(p[end], xplot(x), r * 100; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, ylims=(0, 10))
+        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|y₂-y₁| / max(|y₁|, |y₂|)]", ylims=(-5, +1), top_margin = -5*Plots.mm)
     end
-    hline!(p[end], [0.0]; color = :black, linewidth = 2, linestyle = :dash, ylabel = "|y₂-y₁| / max(|y₁|, |y₂|) / %", z_order = 1)
     return p
 end
 nothing # hide
