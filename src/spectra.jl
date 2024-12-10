@@ -4,9 +4,7 @@ using DataInterpolations
 using ForwardDiff
 using Base.Threads
 using TwoFAST
-using Roots
-using DoubleExponentialFormulas
-
+using MatterPower
 """
     spectrum_primordial(k; As=2e-9)
 
@@ -49,7 +47,7 @@ function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
     Ωm0 = sol[sol.M.c.Ω₀ + sol.M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
-    Pf_halofit(k) = halofit(Pf, halofit_params, Ωm0, ustrip(k))
+    Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
     PNL = Pf_halofit.(k)
 
     # if the input add units, multiply it back into the output
@@ -74,7 +72,7 @@ function variance_matter(sol::CosmologySolution, R)
     lgPspl = CubicSpline(log.(P), log.(k); extrapolate=true)
     Pf(k) = exp(lgPspl(log(k)))
     R = 1 / k_dimensionless(1 / R, sol[sol.M.g.h]) # make dimensionless
-    return sigma2(Pf, R)
+    return MatterPower.sigma2(Pf, R)
 end
 """
     stddev_matter(sol::CosmologySolution, R)
@@ -278,91 +276,4 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     kmin, kmax = extrema(ks)
     rmin = 2π / kmax
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
-end
-
-### MatterPower.jl functions ###
-# - https://github.com/komatsu5147/MatterPower.jl
-# - credits: Eiichiro Komatsu
-# - MIT license
-# TODO: use as dependency instead if registered as package (https://github.com/komatsu5147/MatterPower.jl/issues/1)
-
-function setup_halofit(pk)
-    f(x) = √sigma2gaus(pk, x) - 1
-    R = find_zero(f, (1e-2, 1e2), Roots.Bisection())
-    σ2 = sigma2gaus(pk, R)
-    dlnσ2dlnR = R * dsigma2gausdR(pk, R) / σ2
-    d2lnσ2dlnR2 = dlnσ2dlnR - dlnσ2dlnR^2 + (R^2 / σ2) * d2sigma2gausdR2(pk, R)
-    kσ = 1 / R
-    neff = -3 - dlnσ2dlnR
-    C = -d2lnσ2dlnR2
-    return [kσ, neff, C]
-end
-
-function halofit(pk, p::Array{T,1}, Ωmz::Real, k::Real) where {T<:Real}
-    kσ, neff, C = p
-    an =
-        10^(
-            1.5222 +
-            2.8553neff +
-            2.3706 * neff^2 +
-            0.9903 * neff^3 +
-            0.2250 * neff^4 - 0.6038C
-        )
-    bn = 10^(-0.5642 + 0.5864neff + 0.5716 * neff^2 - 1.5474C)
-    cn = 10^(0.3698 + 2.0404neff + 0.8161 * neff^2 + 0.5869C)
-    γn = 0.1971 - 0.0843neff + 0.8460C
-    αn = abs(6.0835 + 1.3373neff - 0.1959 * neff^2 - 5.5274C)
-    βn =
-        2.0379 - 0.7354neff +
-        0.3157 * neff^2 +
-        1.2490 * neff^3 +
-        0.3980 * neff^4 - 0.1682C
-    μn = 0
-    νn = 10^(5.2105 + 3.6902neff)
-    f1 = Ωmz^-0.0307
-    f2 = Ωmz^-0.0585
-    f3 = Ωmz^0.0743
-    y = k / kσ
-    Δ2H = an * y^(3 * f1) / (1 + bn * y^f2 + (cn * f3 * y)^(3 - γn))
-    Δ2H /= 1 + μn / y + νn / y^2
-    Δ2L = k^3 * pk(k) / 2 / π^2
-    Δ2Q = Δ2L * (1 + Δ2L)^βn / (1 + αn * Δ2L) * exp(-y / 4 - y^2 / 8)
-    pk_nl = (Δ2Q + Δ2H) * 2 * π^2 / k^3
-end
-
-function sigma2(pk, R::Real)
-    function dσ2dk(k)
-        x = k * R
-        W = (3 / x) * (sin(x) / x^2 - cos(x) / x)
-        dσ2dk = W^2 * pk(k) * k^2 / 2 / π^2
-    end
-    res, err = quadde(dσ2dk, 0, 20 / R)
-    σ2 = res
-end
-
-function sigma2gaus(pk, R::Real)
-    function dσ2dk(k)
-        x = k * R
-        dσ2dk = exp(-x^2) * pk(k) * k^2 / 2 / π^2
-    end
-    res, err = quadde(dσ2dk, 0, 10 / R)
-    σ2 = res
-end
-
-function dsigma2gausdR(pk, R::Real)
-    function dσ2dRdk(k)
-        x = k * R
-        dσ2dRdk = -2R * exp(-x^2) * pk(k) * k^4 / 2 / π^2
-    end
-    res, err = quadde(dσ2dRdk, 0, 10 / R)
-    dσ2dR = res
-end
-
-function d2sigma2gausdR2(pk, R::Real)
-    function d2σ2dR2dk(k)
-        x = k * R
-        d2σ2dR2dk = (-2 + 4 * x^2) * exp(-x^2) * pk(k) * k^4 / 2 / π^2
-    end
-    res, err = quadde(d2σ2dR2dk, 0, 10 / R)
-    d2σ2dR2 = res
 end

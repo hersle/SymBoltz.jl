@@ -9,13 +9,16 @@ SymBoltz.jl is a package for solving the linearized Einstein-Boltzmann system of
 - **Approximation-free:**  Does not rely on tight coupling, ultra-relativistic fluid and radiation streaming approximations, but implicitly integrates the full stiff equations with automatically generated Jacobians.
 - **Differentiable:** Enables sensitivity analysis with automatic differentiation of any output quantity.
 - **Convenient post-processing:** Compute and plot any derived quantity by its expression with no extra code.
+- **Spectra:** Compute linear and non-linear matter and CMB power spectra.
 - **GPU-accelerated:** Optionally accelerates the solution over GPUs (TODO).
 
 This is made possible by the packages
 [ModelingToolkit.jl](https://docs.sciml.ai/ModelingToolkit),
 [DifferentialEquations.jl](https://docs.sciml.ai/DiffEqDocs),
-[ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl) and
-[DiffEqGPU.jl](https://docs.sciml.ai/DiffEqGPU).
+[ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl),
+[MatterPower.jl](https://github.com/komatsu5147/MatterPower.jl),
+[DiffEqGPU.jl](https://docs.sciml.ai/DiffEqGPU)
+and more.
 
 ## Installation
 
