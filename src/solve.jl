@@ -331,3 +331,7 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
     check_solution(sol.retcode)
     return Dict(keys(pars_varying) .=> sol.u)
 end
+
+# Fix model/solution under broadcasted calls
+Base.broadcastable(M::CosmologyModel) = Ref(M)
+Base.broadcastable(sol::CosmologySolution) = Ref(sol)

@@ -100,7 +100,7 @@ sol = solve(M, pars, ks)
 
 h = sol[M.g.h]
 Rs = 10 .^ range(0, 2, length=100) * u"Mpc"
-σs = map(R -> stddev_matter(sol, R), Rs) # TODO: define solution broadcast
+σs = stddev_matter.(sol, Rs)
 plot(log10.(Rs/(u"Mpc"/h)), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "lg(σ)", label = nothing)
 
 R8 = 8 * u"Mpc"/h
