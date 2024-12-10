@@ -110,7 +110,7 @@ SymBoltz.QCDM
 ```@example QCDM
 using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
-V(ϕ) = V0 * ϕ^N
+V = ϕ -> V0 * ϕ^N
 M = QCDM(V)
 D = Differential(M.t)
 pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))

@@ -3,7 +3,7 @@
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
-function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, kwargs...)
+function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ₀ Ω₀) : []
     vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cₛ²(t) u(t) u′(t)
@@ -28,7 +28,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     ] .|> O(ϵ^1)
     defs = analytical ? [ρ₀ => 3/(8*Num(π)) * Ω₀] : Dict()
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
 end
 
 """
@@ -273,21 +273,20 @@ end
 
 Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 """
-function quintessence(g, v; name = :Q, kwargs...)
-    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V″(t) K(t) m²(t) ϵs(t) ηs(t) cₛ²(t)
-    ∂_∂ϕ = Differential(ϕ)
+function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
+    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V′′(t) K(t) m²(t) ϵs(t) ηs(t) cₛ²(t)
     eqs0 = [
-        V ~ v(ϕ)
-        V′ ~ ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
-        V″ ~ ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
+        V ~ v
+        V′ ~ v′
+        V′′ ~ v′′
         K ~ (D(ϕ)/g.a)^2 / 2 # ϕ̇²/2 = (ϕ′/a)²/2
         D(D(ϕ)) ~ -2 * g.ℰ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*E*ϕ̇ + V′ = 0
         ρ ~ K + V
         P ~ K - V
         w ~ P / ρ
-        m² ~ V″
+        m² ~ V′′
         ϵs ~ (V′/V)^2 / (16*Num(π)) # 1st slow roll parameter
-        ηs ~ (V″/V) / (8*Num(π)) # 2nd slow roll parameter
+        ηs ~ (V′′/V) / (8*Num(π)) # 2nd slow roll parameter
     ] .|> O(ϵ^0)
     eqs1 = [ # TODO: perturbations
         δ ~ 0
@@ -296,4 +295,11 @@ function quintessence(g, v; name = :Q, kwargs...)
     ] .|> O(ϵ^1)
     description = "Quintessence dark energy"
     return ODESystem([eqs0; eqs1], t; name, description, kwargs...)
+end
+function quintessence(g, v; name = :Q, kwargs...)
+    @variables ϕ(t)
+    ∂_∂ϕ = Differential(ϕ)
+    v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
+    v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
+    return quintessence(g, v(ϕ), v′, v′′; name, kwargs...)
 end
