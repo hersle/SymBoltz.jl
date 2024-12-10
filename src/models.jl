@@ -46,7 +46,7 @@ function ΛCDM(;
     have(ν) && have(γ) && have(h) && merge!(defs, Dict( # TODO: shouldn't need ν
         h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS/Bolt uses something slightly different
     ))
-    push!(defs, fν => have(ν) ? ν.ρ₀ / (γ.ρ₀ + ν.ρ₀) : 0)
+    push!(defs, fν => sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)))
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
         G.P ~ sum(s.P for s in species) # TODO: only if G has P

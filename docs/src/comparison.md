@@ -75,9 +75,9 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
         # neutrinos # TODO: set neutrino stuff to 0 unless otherwise specified
         "N_ur" => pars[M.ν.Neff],
-        "N_ncdm" => 1,
-        "m_ncdm" => pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2), # in eV/c^2
-        "T_ncdm" => (4/11)^(1/3), # TODO: CLASS uses something slightly different?
+        "N_ncdm" => SymBoltz.have(M.sys, :h) ? 1 : 0,
+        "m_ncdm" => SymBoltz.have(M.sys, :h) ? pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2) : 0.0, # in eV/c^2
+        "T_ncdm" => SymBoltz.have(M.sys, :h) ? (4/11)^(1/3) : 0.0, # TODO: CLASS uses something slightly different?
         "l_max_ur" => lmax,
         "l_max_ncdm" => lmax,
 
@@ -153,7 +153,7 @@ sols = Dict(
     "δc" => (sol1["pt"]["delta_cdm"], sol2[1, M.c.δ]),
     "δγ" => (sol1["pt"]["delta_g"], sol2[1, M.γ.δ]),
     "δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
-    #"δmν" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
+    "δh" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
     "θb" => (sol1["pt"]["theta_b"], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
@@ -272,7 +272,7 @@ plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 ```
 ```@example class
-plot_compare("a_pt", ["δb", "δc", "δγ", "δν"]; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
