@@ -86,15 +86,16 @@ stddev_matter(sol::CosmologySolution, R) = √(variance_matter(sol, R))
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
 #sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
-function sphericalbesseljfast!(out, ls::AbstractRange, x)
+function sphericalbesseljfast!(out, ls::AbstractRange, x::Number)
     besselj!(out, ls .+ 0.5, x)
-    if x != 0.0 # TODO: well-behaved?
+    if x == 0.0 && ls[begin] == 0
+        out[begin] = 1.0
+    elseif x != 0.0
         @. out *= √(π/(2*x))
     end
     return out
 end
-# TODO: test and compare to fast!
-function sphericalbesseljslow!(out, ls::AbstractRange, x)
+function sphericalbesseljslow!(out, ls::AbstractRange, x::Number)
     out .= sphericalbesselj.(ls, x)
 end
 
