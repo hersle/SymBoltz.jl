@@ -34,22 +34,21 @@ function ΛCDM(;
     pars = @parameters C fν
     vars = @variables S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     defs = Dict(
-        k => NaN, # make background shut up # TODO: avoid
-        C => 1//2, # TODO: why does ≈ 0.48 give better agreement with CLASS? # TODO: phi set here? https://github.com/lesgourg/class_public/blob/ae99bcea1cd94994228acdfaec70fa8628ae24c5/source/perturbations.c#L5713
-        ϵ => 1, # TODO: remove
-        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system # TODO: is this correct when having both massless and massive neutrinos?
+        C => 1//2,
+        ϵ => 1,
+        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
     )
     have(ν) && have(γ) && merge!(defs, Dict(
-        ν.T₀ => (ν.Neff/3)^(1/4) * (4/11)^(1/3) * γ.T₀, # TODO: check (unused if only have massless neutrinos)
+        ν.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS uses something slightly different
         ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀
     ))
-    have(ν) && have(γ) && have(h) && merge!(defs, Dict( # TODO: shouldn't need ν
-        h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS/Bolt uses something slightly different
+    have(h) && have(γ) && merge!(defs, Dict(
+        h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS uses something slightly different
     ))
     push!(defs, fν => sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)))
     eqs0 = [
-        G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
-        G.P ~ sum(s.P for s in species) # TODO: only if G has P
+        G.ρ ~ sum(s.ρ for s in species)
+        G.P ~ sum(s.P for s in species)
         b.rec.ρb ~ b.ρ * g.H₀^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
     ] .|> O(ϵ^0)
@@ -104,8 +103,8 @@ function RMΛ(;
 )
     species = filter(have, [r, m, Λ])
     eqs0 = [
-        G.ρ ~ sum(s.ρ for s in species) # TODO: only if G has ρ
-        G.P ~ sum(s.P for s in species) # TODO: only if G has P
+        G.ρ ~ sum(s.ρ for s in species)
+        G.P ~ sum(s.P for s in species)
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
@@ -113,8 +112,8 @@ function RMΛ(;
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
     defs = [
-        g.Ψ => 20 / 15, # TODO: put to what?
-        ϵ => 1 # TODO: remove
+        g.Ψ => 20 // 15,
+        ϵ => 1
     ]
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)

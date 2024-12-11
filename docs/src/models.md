@@ -9,7 +9,7 @@ SymBoltz.RMΛ
 ```@example RMΛ
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = RMΛ()
-pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0) # TODO: don't pass h and T₀ to avoid infinite loop
+pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => NaN) # TODO: don't pass h and T₀ to avoid infinite loop
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
 p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)

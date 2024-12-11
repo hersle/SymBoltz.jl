@@ -4,7 +4,7 @@ const c  = PhysicalConstants.CODATA2018.c_0 / u"m/s"
 const h  = PhysicalConstants.CODATA2018.h / u"J*s"
 const ħ  = PhysicalConstants.CODATA2018.ħ / u"J*s"
 const kB = PhysicalConstants.CODATA2018.k_B / u"J/K"
-const GN = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2" # TODO: nicer naming
+const GN = PhysicalConstants.CODATA2018.G / u"m^3/kg/s^2"
 const α  = PhysicalConstants.CODATA2018.α # fine structure constant, ≈ 1/137
 
 const σ  = PhysicalConstants.CODATA2018.σ / u"W*K^-4*m^-2" # Stefan-Boltzmann constant ("radiation constant"?)
@@ -41,22 +41,12 @@ mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
 
 δkron(i, j) = (i == j ? 1 : 0)
 
-function k_dimensionless(k, h)
-    return k
-end
-function k_dimensionless(k::Unitful.Quantity, h)
-    # TODO: don't duplicate
-    H₀ = h * H100 # s⁻¹
-    k0 = (H₀ / c) / u"m"
-    return NoUnits(k / k0)
-end
-function k_dimensionless(k::AbstractArray, h)
-    T = eltype(k)
-    if eltype(k) <: Unitful.Quantity
+function k_dimensionless(k::Number, h)
+    if unit(k) == NoUnits
+        return k
+    else
         H₀ = h * H100 # s⁻¹
         k0 = (H₀ / c) / u"m"
-        return NoUnits.(k / k0)
-    else
-        return k
+        return NoUnits(k / k0)
     end
 end

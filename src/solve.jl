@@ -99,8 +99,8 @@ end
 Solve `CosmologyModel` with parameters `pars` at the background level.
 """
 function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
-    # Split parameters into DifferentialEquations' "u0" and "p" convention # TODO: same in perturbations
-    params = merge(pars, Dict(M.k => 0.0)) # k is unused, but must be set https://github.com/SciML/ModelingToolkit.jl/issues/3013 # TODO: remove
+    # Split parameters into DifferentialEquations' "u0" and "p" convention
+    params = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
     vars = setdiff(keys(params), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     vars = Dict(var => params[var] for var in vars) # like u0
@@ -168,7 +168,7 @@ end
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
 function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
-    ks = k_dimensionless(ks, pars[M.g.h])
+    ks = k_dimensionless.(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -176,9 +176,8 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     tini, tend = extrema(th_sol.th[t])
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
-        # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
         pars = merge(pars, Dict(
-            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: more time points, spline log(t)?
+            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
             M.pt.b.rec.τ̇spline => spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t]),
             M.pt.b.rec.cₛ²spline => spline(th_sol_spline[M.b.rec.cₛ²], th_sol_spline[M.t])
         ))
@@ -194,8 +193,8 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
-    push!(pars, k => ks[1])
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse) # TODO: why do I need this???
+    push!(pars, k => NaN)
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse)
     # TODO: just copy p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056
     ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin

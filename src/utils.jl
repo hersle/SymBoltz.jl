@@ -79,7 +79,7 @@ function spline(y, x)
     i = unique(i -> (x[i], y[i]), eachindex(x)) # indices of unique values
     x, y = x[i], y[i] # pick them out
 
-    # sort x # TODO: add to DataInterpolations.jl?
+    # sort x
     i = sortperm(x) # indices that sorts x
     x, y = x[i], y[i]
 

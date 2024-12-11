@@ -7,13 +7,8 @@ function parameters_Planck18(M::CosmologyModel)
         M.c.Ω₀ => 0.1200 / h^2,
         M.b.Ω₀ => 0.0224 / h^2,
         M.b.rec.Yp => 0.2454,
-        M.ν.Neff => 2.99 # TODO: vs 3.046 or 3.044?
-
-        # TODO: how to handle
-        # 1) backwards with default for Λ.Ω₀? --> skip E = 1
-        # 2) forwards with no default?        --> shooting
-        #M.Λ.Ω => 1 - sum(s.Ω₀ for s in [M.γ, M.ν, M.h, M.c, M.b])
+        M.ν.Neff => 2.99
     )
-    have(M.sys, :h) && push!(params, M.h.m => 0.06 * eV/c^2) # TODO: ?
+    have(M.sys, :h) && push!(params, M.h.m => 0.06 * eV/c^2)
     return params
 end

@@ -85,7 +85,7 @@ Similarly, we can calculate the angular CMB power spectrum:
 ```@example getting_started
 ls = 10:10:1000
 Cls = spectrum_cmb(:TT, M, pars, ls)
-plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing) # TODO: fix
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing)
 ```
 
 And here is a condensed plot with several quantities:

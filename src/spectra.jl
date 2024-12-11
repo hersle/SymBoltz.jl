@@ -185,11 +185,11 @@ end
 
 # TODO: increase Δlnt. should use same Δlnt in T and E when cross-correlating. TE seems to need ≲ 0.01
 """
-    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     STs = source_temperature(sol, ks, exp.(lnts))
@@ -197,11 +197,11 @@ function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::Abstract
 end
 
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.03, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt=0.01, kwargs...)
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     SPs = source_polarization(sol, ks, exp.(lnts))
@@ -237,7 +237,7 @@ end
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
 """
 function spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
-    sol, ks = solve_for_cmb(M, pars, ls[end]; kwargs...)
+    sol, ks = solve_for_cmb(M, pars, ls[end]; kwargs...) # TODO: saveat ts
     ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks; kwargs...) : nothing
     ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks; kwargs...) : nothing
     P0s = spectrum_primordial(ks)
@@ -251,7 +251,7 @@ function spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::A
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function solve_for_cmb(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, Δlnt=0.03, kwargs...)
+function solve_for_cmb(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, kwargs...)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     kmin = Δk
     ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))

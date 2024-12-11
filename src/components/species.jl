@@ -175,7 +175,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     ics1 = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1/2 * (k^2*t) * g.Ψ
-        σ ~ 1/15 * (k*t)^2 * g.Ψ # TODO: how to set ICs consistently with Ψ, Π and Θν2?
+        σ ~ 1/15 * (k*t)^2 * g.Ψ
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
     description = "Massless neutrinos"

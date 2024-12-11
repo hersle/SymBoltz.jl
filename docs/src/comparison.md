@@ -63,16 +63,16 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         # cold dark matter
         "Omega_cdm" => pars[M.c.Ω₀],
 
-        # neutrinos # TODO: set neutrino stuff to 0 unless otherwise specified
+        # neutrinos
         "N_ur" => pars[M.ν.Neff],
         "N_ncdm" => SymBoltz.have(M.sys, :h) ? 1 : 0,
         "m_ncdm" => SymBoltz.have(M.sys, :h) ? pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2) : 0.0, # in eV/c^2
-        "T_ncdm" => SymBoltz.have(M.sys, :h) ? (4/11)^(1/3) : 0.0, # TODO: CLASS uses something slightly different?
+        "T_ncdm" => SymBoltz.have(M.sys, :h) ? (4/11)^(1/3) : 0.0, # TODO: CLASS uses something slightly different by default
         "l_max_ur" => lmax,
         "l_max_ncdm" => lmax,
 
         # primordial power spectrum
-        "A_s" => 2e-9, # TODO
+        "A_s" => 2e-9,
         "n_s" => 1.0, # TODO
 
         # other stuff
@@ -199,7 +199,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         i2s = xmin .≤ x2 .≤ xmax # select x values in common range
         x1 = x1[i1s]
         x2 = x2[i2s]
-        x = x2[begin+1:end-1] # compare ratios at SymBoltz' times # TODO: why must I exclude first and last points to avoid using extrapolate=true in splines?
+        x = x2 # compare ratios at SymBoltz' times
 
         y1, y2 = sols[ylabel]
         y1 = y1[i1s]
@@ -251,7 +251,6 @@ plot_compare("a_th", "Tb"; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
-# TODO: Ṫ # hide
 ```
 
 ### Perturbations

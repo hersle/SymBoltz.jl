@@ -9,15 +9,11 @@ using OrdinaryDiffEq
 using NonlinearSolve
 using DataInterpolations
 
-# TODO: non-linear: higher-order perturbations / halofit / NBodySystem?
-# TODO: CosmoRec / HyRec recombination
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
-# TODO: GPU-parallellized EnsembleProblem
 # TODO: define components with @mtkmodel?
 # TODO: try different AD sensitivity algorithms: https://docs.sciml.ai/SciMLSensitivity/stable/getting_started/
 # TODO: connector systems for Compton scattering / recombination etc.
-# TODO: modified gravity: modify geodesic equations and/or energy-momentum relations?
 
 using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H₀
 k = only(GlobalScope.(@parameters k)) # perturbation wavenumber

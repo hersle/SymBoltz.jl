@@ -132,7 +132,6 @@ H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
 Ψ2s = sol2(log10(M2.g.a), ks, lgas, M2.g.Ψ)
 
 using Plots
-# TODO: make convenience plot method that compares two models
 plot(lgas, H2s ./ H1s; xlabel = "lg(a)", label = "H₂ / H₁")
 plot!(lgas, Ψ1s ./ Ψ2s; xlabel = "lg(a)", label = "Ψ₂ / Ψ₁")
 ```
