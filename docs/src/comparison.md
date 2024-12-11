@@ -1,15 +1,5 @@
 # Comparison to other codes
 
-TODO: rethink table
-
-| Feature                  | [SymBoltz.jl](https://github.com/hersle/SymBoltz.jl) | [CAMB](https://camb.info/)    | [CLASS](https://lesgourg.github.io/class_public/class.html) |
-| :----------------------: | :--------------------------------------------------: | :---------------------------: | :---------------------------------------------------------: |
-| **Language**             | Julia                                                | Fortran + Python              | C + Python                                                  |
-| **Modularity**           | Every component is fully modular                     | Class-based for simple models | Requires raw code modification in many places               |
-| **Approximations**       | None                                                 | Mandatory (?)                 | Mandatory (?)                                               |
-| **Speed**                | Fast                                                 | Faster                        | Fastest                                                     |
-| **Sensitivity analysis** | Automatic differentiation                            | Finite differences            | Finite differences                                          |
-
 ## Numerical comparison to CLASS
 
 [This comparison script](https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md) automatically builds the latest version of the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) and compares its results to the latest version of SymBoltz:
@@ -25,8 +15,7 @@ using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
-using Plots; Plots.default(label=nothing)
-using Printf
+using Plots
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -222,7 +211,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
         r = @. abs(y2-y1) / max(abs(y1), abs(y2))
-        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|y₂-y₁| / max(|y₁|, |y₂|)]", ylims=(-5, +1), top_margin = -5*Plots.mm)
+        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|y₂-y₁| / max(|y₁|, |y₂|)]", ylims=(-5, +1), top_margin = -5*Plots.mm, label = nothing)
     end
     return p
 end

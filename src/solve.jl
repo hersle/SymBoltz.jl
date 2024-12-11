@@ -196,6 +196,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     ics0 = Dict(ics0)
     push!(pars, k => ks[1])
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse) # TODO: why do I need this???
+    # TODO: just copy p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056
     ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
         ode_prob = ode_prob_tlv[]
