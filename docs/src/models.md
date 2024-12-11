@@ -12,8 +12,8 @@ M = RMΛ()
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => NaN) # TODO: don't pass h and T₀ to avoid infinite loop
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(M, pars, ks)
-p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
-p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
+p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ; Nextra = 39) # plot extra points to resolve large time steps
+p2 = plot(sol, ks, log10(M.g.a), M.g.Φ; Nextra = 9)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 

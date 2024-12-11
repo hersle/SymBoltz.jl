@@ -100,3 +100,20 @@ derivative(s, t, order=1) = DataInterpolations.derivative(s, t, order)
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
+
+"""
+    extend_array(a::AbstractArray, N)
+
+Add `Nextra` linearly separated points between each point in `a`.
+"""
+function extend_array(a::AbstractArray, Nextra)
+    length(a) >= 1 || error("Cannot extend empty array")
+    b = similar(a, length(a) + (length(a) - 1) * Nextra)
+    for i in 1:length(a)-1
+        i1 = 1+(Nextra+1)*(i-1)
+        i2 = i1 + Nextra
+        b[i1:i2] .= range(a[i], a[i+1], length = Nextra+2)[begin:end-1]
+    end
+    b[end] = a[end]
+    return b
+end

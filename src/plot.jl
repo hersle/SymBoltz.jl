@@ -1,16 +1,20 @@
 using RecipesBase
 using Roots
 
-function get_ts(sol::CosmologySolution)
-    return sol[t]
+function get_ts(sol::CosmologySolution, Nextra)t
+    ts = sol[t]
+    return extend_ts(ts, Nextra)
 end
-
-function get_ts(sol::CosmologySolution, k)
+function get_ts(sol::CosmologySolution, k, Nextra)
     k = k_dimensionless.(k, sol.bg.ps[:h])
     i1, i2 = get_neighboring_wavenumber_indices(sol, k)
     i1 = max(i1, 1)
     t1, t2 = sol[i1, t], sol[i2, t]
-    return sort!(unique!([t1; t2]))
+    ts = sort!(unique!([t1; t2]))
+    return extend_ts(ts, Nextra)
+end
+function extend_ts(ts, Nextra)
+    return exp.(extend_array(log.(ts), Nextra))
 end
 
 # Get the time when some variable equals some value
@@ -22,8 +26,8 @@ function get_ts_when(sol::CosmologySolution, var, val)
     return find_zero(f, t0)
 end
 
-@recipe function plot(sol::CosmologySolution, x, y)
-    ts = get_ts(sol)
+@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
+    ts = get_ts(sol, Nextra)
     xs = sol(ts, x)
     ys = sol(ts, y)
     xlabel --> (x isa AbstractArray ? "" : x)
@@ -37,14 +41,14 @@ end
     return xs, ys
 end
 
-@recipe function plot(sol::CosmologySolution, k, x, y; klabel=true)
+@recipe function plot(sol::CosmologySolution, k, x, y; Nextra = 0, klabel = true)
     xlabel --> (x isa AbstractArray ? "" : x)
     ylabel --> (y isa AbstractArray ? "" : y)
 
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
-            ts = get_ts(sol, k[ik])
+            ts = get_ts(sol, k[ik], Nextra)
             color = ik
             xs = sol(k[ik], ts, x)
             ys = sol(k[ik], ts, y[iv])

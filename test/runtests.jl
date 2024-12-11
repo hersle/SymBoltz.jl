@@ -11,3 +11,9 @@ using SymBoltz
         @test jlfast ≈ jlslow
     end
 end
+
+@testset "Extend array" begin
+    @test_throws "Cannot extend empty array" SymBoltz.extend_array([], 0)
+    @test SymBoltz.extend_array(1.0:1.0:3.0, 0) == 1.0:1.0:3.0
+    @test SymBoltz.extend_array(1.0:1.0:3.0, 4) == 1.0:0.2:3.0
+end
