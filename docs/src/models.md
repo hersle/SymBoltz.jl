@@ -76,7 +76,7 @@ Solve background and plot scalar field and Hubble function:
 ```@example BDΛCDM
 using Unitful, UnitfulAstro, Plots
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-sol = solve(M, pars, ks; backwards = false, reltol_bg = 1e-5) # TODO: unstable
+sol = solve(M, pars, ks; backwards = false, reltol_bg = 1e-7) # TODO: unstable
 p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
 plot(p1, p2, layout = (2, 1), size = (600, 600))

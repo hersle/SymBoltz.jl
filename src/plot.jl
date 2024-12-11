@@ -14,7 +14,7 @@ function get_ts(sol::CosmologySolution, k, Nextra)
     return extend_ts(ts, Nextra)
 end
 function extend_ts(ts, Nextra)
-    return exp.(extend_array(log.(ts), Nextra))
+    return Nextra == 0 ? ts : exp.(extend_array(log.(ts), Nextra))
 end
 
 # Get the time when some variable equals some value
