@@ -95,7 +95,7 @@ SymBoltz.massless_neutrinos
 SymBoltz.massive_neutrinos
 ```
 ```@example components
-h = SymBoltz.massive_neutrinos(g; nx=5, lmax = 6)
+h = SymBoltz.massive_neutrinos(g; nx=4, lmax = 5)
 ```
 
 ### Dark energy

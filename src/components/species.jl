@@ -189,51 +189,54 @@ end
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
-    pars = @parameters m T₀ # Ω₀ ρ₀ y₀
-    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) ψ(t)[1:nx,0:lmax+1]
+    pars = @parameters m T₀ x[1:nx] W[1:nx] # Ω₀ ρ₀ y₀
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] Iρ(t) IP(t) Iδρ(t)
 
-    degen = 2 # degeneracy factor # TODO: 2?
-    f0(x) = 1 / (exp(x) + 1) # TODO: why not exp(E)? see Dodelson exercise 3.9
-    dlnf0_dlnx(x) = -x / (1 + exp(-x))
-    x, W = gauss(x -> x^2 * f0(x), nx, 0.0, 1e3) # Gaussian quadrature weights, reduced momentum bins x = q*c / (kB*T₀) # these points give accurate integral for Iρmν in the background, at least # TODO: ok for perturbations?
-    ∫dx_x²_f0(f) = sum(collect(f) .* W) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f0(x)
+    f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
+    dlnf₀_dlnx(x) = -x / (1 + exp(-x))
+    ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
 
-    E(x, y) = √(x^2 + y^2)
-    Iρ(y) = ∫dx_x²_f0(@. E(x, y)) # Iρ(0) = 7π^4/120
-    IP(y) = ∫dx_x²_f0(@. x^2 / E(x, y)) # IP(0) = Iρ(0)
-    
     eqs0 = [
         T ~ T₀ / g.a
         y ~ m*c^2 / (kB*T)
         # TODO: can also compute number density n
-        ρ ~ degen/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ(y) / (g.H₀^2*c^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT)
-        P ~ degen/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP(y) / (g.H₀^2*c^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT)
+        Iρ ~ ∫dx_x²_f₀(E)
+        IP ~ ∫dx_x²_f₀(x.^2 ./ E)
+        ρ ~ 2/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / (g.H₀^2*c^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        P ~ 2/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / (g.H₀^2*c^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
     ] .|> O(ϵ^0)
     eqs1 = [
-        δ ~ ∫dx_x²_f0(@. E(x, y)*ψ[:,0]) / ∫dx_x²_f0(@. E(x, y))
+        Iδρ ~ ∫dx_x²_f₀(E .* ψ[:,0])
+        δ ~ Iδρ / Iρ
         # TODO: θ
-        σ ~ (2/3) * ∫dx_x²_f0(@. x^2/E(x,y)*ψ[:,2]) / (∫dx_x²_f0(@. E(x,y)) + 1/3*∫dx_x²_f0(@. x^2/E(x,y)))
-        cₛ² ~ ∫dx_x²_f0(@. x^2/E(x, y)*ψ[:,0]) / ∫dx_x²_f0(@. E(x, y)*ψ[:,0])
+        σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
+        cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,0]) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
     ] .|> O(ϵ^1)
     # TODO: use defaults to set Ω₀ parameters etc. (e.g. with Λanalytical)?
     ics1 = []
     for i in 1:nx
+        push!(eqs0, O(ϵ^0)(E[i] ~ √(x[i]^2 + y^2)))
         append!(eqs1, [
-            D(ψ[i,0]) ~ -k * x[i]/E(x[i],y) * ψ[i,1] - D(g.Φ) * dlnf0_dlnx(x[i])
-            D(ψ[i,1]) ~ k/3 * x[i]/E(x[i],y) * (ψ[i,0] - 2*ψ[i,2]) - k/3 * E(x[i],y)/x[i] * g.Ψ * dlnf0_dlnx(x[i])
-            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E(x[i],y) * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
-            ψ[i,lmax+1] ~ (2*lmax+1) * E(x[i],y)/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
+            D(ψ[i,0]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
+            D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ[i,0] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
+            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
+            ψ[i,lmax+1] ~ (2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*t) - ψ[i,lmax-1]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            ψ[i,0] ~ -1//4 * (-2*g.Ψ) * dlnf0_dlnx(x[i])
-            ψ[i,1] ~ -1/(3*k) * E(x[i],y)/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf0_dlnx(x[i])
-            ψ[i,2] ~ -1//2 * (1//15*(k*t)^2*g.Ψ) * dlnf0_dlnx(x[i])
+            ψ[i,0] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
+            ψ[i,1] ~ -1/(3*k) * E[i]/x[i] * (1/2*(k^2*t)*g.Ψ) * dlnf₀_dlnx(x[i])
+            ψ[i,2] ~ -1//2 * (1//15*(k*t)^2*g.Ψ) * dlnf₀_dlnx(x[i])
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ] .|> O(ϵ^1))
     end
+
+    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
+    _x, _W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
+    defs = [collect(x .=> _x); collect(W .=> _W)]
+
     description = "Massive neutrino"
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
 """
