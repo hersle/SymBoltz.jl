@@ -14,9 +14,9 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true, spline_concrete = true)
+function perturbations(sys; spline_thermo = true)
     if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
-        @named rec = thermodynamics_recombination_splined(; spline_concrete)
+        @named rec = thermodynamics_recombination_splined()
         sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
     end
     return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
@@ -33,13 +33,13 @@ struct CosmologyModel
     spline_thermo::Bool # whether to spline thermodynamics in perturbations
 end
 
-function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, spline_concrete = true, debug = false)
+function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
     if debug
         sys = debugize(sys) # TODO: make work with massive neutrinos
     end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
-    pt = structural_simplify(perturbations(sys; spline_thermo, spline_concrete))
+    pt = structural_simplify(perturbations(sys; spline_thermo))
     sys = complete(sys; flatten = false)
     return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
 end
@@ -171,30 +171,36 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     ks = k_dimensionless.(ks, pars[M.g.h])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
+    
+    if Threads.nthreads() == 1 && thread
+        @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+        thread = false
+    end
 
     th_sol = solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg, kwargs...)
     tini, tend = extrema(th_sol.th[t])
-    if M.spline_thermo
-        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
-        pars = merge(pars, Dict(
-            M.pt.b.rec.τspline => spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-            M.pt.b.rec.τ̇spline => spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t]),
-            M.pt.b.rec.cₛ²spline => spline(th_sol_spline[M.b.rec.cₛ²], th_sol_spline[M.t])
-        ))
-    end
 
-    if Threads.nthreads() == 1 && thread
-        @warn "Multi-threading was requested, but Julia is running with 1 thread. Restart Julia with more threads to enable multi-threading, or pass thread = false to explicitly disable it."
-        thread = false
-    end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
     kset! = setp(M.pt, M.k) # function that sets k on a problem
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
-    push!(pars, k => NaN)
+    pars[k] = NaN
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse)
+
+    # If the thermodynamics solution should be splined,
+    # solve it again and update the spline parameters
+    if M.spline_thermo
+        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
+        τspline = spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
+        τ̇spline = spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t])
+        cₛ²spline = spline(th_sol_spline[M.b.rec.cₛ²], th_sol_spline[M.t])
+        splineset = ModelingToolkit.setsym_oop(ode_prob0, [M.pt.b.rec.τspline, M.pt.b.rec.τ̇spline, M.pt.b.rec.cₛ²spline])
+        newu0, newp = splineset(ode_prob0, [τspline, τ̇spline, cₛ²spline])
+        ode_prob0 = remake(ode_prob0, u0 = newu0, p = newp)
+    end
+
     # TODO: just copy p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056
     ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
