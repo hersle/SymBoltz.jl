@@ -127,8 +127,8 @@ function thermodynamics_recombination_splined(; kwargs...)
     defaults = [τspline => dummyspline, τ̇spline => dummyspline, cₛ²spline => dummyspline]
     return ODESystem([
         τ ~ value(τspline, t)
-        τ̇ ~ derivative(τspline, t)
-        τ̈ ~ derivative(τspline, t, 2) # TODO: unstable?
+        τ̇ ~ value(τ̇spline, t)
+        τ̈ ~ derivative(τ̇spline, t, 1) # TODO: unstable?
         τ⃛ ~ derivative(τ̇spline, t, 2) # DataInterpolations doesn't support 3rd order derivatives, so spline τ̇ and take its 2nd order derivative # TODO: remove workaround
         v ~ -τ̇ * exp(-τ) # TODO: do automatically
         v̇ ~ (-τ̈ + τ̇^2) * exp(-τ) # TODO: automatic
