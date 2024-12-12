@@ -4,7 +4,7 @@
     This page is a work in progress.
 
 ```@example bench
-using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, LinearSolve, BenchmarkTools, Plots, ThreadsX
+using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, LinearSolve, BenchmarkTools, Plots, OhMyThreads
 M = SymBoltz.ΛCDM(h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 N = 20
@@ -15,7 +15,7 @@ ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 # TODO: use BenchmarkTools.BenchmarkGroup
 solvers = [TRBDF2(), AutoTsit5(TRBDF2()), KenCarp4(), AutoTsit5(KenCarp4()), KenCarp47(), Kvaerno5(), Rodas5P(), Rodas5(), Rodas4(), Rodas4P(), QNDF()]
 solve_with(solver; reltol = 1e-5) = solve(M, pars, ks; solver, reltol, thread=false)
-timings = map(solvers) do solver
+timings = tmap(solvers) do solver
     return @benchmark solve_with($solver)
 end
 
