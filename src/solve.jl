@@ -93,6 +93,7 @@ end
 # TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
+# TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, kwargs...)
 

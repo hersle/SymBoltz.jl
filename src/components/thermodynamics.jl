@@ -122,18 +122,26 @@ end
 
 function thermodynamics_recombination_splined(; kwargs...)
     dummyspline = CubicSpline([NaN, NaN, NaN], 0.0:1.0:2.0)
-    vars = @variables τ(t) τ̇(t) τ̈(t) τ⃛(t) cₛ²(t) v(t) v̇(t) v̈(t) #Tb(t)
-    pars = @parameters τspline::CubicSpline τ̇spline::CubicSpline cₛ²spline::CubicSpline #Tbspline::CubicSpline
-    defaults = [τspline => dummyspline, τ̇spline => dummyspline, cₛ²spline => dummyspline]
-    return ODESystem([
+    vars = @variables τ(t) τ̇(t) τ̈(t) τ⃛(t) cₛ²(t) v(t) v̇(t) v̈(t)
+    pars = @parameters τspline::CubicSpline τ̇spline::CubicSpline cₛ²spline::CubicSpline
+    function subderivs(ex)
+        # substitute D(τ) => τ̇, ...
+        ex = expand_derivatives(ex)
+        ex = substitute(ex, D(D(D(τ))) => τ⃛) # must start with highest-order derivative to avoid nesting problems
+        ex = substitute(ex, D(D(τ)) => τ̈)
+        ex = substitute(ex, D(τ) => τ̇)
+        return simplify((ex / exp(-τ))) * exp(-τ) # manually pull out common factor exp(-τ) # TODO: avoid
+    end
+    eqs = [
         τ ~ value(τspline, t)
         τ̇ ~ value(τ̇spline, t)
         τ̈ ~ derivative(τ̇spline, t, 1) # TODO: unstable?
-        τ⃛ ~ derivative(τ̇spline, t, 2) # DataInterpolations doesn't support 3rd order derivatives, so spline τ̇ and take its 2nd order derivative # TODO: remove workaround
-        v ~ -τ̇ * exp(-τ) # TODO: do automatically
-        v̇ ~ (-τ̈ + τ̇^2) * exp(-τ) # TODO: automatic
-        v̈ ~ (τ⃛ + 3*τ̇*τ̈ - τ̇^3) * exp(-τ) # TODO: automatic
+        τ⃛ ~ derivative(τ̇spline, t, 2) # DataInterpolations doesn't support 3rd order derivatives, so spline τ̇ and take its 2nd order derivative
+        v ~ subderivs(D(exp(-τ)))
+        v̇ ~ subderivs(D(D(exp(-τ))))
+        v̈ ~ subderivs(D(D(D(exp(-τ)))))
         cₛ² ~ value(cₛ²spline, t)
-        #Tb ~ exp(Tbspline(log(t)))
-    ], t, vars, pars; defaults, kwargs...) # connect perturbation τ with spline evaluation
+    ]
+    defaults = [τspline => dummyspline, τ̇spline => dummyspline, cₛ²spline => dummyspline]
+    return ODESystem(eqs, t, vars, pars; defaults, kwargs...) # connect perturbation τ with spline evaluation
 end
