@@ -2,9 +2,9 @@ using NumericalIntegration
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using ForwardDiff
-using Base.Threads
 using TwoFAST
 using MatterPower
+
 """
     spectrum_primordial(k; As=2e-9)
 
@@ -106,7 +106,6 @@ end
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 # TODO: take in symbolic expr?
-# TODO: use tasks, not threads!
 """
     los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
 
@@ -117,28 +116,33 @@ function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, 
     @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
 
-    Is = similar(Ss, (length(ks), length(ls)))
-    ∂I_∂lnt = [similar(Ss, (length(ls), length(lnts))) for _ in 1:nthreads()] # TODO: best to do array of arrays without using @view, or to use matrix + @view?
     lmin, lmax = extrema(ls)
     ls_all = lmin:1:lmax # range with step 1
-    Jls_all = [zeros(length(ls_all)) for _ in 1:nthreads()] # separate workspace per thread
 
-    @threads for ik in eachindex(ks)
+    T = eltype(Ss)
+    Is = zeros(T, (length(ks), length(ls)))
+
+    @tasks for ik in eachindex(ks)
+        @local begin # define task-local values (declared once for all loop iterations)
+            Jls_all = zeros(Float64, length(ls_all)) # local task workspace
+            ∂I_∂lnt = zeros(T, (length(ls), length(lnts))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
+        end
+
         k = ks[ik]
         for it in eachindex(lnts)
             t = exp(lnts[it])
             St = Ss[ik,it] * t # multiply S(k,t) to get (S(k, log(t)))
             kΔt = k * (t0-t)
-            sphericalbesseljfast!(Jls_all[threadid()], ls_all, kΔt) # TODO: reuse ∂Θ_∂lnt's memory?
+            sphericalbesseljfast!(Jls_all, ls_all, kΔt) # TODO: reuse ∂Θ_∂lnt's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
                 l = ls[il]
-                Jl = Jls_all[threadid()][1+l-lmin]
-                ∂I_∂lnt[threadid()][il,it] = St * Jl
+                Jl = Jls_all[1+l-lmin]
+                ∂I_∂lnt[il,it] = St * Jl
                 # TODO: integrate in this loop instead?
             end
         end
         for il in eachindex(ls)
-            integrand = @view ∂I_∂lnt[threadid()][il,:]
+            integrand = @view ∂I_∂lnt[il,:]
             Is[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting I(tini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
         end
     end
@@ -160,9 +164,9 @@ function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::Abstr
 
     τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
     v = -D_spline(τ, ts) .* exp.(-τ)
-    @threads for ik in eachindex(ks)
+    idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
+    @tasks for ik in eachindex(ks)
         k = ks[ik]
-        idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
         out = sol(k, ts, idxs)
         δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
         Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + exp.(-τ) .* D_spline(Ψ + Φ, ts) + D_spline(v .* ub, ts) / k + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.57) with Φ → -Φ and polarization
@@ -222,11 +226,11 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
 
     Cls = similar(ΘlAs, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
-    dCl_dks_with0 = [zeros(eltype(ΘlAs), length(ks_with0)) for _ in 1:nthreads()] # separate workspace per thread
 
-    @threads for il in eachindex(ls)
-        @. dCl_dks_with0[threadid()][2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
-        Cls[il] = integrate(ks_with0, dCl_dks_with0[threadid()], integrator) # integrate over k (_with0 adds one additional point at (0,0))
+    @tasks for il in eachindex(ls)
+        @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
+        @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
+        Cls[il] = integrate(ks_with0, dCl_dks_with0, integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     return Cls

@@ -8,6 +8,7 @@ using ModelingToolkit
 using OrdinaryDiffEq
 using NonlinearSolve
 using DataInterpolations
+using OhMyThreads
 
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
