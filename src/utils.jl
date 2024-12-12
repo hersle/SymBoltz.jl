@@ -74,23 +74,18 @@ end
 have(sys, s) = s in nameof.(ModelingToolkit.get_systems(sys))
 have(s) = !isnothing(s) # shorthand for checking if we have a given species
 
-function spline(y, x)
-    # remove duplicate x values
-    i = unique(i -> (x[i], y[i]), eachindex(x)) # indices of unique values
-    x, y = x[i], y[i] # pick them out
-
-    # sort x
-    i = sortperm(x) # indices that sorts x
-    x, y = x[i], y[i]
-
-    return CubicSpline(y, x; extrapolate=true)
+function spline(y, x; extrapolate=true)
+    dx = diff(x)
+    dx[end] == 0 && return spline(y[begin:end-1], x[begin:end-1]) # endpoints are duplicated when ODE solver ends with callback; in that case remove it
+    all(diff(x) .< 0) && return spline(reverse!(y), reverse!(x)) # reverse if monotonically decreasing
+    all(diff(x) .> 0) || error("x is not monotonically increasing")
+    return CubicSpline(y, x; extrapolate)
 end
 
 # compute dy/dx by splining y(x)
 function D_spline(y, x; order = 1)
     y_spline = spline(y, x)
-    y′ = DataInterpolations.derivative.(Ref(y_spline), x, order)
-    return y′
+    return map(x -> DataInterpolations.derivative(y_spline, x, order), x)
 end
 
 value(s, t) = s(t)
