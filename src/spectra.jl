@@ -233,32 +233,42 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
 end
 
 """
-    spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    spectrum_cmb(modes, sol::CosmologySolution, ls::AbstractArray; kwargs...)
+
+Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
+"""
+function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; kwargs...)
+    _, ks_fine = cmb_ks(ls[end])
+    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
+    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
+    P0s = spectrum_primordial(ks_fine)
+    Cls = []
+    for mode in modes
+        mode == :TT && push!(Cls, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine))
+        mode == :EE && push!(Cls, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine))
+        mode == :TE && push!(Cls, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine))
+    end
+    return Cls
+end
+
+"""
+    spectrum_cmb(modes, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
 """
 function spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
-    sol, ks = solve_for_cmb(M, pars, ls[end]; kwargs...) # TODO: saveat ts
-    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks; kwargs...) : nothing
-    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks; kwargs...) : nothing
-    P0s = spectrum_primordial(ks)
-    Cls = []
-    for mode in modes
-        mode == :TT && push!(Cls, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks))
-        mode == :EE && push!(Cls, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks))
-        mode == :TE && push!(Cls, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks))
-    end
-    return Cls
+    ks_coarse, _ = cmb_ks(ls[end])
+    sol = solve(M, pars, ks_coarse; kwargs...) # TODO: saveat ts
+    return spectrum_cmb(modes, sol, ls; integrator)
 end
+
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function solve_for_cmb(M::CosmologyModel, pars::Dict, lmax; Δk = 2π/24, Δk_S = 10.0, kmax = 1.0 * lmax, kwargs...)
+function cmb_ks(lmax; Δk = 2π/24, Δk_S = 10.0, kmin = Δk, kmax = lmax)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
-    kmin = Δk
-    ks = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
-    sol = solve(M, pars, ks; kwargs...)
-    ks = range(ks[begin], ks[end], length = length(ks) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
-    return sol, ks
+    ks_coarse = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
+    ks_fine = range(ks_coarse[begin], ks_coarse[end], length = length(ks_coarse) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
+    return ks_coarse, ks_fine
 end
 
 Dl(Cl, l) = @. Cl * l * (l+1) / 2π

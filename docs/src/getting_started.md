@@ -50,7 +50,7 @@ pars = Dict(
     M.b.rec.Yp => 0.25,
     M.h.m => 0.06 * SymBoltz.eV / SymBoltz.c^2
 )
-ks = 10 .^ range(-4, 1, length=100) / u"Mpc"
+ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 sol = solve(M, pars, ks)
 ```
 
@@ -84,7 +84,7 @@ plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel
 Similarly, we can calculate the angular CMB power spectrum:
 ```@example getting_started
 ls = 10:10:1000
-Cls = spectrum_cmb(:TT, M, pars, ls)
+Cls = spectrum_cmb(:TT, sol, ls)
 plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing)
 ```
 
