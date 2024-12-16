@@ -86,6 +86,8 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
         #"radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
         "ur_fluid_approximation" => 3, # turns off UFA
+
+        "temperature_contributions" => "tsw, eisw, lisw, dop", # TODO: make agree with polarization
     )
 
     run_class(in, exec, inpath, outpath)
@@ -108,7 +110,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(M, pars, k) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
@@ -210,8 +212,8 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
-        r = @. abs(y2-y1) / max(abs(y1), abs(y2))
-        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|y₂-y₁| / max(|y₁|, |y₂|)]", ylims=(-5, +1), top_margin = -5*Plots.mm, label = nothing)
+        r = @. abs(y2 - y1) / abs(y1)
+        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|CL-Sy| / |CL|]", ylims=(-5, +1), top_margin = -5*Plots.mm, label = nothing)
     end
     return p
 end

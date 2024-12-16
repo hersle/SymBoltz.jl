@@ -158,7 +158,7 @@ end
 
 Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
 """
-function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=false)
     M = sol.M
     Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
 
@@ -169,7 +169,11 @@ function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::Abstr
         k = ks[ik]
         out = sol(k, ts, idxs)
         δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
-        Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + exp.(-τ) .* D_spline(Ψ + Φ, ts) + D_spline(v .* ub, ts) / k + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.57) with Φ → -Φ and polarization
+        # TODO: do it like CLASS: https://arxiv.org/pdf/1312.2697 & https://github.com/lesgourg/class_public/issues/30 and
+        sw  && (Ss[ik,:] .+= v .* (δ/4 + Ψ #=+ Π/4=#))
+        isw && (Ss[ik,:] .+= exp.(-τ) .* D_spline(Ψ + Φ, ts))
+        dop && (Ss[ik,:] .+= D_spline(v .* ub, ts) / k)
+        pol && (Ss[ik,:] .+= 3/(4*k^2) * D_spline(v .* Π, ts; order = 2))
         #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
         #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
     end
