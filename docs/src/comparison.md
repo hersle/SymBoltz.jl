@@ -212,8 +212,15 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
-        r = @. abs(y2 - y1) / abs(y1)
-        plot!(p[end], xplot(x), log10.(r); linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel = "lg[|CL-Sy| / |CL|]", ylims=(-5, +1), top_margin = -5*Plots.mm, label = nothing)
+        abserr = any(y1 .<= 0) || any(y2 .<= 0)
+        if abserr
+            err = @. y2 - y1
+            ylabel = "SymBoltz - CLASS"
+        else
+            err = @. y2/y1 - 1
+            ylabel = "SymBoltz / CLASS - 1"
+        end
+        plot!(p[end], xplot(x), err; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel, ylims=(-0.025, +0.025), top_margin = -5*Plots.mm, label = nothing)
     end
     return p
 end
