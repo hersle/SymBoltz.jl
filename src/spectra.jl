@@ -178,6 +178,12 @@ function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::Abstr
         #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
     end
 
+    # HACK: fix 2nd spline derivative error
+    # (https://github.com/SciML/DataInterpolations.jl/issues/370)
+    #N = 50
+    #Ss[:, end-N:end] .= Ss[:, end-N-1]
+    #Ss[:, begin:begin+N] .= Ss[:, begin+N+1]
+
     return Ss
 end
 

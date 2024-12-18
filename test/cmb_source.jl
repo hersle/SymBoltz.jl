@@ -1,42 +1,40 @@
 using SymBoltz, Plots
 
-M = SymBoltz.ΛCDM(; lmax = 6, h = nothing, Λanalytical = true)
+M = SymBoltz.ΛCDM(; lmax = 6)
 pars = SymBoltz.parameters_Planck18(M)
 
-# 1) Source functionz
+# 1) Source functions
 
 lmax = 1000
-Δk, Δk_S = 2π/24, 10.0 # TODO: factor in t0
-sol1, k1s = SymBoltz.solve_for_cmb(M, pars, lmax; Δk, Δk_S = Δk_S, verbose = true)
-sol2, k2s = SymBoltz.solve_for_cmb(M, pars, lmax; Δk, Δk_S = Δk,   verbose = true)
-ks = range(extrema(k2s)..., length=50)
-ts = exp.(range(-3, -2, length=250))
+ls = 10:10:lmax
+k1s, k2s = SymBoltz.cmb_ks(ls[end])
+sol1 = solve(M, pars, k1s; verbose = true, solver = SymBoltz.Rodas5P(), reltol=1e-15)
+sol2 = solve(M, pars, k2s; verbose = true)
+ks = range(extrema(k2s)..., length=10)
+ts = exp.(range(-3.5, -2, step=0.005))
 
-S1 = SymBoltz.source_temperature(sol1, ks, ts) # sol1(ks, ts, M.S)
-S2 = SymBoltz.source_temperature(sol2, ks, ts) # sol2(ks, ts, M.S)
+S1 = SymBoltz.source_temperature(sol1, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol1(ks, ts, M.S)
+S2 = SymBoltz.source_temperature(sol2, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol2(ks, ts, M.S)
 println("max(abs(S2-S1)) = ", maximum(abs.(S2 .- S1)))
 
-p = plot(xlabel = "ln(t)", ylabel = "S")
+p = plot(xlabel = "ln(t)", ylabel = "S", legend = nothing)
 plot!(p, log.(ts), transpose(S1); linestyle = :solid, color = permutedims(1:length(ks)), alpha=0.5)
 plot!(p, log.(ts), transpose(S2); linestyle = :dash,  color = permutedims(1:length(ks)), alpha=0.5)
 
 # 2) LOS integration
 
-ls = 10:10:lmax
-ks = range(extrema(sol2.ks)..., length=4*length(sol2.ks))
-lnts = range(extrema(log.(sol2[M.t]))..., length=500)
-S2 = SymBoltz.source_temperature(sol2, ks, exp.(lnts)) # sol2(ks, exp.(lnts), M.S)
-Θl2s = SymBoltz.los_integrate(S2, ls, ks, lnts)
+ks = k2s #range(extrema(k2s)..., length=1*length(k2s))
+lnts = range(-3.5, -2, step=0.005) # range(extrema(log.(sol1[M.t]))..., step=0.01)
+S = SymBoltz.source_temperature(sol1, ks, exp.(lnts)) # sol2(ks, exp.(lnts), M.S)
+Θls = SymBoltz.los_integrate(S, ls, ks, lnts; t0 = sol1[M.t][end])
 
-plot(ks, Θl2s[:,1], xlims=(0,100))
+plot(ks, Θls[:,10], xlims=(0, 100))
 
 # 3) CMB power spectrum
 
 P0s = SymBoltz.spectrum_primordial(ks)
-Cl2s = SymBoltz.spectrum_cmb(Θl2s, Θl2s, P0s, ls, ks)
-Dl2s = SymBoltz.Dl(Cl2s, ls)
-
-plot(ls, Dl2s)
+Cls = SymBoltz.spectrum_cmb(Θls, Θls, P0s, ls, ks)
+Dls = SymBoltz.Dl(Cls, ls)
 
 # 4) With varying precision parameters
 
