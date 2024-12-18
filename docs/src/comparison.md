@@ -87,7 +87,8 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         #"radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
         "ur_fluid_approximation" => 3, # turns off UFA
 
-        "temperature_contributions" => "tsw, eisw, lisw, dop", # TODO: make agree with polarization
+        #"l_max_scalars" => 1500,
+        #"temperature_contributions" => "pol", # TODO: make agree with polarization
     )
 
     run_class(in, exec, inpath, outpath)
@@ -133,7 +134,7 @@ sols = Dict(
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
-    "τ" => (-log.(reverse(sol1["th"]["exp(-kappa)"])), sol2[M.b.rec.τ]),
+    "exp(-τ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.τ)]),
     "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (SymBoltz.k0*h)),
     #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
 
@@ -178,7 +179,7 @@ sols = merge(sols, Dict(
     "Dl" => (Dls_class, Dls)
 ))
 
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
+function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errlim=NaN, alpha=1.0)
     if !(ylabels isa AbstractArray)
         ylabels = [ylabels]
     end
@@ -191,6 +192,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
     # TODO: relative or absolute comparison (of quantities close to 0)
     p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
     plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
+    maxerr = 0.0
     for (i, ylabel) in enumerate(ylabels)
         x1, x2 = sols[xlabel]
         x1min, x1max = extrema(x1)
@@ -212,16 +214,27 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, alpha=1.0)
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
-        abserr = any(y1 .<= 0) || any(y2 .<= 0)
+        abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
         if abserr
-            err = @. y2 - y1
+            err = y2 .- y1
             ylabel = "SymBoltz - CLASS"
         else
-            err = @. y2/y1 - 1
+            err = y2 ./ y1 .- 1
             ylabel = "SymBoltz / CLASS - 1"
         end
-        plot!(p[end], xplot(x), err; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel, ylims=(-0.025, +0.025), top_margin = -5*Plots.mm, label = nothing)
+        maxerr = max(maxerr, maximum(abs.(err)))
+        plot!(p[end], xplot(x), err; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel, top_margin = -5*Plots.mm, label = nothing)
     end
+
+    # write maximum error like a * 10^b (for integer a and b)
+    if isnan(errlim)
+        b = floor(log10(maxerr))
+        a = ceil(maxerr / 10^b)
+        errlim = a * 10^b
+    end
+    #println("maxerr = $maxerr ≈ $a * 10^$b")
+    plot!(p[end], ylims = (-errlim, +errlim))
+
     return p
 end
 nothing # hide
@@ -247,7 +260,7 @@ plot_compare("a_bg", ["wh"]; lgx=true) # hide
 plot_compare("a_th", "τ̇"; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("a_th", "τ"; lgx=true, lgy=true) # hide
+plot_compare("a_th", "exp(-τ)"; lgx=true) # hide
 ```
 ```@example class
 plot_compare("a_th", "v"; lgx=true, lgy=false) # hide
@@ -286,5 +299,5 @@ plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true) # hide
 plot_compare("k", "P"; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("l", "Dl") # TODO: fix # hide
+plot_compare("l", "Dl"; errlim=5e-2) # TODO: fix # hide
 ```
