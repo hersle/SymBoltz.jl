@@ -115,15 +115,16 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*g.H₀^2)
     ]
     eqs1 = [
+        # Bertschinger & Ma (64) with anₑσₜ -> -τ̇
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * τ̇/k * (θb - θ) # TODO: error in last term?
-        D(F[2]) ~ 2//5*k*F[1] - 3//5*k*F[3] + 9//10*τ̇*F[2] - 1//10*τ̇*(G[0]+G[2])
-        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]... # TODO: Π in last term here?
+        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * τ̇/k * (θb - θ)
+        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*τ̇*F[2] - 1//10*τ̇*(G[0]+G[2])
+        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]
         δ ~ F[0]
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
-        Π ~ F[2] + G[0] + G[2] # TODO: is this the same as Θ0?
+        Π ~ F[2] + G[0] + G[2]
         γ.cₛ² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
@@ -134,8 +135,8 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ] .|> O(ϵ^1)
     if polarization
         append!(eqs1, [
-            D(G[0]) ~ k * (-G[1]) + τ̇ * (G[0] - Π/2)
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + τ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+            D(G[0]) ~ k * (-G[1]) - τ̇ * (-G[0] + Π/2)
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 1:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / t * G[lmax] + τ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
