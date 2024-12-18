@@ -6,7 +6,7 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters ρ₀ Ω₀) : []
-    vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cₛ²(t) u(t) u′(t)
+    vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cₛ²(t) u(t) u̇(t)
     eqs0 = [
         w ~ _w # equation of state
         P ~ w * ρ # equation of state
@@ -17,7 +17,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
         u ~ θ / k # velocity
-        u′ ~ D(u)
+        u̇ ~ D(u)
         Δ ~ δ + 3(1+w) * g.ℰ/θ # Baumann (4.2.144) with v -> -u
         σ ~ _σ
     ] .|> O(ϵ^1)
@@ -110,7 +110,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     description = "Photons"
     γ = radiation(g; name, description, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
-    vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) G(t)[0:lmax]
+    vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
     defs = [
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*g.H₀^2)
     ]
@@ -125,6 +125,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         θ ~ 3/4*k*F[1]
         σ ~ F[2]/2
         Π ~ F[2] + G[0] + G[2]
+        Π̇ ~ D(Π)
         γ.cₛ² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [

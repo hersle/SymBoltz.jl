@@ -158,22 +158,22 @@ end
 
 Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
 """
-function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=false)
+function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=true)
     M = sol.M
     Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
 
-    τ = sol(ts, M.b.rec.τ) # TODO: assume ts[end] is today
-    v = -D_spline(τ, ts) .* exp.(-τ)
-    idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.g.Φ, M.b.u]
+    out = sol(ts, [M.b.rec.τ, M.b.rec.v, M.b.rec.v̇]) # TODO: assume ts[end] is today
+    τ, v, v̇ = out[:, 1], out[:, 2], out[:, 3]
+    idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.γ.Π̇, M.g.Φ, M.b.u, M.b.u̇]
     @tasks for ik in eachindex(ks)
         k = ks[ik]
         out = sol(k, ts, idxs)
-        δ, Ψ, Π, Φ, ub = selectdim.(Ref(out), 2, eachindex(idxs))
+        δ, Ψ, Π, Π̇, Φ, ub, uḃ = selectdim.(Ref(out), 2, eachindex(idxs))
         # TODO: do it like CLASS: https://arxiv.org/pdf/1312.2697 & https://github.com/lesgourg/class_public/issues/30 and
         sw  && (Ss[ik,:] .+= v .* (δ/4 + Ψ #=+ Π/4=#))
         isw && (Ss[ik,:] .+= exp.(-τ) .* D_spline(Ψ + Φ, ts))
-        dop && (Ss[ik,:] .+= D_spline(v .* ub, ts) / k)
-        pol && (Ss[ik,:] .+= 3/(4*k^2) * D_spline(v .* Π, ts; order = 2))
+        dop && (Ss[ik,:] .+= (v̇ .* ub + v .* uḃ) / k) # D_spline(v .* ub, ts) / k) # TODO: anal
+        pol && (Ss[ik,:] .+= (v .* Π/4 + 3/(4*k^2) * (D_spline(v̇ .* Π + v .* Π̇, ts))) / 4) # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source???
         #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
         #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
     end
