@@ -162,20 +162,24 @@ function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::Abstr
     M = sol.M
     Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
 
-    out = sol(ts, [M.b.rec.τ, M.b.rec.v, M.b.rec.v̇]) # TODO: assume ts[end] is today
-    τ, v, v̇ = out[:, 1], out[:, 2], out[:, 3]
-    idxs = [M.γ.δ, M.g.Ψ, M.γ.Π, M.γ.Π̇, M.g.Φ, M.b.u, M.b.u̇]
+    out = sol(ts, [M.b.rec.v, M.b.rec.v̇])
+    v, v̇ = out[:, 1], out[:, 2]
+    idxs = [M.S_SW, M.S_ISW, M.S_Dop, M.γ.Π, M.γ.Π̇]
     @tasks for ik in eachindex(ks)
+        @local out = Matrix{Float64}(undef, length(ts), length(idxs))
         k = ks[ik]
-        out = sol(k, ts, idxs)
-        δ, Ψ, Π, Π̇, Φ, ub, uḃ = selectdim.(Ref(out), 2, eachindex(idxs))
+        out .= sol(k, ts, idxs)
+        S_SW = @view out[:, 1]
+        S_ISW = @view out[:, 2]
+        S_Dop = @view out[:, 3]
+        Π = @view out[:, 4]
+        Π̇ = @view out[:, 5]
+        # Dodelson (9.55) with Φ → -Φ
         # TODO: do it like CLASS: https://arxiv.org/pdf/1312.2697 & https://github.com/lesgourg/class_public/issues/30 and
-        sw  && (Ss[ik,:] .+= v .* (δ/4 + Ψ #=+ Π/4=#))
-        isw && (Ss[ik,:] .+= exp.(-τ) .* D_spline(Ψ + Φ, ts))
-        dop && (Ss[ik,:] .+= (v̇ .* ub + v .* uḃ) / k) # D_spline(v .* ub, ts) / k) # TODO: anal
-        pol && (Ss[ik,:] .+= (v .* Π/4 + 3/(4*k^2) * (D_spline(v̇ .* Π + v .* Π̇, ts))) / 4) # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source???
-        #Ss[ik,:] .= exp.(-τ) .* (D_spline(Φ, ts) - τ̇/4 .* (δ + Π)) + D_spline(exp.(-τ) .* (Ψ - ub.*τ̇/k), ts) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # Dodelson (9.55) with Φ → -Φ
-        #Ss[ik,:] .= v .* (δ/4 + Ψ + Π/4) + v .* (Φ-Ψ) + 2 * exp.(-τ) .* D_spline(Φ, ts) + D_spline(v .* ub, ts) / k + exp.(-τ) * k .* (Ψ - Φ) + 3/(4*k^2) * D_spline(v .* Π, ts; order = 2) # CLASS' expression with added polarization
+        sw  && (Ss[ik,:] .+= S_SW #=v .* (δγ/4 + Ψ)=#)
+        isw && (Ss[ik,:] .+= S_ISW #=exp.(-τ) .* D_spline(Ψ + Φ, ts)=#)
+        dop && (Ss[ik,:] .+= S_Dop #=(v̇ .* ub + v .* uḃ) / k=#) # D_spline(v .* ub, ts) / k)
+        pol && (Ss[ik,:] .+= (v .* Π/4 + 3/(4*k^2) * (D_spline(v̇ .* Π + v .* Π̇, ts))) / 4) # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π?
     end
 
     # HACK: fix 2nd spline derivative error
