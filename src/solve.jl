@@ -244,15 +244,14 @@ Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
-function (sol::CosmologySolution)(t, idxs)
-    v = sol.th(t, idxs=idxs)
-    if t isa AbstractArray
-        v = v.u
-        if idxs isa AbstractArray
-            v = permutedims(stack(v))
-        end
-    end
-    return v
+function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
+    return permutedims(sol.th(ts, idxs=is)[:, :])
+end
+function (sol::CosmologySolution)(ts, is)
+    ts_arr, ts_outi = ts isa Number ? ([ts], 1) : (ts, Colon())
+    is_arr, is_outi = is isa Number ? ([is], 1) : (is, Colon())
+    out = sol(ts_arr, is_arr) # convert to all-array call
+    return out[ts_outi, is_outi] # pick out dimensions for scalar ks/ts/is
 end
 
 function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
