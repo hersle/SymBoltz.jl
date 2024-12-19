@@ -194,11 +194,11 @@ end
 
 # TODO: increase Δlnt. should use same Δlnt in T and E when cross-correlating. TE seems to need ≲ 0.01
 """
-    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     STs = source_temperature(sol, ks, exp.(lnts))
@@ -206,11 +206,11 @@ function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::Abstract
 end
 
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.01, kwargs...)
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     SPs = source_polarization(sol, ks, exp.(lnts))
@@ -272,7 +272,7 @@ end
 
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function cmb_ks(lmax; Δk = 2π/24, Δk_S = 10.0, kmin = Δk, kmax = lmax)
+function cmb_ks(lmax; Δk = 2π/12, Δk_S = 10.0, kmin = Δk, kmax = 1*lmax)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     ks_coarse = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
     ks_fine = range(ks_coarse[begin], ks_coarse[end], length = length(ks_coarse) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
