@@ -17,6 +17,8 @@ pars = SymBoltz.parameters_Planck18(M)
     @test size(sol(ts, is[1])) == (nt,)
     @test size(sol(ts, is)) == (nt, ni)
     @test_throws "No perturbations" sol(ks, ts, is)
+    @test_throws "before initial time" sol(sol[M.t][begin]-1, is)
+    @test_throws "after final time" sol(sol[M.t][end]+1, is)
 
     sol = solve(M, pars, ks)
     @test size(sol(ks[1], ts[1], is[1])) == () # perturbations
