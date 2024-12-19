@@ -269,10 +269,13 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     minimum(ts) >= sol.th.t[begin] || throw("Requested time t = $(minimum(ts)) is before initial time $(sol.th.t[begin])")
     maximum(ts) <= sol.th.t[end]   || throw("Requested time t = $(maximum(ts)) is before final time $(sol.th.t[end])")
 
-    # Pre-allocate output
+    # Pre-allocate intermediate and output arrays
     T = eltype(sol.pts[1])
+    v1 = zeros(T, (length(is), length(ts)))
+    v2 = zeros(T, (length(is), length(ts)))
     out = zeros(T, length(ks), length(ts), length(is))
 
+    i1_prev = 0 # cache previous looked up solution and reuse it, if possible
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
         k = ks[ik]
         # Find two wavenumbers to interpolate between
@@ -281,9 +284,13 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
         k2 = sol.ks[i2]
         w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
 
-        # TODO: cache if consecutive ks reuse same solutions for interpolation
-        v1 = sol.pts[i1](ts; idxs=is) # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
-        v2 = sol.pts[i2](ts; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
+        # Evaluate solutions for neighboring wavenumbers,
+        # but reuse those from the previous iteration if we are still between the same neighboring wavenumbers
+        if i1 != i1_prev
+            v1 .= sol.pts[i1](ts; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+            v2 .= sol.pts[i2](ts; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
+            i1_prev = i1
+        end
         v = v1 + (v2 - v1) * w
         for ii in eachindex(is)
             out[ik, :, ii] = v[ii, :]
