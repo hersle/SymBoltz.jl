@@ -161,26 +161,15 @@ Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the s
 """
 function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=true)
     M = sol.M
-    Ss = zeros((length(ks), length(ts))) # TODO: change order to get DenseArray during integrations?
+    v = sol(ts, M.b.rec.v)
+    out = sol(ks, ts, [M.S, M.γ.Π])
+    Ss, Π = out[:, :, 1], out[:, :, 2]
 
-    out = sol(ts, [M.b.rec.v, M.b.rec.v̇])
-    v, v̇ = out[:, 1], out[:, 2]
-    idxs = [M.S_SW, M.S_ISW, M.S_Dop, M.γ.Π, M.γ.Π̇]
+    # Polarization contribution requires numerical derivative, so it is added manually
     @tasks for ik in eachindex(ks)
-        @local out = Matrix{Float64}(undef, length(ts), length(idxs))
         k = ks[ik]
-        out .= sol(k, ts, idxs)
-        S_SW = @view out[:, 1]
-        S_ISW = @view out[:, 2]
-        S_Dop = @view out[:, 3]
-        Π = @view out[:, 4]
-        Π̇ = @view out[:, 5]
-        # Dodelson (9.55) with Φ → -Φ
-        # TODO: do it like CLASS: https://arxiv.org/pdf/1312.2697 & https://github.com/lesgourg/class_public/issues/30 and
-        sw  && (Ss[ik,:] .+= S_SW #=v .* (δγ/4 + Ψ)=#)
-        isw && (Ss[ik,:] .+= S_ISW #=exp.(-τ) .* D_spline(Ψ + Φ, ts)=#)
-        dop && (Ss[ik,:] .+= S_Dop #=(v̇ .* ub + v .* uḃ) / k=#) # D_spline(v .* ub, ts) / k)
-        pol && (Ss[ik,:] .+= (v .* Π/4 + 3/(4*k^2) * (D_spline(v̇ .* Π + v .* Π̇, ts))) / 4) # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π?
+        vΠ = v .* Π[ik, :]
+        Ss[ik, :] .+= vΠ / 4 + 3/(4*k^2) * D_spline(vΠ, ts; order=2) / 4 # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π? do I also need it in v*Π/4?
     end
 
     # HACK: fix 2nd spline derivative error
