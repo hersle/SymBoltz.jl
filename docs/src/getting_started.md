@@ -64,12 +64,12 @@ For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-
 ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
 Es = sol(ts, M.g.E)
 ```
-Similarly, to get $\Phi(k,t)$ for the 100 wavenumbers we solved for and the same 300 log-spaced conformal times:
+Similarly, to get $\Phi(k,t)$ for the 500 wavenumbers we solved for and the same 300 log-spaced conformal times:
 ```@example getting_started
 Φs = sol(ks, ts, M.g.Φ)
 ```
 
-This can be plotted with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
+You could plot this with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
 ```@example getting_started
 using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
