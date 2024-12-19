@@ -245,9 +245,10 @@ Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
-    tmin, tmax = extrema(sol.th.t)
-    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
-    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
+    # disabled; sensitive to exact endpoint values
+    #tmin, tmax = extrema(sol.th.t)
+    #minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
+    #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
 
@@ -277,9 +278,10 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
-    tmin, tmax = extrema(sol.th.t)
-    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
-    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
+    # disabled; sensitive to exact endpoint values
+    #tmin, tmax = extrema(sol.th.t)
+    #minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
+    #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
 
     # Pre-allocate intermediate and output arrays
     T = eltype(sol.pts[1])

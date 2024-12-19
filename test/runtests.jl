@@ -17,8 +17,8 @@ pars = SymBoltz.parameters_Planck18(M)
     @test size(sol(ts, is[1])) == (nt,)
     @test size(sol(ts, is)) == (nt, ni)
     @test_throws "No perturbations" sol(ks, ts, is)
-    @test_throws "below minimum solved time" sol(sol[M.t][begin]-1, is)
-    @test_throws "above maximum solved time" sol(sol[M.t][end]+1, is)
+    #@test_throws "below minimum solved time" sol(sol[M.t][begin]-1, is)
+    #@test_throws "above maximum solved time" sol(sol[M.t][end]+1, is)
 
     sol = solve(M, pars, ks)
     @test size(sol(ks[1], ts[1], is[1])) == () # perturbations
@@ -31,8 +31,8 @@ pars = SymBoltz.parameters_Planck18(M)
     @test size(sol(ks, ts, is)) == (nk, nt, ni)
     @test_throws "below minimum solved wavenumber" sol(ks[begin]-1, ts, is)
     @test_throws "above maximum solved wavenumber" sol(ks[end]+1, ts, is)
-    @test_throws "below minimum solved time" sol(ks[1], sol[M.t][begin]-1, is)
-    @test_throws "above maximum solved time" sol(ks[1], sol[M.t][end]+1, is)
+    #@test_throws "below minimum solved time" sol(ks[1], sol[M.t][begin]-1, is)
+    #@test_throws "above maximum solved time" sol(ks[1], sol[M.t][end]+1, is)
 
     # TODO: also test array indexing
 end
