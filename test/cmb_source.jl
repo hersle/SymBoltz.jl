@@ -13,8 +13,8 @@ sol2 = solve(M, pars, k2s; verbose = true)
 ks = range(extrema(k2s)..., length=10)
 ts = exp.(range(-3.5, -2, step=0.005))
 
-S1 = SymBoltz.source_temperature(sol1, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol1(ks, ts, M.S)
-S2 = SymBoltz.source_temperature(sol2, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol2(ks, ts, M.S)
+S1 = SymBoltz.source_temperature(sol1, ks, ts; sw=true, isw=true, dop=true, pol=true) # sol1(ks, ts, M.S)
+S2 = SymBoltz.source_temperature(sol2, ks, ts; sw=true, isw=true, dop=true, pol=true) # sol2(ks, ts, M.S)
 println("max(abs(S2-S1)) = ", maximum(abs.(S2 .- S1)))
 
 p = plot(xlabel = "ln(t)", ylabel = "S", legend = nothing)

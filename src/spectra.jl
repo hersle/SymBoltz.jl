@@ -201,7 +201,7 @@ Calculate photon temperature multipoles today by line-of-sight integration.
 function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
     tmin, tmax = extrema(sol[sol.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
-    STs = source_temperature(sol, ks, exp.(lnts))
+    @time STs = source_temperature(sol, ks, exp.(lnts))
     return los_integrate(STs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...)
 end
 
