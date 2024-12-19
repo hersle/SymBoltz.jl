@@ -251,9 +251,23 @@ function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
 end
 
 function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
-    i2 = max(searchsortedfirst(sol.ks, k), 2) # index above target k (or 2nd index if k == kmin)
-    i1 = i2 - 1 # index below target k (or 1st index if k == kmin)
+    if k == sol.ks[begin] # k == kmin
+        i1 = i2 = 1
+    elseif k == sol.ks[end] # k == kmax
+        i1 = i2 = length(sol.ks)
+    else
+        i2 = searchsortedfirst(sol.ks, k) # index above target k
+        i1 = i2 - 1 # index below target k
+    end
     return i1, i2
+end
+
+function get_neighboring_common_timeseries(sol::CosmologySolution, k)
+    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
+    t1s = sol[i1, t]
+    t2s = sol[i2, t]
+    ts = sort!(unique!([t1s; t2s])) # average or interleave?
+    return ts
 end
 
 function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray)
@@ -270,23 +284,30 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     v2 = zeros(T, (length(is), length(ts)))
     out = zeros(T, length(ks), length(ts), length(is))
 
-    i1_prev = 0 # cache previous looked up solution and reuse it, if possible
+    i1_prev, i2_prev = 0, 0 # cache previous looked up solution and reuse it, if possible
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
         k = ks[ik]
         # Find two wavenumbers to interpolate between
         i1, i2 = get_neighboring_wavenumber_indices(sol, k)
         k1 = sol.ks[i1]
         k2 = sol.ks[i2]
-        w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
 
         # Evaluate solutions for neighboring wavenumbers,
         # but reuse those from the previous iteration if we are still between the same neighboring wavenumbers
         if i1 != i1_prev
             v1 .= sol.pts[i1](ts; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
-            v2 .= sol.pts[i2](ts; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
             i1_prev = i1
         end
-        v = v1 + (v2 - v1) * w
+        if i2 != i2_prev
+            v2 .= sol.pts[i2](ts; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
+            i2_prev = i2
+        end
+        v = v1
+        if i1 != i2
+            # interpolate between solutions
+            w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
+            v += (v2 - v1) * w # add to v1 from above
+        end
         for ii in eachindex(is)
             out[ik, :, ii] = v[ii, :]
         end
@@ -313,10 +334,10 @@ end
 
 # TODO: change argument order to join with previous
 function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
-    tmin, tmax = extrema(sol[SymBoltz.t])
-    ts = exp.(range(log(tmin), log(tmax), length = 1000)) # TODO: select from solution
+    k = k_dimensionless.(k, sol.bg.ps[:h])
+    ts = get_neighboring_common_timeseries(sol, k)
     xs = sol(ts, tvar)
-    ts = CubicSpline(ts, xs; extrapolate=true)(t)
+    ts = spline(ts, xs)(t)
     return sol(k, ts, idxs)
 end
 

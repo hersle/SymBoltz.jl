@@ -7,10 +7,7 @@ function get_ts(sol::CosmologySolution, Nextra)t
 end
 function get_ts(sol::CosmologySolution, k, Nextra)
     k = k_dimensionless.(k, sol.bg.ps[:h])
-    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
-    i1 = max(i1, 1)
-    t1, t2 = sol[i1, t], sol[i2, t]
-    ts = sort!(unique!([t1; t2]))
+    ts = get_neighboring_common_timeseries(sol, k)
     return extend_ts(ts, Nextra)
 end
 function extend_ts(ts, Nextra)
