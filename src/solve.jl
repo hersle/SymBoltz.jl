@@ -264,9 +264,9 @@ function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
 end
 
 function (sol::CosmologySolution)(k::Number, t, idxs)
-    k = k_dimensionless(k, sol.bg.ps[:h])
+    isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
 
-    isempty(sol.ks) && throw(error("no perturbations solved for; pass ks to solve()"))
+    k = k_dimensionless(k, sol.bg.ps[:h])
 
     i1, i2 = get_neighboring_wavenumber_indices(sol, k)
 
