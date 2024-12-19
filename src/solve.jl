@@ -187,7 +187,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
-    pars[k] = NaN
+    pars = merge(pars, Dict(k => NaN)) # must be set, even for the uninitialized problem
     ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse)
 
     # If the thermodynamics solution should be splined,
