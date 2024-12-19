@@ -29,6 +29,8 @@ pars = SymBoltz.parameters_Planck18(M)
     @test size(sol(ks, ts, is)) == (nk, nt, ni)
     @test_throws "outside range" sol(ks[begin]-1, ts, is)
     @test_throws "outside range" sol(ks[end]+1, ts, is)
+    @test_throws "before initial time" sol(ks[1], sol[M.t][begin]-1, is)
+    @test_throws "after final time" sol(ks[1], sol[M.t][end]+1, is)
 
     # TODO: also test array indexing
 end

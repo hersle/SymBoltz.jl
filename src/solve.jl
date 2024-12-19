@@ -256,49 +256,48 @@ function (sol::CosmologySolution)(t, idxs)
 end
 
 function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
-    kmin, kmax = extrema(sol.ks)
-    (kmin <= k <= kmax) || throw(error("k = $k is outside range ($kmin, $kmax)"))
-    i2 = searchsortedfirst(sol.ks, k) # index above target k
-    i1 = i2 - 1 # index below target k ()
+    i2 = max(searchsortedfirst(sol.ks, k), 2) # index above target k (or 2nd index if k == kmin)
+    i1 = i2 - 1 # index below target k (or 1st index if k == kmin)
     return i1, i2
 end
 
-function (sol::CosmologySolution)(k::Number, t, idxs)
+function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray)
+    ks = k_dimensionless.(ks, sol.bg.ps[:h])
     isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
+    minimum(ks) >= sol.ks[begin] || throw("Requested wavenumber k = $(minimum(ks)) is outside solved range k ≥ $(sol.ks[begin])")
+    maximum(ks) <= sol.ks[end]   || throw("Requested wavenumber k = $(maximum(ks)) is outside solved range k ≤ $(sol.ks[end])")
+    minimum(ts) >= sol.th.t[begin] || throw("Requested time t = $(minimum(ts)) is before initial time $(sol.th.t[begin])")
+    maximum(ts) <= sol.th.t[end]   || throw("Requested time t = $(maximum(ts)) is before final time $(sol.th.t[end])")
 
-    k = k_dimensionless(k, sol.bg.ps[:h])
+    # Pre-allocate output
+    T = eltype(sol.pts[1])
+    out = zeros(T, length(ks), length(ts), length(is))
 
-    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
-
-    v2 = sol.pts[i2](t; idxs)
-    if i1 == 0
-        # k == kmin, no interpolation necessary
-        v = v2
-    else
-        # k > kmin, linearly interpolate between k1 and k2
-        v1 = sol.pts[i1](t; idxs)
+    for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
+        k = ks[ik]
+        # Find two wavenumbers to interpolate between
+        i1, i2 = get_neighboring_wavenumber_indices(sol, k)
         k1 = sol.ks[i1]
         k2 = sol.ks[i2]
-        v = @. v1 + (v2 - v1) * (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoother when interpolated in log(k) # TODO: use cubic spline?
-    end
+        w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
 
-    if t isa AbstractArray
-        v = v.u
-        if idxs isa AbstractArray
-            v = permutedims(stack(v))
+        # TODO: cache if consecutive ks reuse same solutions for interpolation
+        v1 = sol.pts[i1](ts; idxs=is) # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+        v2 = sol.pts[i2](ts; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
+        v = v1 + (v2 - v1) * w
+        for ii in eachindex(is)
+            out[ik, :, ii] = v[ii, :]
         end
     end
-    return v
-end
 
-function (sol::CosmologySolution)(k::AbstractArray, t, idxs)
-    v = sol.(k, Ref(t), Ref(idxs))
-    if t isa AbstractArray && idxs isa AbstractArray
-        v = stack(v; dims=1)
-    elseif t isa AbstractArray || idxs isa AbstractArray
-        v = permutedims(stack(v))
-    end
-    return v
+    return out
+end
+function (sol::CosmologySolution)(ks, ts, is)
+    ks_arr, ks_outi = ks isa Number ? ([ks], 1) : (ks, Colon())
+    ts_arr, ts_outi = ts isa Number ? ([ts], 1) : (ts, Colon())
+    is_arr, is_outi = is isa Number ? ([is], 1) : (is, Colon())
+    out = sol(ks_arr, ts_arr, is_arr) # convert to all-array call
+    return out[ks_outi, ts_outi, is_outi] # pick out dimensions for scalar ks/ts/is
 end
 
 function (sol::CosmologySolution)(tvar::Num, t, idxs)
