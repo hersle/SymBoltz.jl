@@ -245,8 +245,9 @@ Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
-    minimum(ts) >= sol.th.t[begin] || throw("Requested time t = $(minimum(ts)) is before initial time $(sol.th.t[begin])")
-    maximum(ts) <= sol.th.t[end]   || throw("Requested time t = $(maximum(ts)) is before final time $(sol.th.t[end])")
+    tmin, tmax = extrema(sol.th.t)
+    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
+    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
 
@@ -273,10 +274,12 @@ end
 function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray)
     ks = k_dimensionless.(ks, sol.bg.ps[:h])
     isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
-    minimum(ks) >= sol.ks[begin] || throw("Requested wavenumber k = $(minimum(ks)) is outside solved range k ≥ $(sol.ks[begin])")
-    maximum(ks) <= sol.ks[end]   || throw("Requested wavenumber k = $(maximum(ks)) is outside solved range k ≤ $(sol.ks[end])")
-    minimum(ts) >= sol.th.t[begin] || throw("Requested time t = $(minimum(ts)) is before initial time $(sol.th.t[begin])")
-    maximum(ts) <= sol.th.t[end]   || throw("Requested time t = $(maximum(ts)) is before final time $(sol.th.t[end])")
+    kmin, kmax = extrema(sol.ks)
+    minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
+    maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
+    tmin, tmax = extrema(sol.th.t)
+    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
+    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
 
     # Pre-allocate intermediate and output arrays
     T = eltype(sol.pts[1])
