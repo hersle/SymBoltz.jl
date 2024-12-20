@@ -151,7 +151,7 @@ sols = Dict(
     "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
     "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
-    #"θmν" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)), # TODO: correct???
+    "θh" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)),
     "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.F[2] / 2]),
     "σν" => (sol1["pt"]["shear_ur"], sol2[1, M.ν.F[2] / 2]),
     "P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.G[0]]),
@@ -284,7 +284,7 @@ plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
-plot_compare("a_pt", ["θb", "θc", "θγ", "θν"]; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true) # hide
 ```
 ```@example class
 plot_compare("a_pt", ["σγ", "σν"]; lgx=true) # hide

@@ -192,7 +192,7 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     pars = @parameters m T₀ x[1:nx] W[1:nx] # Ω₀ ρ₀ y₀
-    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] Iρ(t) IP(t) Iδρ(t)
+    vars = @variables ρ(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) u(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] In(t) Iρ(t) IP(t) Iδρ(t)
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
@@ -201,7 +201,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     eqs0 = [
         T ~ T₀ / g.a
         y ~ m*c^2 / (kB*T)
-        # TODO: can also compute number density n
+        In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
         IP ~ ∫dx_x²_f₀(x.^2 ./ E)
         ρ ~ 2/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / (g.H₀^2*c^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
@@ -211,7 +211,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     eqs1 = [
         Iδρ ~ ∫dx_x²_f₀(E .* ψ[:,0])
         δ ~ Iδρ / Iρ
-        # TODO: θ
+        u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
+        θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
         cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,0]) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
     ] .|> O(ϵ^1)
