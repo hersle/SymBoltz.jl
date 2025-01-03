@@ -53,3 +53,10 @@ end
     @test SymBoltz.extend_array(1.0:1.0:3.0, 0) == 1.0:1.0:3.0
     @test SymBoltz.extend_array(1.0:1.0:3.0, 4) == 1.0:0.2:3.0
 end
+
+@testset "Timeseries" begin
+    sol = solve(M, pars)
+    ts = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(t))
+    @test sol(ts, M.g.a) isa AbstractArray # should be in bounds
+end
+

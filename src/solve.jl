@@ -348,7 +348,13 @@ function timeseries(sol::CosmologySolution, k; kwargs...)
     return timeseries(ts; kwargs...)
 end
 function timeseries(ts::AbstractArray; Nextra = 0)
-    return Nextra == 0 ? ts : exp.(extend_array(log.(ts), Nextra))
+    if Nextra == 0
+        return ts
+    end
+    ts_new = exp.(extend_array(log.(ts), Nextra))
+    ts_new[begin] = ts[begin] # ensure exp(log(t)) transformation
+    ts_new[end] = ts[end] # # leaves original endpoints intact (for bounds checking)
+    return ts_new
 end
 """
     timeseries(sol::CosmologySolution, var, val)
