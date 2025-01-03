@@ -136,6 +136,13 @@ function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol 
     end
     check_solution(bg_sol.retcode)
 
+    # Remove duplicate endpoints
+    if bg_sol.t[end] == bg_sol.t[end-1]
+        ilast = length(bg_sol.t)
+        deleteat!(bg_sol.t, ilast)
+        deleteat!(bg_sol.u, ilast)
+    end
+
     # Then solve thermodynamics forwards till today
     if thermo
         iini = backwards ? length(bg_sol) : 1 # index corresponding to earliest time
