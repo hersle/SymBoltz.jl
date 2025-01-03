@@ -12,31 +12,29 @@ Compute the primordial power spectrum with amplitude `As` at the wavenumber(s) `
 """
 spectrum_primordial(k; As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
 
-# TODO: compute P(k, z) at arbitrary time
 """
-    spectrum_matter(sol::CosmologySolution, k)
+    spectrum_matter(sol::CosmologySolution, k[, t])
 
-Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k`.
+Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` and conformal time(s) `t` (final, if omitted).
 """
-function spectrum_matter(sol::CosmologySolution, k; species = [:c, :b, :h])
-    tend = sol[t][end]
+function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [:c, :b, :h])
     M = sol.M
     species = getproperty.(M, filter(s -> have(M.sys, s), species))
     ρm = sum(s.ρ for s in species)
     Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
     P0 = spectrum_primordial(k)
-    return P0 .* sol(k, tend, Δm^2) # Baumann (4.4.172)
+    return P0 .* sol(k, t, Δm^2) # Baumann (4.4.172)
 end
 
 """
-    spectrum_matter(M::CosmologyModel, pars, k; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+    spectrum_matter(M::CosmologyModel, pars, k[, t]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
 
-Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k`.
+Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `t` (final, of omitted).
 The `solver` and other `kwargs` are passed to `solve`.
 """
-function spectrum_matter(M::CosmologyModel, pars, k; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+function spectrum_matter(M::CosmologyModel, pars, k, t = sol[t][end]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
     sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
-    return spectrum_matter(sol, k; species)
+    return spectrum_matter(sol, k, t; species)
 end
 
 """
