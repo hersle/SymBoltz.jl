@@ -77,7 +77,7 @@ have(s) = !isnothing(s) # shorthand for checking if we have a given species
 function spline(y, x; extrapolate=true)
     dx = diff(x)
     dx[end] == 0 && return spline(y[begin:end-1], x[begin:end-1]) # endpoints are duplicated when ODE solver ends with callback; in that case remove it
-    all(diff(x) .< 0) && return spline(reverse!(y), reverse!(x)) # reverse if monotonically decreasing
+    all(diff(x) .< 0) && return spline(reverse(y), reverse(x)) # reverse if monotonically decreasing
     all(diff(x) .> 0) || error("x is not monotonically increasing")
     return CubicSpline(y, x; extrapolate)
 end

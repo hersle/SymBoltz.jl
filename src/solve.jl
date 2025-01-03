@@ -357,15 +357,27 @@ function timeseries(ts::AbstractArray; Nextra = 0)
     return ts_new
 end
 """
-    timeseries(sol::CosmologySolution, var, val)
+    timeseries(sol::CosmologySolution, var, val::Number)
 
-Get the time(s) when some variable equals some value.
+Find the time(s) when some variable equals some value with root finding.
 """
-function timeseries(sol::CosmologySolution, var, val) # TODO: also with splining
+function timeseries(sol::CosmologySolution, var, val::Number)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
     f(t) = sol(t, var) - val # var(t) == val when f(t) == 0
     tspan = extrema(sol[t])
     return find_zero(f, tspan)
+end
+"""
+    timeseries(sol::CosmologySolution, var, vals::AbstractArray)
+
+Find the times when some variable equals some values with splining.
+"""
+function timeseries(sol::CosmologySolution, var, vals::AbstractArray; kwargs...)
+    ts = timeseries(sol; kwargs...)
+    xs = sol(ts, var)
+    spl = spline(ts, xs)
+    ts = spl(vals)
+    return ts
 end
 
 """

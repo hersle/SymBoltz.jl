@@ -58,5 +58,9 @@ end
     sol = solve(M, pars)
     ts = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(t))
     @test sol(ts, M.g.a) isa AbstractArray # should be in bounds
+
+    ts1 = SymBoltz.timeseries.(sol, M.g.z, [0, 9, 99]) # invert z to t with root finding
+    ts2 = SymBoltz.timeseries(sol, M.g.z, [0, 9, 99]; Nextra=9) # invert z to t with splining (need points for accuracy)
+    @test all(ts1 .≈ ts2)
 end
 
