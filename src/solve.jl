@@ -252,12 +252,14 @@ Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
-    minimum(ts) >= sol.th.t[begin] || throw("Requested time t = $(minimum(ts)) is before initial time $(sol.th.t[begin])")
-    maximum(ts) <= sol.th.t[end]   || throw("Requested time t = $(maximum(ts)) is before final time $(sol.th.t[end])")
+    tmin, tmax = extrema(sol.th.t[[begin, end]])
+    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
+    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
 
-function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
+function neighboring_modes_indices(sol::CosmologySolution, k)
+    k = k_dimensionless.(k, sol.bg.ps[:h])
     if k == sol.ks[begin] # k == kmin
         i1 = i2 = 1
     elseif k == sol.ks[end] # k == kmax
@@ -267,14 +269,6 @@ function get_neighboring_wavenumber_indices(sol::CosmologySolution, k)
         i1 = i2 - 1 # index below target k
     end
     return i1, i2
-end
-
-function get_neighboring_common_timeseries(sol::CosmologySolution, k)
-    i1, i2 = get_neighboring_wavenumber_indices(sol, k)
-    t1s = sol[i1, t]
-    t2s = sol[i2, t]
-    ts = sort!(unique!([t1s; t2s])) # average or interleave?
-    return ts
 end
 
 function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray)
@@ -295,7 +289,7 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
         k = ks[ik]
         # Find two wavenumbers to interpolate between
-        i1, i2 = get_neighboring_wavenumber_indices(sol, k)
+        i1, i2 = neighboring_modes_indices(sol, k)
         k1 = sol.ks[i1]
         k2 = sol.ks[i2]
 
@@ -333,21 +327,40 @@ function (sol::CosmologySolution)(args...)
 end
 
 function (sol::CosmologySolution)(tvar::Num, t, idxs)
-    ts = sol[SymBoltz.t]
-    xs = sol(ts, tvar)
-    ts = spline(ts, xs)(t)
+    ts = timeseries.(sol, tvar, t)
     return sol(ts, idxs)
 end
 
-# TODO: change argument order to join with previous
 function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
-    k = k_dimensionless.(k, sol.bg.ps[:h])
-    ts = get_neighboring_common_timeseries(sol, k)
-    xs = sol(ts, tvar)
-    ts = spline(ts, xs)(t)
+    ts = timeseries.(sol, tvar, t)
     return sol(k, ts, idxs)
 end
 
+function timeseries(sol::CosmologySolution; kwargs...)
+    ts = sol[t]
+    return timeseries(ts; kwargs...)
+end
+function timeseries(sol::CosmologySolution, k; kwargs...)
+    i1, i2 = neighboring_modes_indices(sol, k)
+    t1s = sol[i1, t]
+    t2s = sol[i2, t]
+    ts = sort!(unique!([t1s; t2s])) # average or interleave?
+    return timeseries(ts; kwargs...)
+end
+function timeseries(ts::AbstractArray; Nextra = 0)
+    return Nextra == 0 ? ts : exp.(extend_array(log.(ts), Nextra))
+end
+"""
+    timeseries(sol::CosmologySolution, var, val)
+
+Get the time(s) when some variable equals some value.
+"""
+function timeseries(sol::CosmologySolution, var, val) # TODO: also with splining
+    allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
+    f(t) = sol(t, var) - val # var(t) == val when f(t) == 0
+    tspan = extrema(sol[t])
+    return find_zero(f, tspan)
+end
 
 """
     shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
