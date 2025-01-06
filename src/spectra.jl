@@ -166,8 +166,8 @@ function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::Abstr
     # Polarization contribution requires numerical derivative, so it is added manually
     @tasks for ik in eachindex(ks)
         k = ks[ik]
-        vΠ = v .* Π[ik, :]
-        Ss[ik, :] .+= vΠ / 4 + 3/(4*k^2) * D_spline(vΠ, ts; order=2) / 4 # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π? do I also need it in v*Π/4?
+        vΠ = v .* Π[ik, :] / 4 # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π?
+        Ss[ik, :] .+= vΠ / 4 + 3/(4*k^2) * D_spline(vΠ, ts; order=2)
     end
 
     # HACK: fix 2nd spline derivative error
