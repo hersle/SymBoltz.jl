@@ -239,7 +239,7 @@ end
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
     if ModelingToolkit.isparameter(i) && i !== t # don't catch independent variable as parameter
-        return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly?
+        return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
     else
         return sol.th[i]
     end

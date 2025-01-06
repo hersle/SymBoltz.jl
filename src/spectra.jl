@@ -143,7 +143,7 @@ function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, 
         end
         for il in eachindex(ls)
             integrand = @view ∂I_∂lnt[il,:]
-            Is[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting I(tini) # TODO: calculate ∂Θ_∂logΘ and use Even() methods
+            Is[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting I(tini)
         end
     end
 
