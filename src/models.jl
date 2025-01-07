@@ -1,13 +1,14 @@
 """
     ΛCDM(;
         recombination = true,
+        reionization = true,
         g = metric(),
         G = general_relativity(g),
         γ = photons(g),
         ν = massless_neutrinos(g),
         h = massive_neutrinos(g),
         c = cold_dark_matter(g; name = :c),
-        b = baryons(g; recombination, name = :b),
+        b = baryons(g; recombination, reionization, name = :b),
         Λ = cosmological_constant(g),
         kwargs...
     )
@@ -17,6 +18,7 @@ Create a ΛCDM model.
 function ΛCDM(;
     lmax = 6,
     recombination = true,
+    reionization = true,
     acceleration = false,
     Λanalytical = false,
     g = metric(),
@@ -25,7 +27,7 @@ function ΛCDM(;
     ν = massless_neutrinos(g; lmax),
     h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
-    b = baryons(g; recombination, name = :b),
+    b = baryons(g; recombination, reionization, name = :b),
     Λ = cosmological_constant(g; analytical = Λanalytical),
     name = :ΛCDM,
     kwargs...

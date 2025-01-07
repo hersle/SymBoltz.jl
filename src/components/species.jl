@@ -259,11 +259,11 @@ end
 
 Create a particle species for baryons in the spacetime with metric `g`.
 """
-function baryons(g; recombination=true, name = :b, kwargs...)
+function baryons(g; recombination = true, reionization = true, name = :b, kwargs...)
     description = "Baryons"
     b = matter(g; θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: dont add recombination system when recombination = false
-        @named rec = thermodynamics_recombination_recfast(g)
+        @named rec = thermodynamics_recombination_recfast(g; reionization)
     else
         vars = @variables τ(t) τ̇(t) ρb(t) Tγ(t) cₛ²(t)
         @named rec = ODESystem([τ ~ 0, τ̇ ~ 0, cₛ² ~ 0], t, vars, [])

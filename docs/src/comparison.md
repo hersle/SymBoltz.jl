@@ -58,7 +58,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => 1,
         "recfast_Heswitch" => 6,
-        "reio_parametrization" => "reio_none", # TODO: enable
+        "reio_parametrization" => "reio_camb",
 
         # cold dark matter
         "Omega_cdm" => pars[M.c.Ω₀],
@@ -208,7 +208,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
         y1, y2 = sols[ylabel]
         y1 = y1[i1s]
         y2 = y2[i2s]
-        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "", legend_position = :topright)
+        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "")
         plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
 
         # TODO: use built-in CosmoloySolution interpolation

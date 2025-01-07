@@ -1,26 +1,14 @@
-# TODO: add again
-function reionization_tanh(g, z0, Δz0, Xe0; kwargs...)
-    y(z) = (1+z)^(3/2)
-    Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
-    @variables Xe(t) z(t) T(t) ne(t) nb(t) nγ(t)
-    @parameters Y
-    @named base = ODESystem(Equation[], t, [T, ne, nb, nγ], [Y])
-    return extend(ODESystem([
-        z ~ 1/g.a - 1
-        Xe ~ smoothifelse(y(z0)-y(z), 0, Xe0; k=1/Δy(z0, Δz0)) # smooth step from 0 to Xe0
-    ], t; kwargs...), base)
-end
-
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
-function thermodynamics_recombination_recfast(g; kwargs...)
-    @parameters Yp fHe # fHe = nHe/nH
+function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
+    @parameters Yp fHe re1z re2z
     @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cₛ²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
     @variables αHe3(t) βHe3(t) τHe3(t) pHe3(t) CHe3(t) γ2Pt(t) # Helium triplet correction
     @variables DXHe⁺_singlet(t) DXHe⁺_triplet(t)
+    @variables re1Xe(t) re2Xe(t)
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
@@ -40,10 +28,18 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         Tb ~ Tγ
     ]
     defaults = [
-        fHe => Yp / (mHe/mH*(1-Yp))
+        fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
         τ => 0.0
+        re1z => 7.6711
+        re2z => 3.5
     ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
+
+    # reionization utility functions
+    y(z) = (1+z)^(3/2)
+    Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
+    smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+
     return ODESystem([
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
@@ -94,18 +90,22 @@ function thermodynamics_recombination_recfast(g; kwargs...)
         RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
 
+        # reionization
+        re1Xe ~ reionization ? smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) : 0 # 1st reionization: H⁺ and He⁺ simultaneously
+        re2Xe ~ reionization ? smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) : 0 # 2nd reionization: He⁺⁺
+
         # electrons
-        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
         τ̇ ~ -g.a/g.H₀ * ne * σT * c # common optical depth τ
         D(τ) ~ τ̇
         v ~ D(exp(-τ)) # visibility function
         v̇ ~ D(v)
-        v̈ ~ D(v̇)
+        v̈ ~ 0 # D(v̇) # TODO: structural_simplify() crashes when this is included
         τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
-        τ⃛ ~ D(τ̈) # TODO: unstable at thermodynamics stage
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, τ⃛, v, v̇, v̈, Tb, Tγ, μ, cₛ²], [Yp, fHe]; initialization_eqs, defaults, description, kwargs...)
+        τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, τ⃛, v, v̇, v̈, Tb, Tγ, μ, cₛ², re1Xe, re2Xe], [Yp, fHe, re1z, re2z]; initialization_eqs, defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
