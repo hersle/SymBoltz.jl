@@ -23,8 +23,8 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     ] .|> O(ϵ^1)
     adiabatic && push!(eqs1, O(ϵ^1)(cₛ² ~ w))
     ics1 = [
-        δ ~ -3/2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
-        θ ~ 1/2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
+        θ ~ 1//2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     defs = analytical ? [ρ₀ => 3/(8*Num(π)) * Ω₀] : Dict()
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
@@ -93,8 +93,8 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         σ ~ 0 # shear stress
     ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
     ics1 = [
-        δ ~ -3/2 * (1+w) * g.Ψ
-        θ ~ 1/2 * (k^2*t) * g.Ψ
+        δ ~ -3//2 * (1+w) * g.Ψ
+        θ ~ 1//2 * (k^2*t) * g.Ψ
     ] .|> SymBoltz.O(ϵ^1)
     description = "w₀wₐ (CPL) dark energy"
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, description, kwargs...)
@@ -122,7 +122,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / t * F[lmax] + τ̇ * F[lmax]
         δ ~ F[0]
-        θ ~ 3/4*k*F[1]
+        θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         Π ~ F[2] + G[0] + G[2]
         Π̇ ~ D(Π)
@@ -130,7 +130,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
-        θ ~ 1/2 * (k^2*t) * g.Ψ # Dodelson (7.95)
+        θ ~ 1//2 * (k^2*t) * g.Ψ # Dodelson (7.95)
         F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
@@ -170,14 +170,14 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax]...
         F[lmax+1] ~ (2*lmax+1) / (k*t) * F[lmax] - F[lmax-1]
         δ ~ F[0]
-        θ ~ 3/4*k*F[1]
+        θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         ν.cₛ² ~ 1//3
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 1/2 * (k^2*t) * g.Ψ
-        σ ~ 1/15 * (k*t)^2 * g.Ψ
+        θ ~ 1//2 * (k^2*t) * g.Ψ
+        σ ~ 1//15 * (k*t)^2 * g.Ψ
         [F[l] ~ 0 #=1/(2*l+1) * k*t * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
     description = "Massless neutrinos"
@@ -259,11 +259,11 @@ end
 
 Create a particle species for baryons in the spacetime with metric `g`.
 """
-function baryons(g; recombination=true, name = :b, kwargs...)
+function baryons(g; recombination = true, reionization = true, name = :b, kwargs...)
     description = "Baryons"
     b = matter(g; θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: dont add recombination system when recombination = false
-        @named rec = thermodynamics_recombination_recfast(g)
+        @named rec = thermodynamics_recombination_recfast(g; reionization)
     else
         vars = @variables τ(t) τ̇(t) ρb(t) Tγ(t) cₛ²(t)
         @named rec = ODESystem([τ ~ 0, τ̇ ~ 0, cₛ² ~ 0], t, vars, [])

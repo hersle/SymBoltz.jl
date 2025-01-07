@@ -4,7 +4,7 @@
 Create a symbolic component for the perturbed FLRW spacetime metric in the conformal Newtonian gauge with sign signature diag(-1, +1, +1, +1).
 """
 function metric(; name = :g, kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ, Φ′, Ψ′, g₁₁, g₂₂, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) Φ′(t) Ψ′(t) g₁₁(t) g₂₂(t) z(t))
+    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g₁₁, g₂₂, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g₁₁(t) g₂₂(t) z(t))
     pars = H₀, h = GlobalScope.(@parameters H₀ h)
     defs = [
         H₀ => H100 * h
@@ -19,7 +19,5 @@ function metric(; name = :g, kwargs...)
         H ~ E * H₀
         g₁₁ ~ a^2 * (-1 - 2*ϵ*Ψ)
         g₂₂ ~ a^2 * (+1 - 2*ϵ*Φ)
-        Φ′ * ϵ ~ D(Φ) * ϵ # TODO: why unstable at early times?
-        Ψ′ * ϵ ~ D(Ψ) * ϵ # TODO: why unstable at early times?
     ], t, vars, pars; defaults = defs, name, description, kwargs...)
 end
