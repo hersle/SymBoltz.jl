@@ -35,12 +35,16 @@ struct CosmologyModel
 end
 
 function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
-    if debug
-        sys = debugize(sys) # TODO: make work with massive neutrinos
-    end
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys; spline_thermo))
+
+    if debug
+        bg = debug_system(bg)
+        th = debug_system(th)
+        pt = debug_system(pt)
+    end
+
     sys = complete(sys; flatten = false)
     return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
 end
