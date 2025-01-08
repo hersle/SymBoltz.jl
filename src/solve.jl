@@ -1,3 +1,4 @@
+import Base: nameof
 import CommonSolve: solve
 import SymbolicIndexingInterface: setp # all_variable_symbols, getname
 import OhMyThreads: TaskLocalValue
@@ -55,6 +56,7 @@ function Base.getproperty(M::CosmologyModel, prop::Symbol)
 end
 
 # Forward inspection functions to full system
+nameof(M::CosmologyModel) = nameof(M.sys)
 equations(M::CosmologyModel) = equations(M.sys)
 observed(M::CosmologyModel) = observed(M.sys)
 unknowns(M::CosmologyModel) = unknowns(M.sys)
@@ -70,22 +72,31 @@ struct CosmologySolution
     th::ODESolution
     ks::AbstractArray
     pts::Union{EnsembleSolution, Nothing}
+    pars::Dict
 end
 
 solvername(alg) = string(nameof(typeof(alg)))
 solvername(alg::CompositeAlgorithm) = join(solvername.(alg.algs), "+")
 
 function Base.show(io::IO, sol::CosmologySolution)
-    print(io, "Cosmology solution with stages")
+    print(io, "Cosmology solution for model ")
+    printstyled(io, nameof(sol.M), '\n'; bold = true)
+
+    printstyled(io, "Parameters:\n"; bold = true)
+    for (par, val) in sol.pars
+        print(io, "  $par = $val\n")
+    end
+
+    printstyled(io, "Stages:"; bold = true)
     print(io, "\n  1. background: solved with $(solvername(sol.bg.alg)), $(length(sol.bg)) points")
     if !isnothing(sol.th)
         print(io, "\n  2. thermodynamics: solved with $(solvername(sol.th.alg)), $(length(sol.th)) points")
     end
     if !isnothing(sol.pts)
-        kmin, kmax = extrema(map(pt -> pt.prob.ps[SymBoltz.k], sol.pts))
-        nmin, nmax = extrema(map(pt -> length(pt), sol.pts))
+        kmin, kmax = extrema(sol.ks)
+        nmin, nmax = extrema(map(length, sol.pts))
         n = length(sol.pts)
-        print(io, "\n  3. perturbations: solved with $(solvername(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation in-between)")
+        print(io, "\n  3. perturbations: solved with $(solvername(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation between log(k))")
     end
 end
 
@@ -166,10 +177,9 @@ function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol 
         th_sol = bg_sol
     end
 
-    return CosmologySolution(M, bg_sol, th_sol, [], nothing)
+    return CosmologySolution(M, bg_sol, th_sol, [], nothing, pars)
 end
 
-# TODO: pass background solution to avoid recomputing it
 """
     solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
@@ -188,17 +198,16 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     th_sol = solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg, kwargs...)
     tini, tend = extrema(th_sol.th[t])
 
-
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
     kset! = setp(M.pt, M.k) # function that sets k on a problem
     ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
     ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
     ics0 = Dict(ics0)
-    pars = merge(pars, Dict(k => NaN)) # must be set, even for the uninitialized problem
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), pars; fully_determined = true, jac, sparse)
+    parsk = merge(pars, Dict(k => NaN)) # must be set, even for the uninitialized problem
+    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), parsk; fully_determined = true, jac, sparse)
 
     # If the thermodynamics solution should be splined,
-    # solve it again and update the spline parameters
+    # solve it again (if needed) and update the spline parameters
     if M.spline_thermo
         th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
         τspline = spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
@@ -209,8 +218,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
         ode_prob0 = remake(ode_prob0, u0 = newu0, p = newp)
     end
 
-    # TODO: just copy p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056
-    ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 # TODO: avoid copying whole problem
+    ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
         ode_prob = ode_prob_tlv[]
         verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
@@ -222,9 +230,8 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     for i in 1:length(ode_sols)
         check_solution(ode_sols[i].retcode)
     end
-    return CosmologySolution(M, th_sol.bg, th_sol.th, ks, ode_sols)
+    return CosmologySolution(M, th_sol.bg, th_sol.th, ks, ode_sols, pars)
 end
-
 function solve(M::CosmologyModel, pars, k::Number; kwargs...)
     return solve(M, pars, [k]; kwargs...)
 end
