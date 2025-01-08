@@ -264,8 +264,8 @@ Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     tmin, tmax = extrema(sol.th.t[[begin, end]])
-    minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
-    maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
+    minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
+    maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
 
@@ -362,13 +362,10 @@ function timeseries(sol::CosmologySolution, k; kwargs...)
     return timeseries(ts; kwargs...)
 end
 function timeseries(ts::AbstractArray; Nextra = 0)
-    if Nextra == 0
-        return ts
+    if Nextra > 0
+        ts = exp.(extend_array(log.(ts), Nextra))
     end
-    ts_new = exp.(extend_array(log.(ts), Nextra))
-    ts_new[begin] = ts[begin] # ensure exp(log(t)) transformation
-    ts_new[end] = ts[end] # # leaves original endpoints intact (for bounds checking)
-    return ts_new
+    return ts
 end
 """
     timeseries(sol::CosmologySolution, var, val::Number)
