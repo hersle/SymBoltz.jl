@@ -211,8 +211,8 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
         plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
 
         # TODO: use built-in CosmoloySolution interpolation
-        y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
-        y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
+        y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x)
+        y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
