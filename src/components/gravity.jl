@@ -26,7 +26,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
     ] .|> O(ϵ^1)
-    guesses = [ρ => 1, D(a) => +1]
+    guesses = [ρ => 0.1, D(a) => +1]
     description = "General relativity gravity"
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, guesses, name, description, kwargs...)
 end

@@ -7,7 +7,7 @@
 ```@example class
 using SymBoltz
 lmax = 6
-M = SymBoltz.ΛCDM(; lmax) # TODO: fix perturbations when massive neutrinos are present
+M = SymBoltz.ΛCDM(; lmax)
 pars = SymBoltz.parameters_Planck18(M)
 ```
 ```@setup class
@@ -189,7 +189,6 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
     xlab(x) = lgx ? "lg(|$x|)" : x
     ylab(y) = lgy ? "lg(|$y|)" : y
 
-    # TODO: relative or absolute comparison (of quantities close to 0)
     p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
     plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
     maxerr = 0.0
@@ -214,6 +213,8 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
         # TODO: use built-in CosmoloySolution interpolation
         y1 = LinearInterpolation(y1, x1; extrapolate=true).(x)
         y2 = LinearInterpolation(y2, x2; extrapolate=true).(x)
+
+        # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
         if abserr
             err = y2 .- y1
@@ -232,7 +233,6 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
         a = ceil(maxerr / 10^b)
         errlim = a * 10^b
     end
-    #println("maxerr = $maxerr ≈ $a * 10^$b")
     plot!(p[end], ylims = (-errlim, +errlim))
 
     return p
