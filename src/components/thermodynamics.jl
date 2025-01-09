@@ -15,7 +15,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     ΛHe = 51.3 # s⁻¹
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
-    λwtf = 260.0463e-9; fwtf = c/λwtf; Ewtf = h*fwtf # TODO: wtf is this?
     αH_fit(T; F=1.14, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor 1.14 here is equivalent to way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
@@ -75,7 +74,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         # He⁺ + e⁻ triplet recombination
         αHe3 ~ αHe3_fit(Tb)
-        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*Ewtf)
+        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*E_He_∞_2s_tri)
         τHe3 ~ A2Pt*nHe*(1-XHe⁺+1e-10)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
         pHe3 ~ (1 - exp(-τHe3)) / τHe3
         γ2Pt ~ abs(3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2) # abs to reduce chance for early-time crash # TODO: address properly

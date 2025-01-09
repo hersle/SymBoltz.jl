@@ -35,6 +35,8 @@ mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
                                                       E_He⁺_∞_1s = 54.4178 * eV
 
 # Helium triplet transitions # TODO: rename s,t to singlet,triplet?
+λ_He_∞_2s_tri = 260.0463e-9; f_He_∞_2s_tri = c/λ_He_∞_2s_tri; E_He_∞_2s_tri = h*f_He_∞_2s_tri # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV)
+
 λ_He_2p_1s_tri = 59.1411e-9; f_He_2p_1s_tri = c/λ_He_2p_1s_tri; E_He_2p_1s_tri = h*f_He_2p_1s_tri
 λ_He_2s_1s_tri = 62.5563e-9; f_He_2s_1s_tri = c/λ_He_2s_1s_tri; E_He_2s_1s_tri = h*f_He_2s_1s_tri
                                                                 E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
