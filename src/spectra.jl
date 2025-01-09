@@ -45,7 +45,7 @@ Compute the nonlinear matter power spectrum from the cosmology solution `sol` at
 """
 function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     P = spectrum_matter(sol, k)
-    lgPspl = CubicSpline(log.(ustrip(P)), log.(ustrip(k)); extrapolate=true)
+    lgPspl = spline(log.(ustrip(P)), log.(ustrip(k)))
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
     Ωm0 = sol[sol.M.c.Ω₀ + sol.M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
@@ -71,7 +71,7 @@ Wraps the implementation in MatterPower.jl.
 function variance_matter(sol::CosmologySolution, R)
     k = sol.ks
     P = spectrum_matter(sol, k)
-    lgPspl = CubicSpline(log.(P), log.(k); extrapolate=true)
+    lgPspl = spline(log.(P), log.(k))
     Pf(k) = exp(lgPspl(log(k)))
     R = 1 / k_dimensionless(1 / R, sol[sol.M.g.h]) # make dimensionless
     return MatterPower.sigma2(Pf, R)
@@ -289,7 +289,7 @@ Returns `N` radii and correlation function values (e.g. `r`, `ξ`).
 function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     ks = sol.ks
     if spline
-        P = CubicSpline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
+        P = spline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
     else
         P(k) = only(spectrum_matter(sol, k)) # use solution's built-in interpolation (elegant)
     end

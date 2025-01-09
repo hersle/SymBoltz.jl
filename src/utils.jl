@@ -74,12 +74,12 @@ end
 have(sys, s) = s in nameof.(ModelingToolkit.get_systems(sys))
 have(s) = !isnothing(s) # shorthand for checking if we have a given species
 
-function spline(y, x; extrapolate=true)
+function spline(y, x)
     dx = diff(x)
     dx[end] == 0 && return spline(y[begin:end-1], x[begin:end-1]) # endpoints are duplicated when ODE solver ends with callback; in that case remove it
     all(diff(x) .< 0) && return spline(reverse(y), reverse(x)) # reverse if monotonically decreasing
     all(diff(x) .> 0) || error("x is not monotonically increasing")
-    return CubicSpline(y, x; extrapolate)
+    return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
 end
 
 # compute dy/dx by splining y(x)
