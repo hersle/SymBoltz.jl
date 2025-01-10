@@ -29,6 +29,7 @@ function ΛCDM(;
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, reionization, name = :b),
     Λ = cosmological_constant(g; analytical = Λanalytical),
+    I = harrison_zeldovich(g; name = :I),
     name = :ΛCDM,
     kwargs...
 )
@@ -74,7 +75,7 @@ function ΛCDM(;
     end
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
-    M = compose(connections, g, G, species...)
+    M = compose(connections, g, G, species..., I)
     return CosmologyModel(M; initE, kwargs...)
 end
 

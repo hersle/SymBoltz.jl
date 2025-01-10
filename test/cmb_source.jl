@@ -24,17 +24,32 @@ plot!(p, log.(ts), transpose(S2); linestyle = :dash,  color = permutedims(1:leng
 # 2) LOS integration
 
 ks = k2s #range(extrema(k2s)..., length=1*length(k2s))
-lnts = range(-3.5, -2, step=0.005) # range(extrema(log.(sol1[M.t]))..., step=0.01)
+#lnts = range(-3.5, -2, step=0.005)
+lnts = range(extrema(log.(sol1[M.t]))..., step=0.01)
 S = SymBoltz.source_temperature(sol1, ks, exp.(lnts)) # sol2(ks, exp.(lnts), M.S)
 Θls = SymBoltz.los_integrate(S, ls, ks, lnts; t0 = sol1[M.t][end])
 
 plot(ks, Θls[:,10], xlims=(0, 100))
 
-# 3) CMB power spectrum
+# 3) Cl integrand
 
-P0s = SymBoltz.spectrum_primordial(ks)
+P0s = SymBoltz.spectrum_primordial(ks, sol1)
+#P0s = sol1(ks, sol1[M.t][begin], M.I.P)
+Cls = similar(Θls, length(ls))
+ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
+il = 1
+dCl_dks_with0 = zeros(eltype(Θls), length(ks_with0))
+@. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * Θls[:,il] * Θls[:,il]
+#Cls[il] = integrate(ks_with0[2:end], dCl_dks_with0[2:end], integrator) # integrate over k (_with0 adds one additional point at (0,0))
+
+plot(ks_with0, dCl_dks_with0; xlims=(0, 20))
+
+
+# 4) CMB power spectrum
 Cls = SymBoltz.spectrum_cmb(Θls, Θls, P0s, ls, ks)
 Dls = SymBoltz.Dl(Cls, ls)
+
+plot(log10.(ls), Dls)
 
 # 4) With varying precision parameters
 

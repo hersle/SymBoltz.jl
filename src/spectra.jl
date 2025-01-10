@@ -6,11 +6,23 @@ using TwoFAST
 using MatterPower
 
 """
-    spectrum_primordial(k; As=2e-9)
+    spectrum_primordial(k, h, As, ns=1.0)
 
 Compute the primordial power spectrum with amplitude `As` at the wavenumber(s) `k`.
 """
-spectrum_primordial(k; As=2e-9) = @. 2*π^2 / k^3 * As # TODO: add kpivot and ns # TODO: make separate InflationModel with these parameters
+function spectrum_primordial(k, h, As, ns=1.0)
+    P = @. 2*π^2 / k^3 * As
+
+    # compute k / kpivot with equal wavenumber units
+    k = k_dimensionless.(k, h)
+    kpivot = k_dimensionless(0.05 / u"Mpc", h)
+    @. P *= (k/kpivot)^(ns-1)
+    return P
+end
+function spectrum_primordial(k, sol::CosmologySolution)
+    M = sol.M
+    return spectrum_primordial(k, sol[M.g.h], sol[M.I.As], sol[M.I.ns])
+end
 
 """
     spectrum_matter(sol::CosmologySolution, k[, t])
@@ -22,8 +34,23 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
     species = getproperty.(M, filter(s -> have(M.sys, s), species))
     ρm = sum(s.ρ for s in species)
     Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
-    P0 = spectrum_primordial(k)
-    return P0 .* sol(k, t, Δm^2) # Baumann (4.4.172)
+
+    # convert P (through P0) to same units as 1/k^3
+    #=
+    P0 = sol(k, t, M.I.P)
+    kunit = only(unique(unit.(k)))
+    if kunit != NoUnits
+        H₀ = sol[M.g.H₀]
+        P0 *= (H₀/c / u"m")^(-3)
+        Punit = unit(1 / kunit^3)
+        P0 = uconvert.(Punit, P0)
+    end
+    =#
+
+    P0 = spectrum_primordial(k, sol)
+    P = P0 .* sol(k, t, Δm^2) # Baumann (4.4.172)
+
+    return P
 end
 
 """
@@ -224,11 +251,17 @@ end
 Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P0(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
 """
 function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
-    size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different size")
+    size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
     Cls = similar(ΘlAs, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
+
+    # Check that ks have constant spacing if integrator assumes it
+    if endswith(string(integrator), "Even()")
+        dks_with0 = diff(ks_with0)
+        minimum(dks_with0) ≈ maximum(dks_with0) || error("ks_with0 have non-uniform spacing (min=$(minimum(dks_with0)), max=$(maximum(dks_with0)))")
+    end
 
     @tasks for il in eachindex(ls)
         @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
@@ -248,7 +281,8 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
     _, ks_fine = cmb_ks(ls[end])
     ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
     ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
-    P0s = spectrum_primordial(ks_fine)
+    P0s = spectrum_primordial(ks_fine, sol) # more accurate
+    #P0s = sol(ks_fine, sol[t][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
     Cls = []
     for mode in modes
         mode == :TT && push!(Cls, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine))
@@ -273,8 +307,10 @@ spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args.
 
 function cmb_ks(lmax; Δk = 2π/12, Δk_S = 10.0, kmin = Δk, kmax = 1*lmax)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
-    ks_coarse = range(kmin, kmax, length = Int(floor((kmax-kmin)/Δk_S+1)))
-    ks_fine = range(ks_coarse[begin], ks_coarse[end], length = length(ks_coarse) * Int(floor(Δk_S/Δk))) # use integer multiple so endpoints are the same
+    ks_fine = range(kmin, kmax, step=Δk) # use integer multiple so endpoints are the same
+    ks_coarse = range(ks_fine[begin], ks_fine[end], length = Int(floor((kmax-kmin)/Δk_S+1)))
+    ks_coarse[begin] == ks_fine[begin] && ks_coarse[end] == ks_fine[end] || error("different wavenumber endpoints")
+    # kmax is a guideline and may be slightly different from ks_fine[end] and ks_coarse[end]
     return ks_coarse, ks_fine
 end
 

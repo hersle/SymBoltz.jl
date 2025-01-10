@@ -72,8 +72,8 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "l_max_ncdm" => lmax,
 
         # primordial power spectrum
-        "A_s" => 2e-9,
-        "n_s" => 1.0, # TODO
+        "A_s" => pars[M.I.As],
+        "n_s" => pars[M.I.ns],
 
         # other stuff
         "Omega_k" => 0.0,
@@ -179,7 +179,7 @@ sols = merge(sols, Dict(
     "Dl" => (Dls_class, Dls)
 ))
 
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errlim=NaN, alpha=1.0)
+function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errlim=NaN, alpha=1.0, kwargs...)
     if !(ylabels isa AbstractArray)
         ylabels = [ylabels]
     end
@@ -189,7 +189,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
     xlab(x) = lgx ? "lg(|$x|)" : x
     ylab(y) = lgy ? "lg(|$y|)" : y
 
-    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
+    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600), kwargs...)
     plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
     maxerr = 0.0
     for (i, ylabel) in enumerate(ylabels)
