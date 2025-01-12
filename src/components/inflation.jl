@@ -6,6 +6,8 @@ function harrison_zeldovich(g; kwargs...)
     ]
     defaults = [
         kpivot => 0.05 / (g.H₀/c) / Mpc
+        As => NaN # keep uninitialized if not needed
+        ns => NaN
     ]
     description = "Harrison-Zel'dovich inflation"
     return ODESystem(eqs, t; defaults, description, kwargs...)
