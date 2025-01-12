@@ -9,10 +9,11 @@ SymBoltz.spectrum_primordial
 #### Example
 
 ```@example
-# TODO: create InflationModel or something
 using SymBoltz, Unitful, UnitfulAstro, Plots
+M = SymBoltz.ΛCDM()
+pars = Dict(M.g.h => 0.7, M.I.As => 2e-9, M.I.ns => 0.95)
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-Ps = spectrum_primordial(ks; As = 2.1e-9)
+Ps = spectrum_primordial(ks, M, pars)
 plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
 ```
 

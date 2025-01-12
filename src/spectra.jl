@@ -23,6 +23,9 @@ function spectrum_primordial(k, sol::CosmologySolution)
     M = sol.M
     return spectrum_primordial(k, sol[M.g.h], sol[M.I.As], sol[M.I.ns])
 end
+function spectrum_primordial(k, M::CosmologyModel, pars::Dict)
+    return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
+end
 
 """
     spectrum_matter(sol::CosmologySolution, k[, t])
