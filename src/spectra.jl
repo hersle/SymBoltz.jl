@@ -328,7 +328,7 @@ Returns `N` radii and correlation function values (e.g. `r`, `ξ`).
 function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     ks = sol.ks
     if spline
-        P = spline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
+        P = SymBoltz.spline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
     else
         P(k) = only(spectrum_matter(sol, k)) # use solution's built-in interpolation (elegant)
     end
