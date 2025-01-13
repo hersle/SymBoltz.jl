@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting started · SymBoltz</title><meta name="title" content="Getting started · SymBoltz"/><meta property="og:title" content="Getting started · SymBoltz"/><meta property="twitter:title" content="Getting started · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Getting started</a><ul class="internal"><li><a class="tocitem" href="#1.-Create-the-model"><span>1. Create the model</span></a></li><li><a class="tocitem" href="#2.-Solve-the-model"><span>2. Solve the model</span></a></li><li><a class="tocitem" href="#3.-Access-the-solution"><span>3. Access the solution</span></a></li></ul></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Creating extended models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li></ul></li><li><span class="tocitem">Components and models</span><ul><li><a class="tocitem" href="../components/">Components</a></li><li><a class="tocitem" href="../models/">Models</a></li></ul></li><li><a class="tocitem" href="../solution/">Solution handling</a></li><li><a class="tocitem" href="../spectra/">Sources and spectra</a></li><li><a class="tocitem" href="../comparison/">Comparison to other codes</a></li><li><a class="tocitem" href="../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Getting started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/getting_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h1><p><a href="../#Installation">Install SymBoltz.jl</a> and load it with</p><pre><code class="language-julia hljs">using SymBoltz</code></pre><h2 id="1.-Create-the-model"><a class="docs-heading-anchor" href="#1.-Create-the-model">1. Create the model</a><a id="1.-Create-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Create-the-model" title="Permalink"></a></h2><p>The first step is to define our cosmological model. This is a symbolic representation of the variables and equations that describe the various components in the universe, such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons). It will be used both to create the numerical problem to solve, and to access variables in its solution.</p><p>To get started, we will simply load the standard ΛCDM model:</p><pre><code class="language-julia hljs">M = ΛCDM()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">Model ΛCDM:</span> Standard cosmological constant and cold dark matter cosmological model
-<span class="sgr1">Subsystems (8):</span> see hierarchy(ΛCDM)
+<span class="sgr1">Subsystems (9):</span> see hierarchy(ΛCDM)
   g: Spacetime FLRW metric in Newtonian gauge
   G: General relativity gravity
   γ: Photon radiation
   ν: Massless neutrinos
   ⋮
-<span class="sgr1">Equations (203):</span>
-  203 standard: see equations(ν)
-<span class="sgr1">Unknowns (125):</span> see unknowns(ν)
+<span class="sgr1">Equations (204):</span>
+  204 standard: see equations(ν)
+<span class="sgr1">Unknowns (126):</span> see unknowns(ν)
   S(t)
   S_SW(t)
   S_ISW(t)
   S_Dop(t)
   ⋮
-<span class="sgr1">Parameters (27):</span> see parameters(ν)
+<span class="sgr1">Parameters (30):</span> see parameters(ν)
   DEF
   C [defaults to 1//2]
   ϵ [defaults to 1]
@@ -37,31 +37,40 @@ pars = Dict(
     M.h.m =&gt; 0.06 * SymBoltz.eV / SymBoltz.c^2
 )
 ks = 10 .^ range(-5, 1, length=500) / u&quot;Mpc&quot;
-sol = solve(M, pars, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution with stages
+sol = solve(M, pars, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Parameters:</span>
+  c₊Ω₀ = 0.27
+  b₊Ω₀ = 0.05
+  γ₊T₀ = 2.7
+  h = 0.7
+  h₊m = 1.0695971529767385e-37
+  ν₊Neff = 3.0
+  b₊rec₊Yp = 0.25
+<span class="sgr1">Stages:</span>
   1. background: solved with Rodas4P, 43 points
-  2. thermodynamics: solved with Rodas4P, 9912 points
-  3. perturbations: solved with KenCarp4, 54-294 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation in-between)</code></pre><p>To solve only the background, you can simply omit the <code>ks</code> argument: <code>solve(prob, pars)</code>.</p><h2 id="3.-Access-the-solution"><a class="docs-heading-anchor" href="#3.-Access-the-solution">3. Access the solution</a><a id="3.-Access-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Access-the-solution" title="Permalink"></a></h2><p>You are now free to <a href="../solution/#Solution-handling">do whatever you want with the solution object</a>. For example, to get the reduced Hubble function <span>$E(t) = H(t) / H_0$</span> for 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
+  2. thermodynamics: solved with Rodas4P, 9923 points
+  3. perturbations: solved with KenCarp4, 53-294 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))</code></pre><p>To solve only the background, you can simply omit the <code>ks</code> argument: <code>solve(prob, pars)</code>.</p><h2 id="3.-Access-the-solution"><a class="docs-heading-anchor" href="#3.-Access-the-solution">3. Access the solution</a><a id="3.-Access-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Access-the-solution" title="Permalink"></a></h2><p>You are now free to <a href="../solution/#Solution-handling">do whatever you want with the solution object</a>. For example, to get the reduced Hubble function <span>$E(t) = H(t) / H_0$</span> for 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
 Es = sol(ts, M.g.E)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">300-element Vector{Float64}:
- 9.631469031315911e13
- 8.716249174464756e13
- 7.887996765262278e13
- 7.138447892233505e13
- 6.460123899672594e13
- 5.846256771711872e13
- 5.290721606364116e13
- 4.7879755058685195e13
- 4.333002273679021e13
- 3.92126236635987e13
+ 9.63146903361249e13
+ 8.716249180729352e13
+ 7.887996774720008e13
+ 7.138447904220934e13
+ 6.460123913623585e13
+ 5.846256787145029e13
+ 5.2907216228717836e13
+ 4.787975523107128e13
+ 4.333002291360595e13
+ 3.921262384244557e13
  ⋮
- 2.500584059440678
- 2.184348866696533
- 1.9143402473946927
- 1.684917752655286
- 1.4912490291958584
- 1.3292041728028277
- 1.195257522438768
- 1.0863915178041685
- 0.99999681236763</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 500 wavenumbers we solved for and the same 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">500×300 Matrix{Float64}:
+ 2.500584622509295
+ 2.1843493730405408
+ 1.9143407244533752
+ 1.6849181910647704
+ 1.491249435860648
+ 1.3292044931101479
+ 1.1952578519700106
+ 1.0863918379062172
+ 0.9999971977095476</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 500 wavenumbers we solved for and the same 300 log-spaced conformal times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">500×300 Matrix{Float64}:
  0.704214  0.704214  0.704214  …  0.529555    0.506154    0.47545
  0.704214  0.704214  0.704214     0.529555    0.506154    0.47545
  0.704214  0.704214  0.704214     0.529555    0.506153    0.47545
@@ -71,22 +80,22 @@ Es = sol(ts, M.g.E)</code></pre><pre class="documenter-example-output"><code cla
  0.704214  0.704214  0.704214     0.529554    0.506153    0.475449
  0.704214  0.704214  0.704214     0.529554    0.506153    0.475449
  0.704214  0.704214  0.704214     0.529554    0.506153    0.475449
- 0.704214  0.704214  0.704214     0.529554    0.506152    0.475448
+ 0.704214  0.704214  0.704214     0.529554    0.506152    0.475449
  ⋮                             ⋱                          
- 0.704214  0.7042    0.704187     4.02361e-5  3.84487e-5  3.61089e-5
- 0.704214  0.704199  0.704185     3.82945e-5  3.65934e-5  3.43665e-5
- 0.704214  0.704198  0.704184     3.64447e-5  3.4827e-5   3.27069e-5
- 0.704214  0.704197  0.704182     3.46843e-5  3.31437e-5  3.11265e-5
- 0.704214  0.704196  0.70418   …  3.30066e-5  3.15403e-5  2.96213e-5
- 0.704214  0.704195  0.704178     3.14093e-5  3.00151e-5  2.81882e-5
- 0.704214  0.704194  0.704176     2.9889e-5   2.85613e-5  2.68236e-5
- 0.704214  0.704193  0.704174     2.84417e-5  2.71785e-5  2.55242e-5
- 0.704214  0.704192  0.704171     2.70619e-5  2.58605e-5  2.4287e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+ 0.704214  0.7042    0.704187     4.02363e-5  3.8449e-5   3.61091e-5
+ 0.704214  0.704199  0.704185     3.8293e-5   3.65932e-5  3.43665e-5
+ 0.704214  0.704198  0.704184     3.64452e-5  3.48261e-5  3.27069e-5
+ 0.704214  0.704197  0.704182     3.4684e-5   3.31442e-5  3.11264e-5
+ 0.704214  0.704196  0.70418   …  3.30065e-5  3.15403e-5  2.96213e-5
+ 0.704214  0.704195  0.704178     3.1409e-5   3.00141e-5  2.81881e-5
+ 0.704214  0.704194  0.704176     2.98896e-5  2.85619e-5  2.68235e-5
+ 0.704214  0.704193  0.704174     2.84403e-5  2.71777e-5  2.55241e-5
+ 0.704214  0.704192  0.704171     2.7062e-5   2.58605e-5  2.4287e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(ts), transpose(Φs))</code>, but this is even easier with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
-plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="df912719.svg" alt="Example block output"/><p>We can also calculate the power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="5d9ea899.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="9263c71f.svg" alt="Example block output"/><p>We can also calculate the power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="e0c6112f.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
 Cls = spectrum_cmb(:TT, sol, ls)
-plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing)</code></pre><img src="96f89aed.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing)</code></pre><img src="3150d8a7.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
 plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
 plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
 plot!(p[3], sol, log10(M.g.a), log10(M.g.H / M.g.H₀))
@@ -95,4 +104,4 @@ plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
 plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
 plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
 plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
-plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="ff5c50ff.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Tuesday 7 January 2025 16:48">Tuesday 7 January 2025</span>. Using Julia version 1.11.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="119430e2.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 13 January 2025 11:16">Monday 13 January 2025</span>. Using Julia version 1.11.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
