@@ -24,10 +24,11 @@ function perturbations(sys; spline_thermo = true)
 end
 
 struct CosmologyProblem
-    pars::Dict
+    M::ODESystem
     bg::Union{ODEProblem, Nothing}
     th::Union{ODEProblem, Nothing}
     pt::Union{ODEProblem, Nothing}
+    pars::Dict
     spline_thermo::Bool
 end
 
@@ -93,7 +94,7 @@ function CosmologyProblem(M::ODESystem, pars; spline_thermo = true, debug = fals
     pt = ODEProblem(pt, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
 
     delete!(params, k) # remove k dummy
-    return CosmologyProblem(params, bg, th, pt, spline_thermo)
+    return CosmologyProblem(M, bg, th, pt, params, spline_thermo)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -358,4 +359,5 @@ function shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = Trus
 end
 
 # Fix model/solution under broadcasted calls
+Base.broadcastable(sys::ODESystem) = Ref(sys) # TODO: add to ModelingToolkit?
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)

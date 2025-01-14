@@ -20,10 +20,10 @@ function spectrum_primordial(k, h, As, ns=1.0)
     return P
 end
 function spectrum_primordial(k, sol::CosmologySolution)
-    M = sol.M
+    M = sol.prob.M
     return spectrum_primordial(k, sol[M.g.h], sol[M.I.As], sol[M.I.ns])
 end
-function spectrum_primordial(k, M::CosmologyModel, pars::Dict)
+function spectrum_primordial(k, M::ODESystem, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
 end
 
@@ -33,8 +33,8 @@ end
 Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` and conformal time(s) `t` (final, if omitted).
 """
 function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [:c, :b, :h])
-    M = sol.M
-    species = getproperty.(M, filter(s -> have(M.sys, s), species))
+    M = sol.prob.M
+    species = getproperty.(M, filter(s -> have(M, s), species))
     ρm = sum(s.ρ for s in species)
     Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
 
@@ -57,12 +57,12 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
 end
 
 """
-    spectrum_matter(M::CosmologyModel, pars, k[, t]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+    spectrum_matter(M::ODESystem, pars, k[, t]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
 
 Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `t` (final, of omitted).
 The `solver` and other `kwargs` are passed to `solve`.
 """
-function spectrum_matter(M::CosmologyModel, pars, k, t = nothing; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+function spectrum_matter(M::ODESystem, pars, k, t = nothing; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
     sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
     t = isnothing(t) ? sol[M.t][end] : t
     return spectrum_matter(sol, k, t; species)
@@ -78,7 +78,8 @@ function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     lgPspl = spline(log.(ustrip(P)), log.(ustrip(k)))
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
-    Ωm0 = sol[sol.M.c.Ω₀ + sol.M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
+    M = sol.prob.M
+    Ωm0 = sol[M.c.Ω₀ + M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
     Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
     PNL = Pf_halofit.(k)
 
@@ -99,11 +100,12 @@ Compute the variance ``⟨δ²⟩`` of the *linear* matter density field with a 
 Wraps the implementation in MatterPower.jl.
 """
 function variance_matter(sol::CosmologySolution, R)
+    M = sol.prob.M
     k = sol.ks
     P = spectrum_matter(sol, k)
     lgPspl = spline(log.(P), log.(k))
     Pf(k) = exp(lgPspl(log(k)))
-    R = 1 / k_dimensionless(1 / R, sol[sol.M.g.h]) # make dimensionless
+    R = 1 / k_dimensionless(1 / R, sol[M.g.h]) # make dimensionless
     return MatterPower.sigma2(Pf, R)
 end
 """
@@ -189,7 +191,7 @@ end
 Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
 """
 function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=true)
-    M = sol.M
+    M = sol.prob.M
     v = sol(ts, M.b.rec.v)
     out = sol(ks, ts, [M.S, M.γ.Π])
     Ss, Π = out[:, :, 1], out[:, :, 2]
@@ -216,7 +218,7 @@ end
 Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating in the solution object.
 """
 function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
-    M = sol.M
+    M = sol.prob.M
     t0 = sol[t][end]
     return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
 end
@@ -228,10 +230,10 @@ end
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
-    tmin, tmax = extrema(sol[sol.M.t])
+    tmin, tmax = extrema(sol[sol.prob.M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     STs = source_temperature(sol, ks, exp.(lnts))
-    return los_integrate(STs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...)
+    return los_integrate(STs, ls, ks, lnts; t0=sol[sol.prob.M.t][end], kwargs...)
 end
 
 """
@@ -240,10 +242,11 @@ end
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
-    tmin, tmax = extrema(sol[sol.M.t])
+    M = sol.prob.M
+    tmin, tmax = extrema(sol[M.t])
     lnts = range(log(tmin), log(tmax), step=Δlnt)
     SPs = source_polarization(sol, ks, exp.(lnts))
-    return los_integrate(SPs, ls, ks, lnts; t0=sol[sol.M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    return los_integrate(SPs, ls, ks, lnts; t0=sol[M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -296,13 +299,13 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
 end
 
 """
-    spectrum_cmb(modes, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    spectrum_cmb(modes, M::ODESystem, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
 """
-function spectrum_cmb(modes::AbstractArray, M::CosmologyModel, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
-    sol = solve(M, pars, ks_coarse; kwargs...) # TODO: saveat ts
+    sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
     return spectrum_cmb(modes, sol, ls; integrator)
 end
 
