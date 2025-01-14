@@ -68,7 +68,6 @@ function ΛCDM(;
         S ~ S_SW + S_ISW + S_Dop + 0*S_pol # TODO: include all terms
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    initE = !Λanalytical
     if all.(have(species, :Ω₀)) && startswith(ModelingToolkit.description(G), "General relativity")
         push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1]))
     end
@@ -76,7 +75,7 @@ function ΛCDM(;
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     M = compose(connections, g, G, species..., I)
-    return CosmologyModel(M; kwargs...)
+    return complete(M; flatten = false)
 end
 
 """
@@ -119,7 +118,7 @@ function RMΛ(;
     ]
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
-    return CosmologyModel(M; spline_thermo = false)
+    return complete(M; flatten = false)
 end
 
 """

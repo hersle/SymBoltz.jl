@@ -23,59 +23,13 @@ function perturbations(sys; spline_thermo = true)
     return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
 end
 
-struct CosmologyModel
-    sys::ODESystem
-
-    bg::ODESystem
-    th::ODESystem
-    pt::ODESystem
-
-    spline_thermo::Bool # whether to spline thermodynamics in perturbations
-end
-
 struct CosmologyProblem
     pars::Dict
     bg::Union{ODEProblem, Nothing}
     th::Union{ODEProblem, Nothing}
     pt::Union{ODEProblem, Nothing}
+    spline_thermo::Bool
 end
-
-function CosmologyModel(sys::ODESystem; spline_thermo = true, debug = false)
-    # TODO: move to CosmologyProblem; keep M as a simple ODESystem
-    bg = structural_simplify(background(sys))
-    th = structural_simplify(thermodynamics(sys))
-    pt = structural_simplify(perturbations(sys; spline_thermo))
-
-    if debug
-        bg = debug_system(bg)
-        th = debug_system(th)
-        pt = debug_system(pt)
-    end
-
-    sys = complete(sys; flatten = false)
-    return CosmologyModel(sys, bg, th, pt, spline_thermo)
-end
-
-# Forward property access to full system
-Base.propertynames(M::CosmologyModel) = propertynames(getfield(M, :sys))
-function Base.getproperty(M::CosmologyModel, prop::Symbol)
-    if prop in propertynames(M)
-        return Base.getproperty(getfield(M, :sys), prop)
-    else
-        return getfield(M, prop) # hidden access to other fields
-    end
-end
-
-# Forward inspection functions to full system
-nameof(M::CosmologyModel) = nameof(M.sys)
-equations(M::CosmologyModel) = equations(M.sys)
-observed(M::CosmologyModel) = observed(M.sys)
-unknowns(M::CosmologyModel) = unknowns(M.sys)
-parameters(M::CosmologyModel) = parameters(M.sys)
-initialization_equations(M::CosmologyModel) = initialization_equations(M.sys)
-defaults(M::CosmologyModel) = defaults(M.sys)
-hierarchy(M::CosmologyModel; describe=true, kwargs...) = hierarchy(M.sys; describe, kwargs...)
-Base.show(io::IO, mime::MIME"text/plain", M::CosmologyModel) = show(io, mime, M.sys) # chop off last excessive newline
 
 struct CosmologySolution
     prob::CosmologyProblem
@@ -87,6 +41,8 @@ end
 
 solvername(alg) = string(nameof(typeof(alg)))
 solvername(alg::CompositeAlgorithm) = join(solvername.(alg.algs), "+")
+
+# TODO: function Base.show(io::IO, prob::CosmologyProblem) end
 
 function Base.show(io::IO, sol::CosmologySolution)
     print(io, "Cosmology solution for model ")
@@ -110,7 +66,17 @@ function Base.show(io::IO, sol::CosmologySolution)
     end
 end
 
-function CosmologyProblem(M::CosmologyModel, pars; aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+function CosmologyProblem(M::ODESystem, pars; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+    bg = structural_simplify(background(M))
+    th = structural_simplify(thermodynamics(M))
+    pt = structural_simplify(perturbations(M; spline_thermo))
+
+    if debug
+        bg = debug_system(bg)
+        th = debug_system(th)
+        pt = debug_system(pt)
+    end
+
     # Split parameters into DifferentialEquations' "u0" and "p" convention
     params = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
@@ -122,12 +88,12 @@ function CosmologyProblem(M::CosmologyModel, pars; aterm = 1.0, thermo = true, d
     tspan = (1e-5, 4.0)
     # TODO: solve only one of bg,th (based on thermo bool)?
 
-    bg = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-    th = ODEProblem(M.th, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-    pt = ODEProblem(M.pt, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+    bg = ODEProblem(bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+    th = ODEProblem(th, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+    pt = ODEProblem(pt, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
 
     delete!(params, k) # remove k dummy
-    return CosmologyProblem(params, bg, th, pt)
+    return CosmologyProblem(params, bg, th, pt, spline_thermo)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -136,9 +102,9 @@ end
 # TODO: shoot to reach E = 1 today when integrating forwards
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
-    solve(M::CosmologyModel, pars; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, kwargs...)
+    solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, kwargs...)
 
-Solve `CosmologyModel` with parameters `pars` at the background level.
+Solve the `CosmologyProblem` at the background level.
 """
 function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     M = prob.bg.f.sys
@@ -168,10 +134,11 @@ function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol =
     return CosmologySolution(prob, bg, th, [], nothing)
 end
 
+# TODO: merge with BG function?
 """
-    solve(M::CosmologyModel, pars, ks; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
-Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
+Solve the `CosmologyProblem` up to the perturbative level for wavenumbers `ks`.
 """
 function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
     ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
@@ -187,7 +154,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = 
     # If the thermodynamics solution should be splined,
     # solve it again (if needed) and update the spline parameters
     M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    if true # || # TODO: M.spline_thermo
+    if prob.spline_thermo
         ode_prob0 = prob.pt
         aini = sol[M.g.a][begin]
         τspline = spline(sol[M.b.rec.τ], sol[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
@@ -213,8 +180,8 @@ function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = 
     end
     return CosmologySolution(prob, sol.bg, sol.th, ks, ode_sols)
 end
-function solve(M::CosmologyModel, pars, k::Number; kwargs...)
-    return solve(M, pars, [k]; kwargs...)
+function solve(prob::CosmologyProblem, k::Number; kwargs...)
+    return solve(prob, [k]; kwargs...)
 end
 
 function check_solution(code)
@@ -369,11 +336,11 @@ function timeseries(sol::CosmologySolution, var, vals::AbstractArray; kwargs...)
 end
 
 """
-    shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
+    shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
 
 Solve a cosmological model with fixed parameters, while varying some parameters (from their initial guesses) until the given `conditions` at the end time are satisfied.
 """
-function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
+function shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
     funcs = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
 
     function f(vals_varying, _)
@@ -391,5 +358,4 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
 end
 
 # Fix model/solution under broadcasted calls
-Base.broadcastable(M::CosmologyModel) = Ref(M)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)

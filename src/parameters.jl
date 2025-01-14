@@ -1,4 +1,4 @@
-function parameters_Planck18(M::CosmologyModel)
+function parameters_Planck18(M::ODESystem)
     # https://arxiv.org/pdf/1807.06209#table.5
     h = 0.6736
     params = Dict(

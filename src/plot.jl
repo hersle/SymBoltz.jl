@@ -63,7 +63,3 @@ using GraphRecipes
     fontsize --> 15
     TreePlot(sys)
 end
-
-@recipe function plot(::Type{T}, M::T) where {T <: CosmologyModel}
-    return (M.sys,) # call ODESystem recipe
-end

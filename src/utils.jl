@@ -40,6 +40,7 @@ function identity(sys)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
+    pars = filter(p -> nameof(p) != :DEF, pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
@@ -67,6 +68,8 @@ function taylor(sys::ODESystem, ϵ, orders)
     trivial_eqs = [0 ~ 0, 0 ~ -0.0]
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
+
+    pars = filter(p -> nameof(p) != :DEF, pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
 
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
