@@ -45,6 +45,7 @@ pars = Dict(
     M.γ.T₀ => 2.7,
     M.c.Ω₀ => 0.27,
     M.b.Ω₀ => 0.05,
+    M.Λ.Ω₀ => 0.678653,
     M.ν.Neff => 3.0,
     M.g.h => 0.7,
     M.b.rec.Yp => 0.25,
@@ -52,8 +53,9 @@ pars = Dict(
     M.I.As => 2e-9,
     M.I.ns => 0.95
 )
+prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
-sol = solve(M, pars, ks)
+sol = solve(prob, ks)
 ```
 
 To solve only the background, you can simply omit the `ks` argument: `solve(prob, pars)`.

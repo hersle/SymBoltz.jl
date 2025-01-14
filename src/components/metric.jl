@@ -10,6 +10,12 @@ function metric(; name = :g, kwargs...)
         H₀ => H100 * h
         h => H₀ / H100
     ]
+    initialization_eqs = [
+        O(ϵ^0)(a ~ D(a) * t)
+    ]
+    guesses = [
+        a => 1e-1
+    ]
     description = "Spacetime FLRW metric in Newtonian gauge"
     return ODESystem([
         z ~ 1/a - 1
@@ -19,5 +25,5 @@ function metric(; name = :g, kwargs...)
         H ~ E * H₀
         g₁₁ ~ a^2 * (-1 - 2*ϵ*Ψ)
         g₂₂ ~ a^2 * (+1 - 2*ϵ*Φ)
-    ], t, vars, pars; defaults = defs, name, description, kwargs...)
+    ], t, vars, pars; defaults = defs, initialization_eqs, guesses, name, description, kwargs...)
 end

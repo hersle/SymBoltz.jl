@@ -30,11 +30,18 @@ struct CosmologyModel
     th::ODESystem
     pt::ODESystem
 
-    initE::Bool # need extra equation E = 1 to initialize when integrating background backwards?
     spline_thermo::Bool # whether to spline thermodynamics in perturbations
 end
 
-function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debug = false)
+struct CosmologyProblem
+    pars::Dict
+    bg::Union{ODEProblem, Nothing}
+    th::Union{ODEProblem, Nothing}
+    pt::Union{ODEProblem, Nothing}
+end
+
+function CosmologyModel(sys::ODESystem; spline_thermo = true, debug = false)
+    # TODO: move to CosmologyProblem; keep M as a simple ODESystem
     bg = structural_simplify(background(sys))
     th = structural_simplify(thermodynamics(sys))
     pt = structural_simplify(perturbations(sys; spline_thermo))
@@ -46,7 +53,7 @@ function CosmologyModel(sys::ODESystem; initE = true, spline_thermo = true, debu
     end
 
     sys = complete(sys; flatten = false)
-    return CosmologyModel(sys, bg, th, pt, initE, spline_thermo)
+    return CosmologyModel(sys, bg, th, pt, spline_thermo)
 end
 
 # Forward property access to full system
@@ -71,12 +78,11 @@ hierarchy(M::CosmologyModel; describe=true, kwargs...) = hierarchy(M.sys; descri
 Base.show(io::IO, mime::MIME"text/plain", M::CosmologyModel) = show(io, mime, M.sys) # chop off last excessive newline
 
 struct CosmologySolution
-    M::CosmologyModel
+    prob::CosmologyProblem
     bg::ODESolution
     th::ODESolution
     ks::AbstractArray
     pts::Union{EnsembleSolution, Nothing}
-    pars::Dict
 end
 
 solvername(alg) = string(nameof(typeof(alg)))
@@ -84,10 +90,10 @@ solvername(alg::CompositeAlgorithm) = join(solvername.(alg.algs), "+")
 
 function Base.show(io::IO, sol::CosmologySolution)
     print(io, "Cosmology solution for model ")
-    printstyled(io, nameof(sol.M), '\n'; bold = true)
+    printstyled(io, nameof(sol.prob.bg.f.sys), '\n'; bold = true)
 
     printstyled(io, "Parameters:\n"; bold = true)
-    for (par, val) in sol.pars
+    for (par, val) in sol.prob.pars
         print(io, "  $par = $val\n")
     end
 
@@ -104,17 +110,7 @@ function Base.show(io::IO, sol::CosmologySolution)
     end
 end
 
-# TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
-# TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
-# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-# TODO: shoot to reach E = 1 today when integrating forwards
-# TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
-"""
-    solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, kwargs...)
-
-Solve `CosmologyModel` with parameters `pars` at the background level.
-"""
-function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol = 1e-10, backwards = true, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+function CosmologyProblem(M::CosmologyModel, pars; aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     # Split parameters into DifferentialEquations' "u0" and "p" convention
     params = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
@@ -122,76 +118,63 @@ function solve(M::CosmologyModel, pars; aini = 1e-8, solver = Rodas4P(), reltol 
     vars = Dict(var => params[var] for var in vars) # like u0
     pars = Dict(par => params[par] for par in pars) # like p
 
-    # First solve background forwards or backwards from today
-    if backwards
-        push!(vars, M.g.a => 1.0)
-        M.initE && push!(vars, M.g.ℰ => 1.0)
-        tspan = (0.0, -4.0) # integrate backwards
-        aterm = aini # terminate at initial scale factor
-    else
-        push!(vars, M.g.a => aini)
-        tspan = (0.0, +4.0) # integrate forwards
-        aterm = 1.0 # terminate today
-    end
-    bg_prob = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-    callback = callback_terminator(M.bg, M.g.a, aterm)
-    debug_initialization = debug_initialization && !isnothing(bg_prob.f.initializeprob)
-    if debug_initialization
-        isys = bg_prob.f.initializeprob.f.sys
-        println("Solving initialization equations")
-        println(join(equations(isys), "\n"))
-        println("for unknowns ", join(unknowns(isys), ", "), ":")
-        solve(bg_prob.f.initializeprob; show_trace = Val(true))
-    end
-    bg_sol = solve(bg_prob, solver; callback, reltol, kwargs...)
-    if debug_initialization
-        vars = unknowns(isys) .=> bg_sol[unknowns(isys)][begin]
-        println("Found variable values")
-        println(join(vars, "\n"))
-    end
-    check_solution(bg_sol.retcode)
+    # TODO: forwards only (makes more sense, can go beyond a=1, etc.)
+    tspan = (1e-5, 4.0)
+    # TODO: solve only one of bg,th (based on thermo bool)?
+
+    bg = ODEProblem(M.bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+    th = ODEProblem(M.th, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+    pt = ODEProblem(M.pt, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
+
+    delete!(params, k) # remove k dummy
+    return CosmologyProblem(params, bg, th, pt)
+end
+
+# TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
+# TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
+# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
+# TODO: shoot to reach E = 1 today when integrating forwards
+# TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
+"""
+    solve(M::CosmologyModel, pars; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, kwargs...)
+
+Solve `CosmologyModel` with parameters `pars` at the background level.
+"""
+function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+    M = prob.bg.f.sys
+    callback = callback_terminator(prob.bg, M.g.a, aterm)
+    bg = solve(prob.bg, solver; callback, reltol, kwargs...)
+    check_solution(bg.retcode)
 
     # Remove duplicate endpoints
-    if bg_sol.t[end] == bg_sol.t[end-1]
-        ilast = length(bg_sol.t)
-        deleteat!(bg_sol.t, ilast)
-        deleteat!(bg_sol.u, ilast)
+    if bg.t[end] == bg.t[end-1]
+        ilast = length(bg.t)
+        deleteat!(bg.t, ilast)
+        deleteat!(bg.u, ilast)
     end
 
-    # Then solve thermodynamics forwards till today
-    if thermo
-        iini = backwards ? length(bg_sol) : 1 # index corresponding to earliest time
-        tini = 1 / bg_sol[M.g.ℰ][iini]
-        Δt = abs(bg_sol[M.t][end] - tspan[1])
-        tend = tini + Δt
-        ics = unknowns(M.bg) .=> bg_sol[unknowns(M.bg)][iini]
-        ics = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt(t)"), ics) # remove ȧ initial condition
-        th_prob = ODEProblem(M.th, ics, (tini, tend), pars; guesses, fully_determined = true, jac, sparse)
-        th_sol = solve(th_prob, solver; reltol, kwargs...)
-        check_solution(th_sol.retcode)
+    M = prob.th.f.sys
+    th = solve(prob.th, solver; callback, reltol, kwargs...)
+    check_solution(th.retcode)
 
-        # Offset optical depth, so it's 0 today
-        if have(M.sys, :b)
-            idx_τ = variable_index(M.th, M.b.rec.τ)
-            for i in 1:length(th_sol.u)
-                th_sol.u[i][idx_τ] -= th_sol.u[end][idx_τ]
-            end
+    # Offset optical depth, so it's 0 today
+    if have(M, :b)
+        idx_τ = variable_index(prob.th, M.b.rec.τ)
+        for i in 1:length(th.u)
+            th.u[i][idx_τ] -= th.u[end][idx_τ]
         end
-    else
-        th_sol = bg_sol
     end
 
-    return CosmologySolution(M, bg_sol, th_sol, [], nothing, pars)
+    return CosmologySolution(prob, bg, th, [], nothing)
 end
 
 """
-    solve(M::CosmologyModel, pars, ks; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    solve(M::CosmologyModel, pars, ks; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
 
 Solve `CosmologyModel` with parameters `pars` up to the perturbative level for wavenumbers `ks`.
 """
-function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, backwards = true, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
-    ks = k_dimensionless.(ks, pars[M.g.h])
-
+function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+    ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
     
     if Threads.nthreads() == 1 && thread
@@ -199,29 +182,23 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
         thread = false
     end
 
-    th_sol = solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg, kwargs...)
-    tini, tend = extrema(th_sol.th[t])
-
-    # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    kset! = setp(M.pt, M.k) # function that sets k on a problem
-    ics0 = unknowns(M.bg) .=> th_sol.bg[unknowns(M.bg)][backwards ? end : begin]
-    ics0 = filter(ic -> !contains(String(Symbol(ic.first)), "aˍt"), ics0) # remove D(a)
-    ics0 = Dict(ics0)
-    parsk = merge(pars, Dict(k => NaN)) # must be set, even for the uninitialized problem
-    ode_prob0 = ODEProblem(M.pt, ics0, (tini, tend), parsk; fully_determined = true, jac, sparse)
+    sol = solve(prob; aterm, jac, sparse, reltol = reltol_bg, kwargs...)
 
     # If the thermodynamics solution should be splined,
     # solve it again (if needed) and update the spline parameters
-    if M.spline_thermo
-        th_sol_spline = isempty(kwargs) ? th_sol : solve(M, pars; aini, backwards, jac, sparse, reltol = reltol_bg) # should solve again if given keyword arguments, like saveat
-        τspline = spline(th_sol_spline[M.b.rec.τ], th_sol_spline[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-        τ̇spline = spline(th_sol_spline[M.b.rec.τ̇], th_sol_spline[M.t])
-        cₛ²spline = spline(th_sol_spline[M.b.rec.cₛ²], th_sol_spline[M.t])
-        splineset = ModelingToolkit.setsym_oop(ode_prob0, [M.pt.b.rec.τspline, M.pt.b.rec.τ̇spline, M.pt.b.rec.cₛ²spline])
-        newu0, newp = splineset(ode_prob0, [τspline, τ̇spline, cₛ²spline])
+    M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
+    if true # || # TODO: M.spline_thermo
+        ode_prob0 = prob.pt
+        aini = sol[M.g.a][begin]
+        τspline = spline(sol[M.b.rec.τ], sol[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
+        τ̇spline = spline(sol[M.b.rec.τ̇], sol[M.t])
+        cₛ²spline = spline(sol[M.b.rec.cₛ²], sol[M.t])
+        splineset = ModelingToolkit.setsym_oop(ode_prob0, [M.g.a, M.b.rec.τspline, M.b.rec.τ̇spline, M.b.rec.cₛ²spline])
+        newu0, newp = splineset(ode_prob0, [aini, τspline, τ̇spline, cₛ²spline])
         ode_prob0 = remake(ode_prob0, u0 = newu0, p = newp)
     end
 
+    kset! = setp(prob.pt, k) # function that sets k on a problem
     ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
     ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
         ode_prob = ode_prob_tlv[]
@@ -234,7 +211,7 @@ function solve(M::CosmologyModel, pars, ks::AbstractArray; aini = 1e-8, solver =
     for i in 1:length(ode_sols)
         check_solution(ode_sols[i].retcode)
     end
-    return CosmologySolution(M, th_sol.bg, th_sol.th, ks, ode_sols, pars)
+    return CosmologySolution(prob, sol.bg, sol.th, ks, ode_sols)
 end
 function solve(M::CosmologyModel, pars, k::Number; kwargs...)
     return solve(M, pars, [k]; kwargs...)
@@ -401,7 +378,8 @@ function shoot(M::CosmologyModel, pars_fixed, pars_varying, conditions; solver =
 
     function f(vals_varying, _)
         pars = merge(pars_fixed, Dict(keys(pars_varying) .=> vals_varying))
-        sol = solve(M, pars; kwargs...) # solve cosmology
+        prob = CosmologyProblem(M, pars) # TODO: remake
+        sol = solve(prob; kwargs...)
         return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
     end
 

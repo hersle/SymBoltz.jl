@@ -20,7 +20,6 @@ function ΛCDM(;
     recombination = true,
     reionization = true,
     acceleration = false,
-    Λanalytical = false,
     g = metric(),
     G = general_relativity(g; acceleration),
     γ = photons(g; lmax),
@@ -28,7 +27,7 @@ function ΛCDM(;
     h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, reionization, name = :b),
-    Λ = cosmological_constant(g; analytical = Λanalytical),
+    Λ = cosmological_constant(g; analytical = true),
     I = harrison_zeldovich(g; name = :I),
     name = :ΛCDM,
     kwargs...
@@ -70,13 +69,14 @@ function ΛCDM(;
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     initE = !Λanalytical
-    if Λanalytical
-        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: unsafe outside GR
+    if all.(have(species, :Ω₀)) && startswith(ModelingToolkit.description(G), "General relativity")
+        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1]))
     end
+
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     M = compose(connections, g, G, species..., I)
-    return CosmologyModel(M; initE, kwargs...)
+    return CosmologyModel(M; kwargs...)
 end
 
 """
@@ -96,11 +96,10 @@ Create a simple model with pure non-interacting radiation, matter and cosmologic
 function RMΛ(;
     acceleration = false,
     adiabatic = true,
-    Λanalytical = false,
     g = metric(),
     r = radiation(g; adiabatic),
     m = matter(g; adiabatic),
-    Λ = cosmological_constant(g; adiabatic, analytical = Λanalytical),
+    Λ = cosmological_constant(g; adiabatic, analytical = true),
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
