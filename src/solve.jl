@@ -113,16 +113,18 @@ function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol =
     bg = solve(prob.bg, solver; callback, reltol, kwargs...)
     check_solution(bg.retcode)
 
-    # Remove duplicate endpoints
-    if bg.t[end] == bg.t[end-1]
-        ilast = length(bg.t)
-        deleteat!(bg.t, ilast)
-        deleteat!(bg.u, ilast)
-    end
-
     M = prob.th.f.sys
     th = solve(prob.th, solver; callback, reltol, kwargs...)
     check_solution(th.retcode)
+
+    # Remove duplicate endpoints due to callback termination
+    for sol in [bg, th]
+        if sol.t[end] == sol.t[end-1]
+            ilast = length(sol.t)
+            deleteat!(sol.t, ilast)
+            deleteat!(sol.u, ilast)
+        end
+    end
 
     # Offset optical depth, so it's 0 today
     if have(M, :b)
@@ -163,7 +165,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = 
         cₛ²spline = spline(sol[M.b.rec.cₛ²], sol[M.t])
         splineset = ModelingToolkit.setsym_oop(ode_prob0, [M.g.a, M.b.rec.τspline, M.b.rec.τ̇spline, M.b.rec.cₛ²spline])
         newu0, newp = splineset(ode_prob0, [aini, τspline, τ̇spline, cₛ²spline])
-        ode_prob0 = remake(ode_prob0, u0 = newu0, p = newp)
+        ode_prob0 = remake(ode_prob0, tspan = extrema(sol.bg.t), u0 = newu0, p = newp)
     end
 
     kset! = setp(prob.pt, k) # function that sets k on a problem

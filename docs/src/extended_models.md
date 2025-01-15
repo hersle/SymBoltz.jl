@@ -19,7 +19,7 @@ First, we create the reference model that is to be extended.
 We will modify the standard ΛCDM model:
 ```@example ext
 using SymBoltz
-M1 = ΛCDM(Λanalytical = false)
+M1 = ΛCDM()
 ```
 The cosmological constant species is stored in the component `M1.Λ`.
 Here are the equations we will remove:
@@ -50,10 +50,10 @@ Next, we must simply pack this into a symbolic component that represents the w�
 ```@example ext
 using ModelingToolkit # load to create custom components
 using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wavenumber and perturbation book-keeper variables
-g = M1.g # reuse metric component from the original model
+g = M1.g # reuse metric of original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
-pars = @parameters w₀ wₐ cₛ² # ρ₀ Ω₀ # TODO: compare to analytical solution in the end
+pars = @parameters w₀ wₐ cₛ² ρ₀ Ω₀
 
 # 2. Create variables
 vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
@@ -62,7 +62,7 @@ vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 eqs = [
     # Background equations (of order O(ϵ⁰)
     w ~ w₀ + wₐ * (1 - g.a) # equation of state
-    D(ρ) ~ -3 * g.ℰ * ρ * (1 + w) # energy density
+    ρ ~ ρ₀ * g.a^(-3*(1+w₀+wₐ)) * exp(-3*wₐ) # D(ρ) ~ -3 * g.ℰ * ρ * (1 + w) # energy density
     P ~ w * ρ # pressure
 
     # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
@@ -77,8 +77,13 @@ initialization_eqs = [
     θ * ϵ ~ 1/2 * (k^2*t) * g.Ψ * ϵ
 ]
 
-# 5. Pack into an ODE system called "X"
-@named X = ODESystem(eqs, t, vars, pars; initialization_eqs)
+# 5. Specify defaults
+defaults = [
+    ρ₀ => 3/(8*Num(π)) * Ω₀
+]
+
+# 6. Pack into an ODE system called "X"
+@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, defaults)
 ```
 
 Note that the w₀wₐ component only knows about itself (and the metric),
@@ -90,7 +95,7 @@ This connection is made when the component is used to create a full cosmological
 
 Finally, we create a new `ΛCDM` model, but replace `Λ` by `X`, and call it the `w0waCDM` model:
 ```@example ext
-M2 = ΛCDM(Λ = X, name = :w0waCDM, Λanalytical = false)
+M2 = ΛCDM(Λ = X, name = :w0waCDM)
 ```
 Now `M2.Λ` no longer exists, but `M2.X` contains our new equations:
 ```@example ext
@@ -102,17 +107,10 @@ equations(M2.X)
 To test, let us set some parameters and solve both models with one perturbation mode.
 For the ΛCDM model:
 ```@example ext
-θ1 = Dict(
-    M1.γ.T₀ => 2.7,
-    M1.c.Ω₀ => 0.27,
-    M1.b.Ω₀ => 0.05,
-    M1.ν.Neff => 3.0,
-    M1.g.h => 0.7,
-    M1.b.rec.Yp => 0.25,
-    M1.h.m => 0.06 * SymBoltz.eV / SymBoltz.c^2
-)
+θ1 = SymBoltz.parameters_Planck18(M1)
+prob1 = CosmologyProblem(M1, θ1)
 ks = 1.0
-sol1 = solve(M1, θ1, ks)
+sol1 = solve(prob1, ks)
 ```
 And for the w₀wₐCDM model:
 ```@example ext
@@ -121,11 +119,14 @@ And for the w₀wₐCDM model:
     M2.X.wₐ => 0.2,
     M2.X.cₛ² => 1.0
 ))
-sol2 = solve(M2, θ2, ks)
+θ2[M2.X.Ω₀] = θ1[M1.Λ.Ω₀] / exp(-3*θ2[M2.X.wₐ]) # TODO: automatic
+delete!(θ2, M1.Λ.Ω₀) # TODO: avoid
+prob2 = CosmologyProblem(M2, θ2)
+sol2 = solve(prob2, ks)
 ```
 Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
 ```@example ext
-lgas = range(-3, 0, length=500) # log10(a)
+lgas = range(-3, 0, length=500)[begin:end-1] # log10(a) # TODO: fix end-1
 H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
 H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
 Ψ1s = sol1(log10(M1.g.a), ks, lgas, M1.g.Ψ)
