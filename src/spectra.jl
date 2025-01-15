@@ -63,7 +63,8 @@ Compute the matter power spectrum from the cosmological model `M` with parameter
 The `solver` and other `kwargs` are passed to `solve`.
 """
 function spectrum_matter(M::ODESystem, pars, k, t = nothing; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
-    sol = solve(M, pars, k; save_everystep=false, solver, kwargs...) # just save endpoints
+    prob = CosmologyProblem(M, pars)
+    sol = solve(prob, k; solver, kwargs...) # TODO: just save endpoints
     t = isnothing(t) ? sol[M.t][end] : t
     return spectrum_matter(sol, k, t; species)
 end
@@ -307,6 +308,10 @@ function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::Abstract
     ks_coarse, _ = cmb_ks(ls[end])
     sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
     return spectrum_cmb(modes, sol, ls; integrator)
+end
+function spectrum_cmb(modes::AbstractArray, M::ODESystem, pars::Dict, ls::AbstractArray; kwargs...)
+    prob = CosmologyProblem(M, pars)
+    return spectrum_cmb(modes, prob, ls; kwargs...)
 end
 
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))

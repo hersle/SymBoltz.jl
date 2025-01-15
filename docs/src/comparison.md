@@ -9,6 +9,7 @@ using SymBoltz
 lmax = 6
 M = SymBoltz.ΛCDM(; lmax)
 pars = SymBoltz.parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
 ```
 ```@setup class
 using ModelingToolkit
@@ -65,9 +66,9 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
         # neutrinos
         "N_ur" => pars[M.ν.Neff],
-        "N_ncdm" => SymBoltz.have(M.sys, :h) ? 1 : 0,
-        "m_ncdm" => SymBoltz.have(M.sys, :h) ? pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2) : 0.0, # in eV/c^2
-        "T_ncdm" => SymBoltz.have(M.sys, :h) ? (4/11)^(1/3) : 0.0, # TODO: CLASS uses something slightly different by default
+        "N_ncdm" => SymBoltz.have(M, :h) ? 1 : 0,
+        "m_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.m] / (SymBoltz.eV/SymBoltz.c^2) : 0.0, # in eV/c^2
+        "T_ncdm" => SymBoltz.have(M, :h) ? (4/11)^(1/3) : 0.0, # TODO: CLASS uses something slightly different by default
         "l_max_ur" => lmax,
         "l_max_ncdm" => lmax,
 
@@ -111,7 +112,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(M, pars, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(prob, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
