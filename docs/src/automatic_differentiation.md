@@ -17,15 +17,16 @@ using SymBoltz
 M = ΛCDM()
 
 function P(k, θ)
-   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m] .=> θ)
-   sol = solve(M, pars, k)
+   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m, M.I.As, M.I.ns, M.Λ.Ω₀] .=> θ) # TODO: no Λ
+   prob = CosmologyProblem(M, pars) # TODO: remake
+   sol = solve(prob, k)
    return spectrum_matter(sol, k)
 end
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
-θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06 * SymBoltz.eV/SymBoltz.c^2]
+θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06 * SymBoltz.eV/SymBoltz.c^2, 2e-9, 0.95, 0.678653] # TODO: no Λ
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 Ps = P(ks, θ)
 ```
@@ -49,7 +50,7 @@ We can plot them all at once:
 plot(
     log10.(ks/u"1/Mpc"), dlgP_dlgθs;
     xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh"]
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "As" "ns" "ΩΛ0"]
 )
 ```
 
@@ -73,7 +74,7 @@ p1 = plot(
 p2 = plot(
    log10.(ks/u"1/Mpc"), dlgP_dlgθs;
    xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp"]
+   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "As" "ns" "ΩΛ0"]
 )
 plot(p1, p2, layout=(2, 1), size = (600, 600))
 ```
