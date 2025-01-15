@@ -5,8 +5,9 @@
 
 ```@example bench
 using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, LinearSolve, BenchmarkTools, Plots
-M = SymBoltz.ΛCDM(h = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
 N = 20
 ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 
@@ -14,7 +15,7 @@ ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 # TODO: test different linsolve and nlsolve
 # TODO: use BenchmarkTools.BenchmarkGroup
 solvers = [TRBDF2(), AutoTsit5(TRBDF2()), KenCarp4(), AutoTsit5(KenCarp4()), KenCarp47(), Kvaerno5(), Rodas5P(), Rodas5(), Rodas4(), Rodas4P(), QNDF()]
-solve_with(solver; reltol = 1e-5) = solve(M, pars, ks; solver, reltol, thread=false)
+solve_with(solver; reltol = 1e-5) = solve(prob, ks; solver, reltol, thread=false)
 timings = map(solvers) do solver
     return @benchmark solve_with($solver)
 end
