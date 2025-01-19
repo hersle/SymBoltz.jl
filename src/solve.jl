@@ -1,5 +1,6 @@
 import Base: nameof
 import CommonSolve: solve
+import SciMLBase: remake
 import SymbolicIndexingInterface: setp # all_variable_symbols, getname
 import OhMyThreads: TaskLocalValue
 
@@ -30,11 +31,7 @@ struct CosmologyProblem
     th::Union{ODEProblem, Nothing}
     pt::Union{ODEProblem, Nothing}
 
-    vars_fixed::Dict
-    pars_fixed::Dict
-    vars_shoot::Dict
-    pars_shoot::Dict
-    conditions::Vector{Num}
+    pars::Dict
 
     spline_thermo::Bool
 end
@@ -65,23 +62,9 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
         print(io, '\n', indent, "Perturbations")
     end
 
-    if !isempty(prob.vars_fixed) || !isempty(prob.pars_fixed)
-        printstyled(io, "\nFixed (independent) parameters:"; bold = true)
-        for (var, val) in merge(prob.vars_fixed, prob.pars_fixed)
-            print(io, '\n', indent, "$var = $val")
-        end
-    end
-    if !isempty(prob.vars_shoot) || !isempty(prob.pars_shoot)
-        printstyled(io, "\nShooting (dependent) parameters:"; bold = true)
-        for (var, val) in merge(prob.vars_shoot, prob.pars_shoot)
-            print(io, '\n', indent, "$var [guess = $val]")
-        end
-    end
-    if !isempty(prob.conditions)
-        printstyled(io, "\nShooting conditions:"; bold=true)
-        for condition in prob.conditions
-            print(io, '\n', indent, condition, " = 0")
-        end
+    printstyled(io, "\nParameters:"; bold = true)
+    for (par, val) in prob.pars
+        print(io, '\n', indent, "$par = $val")
     end
 end
 
@@ -103,23 +86,14 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
         print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation between log(k))")
     end
 
-    if !isempty(sol.prob.vars_fixed) || !isempty(sol.prob.pars_fixed)
-        printstyled(io, "\nFixed (independent) parameters:"; bold = true)
-        for (var, val) in merge(sol.prob.vars_fixed, sol.prob.pars_fixed)
-            print(io, '\n', indent, "$var = $val")
-        end
-    end
-    if !isempty(sol.prob.vars_shoot) || !isempty(sol.prob.pars_shoot)
-        printstyled(io, "\nShooting (dependent) parameters:"; bold = true)
-        for var in keys(merge(sol.prob.vars_shoot, sol.prob.pars_shoot))
-            var = ModelingToolkit.wrap(var)
-            printstyled(io, '\n', indent, "$var = $(sol[var][begin])")
-        end
+    printstyled(io, "\nParameters:"; bold = true)
+    for (par, val) in sol.prob.pars
+        print(io, '\n', indent, "$par = $val")
     end
 end
 
 # Split parameters into DifferentialEquations' u0 and p convention
-function split_u0_p(M::ODESystem, x::Dict)
+function split_vars_pars(M::ODESystem, x::Dict)
     pars = intersect(keys(x), parameters(M)) .|> ModelingToolkit.wrap # separate parameters from initial conditions # TODO: remove wrap
     vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     pars = Dict(par => x[par] for par in pars) # like p
@@ -127,7 +101,7 @@ function split_u0_p(M::ODESystem, x::Dict)
     return vars, pars
 end
 
-function CosmologyProblem(M::ODESystem, pars_fixed; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, shoot = Dict(), conditions = [], kwargs...)
+function CosmologyProblem(M::ODESystem, pars::Dict; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, shoot = Dict(), conditions = [], kwargs...)
     bg = structural_simplify(background(M))
     th = structural_simplify(thermodynamics(M))
     pt = structural_simplify(perturbations(M; spline_thermo))
@@ -138,20 +112,24 @@ function CosmologyProblem(M::ODESystem, pars_fixed; spline_thermo = true, debug 
         pt = debug_system(pt)
     end
 
-    vars_fixed, pars_fixed = split_u0_p(M, pars_fixed)
-    vars_shoot, pars_shoot = split_u0_p(M, shoot)
-    conditions = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
-
     # TODO: solve only one of bg,th (based on thermo bool)?
+    pars_full = copy(pars) # save full dictionary for constructor
+    vars, pars = split_vars_pars(M, pars)
     tspan = (1e-5, 4.0) # TODO: keyword argument
-    vars = merge(vars_fixed, vars_shoot)
-    pars = merge(pars_fixed, pars_shoot)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
     th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
     pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    return CosmologyProblem(M, bg, th, pt, pars_full, spline_thermo)
+end
 
-    return CosmologyProblem(M, bg, th, pt, vars_fixed, pars_fixed, vars_shoot, pars_shoot, conditions, spline_thermo)
+function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true)
+    pars_full = merge(prob.pars, pars) # save full dictionary for constructor
+    vars, pars = split_vars_pars(prob.M, pars)
+    bg = bg ? remake(prob.bg; u0 = vars, p = pars) : nothing
+    th = th ? remake(prob.th; u0 = vars, p = pars) : nothing
+    pt = pt ? remake(prob.pt; u0 = vars, p = pars) : nothing
+    return CosmologyProblem(prob.M, bg, th, pt, pars_full, prob.spline_thermo)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -167,60 +145,41 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
     M = prob.bg.f.sys
     callback = callback_terminator(prob.bg, M.g.a, aterm)
 
-    bg = solve(prob.bg; callback, bgopts...)
+    if !isnothing(prob.bg)
+        bgprob = prob.bg
+        bg = solve(bgprob; callback, bgopts...)
+        check_solution(bg.retcode)
 
-    # TODO: move shooting problem setup to CosmologyProblem
-    vars_shoot = collect(keys(prob.vars_shoot))
-    pars_shoot = collect(keys(prob.pars_shoot))
-    all_shoot = [vars_shoot; pars_shoot] # defines ordering
-    nvars = length(prob.vars_shoot)
-    npars = length(prob.pars_shoot)
-
-    if !isempty(all_shoot)
-        function f(vals, _)
-            # TODO: find more efficient way (https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/)
-            u0 = nvars == 0 ? missing : Dict(vars_shoot .=> vals[1:nvars]) # TODO: setsym instead?
-            p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> vals[nvars+1:end]) # TODO: setsym instead?
-            bgprob = remake(prob.bg; u0, p) # TODO: u0 from vars_shoot
-            bg = solve(bgprob; callback, bgopts...)
-            return bg[prob.conditions][end] # evaluate all expressions at final time (e.g. today)
+        # Remove duplicate endpoints due to callback termination
+        if bg.t[end] == bg.t[end-1]
+            ilast = length(bg.t)
+            deleteat!(bg.t, ilast)
+            deleteat!(bg.u, ilast)
         end
-        shooting_guess = [[prob.vars_shoot[var] for var in vars_shoot]..., [prob.pars_shoot[par] for par in pars_shoot]...] # ... instead of ; for type-stability in case vars/pars is empty
-        shooting_prob = NonlinearProblem(f, shooting_guess)
-        shooting_sol = solve(shooting_prob; show_trace = Val(verbose), shootopts...) # TODO: speed up!
-        check_solution(shooting_sol.retcode)
     else
-        shooting_sol = []
+        bg = nothing
     end
 
-    check_solution(bg.retcode)
+    tspan = extrema(bg.t)
 
-    # Remove duplicate endpoints due to callback termination
-    if bg.t[end] == bg.t[end-1]
-        ilast = length(bg.t)
-        deleteat!(bg.t, ilast)
-        deleteat!(bg.u, ilast)
-    end
+    if !isnothing(prob.th)
+        thprob = remake(prob.th; tspan)
+        th = solve(thprob; thopts...)
+        check_solution(th.retcode)
 
-    M = prob.th.f.sys
-    u0 = nvars == 0 ? missing : Dict(vars_shoot .=> shooting_sol[1:nvars]) # TODO: don't repeat, put in function # TODO: remake whole CosmologyProblem, and shoot it instead?
-    p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> shooting_sol[nvars+1:end]) # TODO: setsym instead?
-    thprob = remake(prob.th; tspan = extrema(bg.t), u0, p)
-    th = solve(thprob; thopts...)
-    check_solution(th.retcode)
-
-    # Offset optical depth, so it's 0 today
-    if have(M, :b)
-        idx_τ = variable_index(prob.th, M.b.rec.τ)
-        for i in 1:length(th.u)
-            th.u[i][idx_τ] -= th.u[end][idx_τ]
+        # Offset optical depth, so it's 0 today
+        if have(M, :b)
+            idx_τ = variable_index(prob.th, M.b.rec.τ)
+            for i in 1:length(th.u)
+                th.u[i][idx_τ] -= th.u[end][idx_τ]
+            end
         end
+    else
+        th = bg
     end
 
-    if isempty(ks)
-        ptsols = nothing
-    else
-        ks = k_dimensionless.(ks, prob.pars_fixed[prob.bg.f.sys.g.h]) # TODO: always index _fixed?
+    if !isnothing(prob.pt) && !isempty(ks)
+        ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
         !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
         if Threads.nthreads() == 1 && thread
@@ -229,10 +188,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
         end
 
         M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-        ptprob0 = prob.pt
-        u0 = nvars == 0 ? missing : Dict(vars_shoot .=> shooting_sol[1:nvars]) # TODO: don't repeat, put in function # TODO: could do with setsym_oop below, but that seems to keep G.ϕ = 0.95 instead of using the shot value
-        p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> shooting_sol[nvars+1:end]) # TODO: setsym instead?
-        ptprob0 = remake(ptprob0; tspan = extrema(bg.t), u0, p)
+        ptprob0 = remake(prob.pt; tspan)
     
         update_vars = Dict(M.g.a => bg[M.g.a][begin])
         if have(M, :b) && have(M.b, :rec) && prob.spline_thermo
@@ -259,6 +215,8 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
         for i in 1:length(ptsols)
             check_solution(ptsols[i].retcode)
         end
+    else
+        ptsols = nothing
     end
 
     return CosmologySolution(prob, bg, th, ks, ptsols)
@@ -268,10 +226,10 @@ function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
 end
 
-function check_solution(code)
-    code = Symbol(code)
-    good = (:Success, :Terminated)
-    code in good || @warn "Solver failed with status $code (expected $(join(String.(good), " or ")))"
+function check_solution(code, stage = "Solution"; good = (:Success, :Terminated))
+    is_good = Symbol(code) in good
+    is_good || @warn "$stage failed with status $code (expected $(join(String.(good), " or ")))"
+    return is_good
 end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
@@ -419,26 +377,27 @@ function timeseries(sol::CosmologySolution, var, vals::AbstractArray; kwargs...)
     return ts
 end
 
+# TODO: more generic version that can do anything (e.g. S8)
+# TODO: add dispatch with pars::AbstractArray that uses values in prob for initial guess
 """
     shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
 
 Solve a cosmological model with fixed parameters, while varying some parameters (from their initial guesses) until the given `conditions` at the end time are satisfied.
 """
-function shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
-    funcs = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
+function shoot(prob::CosmologyProblem, pars::Dict, conditions::AbstractArray; alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...)
+    funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
 
-    function f(vals_varying, _)
-        pars = merge(pars_fixed, Dict(keys(pars_varying) .=> vals_varying))
-        prob = CosmologyProblem(M, pars) # TODO: remake
-        sol = solve(prob; kwargs...)
+    function f(vals, _)
+        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, th, pt)
+        sol = solve(newprob; kwargs...)
         return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
     end
 
-    guess = collect(values(pars_varying))
-    prob = NonlinearProblem(f, guess)
-    sol = solve(prob, solver; show_trace = Val(verbose)) # TODO: speed up!
-    check_solution(sol.retcode)
-    return Dict(keys(pars_varying) .=> sol.u)
+    nguess = collect(values(pars))
+    nprob = NonlinearProblem(f, nguess)
+    nsol = solve(nprob, alg; show_trace = Val(verbose)) # TODO: speed up!
+    check_solution(nsol.retcode)
+    return Dict(keys(pars) .=> nsol.u)
 end
 
 # Fix model/solution under broadcasted calls
