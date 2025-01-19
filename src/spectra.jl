@@ -309,11 +309,6 @@ function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::Abstract
     sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
     return spectrum_cmb(modes, sol, ls; integrator)
 end
-function spectrum_cmb(modes::AbstractArray, M::ODESystem, pars::Dict, ls::AbstractArray; kwargs...)
-    prob = CosmologyProblem(M, pars)
-    return spectrum_cmb(modes, prob, ls; kwargs...)
-end
-
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
 function cmb_ks(lmax; Δk = 2π/12, Δk_S = 10.0, kmin = Δk, kmax = 1*lmax)

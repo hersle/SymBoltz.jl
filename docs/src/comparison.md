@@ -9,7 +9,7 @@ using SymBoltz
 lmax = 6
 M = SymBoltz.ΛCDM(; lmax)
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
 ```
 ```@setup class
 using ModelingToolkit
@@ -112,7 +112,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; solver = SymBoltz.Rodas5P()) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas5P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
@@ -170,7 +170,7 @@ ls = sol1["Cl"]["l"]
 ls = Int.(ls[begin:10:end])
 Dls_class = sol1["Cl"]["TT"]
 Dls_class = Dls_class[begin:10:end]
-Cls = spectrum_cmb(:TT, M, pars, ls; verbose=true)
+Cls = spectrum_cmb(:TT, prob, ls; verbose=true)
 Dls = SymBoltz.Dl(Cls, ls)
 
 sols = merge(sols, Dict(
