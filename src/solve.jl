@@ -25,49 +25,109 @@ end
 
 struct CosmologyProblem
     M::ODESystem
+
     bg::Union{ODEProblem, Nothing}
     th::Union{ODEProblem, Nothing}
     pt::Union{ODEProblem, Nothing}
-    pars::Dict
+
+    vars_fixed::Dict
+    pars_fixed::Dict
+    vars_shoot::Dict
+    pars_shoot::Dict
+    conditions::Vector{Num}
+
     spline_thermo::Bool
 end
 
 struct CosmologySolution
     prob::CosmologyProblem
-    bg::ODESolution
-    th::ODESolution
+    bg::Union{ODESolution, Nothing}
+    th::Union{ODESolution, Nothing}
     ks::AbstractArray
     pts::Union{EnsembleSolution, Nothing}
 end
 
-solvername(alg) = string(nameof(typeof(alg)))
-solvername(alg::CompositeAlgorithm) = join(solvername.(alg.algs), "+")
+algname(alg) = string(nameof(typeof(alg)))
+algname(alg::CompositeAlgorithm) = join(algname.(alg.algs), "+")
 
-# TODO: function Base.show(io::IO, prob::CosmologyProblem) end
+function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
+    print(io, "Cosmology problem for model ")
+    printstyled(io, nameof(prob.bg.f.sys), '\n'; bold = true)
 
-function Base.show(io::IO, sol::CosmologySolution)
+    printstyled(io, "Stages:"; bold = true)
+    if !isnothing(prob.bg)
+        print(io, '\n', indent, "Background")
+    end
+    if !isnothing(prob.th)
+        print(io, '\n', indent, "Thermodynamics")
+    end
+    if !isnothing(prob.pt)
+        print(io, '\n', indent, "Perturbations")
+    end
+
+    if !isempty(prob.vars_fixed) || !isempty(prob.pars_fixed)
+        printstyled(io, "\nFixed (independent) parameters:"; bold = true)
+        for (var, val) in merge(prob.vars_fixed, prob.pars_fixed)
+            print(io, '\n', indent, "$var = $val")
+        end
+    end
+    if !isempty(prob.vars_shoot) || !isempty(prob.pars_shoot)
+        printstyled(io, "\nShooting (dependent) parameters:"; bold = true)
+        for (var, val) in merge(prob.vars_shoot, prob.pars_shoot)
+            print(io, '\n', indent, "$var [guess = $val]")
+        end
+    end
+    if !isempty(prob.conditions)
+        printstyled(io, "\nShooting conditions:"; bold=true)
+        for condition in prob.conditions
+            print(io, '\n', indent, condition, " = 0")
+        end
+    end
+end
+
+function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
     print(io, "Cosmology solution for model ")
     printstyled(io, nameof(sol.prob.bg.f.sys), '\n'; bold = true)
 
-    printstyled(io, "Parameters:\n"; bold = true)
-    for (par, val) in sol.prob.pars
-        print(io, "  $par = $val\n")
-    end
-
     printstyled(io, "Stages:"; bold = true)
-    print(io, "\n  1. background: solved with $(solvername(sol.bg.alg)), $(length(sol.bg)) points")
+    if !isnothing(sol.bg)
+        print(io, '\n', indent, "Background: solved with $(algname(sol.bg.alg)), $(length(sol.bg)) points")
+    end
     if !isnothing(sol.th)
-        print(io, "\n  2. thermodynamics: solved with $(solvername(sol.th.alg)), $(length(sol.th)) points")
+        print(io, '\n', indent, "Thermodynamics: solved with $(algname(sol.th.alg)), $(length(sol.th)) points")
     end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
         nmin, nmax = extrema(map(length, sol.pts))
         n = length(sol.pts)
-        print(io, "\n  3. perturbations: solved with $(solvername(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation between log(k))")
+        print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation between log(k))")
+    end
+
+    if !isempty(sol.prob.vars_fixed) || !isempty(sol.prob.pars_fixed)
+        printstyled(io, "\nFixed (independent) parameters:"; bold = true)
+        for (var, val) in merge(sol.prob.vars_fixed, sol.prob.pars_fixed)
+            print(io, '\n', indent, "$var = $val")
+        end
+    end
+    if !isempty(sol.prob.vars_shoot) || !isempty(sol.prob.pars_shoot)
+        printstyled(io, "\nShooting (dependent) parameters:"; bold = true)
+        for var in keys(merge(sol.prob.vars_shoot, sol.prob.pars_shoot))
+            var = ModelingToolkit.wrap(var)
+            printstyled(io, '\n', indent, "$var = $(sol[var][begin])")
+        end
     end
 end
 
-function CosmologyProblem(M::ODESystem, pars; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+# Split parameters into DifferentialEquations' u0 and p convention
+function split_u0_p(M::ODESystem, x::Dict)
+    pars = intersect(keys(x), parameters(M)) # separate parameters from initial conditions
+    vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
+    pars = Dict(par => x[par] for par in pars) # like p
+    vars = Dict(var => x[var] for var in vars) # like u0
+    return vars, pars
+end
+
+function CosmologyProblem(M::ODESystem, pars_fixed; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, shoot = Dict(), conditions = [], kwargs...)
     bg = structural_simplify(background(M))
     th = structural_simplify(thermodynamics(M))
     pt = structural_simplify(perturbations(M; spline_thermo))
@@ -78,27 +138,23 @@ function CosmologyProblem(M::ODESystem, pars; spline_thermo = true, debug = fals
         pt = debug_system(pt)
     end
 
-    # Split parameters into DifferentialEquations' "u0" and "p" convention
-    params = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
-    pars = intersect(keys(params), parameters(M)) # separate parameters from initial conditions
-    vars = setdiff(keys(params), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
-    vars = Dict(var => params[var] for var in vars) # like u0
-    pars = Dict(par => params[par] for par in pars) # like p
+    vars_fixed, pars_fixed = split_u0_p(M, pars_fixed)
+    vars_shoot, pars_shoot = split_u0_p(M, shoot)
+    conditions = [eq.lhs - eq.rhs for eq in conditions] .|> ModelingToolkit.wrap # expressions that should be 0 # TODO: shouldn't have to wrap
 
-    # TODO: forwards only (makes more sense, can go beyond a=1, etc.)
-    tspan = (1e-5, 4.0)
     # TODO: solve only one of bg,th (based on thermo bool)?
+    tspan = (1e-5, 4.0) # TODO: keyword argument
+    vars = merge(vars_fixed, vars_shoot)
+    pars = merge(pars_fixed, pars_shoot)
+    parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
+    bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
 
-    bg = ODEProblem(bg, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-    th = ODEProblem(th, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-    pt = ODEProblem(pt, vars, tspan, pars; guesses, fully_determined = true, jac, sparse)
-
-    delete!(params, k) # remove k dummy
-    return CosmologyProblem(M, bg, th, pt, params, spline_thermo)
+    return CosmologyProblem(M, bg, th, pt, vars_fixed, pars_fixed, vars_shoot, pars_shoot, conditions, spline_thermo)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
-# TODO: use CommonSolve.step! to iterate background -> thermodynamics -> perturbations?
 # TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
 # TODO: shoot to reach E = 1 today when integrating forwards
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
@@ -107,24 +163,51 @@ end
 
 Solve the `CosmologyProblem` at the background level.
 """
-function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
+function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3), guesses = Dict(), thread = true, jac = false, sparse = false, verbose = false)
     M = prob.bg.f.sys
     callback = callback_terminator(prob.bg, M.g.a, aterm)
-    bg = solve(prob.bg, solver; callback, reltol, kwargs...)
+
+    bg = solve(prob.bg; callback, bgopts...)
+
+    # TODO: move shooting problem setup to CosmologyProblem
+    vars_shoot = collect(keys(prob.vars_shoot))
+    pars_shoot = collect(keys(prob.pars_shoot))
+    all_shoot = [vars_shoot; pars_shoot] # defines ordering
+    nvars = length(prob.vars_shoot)
+    npars = length(prob.pars_shoot)
+
+    if !isempty(all_shoot)
+        function f(vals, _)
+            # TODO: find more efficient way (https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/)
+            u0 = nvars == 0 ? missing : Dict(vars_shoot .=> vals[1:nvars]) # TODO: setsym instead?
+            p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> vals[nvars+1:end]) # TODO: setsym instead?
+            bgprob = remake(prob.bg; u0, p) # TODO: u0 from vars_shoot
+            bg = solve(bgprob; callback, bgopts...)
+            return bg[prob.conditions][end] # evaluate all expressions at final time (e.g. today)
+        end
+        shooting_guess = [[prob.vars_shoot[var] for var in vars_shoot]..., [prob.pars_shoot[par] for par in pars_shoot]...] # ... instead of ; for type-stability in case vars/pars is empty
+        shooting_prob = NonlinearProblem(f, shooting_guess)
+        shooting_sol = solve(shooting_prob; show_trace = Val(verbose), shootopts...) # TODO: speed up!
+        check_solution(shooting_sol.retcode)
+    else
+        shooting_sol = []
+    end
+
     check_solution(bg.retcode)
 
-    M = prob.th.f.sys
-    th = solve(prob.th, solver; callback, reltol, kwargs...)
-    check_solution(th.retcode)
-
     # Remove duplicate endpoints due to callback termination
-    for sol in [bg, th]
-        if sol.t[end] == sol.t[end-1]
-            ilast = length(sol.t)
-            deleteat!(sol.t, ilast)
-            deleteat!(sol.u, ilast)
-        end
+    if bg.t[end] == bg.t[end-1]
+        ilast = length(bg.t)
+        deleteat!(bg.t, ilast)
+        deleteat!(bg.u, ilast)
     end
+
+    M = prob.th.f.sys
+    u0 = nvars == 0 ? missing : Dict(vars_shoot .=> shooting_sol[1:nvars]) # TODO: don't repeat, put in function # TODO: remake whole CosmologyProblem, and shoot it instead?
+    p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> shooting_sol[nvars+1:end]) # TODO: setsym instead?
+    thprob = remake(prob.th; tspan = extrema(bg.t), u0, p)
+    th = solve(thprob; thopts...)
+    check_solution(th.retcode)
 
     # Offset optical depth, so it's 0 today
     if have(M, :b)
@@ -134,55 +217,53 @@ function solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol =
         end
     end
 
-    return CosmologySolution(prob, bg, th, [], nothing)
-end
+    if isempty(ks)
+        ptsols = nothing
+    else
+        ks = k_dimensionless.(ks, prob.pars_fixed[prob.bg.f.sys.g.h]) # TODO: always index _fixed?
+        !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-# TODO: merge with BG function?
-"""
-    solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
+        if Threads.nthreads() == 1 && thread
+            @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+            thread = false
+        end
 
-Solve the `CosmologyProblem` up to the perturbative level for wavenumbers `ks`.
-"""
-function solve(prob::CosmologyProblem, ks::AbstractArray; aterm = 1.0, solver = KenCarp4(), reltol = 1e-8, reltol_bg = 1e-10, verbose = false, thread = true, jac = false, sparse = false, kwargs...)
-    ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
-    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
+        M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
+        ptprob0 = prob.pt
+        u0 = nvars == 0 ? missing : Dict(vars_shoot .=> shooting_sol[1:nvars]) # TODO: don't repeat, put in function # TODO: could do with setsym_oop below, but that seems to keep G.ϕ = 0.95 instead of using the shot value
+        p = npars == 0 ? missing : Dict(ModelingToolkit.wrap.(pars_shoot) .=> shooting_sol[nvars+1:end]) # TODO: setsym instead?
+        ptprob0 = remake(ptprob0; tspan = extrema(bg.t), u0, p)
     
-    if Threads.nthreads() == 1 && thread
-        @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
-        thread = false
+        update_vars = Dict(M.g.a => bg[M.g.a][begin])
+        if have(M, :b) && have(M.b, :rec) && prob.spline_thermo
+            update_vars = merge(update_vars, Dict(
+                M.b.rec.τspline => spline(th[M.b.rec.τ], th.t), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
+                M.b.rec.τ̇spline => spline(th[M.b.rec.τ̇], th.t),
+                M.b.rec.cₛ²spline => spline(th[M.b.rec.cₛ²], th.t)
+            ))
+        end
+        update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
+        newu0, newp = update(ptprob0, collect(values(update_vars)))
+        ptprob0 = remake(ptprob0, tspan = extrema(bg.t), u0 = newu0, p = newp)
+
+        kset! = setp(ptprob0, k) # function that sets k on a problem
+        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ptprob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
+        ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
+            ptprob = ptprob_tlv[]
+            verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
+            kset!(ptprob, ks[i])
+            return ptprob
+        end)
+        ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
+        ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
+        for i in 1:length(ptsols)
+            check_solution(ptsols[i].retcode)
+        end
     end
 
-    sol = solve(prob; aterm, jac, sparse, reltol = reltol_bg, kwargs...)
-
-    # If the thermodynamics solution should be splined,
-    # solve it again (if needed) and update the spline parameters
-    M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    if prob.spline_thermo
-        ode_prob0 = prob.pt
-        aini = sol[M.g.a][begin]
-        τspline = spline(sol[M.b.rec.τ], sol[M.t]) # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-        τ̇spline = spline(sol[M.b.rec.τ̇], sol[M.t])
-        cₛ²spline = spline(sol[M.b.rec.cₛ²], sol[M.t])
-        splineset = ModelingToolkit.setsym_oop(ode_prob0, [M.g.a, M.b.rec.τspline, M.b.rec.τ̇spline, M.b.rec.cₛ²spline])
-        newu0, newp = splineset(ode_prob0, [aini, τspline, τ̇spline, cₛ²spline])
-        ode_prob0 = remake(ode_prob0, tspan = extrema(sol.bg.t), u0 = newu0, p = newp)
-    end
-
-    kset! = setp(prob.pt, k) # function that sets k on a problem
-    ode_prob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ode_prob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
-    ode_probs = EnsembleProblem(; safetycopy = false, prob = ode_prob0, prob_func = (_, i, _) -> begin
-        ode_prob = ode_prob_tlv[]
-        verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-        kset!(ode_prob, ks[i])
-        return ode_prob
-    end)
-    alg = thread ? EnsembleThreads() : EnsembleSerial()
-    ode_sols = solve(ode_probs, solver, alg, trajectories = length(ks); reltol, kwargs...) # TODO: test GPU parallellization
-    for i in 1:length(ode_sols)
-        check_solution(ode_sols[i].retcode)
-    end
-    return CosmologySolution(prob, sol.bg, sol.th, ks, ode_sols)
+    return CosmologySolution(prob, bg, th, ks, ptsols)
 end
+
 function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
 end
