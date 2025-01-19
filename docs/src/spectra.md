@@ -30,7 +30,7 @@ SymBoltz.spectrum_matter_nonlinear
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
 sol = solve(prob, ks)
 
@@ -56,7 +56,7 @@ SymBoltz.spectrum_cmb
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ls = 10:5:1500
 
 ClTTs, ClEEs, ClTEs = spectrum_cmb([:TT, :EE, :TE], prob, ls)
@@ -80,7 +80,7 @@ SymBoltz.correlation_function
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(prob, ks)
 rs, ξs = correlation_function(sol)
@@ -99,7 +99,7 @@ SymBoltz.stddev_matter
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(prob, ks)
 

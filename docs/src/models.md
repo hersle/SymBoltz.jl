@@ -28,8 +28,8 @@ SymBoltz.ΛCDM
 ```@example ΛCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
 M = ΛCDM()
-pars = parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, parameters_Planck18(M), Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+pars = merge(pars, shoot(prob, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1]))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
@@ -52,7 +52,7 @@ pars = merge(parameters_Planck18(M), Dict( # TODO: make parameters_planck18 take
     M.X.cₛ² => 1.0
 ))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-prob = CosmologyProblem(M, pars; shoot = Dict(M.X.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.X.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), M.X.w)
 p2 = plot(sol, ks, log10(M.g.a), M.X.δ)
@@ -72,7 +72,7 @@ M = BDΛCDM()
 D = Differential(M.t)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 pars = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
-prob = CosmologyProblem(M, pars; shoot = Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1, M.G.G ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1, M.G.G ~ 1])
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
@@ -86,9 +86,9 @@ using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
 M = SymBoltz.BDRMΛ()
 D = Differential(M.t)
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω₀, M.G.ϕ
-prob = CosmologyProblem(M, pars; shoot = Dict(M.G.ϕ => 0.8, M.Λ.Ω₀ => 0.8), conditions = [M.g.ℰ ~ 1, M.G.G ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.8, M.Λ.Ω₀ => 0.8), [M.g.ℰ ~ 1, M.G.G ~ 1])
 k = 1e-0 / u"Mpc"
-sol = solve(prob, k; solver_shooting = SymBoltz.TrustRegion(), reltol_shooting = 1e-2, verbose = true)
+sol = solve(prob, k; shootopts = (alg = SymBoltz.TrustRegion(), reltol = 1e-2), verbose = true)
 p1 = plot(sol, log10(M.g.a), M.G.G)
 p2 = plot(sol, k, log10(M.g.a), M.G.δϕ)
 plot(p1, p2, layout = (2, 1))
@@ -109,7 +109,7 @@ V = ϕ -> V0 * ϕ^N
 M = QCDM(V, h = nothing, I = nothing) # TODO: remove h = nothing
 D = Differential(M.t)
 pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
-prob = CosmologyProblem(M, pars; shoot = Dict(D(M.Q.ϕ) => +1.0), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(D(M.Q.ϕ) => +1.0), [M.g.ℰ ~ 1])
 sol = solve(prob)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 =#

@@ -33,6 +33,9 @@ struct CosmologyProblem
 
     pars::Dict
 
+    shoot::Base.KeySet
+    conditions::AbstractArray
+
     spline_thermo::Bool
 end
 
@@ -64,7 +67,12 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
 
     printstyled(io, "\nParameters:"; bold = true)
     for (par, val) in prob.pars
-        print(io, '\n', indent, "$par = $val")
+        print(io, '\n', indent, "$par = $val", par in prob.shoot ? " (shooting guess)" : "")
+    end
+
+    !isempty(prob.conditions) && printstyled(io, "\nFinal conditions:"; bold = true) # TODO: initial vs final conditions
+    for condition in prob.conditions
+        print(io, '\n', indent, condition)
     end
 end
 
@@ -88,7 +96,7 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
 
     printstyled(io, "\nParameters:"; bold = true)
     for (par, val) in sol.prob.pars
-        print(io, '\n', indent, "$par = $val")
+        print(io, '\n', indent, "$par = $val", par in sol.prob.shoot ? " (shooting solution)" : "")
     end
 end
 
@@ -101,7 +109,7 @@ function split_vars_pars(M::ODESystem, x::Dict)
     return vars, pars
 end
 
-function CosmologyProblem(M::ODESystem, pars::Dict; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, shoot = Dict(), conditions = [], kwargs...)
+function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
     bg = structural_simplify(background(M))
     th = structural_simplify(thermodynamics(M))
     pt = structural_simplify(perturbations(M; spline_thermo))
@@ -113,23 +121,26 @@ function CosmologyProblem(M::ODESystem, pars::Dict; spline_thermo = true, debug 
     end
 
     # TODO: solve only one of bg,th (based on thermo bool)?
-    pars_full = copy(pars) # save full dictionary for constructor
-    vars, pars = split_vars_pars(M, pars)
+    pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
+    vars, pars = split_vars_pars(M, pars_full)
     tspan = (1e-5, 4.0) # TODO: keyword argument
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
     th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
     pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
-    return CosmologyProblem(M, bg, th, pt, pars_full, spline_thermo)
+    shoot_pars = keys(shoot_pars)
+    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline_thermo)
 end
 
-function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true)
+function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true)
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
     bg = bg ? remake(prob.bg; u0 = vars, p = pars) : nothing
     th = th ? remake(prob.th; u0 = vars, p = pars) : nothing
     pt = pt ? remake(prob.pt; u0 = vars, p = pars) : nothing
-    return CosmologyProblem(prob.M, bg, th, pt, pars_full, prob.spline_thermo)
+    shoot_pars = shoot ? prob.shoot : keys(Dict())
+    shoot_conditions = shoot ? prob.conditions : []
+    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
@@ -141,8 +152,15 @@ end
 
 Solve the `CosmologyProblem` at the background level.
 """
-function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3), guesses = Dict(), thread = true, jac = false, sparse = false, verbose = false)
-    M = prob.bg.f.sys
+function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false), guesses = Dict(), thread = true, jac = false, sparse = false, verbose = false)
+    if !isempty(prob.shoot)
+        length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
+        pars = Dict(par => prob.pars[par] for par in prob.shoot)
+        pars = shoot(prob, pars, prob.conditions; verbose, shootopts...) # TODO: pass options?
+        prob = remake(prob, pars)
+    end
+
+    M = prob.M
     callback = callback_terminator(prob.bg, M.g.a, aterm)
 
     if !isnothing(prob.bg)
@@ -187,15 +205,14 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
             thread = false
         end
 
-        M = prob.pt.f.sys # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
+        # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
-    
         update_vars = Dict(M.g.a => bg[M.g.a][begin])
         if have(M, :b) && have(M.b, :rec) && prob.spline_thermo
             update_vars = merge(update_vars, Dict(
-                M.b.rec.τspline => spline(th[M.b.rec.τ], th.t), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-                M.b.rec.τ̇spline => spline(th[M.b.rec.τ̇], th.t),
-                M.b.rec.cₛ²spline => spline(th[M.b.rec.cₛ²], th.t)
+                prob.pt.f.sys.b.rec.τspline => spline(th[M.b.rec.τ], th.t), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
+                prob.pt.f.sys.b.rec.τ̇spline => spline(th[M.b.rec.τ̇], th.t),
+                prob.pt.f.sys.b.rec.cₛ²spline => spline(th[M.b.rec.cₛ²], th.t)
             ))
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
@@ -388,14 +405,14 @@ function shoot(prob::CosmologyProblem, pars::Dict, conditions::AbstractArray; al
     funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
 
     function f(vals, _)
-        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, th, pt)
-        sol = solve(newprob; kwargs...)
+        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, th, pt, shoot = false)
+        sol = solve(newprob)
         return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
     end
 
     nguess = collect(values(pars))
     nprob = NonlinearProblem(f, nguess)
-    nsol = solve(nprob, alg; show_trace = Val(verbose)) # TODO: speed up!
+    nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...) # TODO: speed up!
     check_solution(nsol.retcode)
     return Dict(keys(pars) .=> nsol.u)
 end

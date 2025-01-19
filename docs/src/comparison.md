@@ -9,7 +9,7 @@ using SymBoltz
 lmax = 6
 M = SymBoltz.ΛCDM(; lmax)
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ```
 ```@setup class
 using ModelingToolkit
