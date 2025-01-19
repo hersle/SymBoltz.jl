@@ -120,7 +120,7 @@ end
 
 # Split parameters into DifferentialEquations' u0 and p convention
 function split_u0_p(M::ODESystem, x::Dict)
-    pars = intersect(keys(x), parameters(M)) # separate parameters from initial conditions
+    pars = intersect(keys(x), parameters(M)) .|> ModelingToolkit.wrap # separate parameters from initial conditions # TODO: remove wrap
     vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     pars = Dict(par => x[par] for par in pars) # like p
     vars = Dict(var => x[var] for var in vars) # like u0
