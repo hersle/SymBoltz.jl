@@ -8,7 +8,6 @@ function metric(; name = :g, kwargs...)
     pars = H₀, h = GlobalScope.(@parameters H₀ h)
     defs = [
         H₀ => H100 * h
-        h => H₀ / H100
     ]
     initialization_eqs = [
         O(ϵ^0)(a ~ D(a) * t)

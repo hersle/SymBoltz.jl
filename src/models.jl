@@ -33,8 +33,9 @@ function ΛCDM(;
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, Λ])
-    pars = @parameters C fν
+    pars = @parameters C
     vars = @variables S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
+    fν = sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
     defs = Dict(
         C => 1//2,
         ϵ => 1,
@@ -47,7 +48,6 @@ function ΛCDM(;
     have(h) && have(γ) && merge!(defs, Dict(
         h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS uses something slightly different
     ))
-    push!(defs, fν => sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)))
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
@@ -74,7 +74,8 @@ function ΛCDM(;
 
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
-    M = compose(connections, g, G, species..., I)
+    components = filter(!isnothing, [g; G; species; I])
+    M = compose(connections, components...)
     return complete(M; flatten = false)
 end
 

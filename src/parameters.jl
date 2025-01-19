@@ -6,12 +6,13 @@ function parameters_Planck18(M::ODESystem)
         M.γ.T₀ => 2.7255,
         M.c.Ω₀ => 0.1200 / h^2,
         M.b.Ω₀ => 0.0224 / h^2,
-        M.Λ.Ω₀ => 0.684664, # TODO: should compute in solve
         M.b.rec.Yp => 0.2454,
         M.ν.Neff => 2.99,
+    )
+    have(M, :I) && merge!(params, Dict(
         M.I.As => 2.099e-9,
         M.I.ns => 0.965
-    )
+    ))
     have(M, :h) && push!(params, M.h.m => 0.06 * eV/c^2)
     return params
 end
