@@ -52,7 +52,7 @@ pars = Dict(
     M.I.As => 2e-9,
     M.I.ns => 0.95
 )
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; shoot = Dict(M.Λ.Ω₀ => 0.5), conditions = [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 sol = solve(prob, ks)
 ```

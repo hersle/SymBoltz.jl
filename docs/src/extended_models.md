@@ -108,7 +108,7 @@ To test, let us set some parameters and solve both models with one perturbation 
 For the ΛCDM model:
 ```@example ext
 θ1 = SymBoltz.parameters_Planck18(M1)
-prob1 = CosmologyProblem(M1, θ1)
+prob1 = CosmologyProblem(M1, θ1; shoot = Dict(M1.Λ.Ω₀ => 0.5), conditions = [M1.g.ℰ ~ 1])
 ks = 1.0
 sol1 = solve(prob1, ks)
 ```
@@ -119,9 +119,7 @@ And for the w₀wₐCDM model:
     M2.X.wₐ => 0.2,
     M2.X.cₛ² => 1.0
 ))
-θ2[M2.X.Ω₀] = θ1[M1.Λ.Ω₀] / exp(-3*θ2[M2.X.wₐ]) # TODO: automatic
-delete!(θ2, M1.Λ.Ω₀) # TODO: avoid
-prob2 = CosmologyProblem(M2, θ2)
+prob2 = CosmologyProblem(M2, θ2; shoot = Dict(M2.X.Ω₀ => 0.5), conditions = [M2.g.ℰ ~ 1])
 sol2 = solve(prob2, ks)
 ```
 Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
