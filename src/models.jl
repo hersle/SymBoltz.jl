@@ -1,15 +1,19 @@
 """
     ΛCDM(;
+        lmax = 6,
         recombination = true,
         reionization = true,
+        acceleration = false,
         g = metric(),
-        G = general_relativity(g),
-        γ = photons(g),
-        ν = massless_neutrinos(g),
-        h = massive_neutrinos(g),
+        G = general_relativity(g; acceleration),
+        γ = photons(g; lmax),
+        ν = massless_neutrinos(g; lmax),
+        h = massive_neutrinos(g; lmax),
         c = cold_dark_matter(g; name = :c),
         b = baryons(g; recombination, reionization, name = :b),
         Λ = cosmological_constant(g),
+        I = harrison_zeldovich(g; name = :I),
+        name = :ΛCDM,
         kwargs...
     )
 
@@ -27,7 +31,7 @@ function ΛCDM(;
     h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, reionization, name = :b),
-    Λ = cosmological_constant(g; analytical = true),
+    Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),
     name = :ΛCDM,
     kwargs...
@@ -99,7 +103,7 @@ function RMΛ(;
     g = metric(),
     r = radiation(g; adiabatic),
     m = matter(g; adiabatic),
-    Λ = cosmological_constant(g; adiabatic, analytical = true),
+    Λ = cosmological_constant(g; adiabatic),
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )

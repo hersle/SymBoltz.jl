@@ -108,7 +108,14 @@ function split_vars_pars(M::ODESystem, x::Dict)
     return vars, pars
 end
 
-function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, bg = true, th = true, pt = true, kwargs...)
+"""
+    CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...)
+
+Create a numerical cosmological problem from the model `M` with parameters `pars`.
+Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
+If `bg`, `th` and `pt`, the model is split into the background, thermodynamics and perturbations stages.
+"""
+function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...)
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
     tspan = (1e-5, 1e3) # TODO: keyword argument
@@ -120,7 +127,7 @@ function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_c
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+        bg = ODEProblem(bg, vars, tspan, parsk; fully_determined = true, kwargs...)
     else
         bg = nothing
     end
@@ -130,7 +137,7 @@ function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_c
         if debug
             th = debug_system(th)
         end
-        th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+        th = ODEProblem(th, vars, tspan, parsk; fully_determined = true, kwargs...)
     else
         th = nothing
     end
@@ -140,7 +147,7 @@ function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_c
         if debug
             pt = debug_system(pt)
         end
-        pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+        pt = ODEProblem(pt, vars, tspan, parsk; fully_determined = true, kwargs...)
     else
         pt = nothing
     end
@@ -148,6 +155,12 @@ function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_c
     return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline_thermo)
 end
 
+"""
+    remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true)
+
+Return an updated `CosmologyProblem` where parameters in `prob` are updated to values specified in `pars`.
+Parameters that are not specified in `pars` keep their values from `prob`.
+"""
 function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true)
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
@@ -160,15 +173,17 @@ function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = t
 end
 
 # TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
-# TODO: solve thermodynamics only if parameters contain thermodynamics parameters?
-# TODO: shoot to reach E = 1 today when integrating forwards
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
-    solve(prob::CosmologyProblem; aterm = 1.0, solver = Rodas4P(), reltol = 1e-10, kwargs...)
+    solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false), thread = true, verbose = false)
 
-Solve the `CosmologyProblem` at the background level.
+
+Solve the cosmological problem `prob` up to the perturbative levels with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
+The options `bgopts`, `thopts` and `ptopts` are passed to the background, thermodynamics and perturbations ODE `solve()` calls,
+and `shootopts` to the shooting method nonlinear `solve()`.
+If `threads`, integration over independent perturbation modes are parallellized.
 """
-function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false), guesses = Dict(), thread = true, jac = false, sparse = false, verbose = false)
+function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgopts = (alg = Rodas4P(), reltol = 1e-10,), thopts = (alg = Rodas4P(), reltol = 1e-10,), ptopts = (alg = KenCarp4(), reltol = 1e-8,), shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false), thread = true, verbose = false)
     if !isempty(prob.shoot)
         length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
         pars = Dict(par => prob.pars[par] for par in prob.shoot)
@@ -233,7 +248,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))
-        ptprob0 = remake(ptprob0, tspan = extrema(bg.t), u0 = newu0, p = newp)
+        ptprob0 = remake(ptprob0; tspan, u0 = newu0, p = newp)
 
         kset! = ModelingToolkit.setp(ptprob0, k) # function that sets k on a problem
         ptprob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ptprob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
@@ -412,11 +427,6 @@ end
 
 # TODO: more generic version that can do anything (e.g. S8)
 # TODO: add dispatch with pars::AbstractArray that uses values in prob for initial guess
-"""
-    shoot(M::ODESystem, pars_fixed, pars_varying, conditions; solver = TrustRegion(), verbose = false, kwargs...)
-
-Solve a cosmological model with fixed parameters, while varying some parameters (from their initial guesses) until the given `conditions` at the end time are satisfied.
-"""
 function shoot(prob::CosmologyProblem, pars::Dict, conditions::AbstractArray; alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...)
     funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
 

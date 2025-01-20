@@ -57,7 +57,7 @@ end
 
 Create a particle species for the cosmological constant (with equation of state `w ~ -1`) in the spacetime with metric `g`.
 """
-function cosmological_constant(g; name = :Λ, analytical = false, kwargs...)
+function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
     Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
