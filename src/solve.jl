@@ -109,35 +109,52 @@ function split_vars_pars(M::ODESystem, x::Dict)
     return vars, pars
 end
 
-function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, kwargs...)
-    bg = structural_simplify(background(M))
-    th = structural_simplify(thermodynamics(M))
-    pt = structural_simplify(perturbations(M; spline_thermo))
-
-    if debug
-        bg = debug_system(bg)
-        th = debug_system(th)
-        pt = debug_system(pt)
-    end
-
-    # TODO: solve only one of bg,th (based on thermo bool)?
+function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; spline_thermo = true, debug = false, aterm = 1.0, thermo = true, debug_initialization = false, guesses = Dict(), jac = false, sparse = false, bg = true, th = true, pt = true, kwargs...)
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
-    tspan = (1e-5, 4.0) # TODO: keyword argument
+    tspan = (1e-5, 1e3) # TODO: keyword argument
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
-    bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
-    th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
-    pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
     shoot_pars = keys(shoot_pars)
+
+    if bg
+        bg = structural_simplify(background(M))
+        if debug
+            bg = debug_system(bg)
+        end
+        bg = ODEProblem(bg, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    else
+        bg = nothing
+    end
+
+    if th
+        th = structural_simplify(thermodynamics(M))
+        if debug
+            th = debug_system(th)
+        end
+        th = ODEProblem(th, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    else
+        th = nothing
+    end
+
+    if pt
+        pt = structural_simplify(perturbations(M; spline_thermo))
+        if debug
+            pt = debug_system(pt)
+        end
+        pt = ODEProblem(pt, vars, tspan, parsk; guesses, fully_determined = true, jac, sparse)
+    else
+        pt = nothing
+    end
+
     return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline_thermo)
 end
 
 function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true)
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
-    bg = bg ? remake(prob.bg; u0 = vars, p = pars) : nothing
-    th = th ? remake(prob.th; u0 = vars, p = pars) : nothing
-    pt = pt ? remake(prob.pt; u0 = vars, p = pars) : nothing
+    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars) : nothing
+    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars) : nothing
+    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
