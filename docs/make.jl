@@ -18,7 +18,7 @@ makedocs(
             "extended_models.md",
             "parameter_fitting.md"
         ],
-        "Components and models" => [
+        "Building models" => [
             "components.md",
             "models.md"
         ],

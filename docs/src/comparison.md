@@ -1,6 +1,4 @@
-# Comparison to other codes
-
-## Numerical comparison to CLASS
+# Comparison to CLASS
 
 [This comparison script](https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md) automatically builds the latest version of the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) and compares its results to the latest version of SymBoltz:
 

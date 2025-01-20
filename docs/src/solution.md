@@ -1,6 +1,11 @@
-# Solution handling
+# Solving models
 
-Once a [cosmological model](@ref "Models") has been constructed, it can be solved for some given parameters:
+Once a symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem that can be solved for some given parameters:
+
+```@docs
+CosmologyProblem
+remake(prob::CosmologyProblem, pars::Dict)
+```
 
 ```@docs
 solve(prob::CosmologyProblem, ks::AbstractArray)
@@ -24,8 +29,8 @@ The returned solution `sol` can be conveniently accessed to obtain any variable 
 - `sol(k, t, y)` returns the *perturbation* variable(s) $y(k,t)$ as a function of the wavenumber(s) $k$ and conformal time(s) $t$. It also interpolates linearly between the logarithms of the wavenumbers passed to `solve`.
 
 Note that `y` can be any symbolic variables in the model `M`, and even expressions thereof.
-*Unknown* variables are part of the state vector integrated by the ODE solver are returned directly from its solution,
-while *observed* variables and expressions are functions of the unknowns are automatically calculated from their definitions in `M`.
+*Unknown* variables are part of the state vector integrated by the ODE solver are returned directly from its solution.
+*Observed* variables or expressions are functions of the unknowns, and are automatically calculated from the equations that define them in the symbolic model.
 For example:
 
 ```@example sol

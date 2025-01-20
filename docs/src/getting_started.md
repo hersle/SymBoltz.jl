@@ -3,42 +3,35 @@
 [Install SymBoltz.jl](@ref "Installation") and load it with
 ```@example getting_started
 using SymBoltz
-``` 
+```
 
 ## 1. Create the model
 
 The first step is to define our cosmological model.
-This is a symbolic representation of the variables and equations that describe the various components in the universe, such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons).
-It will be used both to create the numerical problem to solve, and to access variables in its solution.
+This is a *symbolic* representation of the variables and equations that describe the various components in the universe, such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons).
 
 To get started, we will simply load the standard ΛCDM model:
 ```@example getting_started
 M = ΛCDM()
 ```
 
-As shown, the symbolic model is structured with a hierarchy of components, each of which contains chunks of the Einstein-Boltzmann system (it can also be displayed graphically with `using Plots; plot(M)`).
-In this case, the components are
-the spacetime metric (`g`, for $g_{\mu\nu}$),
-the theory of gravity (`G`, here general relativity),
-photons (`γ`),
-massless neutrinos (`ν`),
-cold dark matter (`c`),
-baryons (`b`),
-massive neutrinos (`h`),
-dark energy as a cosmological constant (`Λ`)
-and recombination (`rec`).
-Internally, these components are combined into a full Einstein-Boltzmann system.
-The full system is also separated into sequential computational stages, like the background and perturbation systems.
+The model is structured as a hierarchy of components:
+```@example getting_started
+hierarchy(M; describe = true)
+```
+Each of these components contains a block of self-contained variables and equations that are independent from the other components, making up interchangeable modules of the entire Einstein-Boltzmann system.
+A full model joins several such incomplete blocks into a complete set of equations for the entire Einstein-Boltzmann system.
 
-The hierarchical structure can be inspected interactively (with TAB-completion) as a [ModelingToolkit](https://docs.sciml.ai/ModelingToolkit) system by evaluating `M`, `M.G`, `M.g.ρ` and so on.
+The hierarchical structure can be inspected interactively (with TAB-completion) in the Julia REPL by evaluating `M`, `M.G`, `M.G.ρ` and so on.
 For example, to see all equations for the theory of gravity:
 ```@example getting_started
 equations(M.G)
 ```
 
-## 2. Solve the model
+## 2. Solve the problem
 
-Next, we set our desired cosmological parameters and wavenumbers, and solve the model:
+Next, we create a *numerical* representation of the cosmological problem we want to solve.
+This splits the full symbolic model into computational stages (like the background, thermodynamics and perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
 ```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = Dict(
@@ -52,16 +45,17 @@ pars = Dict(
     M.I.As => 2e-9,
     M.I.ns => 0.95
 )
+ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 shoot_pars = Dict(M.Λ.Ω₀ => 0.5)
 shoot_conditions = [M.g.ℰ ~ 1]
 prob = CosmologyProblem(M, pars, shoot_pars, shoot_conditions)
-ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
-sol = solve(prob, ks)
+```
+Finally, we can simply solve the problem:
+```@example getting_started
+sol = solve(prob, ks) # or just solve(prob) to solve only the background
 ```
 
-To solve only the background, you can simply omit the `ks` argument: `solve(prob, pars)`.
-
-## 3. Access the solution
+## 3. Use the solution
 
 You are now free to [do whatever you want with the solution object](@ref "Solution handling").
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
@@ -74,14 +68,14 @@ Similarly, to get $\Phi(k,t)$ for the 500 wavenumbers we solved for and the same
 Φs = sol(ks, ts, M.g.Φ)
 ```
 
-You could plot this with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is even easier with the included plot recipe:
+You could plot this with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is more convenient with the included plot recipe:
 ```@example getting_started
 using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
-We can also calculate the power spectrum:
+We can also calculate the matter power spectrum:
 ```@example getting_started
 Ps = spectrum_matter(sol, ks)
 plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
@@ -106,4 +100,3 @@ plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
 plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
 plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)
 ```
-

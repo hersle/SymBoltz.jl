@@ -5,7 +5,7 @@ SymBoltz.jl is a package for solving the linearized Einstein-Boltzmann system of
 ## Features
 
 - **Symbolic-numeric:** Represents the Einstein-Boltzmann system symbolically and solves it numerically.
-- **Extendable:** Facilitates development of extended models by representing each component (e.g. gravitational theory and every particle species) as modular blocks that are joined into a full model.
+- **Extendable:** Facilitates development of extended models by representing each component (e.g. gravitational theory and every particle species) as modular blocks that are compiled into a full model.
 - **Approximation-free:**  Does not rely on tight coupling, ultra-relativistic fluid and radiation streaming approximations, but implicitly integrates the full stiff equations with automatically generated Jacobians.
 - **Differentiable:** Enables sensitivity analysis with automatic differentiation of any output quantity.
 - **Convenient post-processing:** Compute and plot any derived quantity by its expression with no extra code.
