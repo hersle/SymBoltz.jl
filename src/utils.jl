@@ -1,14 +1,14 @@
 import SpecialFunctions: zeta as ζ
 import Symbolics: taylor
-using SymbolicIndexingInterface: variable_index
 using QuadGK
 
 ∫(f, a, b) = quadgk(f, a, b)[1] # TODO: use integrator that supports dual numbers
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
 # callback for terminating an integrator when var == val0
+# TODO: replace with symbolic continuous_events
 function callback_terminator(sys, var, val0)
-    varindex = variable_index(sys, var)
+    varindex = ModelingToolkit.variable_index(sys, var)
     return ContinuousCallback((u, _, _) -> (val = u[varindex]; val - val0), terminate!)
 end
 

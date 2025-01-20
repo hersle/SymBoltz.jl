@@ -1,7 +1,6 @@
 import Base: nameof
 import CommonSolve: solve
 import SciMLBase: remake
-import SymbolicIndexingInterface: setp # all_variable_symbols, getname
 import OhMyThreads: TaskLocalValue
 
 function background(sys)
@@ -204,7 +203,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
 
         # Offset optical depth, so it's 0 today
         if have(M, :b)
-            idx_τ = variable_index(prob.th, M.b.rec.τ)
+            idx_τ = ModelingToolkit.variable_index(prob.th, M.b.rec.τ)
             for i in 1:length(th.u)
                 th.u[i][idx_τ] -= th.u[end][idx_τ]
             end
@@ -236,7 +235,7 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
         newu0, newp = update(ptprob0, collect(values(update_vars)))
         ptprob0 = remake(ptprob0, tspan = extrema(bg.t), u0 = newu0, p = newp)
 
-        kset! = setp(ptprob0, k) # function that sets k on a problem
+        kset! = ModelingToolkit.setp(ptprob0, k) # function that sets k on a problem
         ptprob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ptprob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
         ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
             ptprob = ptprob_tlv[]
