@@ -62,10 +62,9 @@ end
 Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `t` (final, of omitted).
 The `solver` and other `kwargs` are passed to `solve`.
 """
-function spectrum_matter(M::ODESystem, pars, k, t = nothing; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
-    prob = CosmologyProblem(M, pars)
-    sol = solve(prob, k; solver, kwargs...) # TODO: just save endpoints
-    t = isnothing(t) ? sol[M.t][end] : t
+function spectrum_matter(prob::CosmologyProblem, k, t = nothing; species = [:c, :b, :h], kwargs...)
+    sol = solve(prob, k; kwargs...) # TODO: just save endpoints
+    t = isnothing(t) ? sol[prob.M.t][end] : t
     return spectrum_matter(sol, k, t; species)
 end
 
