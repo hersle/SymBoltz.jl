@@ -3,8 +3,7 @@
 Once a [cosmological model](@ref "Models") has been constructed, it can be solved for some given parameters:
 
 ```@docs
-solve(M::CosmologyModel, pars)
-solve(M::CosmologyModel, pars, ks::AbstractArray)
+solve(prob::CosmologyProblem, ks::AbstractArray)
 ```
 
 For example:
@@ -12,8 +11,9 @@ For example:
 using SymBoltz, Unitful, UnitfulAstro
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
+prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
-sol = solve(M, pars, ks)
+sol = solve(prob, ks)
 ```
 
 ## Accessing the solution
