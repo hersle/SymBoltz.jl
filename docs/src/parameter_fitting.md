@@ -65,28 +65,30 @@ theoretically, we solve the standard ΛCDM model:
 using SymBoltz, DataInterpolations
 
 M = RMΛ()
+prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> NaN); th = false, pt = false)
 
 function dL(z, sol::CosmologySolution)
     a = @. 1 / (z + 1)
     t = sol(M.g.z, z, M.t / M.g.H₀)
-    t0 = sol(M.g.z, 0, M.t / M.g.H₀)
+    t0 = sol[M.t / M.g.H₀][end]
     r = @. SymBoltz.c * (t0 .- t)
     return @. r / a / SymBoltz.Gpc
 end
 
-function dL(z, M::CosmologyModel, Ωm0, h)
-    pars = Dict(
-        M.r.Ω₀ => 5e-5,
+function dL(z, prob::CosmologyProblem, Ωm0, h; Ωr0 = 5e-5)
+    prob = remake(prob, Dict(
+        M.r.Ω₀ => Ωr0,
         M.m.Ω₀ => Ωm0,
+        M.Λ.Ω₀ => 1 - Ωr0 - Ωm0,
         M.g.h => h, M.r.T₀ => 0.0 # TODO: don't set
-    )
-    sol = solve(M, pars; thermo = false)
+    ))
+    sol = solve(prob)
     return dL(z, sol)
 end
 
 # Show example predictions
 zs = data.zs
-dLs = dL(zs, M, 0.3, 0.7)
+dLs = dL(zs, prob, 0.3, 0.7)
 scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 ```
 
@@ -99,10 +101,10 @@ using Turing
 @model function supernova(data, M)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
-    h ~ Uniform(0.1, 1.5)
+    h ~ Uniform(0.1, 1.0)
 
     # Theoretical prediction
-    dLs = dL(data.zs, M, Ωm0, h)
+    dLs = dL(data.zs, prob, Ωm0, h)
 
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
@@ -110,7 +112,7 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, M) # condition model on data
-chain = sample(sn, NUTS(), MCMCSerial(), 200, 2)
+chain = sample(sn, NUTS(), MCMCSerial(), 200, 1)
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:

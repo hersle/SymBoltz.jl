@@ -13,7 +13,7 @@ function metric(; name = :g, kwargs...)
         O(ϵ^0)(a ~ D(a) * t)
     ]
     guesses = [
-        a => 1e-1
+        a => 1e-5
     ]
     description = "Spacetime FLRW metric in Newtonian gauge"
     return ODESystem([

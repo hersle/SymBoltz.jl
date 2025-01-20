@@ -361,12 +361,12 @@ function (sol::CosmologySolution)(args...)
 end
 
 function (sol::CosmologySolution)(tvar::Num, t, idxs)
-    ts = timeseries.(sol, tvar, t)
+    ts = timeseries(sol, tvar, t)
     return sol(ts, idxs)
 end
 
 function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
-    ts = timeseries.(sol, tvar, t)
+    ts = timeseries(sol, tvar, t)
     return sol(k, ts, idxs)
 end
 
