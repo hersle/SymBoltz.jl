@@ -22,7 +22,7 @@ makedocs(
             "components.md",
             "models.md"
         ],
-        "solution.md",
+        "solve.md",
         "spectra.md",
         "comparison.md",
         "benchmarks.md",

@@ -427,6 +427,11 @@ end
 
 # TODO: more generic version that can do anything (e.g. S8)
 # TODO: add dispatch with pars::AbstractArray that uses values in prob for initial guess
+"""
+    shoot(prob::CosmologyProblem, pars::Dict, conditions::AbstractArray; alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...)
+
+Solve `prob` repeatedly to determine the values in `pars` (with initial guesses) so that the `conditions` are satisfied at the final time.
+"""
 function shoot(prob::CosmologyProblem, pars::Dict, conditions::AbstractArray; alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...)
     funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
 

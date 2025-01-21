@@ -57,7 +57,7 @@ sol = solve(prob, ks) # or just solve(prob) to solve only the background
 
 ## 3. Use the solution
 
-You are now free to [do whatever you want with the solution object](@ref "Solution handling").
+You are now free to [do whatever you want with the solution object](@ref "Solving models").
 For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
 ```@example getting_started
 ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
