@@ -277,6 +277,7 @@ plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 ### Perturbations
 
 ```@example class
+# TODO: takes a long time to render in CI because many points? # hide
 plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 ```
 ```@example class

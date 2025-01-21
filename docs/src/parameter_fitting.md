@@ -62,7 +62,7 @@ d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 theoretically, we solve the standard ΛCDM model:
 ```@example fit
 # TODO: generalize to non-flat
-using SymBoltz, DataInterpolations
+using SymBoltz
 
 M = RMΛ()
 prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> NaN); th = false, pt = false)
@@ -98,7 +98,7 @@ To perform bayesian inference, we use the [Turing.jl](https://turinglang.org/) p
 ```@example fit
 using Turing
 
-@model function supernova(data, M)
+@model function supernova(data, prob)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
     h ~ Uniform(0.1, 1.0)
@@ -111,7 +111,7 @@ using Turing
 end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
-sn = supernova(data, M) # condition model on data
+sn = supernova(data, prob) # condition model on data
 chain = sample(sn, NUTS(), MCMCSerial(), 200, 1)
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.

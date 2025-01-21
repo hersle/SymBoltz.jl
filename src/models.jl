@@ -42,7 +42,6 @@ function ΛCDM(;
     fν = sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
     defs = Dict(
         C => 1//2,
-        ϵ => 1,
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
     )
     have(ν) && have(γ) && merge!(defs, Dict(
@@ -119,7 +118,6 @@ function RMΛ(;
     ] .|> O(ϵ^1)
     defs = [
         g.Ψ => 20 // 15,
-        ϵ => 1
     ]
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)

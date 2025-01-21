@@ -18,7 +18,7 @@ using OhMyThreads
 
 using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H₀
 k = only(GlobalScope.(@parameters k)) # perturbation wavenumber
-ϵ = only(GlobalScope.(@parameters ϵ)) # perturbative expansion parameter
+ϵ = only(GlobalScope.(@parameters ϵ = 1)) # perturbative expansion parameter
 
 include("utils.jl")
 include("constants.jl")
