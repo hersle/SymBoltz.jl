@@ -115,10 +115,9 @@ Create a numerical cosmological problem from the model `M` with parameters `pars
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
 If `bg`, `th` and `pt`, the model is split into the background, thermodynamics and perturbations stages.
 """
-function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...)
+function CosmologyProblem(M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = []; tspan = (1e-5, 1e3), bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...)
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
-    tspan = (1e-5, 1e3) # TODO: keyword argument
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
 
