@@ -92,7 +92,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
 
     run_class(in, exec, inpath, outpath)
     output = Dict()
-    for (name, filename, skipstart) in [("bg", "_background.dat", 3), ("th", "_thermodynamics.dat", 10), ("pt", "_perturbations_k0_s.dat", 1), ("P", "_pk.dat", 3), ("Cl", "_cl.dat", 6)]
+    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 25000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
         file = outpath * filename
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
@@ -104,6 +104,9 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         data = Matrix{Float64}(data)
         println("Read ", filename, " with ", join(size(data), "x"), " numbers")
         output[name] = Dict(head[i] => data[:,i] for i in eachindex(head))
+        for key in keys(output[name])
+            output[name][key] = SymBoltz.reduce_array!(output[name][key], target_length)
+        end
     end
     return output
 end
@@ -277,7 +280,6 @@ plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 ### Perturbations
 
 ```@example class
-# TODO: takes a long time to render in CI because many points? # hide
 plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 ```
 ```@example class

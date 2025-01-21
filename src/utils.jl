@@ -115,3 +115,24 @@ function extend_array(a::AbstractArray, Nextra)
     b[end] = a[end]
     return b
 end
+
+"""
+    reduce_array(a::AbstractArray, target_length::Integer)
+
+Reduce the length of the array `a` by keeping only every N-th element such that its final length is roughly `target_length`.
+This modified `a`.
+"""
+function reduce_array!(a::AbstractArray, target_length::Integer)
+    if target_length > length(a)
+        return a
+    end
+    N = Int(ceil(length(a) / target_length))
+    is = range(1, length(a), step = N)
+    a[1:length(is)] .= a[is]
+    if is[end] != length(a)
+        a[length(is)+1] = a[end]
+        return a[1:length(is)+1]
+    else
+        return a[1:length(is)]
+    end
+end
