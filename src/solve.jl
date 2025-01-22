@@ -2,6 +2,7 @@ import Base: nameof
 import CommonSolve: solve
 import SciMLBase: remake
 import OhMyThreads: TaskLocalValue
+import Setfield: @set
 
 function background(sys)
     sys = thermodynamics(sys)
@@ -249,13 +250,14 @@ function solve(prob::CosmologyProblem, ks::AbstractArray = []; aterm = 1.0, bgop
         newu0, newp = update(ptprob0, collect(values(update_vars)))
         ptprob0 = remake(ptprob0; tspan, u0 = newu0, p = newp)
 
-        kset! = ModelingToolkit.setp(ptprob0, k) # function that sets k on a problem
-        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> deepcopy(ptprob0)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
+        kidx = ModelingToolkit.parameter_index(ptprob0, k)
+        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
         ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
             ptprob = ptprob_tlv[]
             verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
-            kset!(ptprob, ks[i])
-            return ptprob
+            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056
+            setindex!(p, ks[i], kidx)
+            return @set ptprob.p = p
         end)
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
         ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
