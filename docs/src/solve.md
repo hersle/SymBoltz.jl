@@ -5,9 +5,6 @@ Once a symbolic [cosmological model](@ref "Models") `M` has been constructed, it
 ```@docs
 CosmologyProblem
 remake(prob::CosmologyProblem, pars::Dict)
-```
-
-```@docs
 solve(prob::CosmologyProblem, ks::AbstractArray)
 ```
 

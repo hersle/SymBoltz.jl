@@ -254,7 +254,7 @@ end
 """
     spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
 
-Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P0(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
+Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P₀(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
 """
 function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
