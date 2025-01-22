@@ -77,12 +77,12 @@ end
 
 function dL(z, prob::CosmologyProblem, Ωm0, h; Ωr0 = 5e-5)
     prob = remake(prob, Dict(
+        M.g.h => h,
         M.r.Ω₀ => Ωr0,
         M.m.Ω₀ => Ωm0,
-        M.Λ.Ω₀ => 1 - Ωr0 - Ωm0,
-        M.g.h => h, M.r.T₀ => 0.0 # TODO: don't set
-    ))
-    sol = solve(prob)
+        M.Λ.Ω₀ => 1 - Ωr0 - Ωm0
+    ), build_initializeprob = false) # bypass unnecessary initialization for performance
+    sol = solve(prob, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8))
     return dL(z, sol)
 end
 
@@ -112,7 +112,7 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, prob) # condition model on data
-chain = sample(sn, NUTS(), MCMCSerial(), 200, 1)
+chain = sample(sn, NUTS(; init_ϵ = 0.0125), MCMCSerial(), 2000, 1)
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:

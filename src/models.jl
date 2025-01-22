@@ -74,9 +74,12 @@ function ΛCDM(;
     if all.(have(species, :Ω₀)) && startswith(ModelingToolkit.description(G), "General relativity")
         push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1]))
     end
+    initialization_eqs = [
+        O(ϵ^0)(g.a ~ D(g.a) * t)
+    ]
 
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
+    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, initialization_eqs, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false)
@@ -118,6 +121,7 @@ function RMΛ(;
     ] .|> O(ϵ^1)
     defs = [
         g.Ψ => 20 // 15,
+        g.a => √(r.Ω₀) * t
     ]
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)

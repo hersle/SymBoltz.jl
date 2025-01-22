@@ -161,12 +161,12 @@ end
 Return an updated `CosmologyProblem` where parameters in `prob` are updated to values specified in `pars`.
 Parameters that are not specified in `pars` keep their values from `prob`.
 """
-function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true)
+function remake(prob::CosmologyProblem, pars::Dict; bg = true, th = true, pt = true, shoot = true, kwargs...)
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
-    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars) : nothing
-    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars) : nothing
-    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars) : nothing
+    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, kwargs...) : nothing
+    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars, kwargs...) : nothing
+    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)

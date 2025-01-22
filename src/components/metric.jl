@@ -9,9 +9,6 @@ function metric(; name = :g, kwargs...)
     defs = [
         H₀ => H100 * h
     ]
-    initialization_eqs = [
-        O(ϵ^0)(a ~ D(a) * t)
-    ]
     guesses = [
         a => 1e-5
     ]
@@ -24,5 +21,5 @@ function metric(; name = :g, kwargs...)
         H ~ E * H₀
         g₁₁ ~ a^2 * (-1 - 2*ϵ*Ψ)
         g₂₂ ~ a^2 * (+1 - 2*ϵ*Φ)
-    ], t, vars, pars; defaults = defs, initialization_eqs, guesses, name, description, kwargs...)
+    ], t, vars, pars; defaults = defs, guesses, name, description, kwargs...)
 end

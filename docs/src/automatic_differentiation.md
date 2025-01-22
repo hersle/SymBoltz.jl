@@ -17,9 +17,8 @@ using SymBoltz
 M = ΛCDM()
 
 function P(k, θ)
-   pars = Dict([M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m, M.I.As, M.I.ns, M.Λ.Ω₀] .=> θ) # TODO: no Λ
-   prob = CosmologyProblem(M, pars) # TODO: remake
-   sol = solve(prob, k)
+   prob = remake(prob0, Dict(pars .=> θ))
+   sol = solve(prob, k; verbose = true, thread = true, ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-3))
    return spectrum_matter(sol, k)
 end
 ```
