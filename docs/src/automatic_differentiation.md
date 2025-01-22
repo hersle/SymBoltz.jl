@@ -15,6 +15,8 @@ To do so, let us write a small wrapper function that calculates the power spectr
 ```@example ad
 using SymBoltz
 M = ΛCDM()
+pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m, M.I.As, M.I.ns, M.Λ.Ω₀] # TODO: no M.Λ.Ω
+prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 function P(k, θ)
    prob = remake(prob0, Dict(pars .=> θ))
