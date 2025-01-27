@@ -191,7 +191,7 @@ end
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
-    pars = @parameters m T₀ x[1:nx] W[1:nx] # Ω₀ ρ₀ y₀
+    pars = @parameters m T₀ x[1:nx] W[1:nx] Ω₀ ρ₀ y₀ T₀ Iρ₀ E₀[1:nx]
     vars = @variables ρ(t) Ω(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) u(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] In(t) Iρ(t) IP(t) Iδρ(t)
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
@@ -217,7 +217,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
         cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,0]) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
     ] .|> O(ϵ^1)
-    # TODO: use defaults to set Ω₀ parameters etc. (e.g. with Λanalytical)?
     ics1 = []
     for i in 1:nx
         push!(eqs0, O(ϵ^0)(E[i] ~ √(x[i]^2 + y^2)))
@@ -237,9 +236,19 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
 
     # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
     _x, _W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
-    defs = [collect(x .=> _x); collect(W .=> _W)]
+    defs = [
+        collect(x .=> _x);
+        collect(W .=> _W);
 
+        # compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
+        y₀ => m*c^2 / (kB*T₀)
+        collect(E₀ .=> .√(x.^2 .+ y₀^2));
+        Iρ₀ => ∫dx_x²_f₀(E₀)
+        ρ₀ => 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / (g.H₀^2*c^2/GN)
+        Ω₀ => 8π/3 * ρ₀
+    ]
     description = "Massive neutrino"
+    pars = [m, T₀, x, W, Ω₀, ρ₀, y₀, T₀, Iρ₀, E₀...] # need every E₀ index
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
