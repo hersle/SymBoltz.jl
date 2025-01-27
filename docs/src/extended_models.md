@@ -79,7 +79,7 @@ initialization_eqs = [
 
 # 5. Specify defaults
 defaults = [
-    ρ₀ => 3/(8*Num(π)) * Ω₀
+    ρ₀ => 3/(8*Num(π)) * exp(+3*wₐ) * Ω₀ # make E = 1 when a = 1
 ]
 
 # 6. Pack into an ODE system called "X"
@@ -108,7 +108,7 @@ To test, let us set some parameters and solve both models with one perturbation 
 For the ΛCDM model:
 ```@example ext
 θ1 = SymBoltz.parameters_Planck18(M1)
-prob1 = CosmologyProblem(M1, θ1, Dict(M1.Λ.Ω₀ => 0.5), [M1.g.ℰ ~ 1])
+prob1 = CosmologyProblem(M1, θ1)
 ks = 1.0
 sol1 = solve(prob1, ks)
 ```
@@ -119,12 +119,12 @@ And for the w₀wₐCDM model:
     M2.X.wₐ => 0.2,
     M2.X.cₛ² => 1.0
 ))
-prob2 = CosmologyProblem(M2, θ2, Dict(M2.X.Ω₀ => 0.5), [M2.g.ℰ ~ 1])
+prob2 = CosmologyProblem(M2, θ2)
 sol2 = solve(prob2, ks)
 ```
 Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
 ```@example ext
-lgas = range(-3, 0, length=500)[begin:end-1] # log10(a) # TODO: fix end-1
+lgas = range(-3, 0, length=500) # log10(a)
 H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
 H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
 Ψ1s = sol1(log10(M1.g.a), ks, lgas, M1.g.Ψ)

@@ -7,7 +7,7 @@
 using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, BenchmarkTools, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M) # TODO: much faster if i set ΩΛ0 explicitly?
-prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars)
 N = 20
 ks = 10 .^ range(-5, 1, length=N) / u"Mpc"
 

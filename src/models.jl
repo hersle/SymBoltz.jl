@@ -71,8 +71,8 @@ function ΛCDM(;
         S ~ S_SW + S_ISW + S_Dop + 0*S_pol # TODO: include all terms
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    if all.(have(species, :Ω₀)) && startswith(ModelingToolkit.description(G), "General relativity")
-        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1]))
+    if all(have.(species, :Ω₀)) && startswith(ModelingToolkit.description(G), "General relativity")
+        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: do for all species?
     end
     initialization_eqs = [
         O(ϵ^0)(g.a ~ D(g.a) * t)

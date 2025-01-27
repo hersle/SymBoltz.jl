@@ -46,9 +46,7 @@ pars = Dict(
     M.I.ns => 0.95
 )
 ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
-shoot_pars = Dict(M.Λ.Ω₀ => 0.5)
-shoot_conditions = [M.g.ℰ ~ 1]
-prob = CosmologyProblem(M, pars, shoot_pars, shoot_conditions)
+prob = CosmologyProblem(M, pars)
 ```
 Finally, we can simply solve the problem:
 ```@example getting_started
