@@ -244,62 +244,81 @@ nothing # hide
 
 ### Background
 
+#### Conformal time
 ```@example class
 plot_compare("a_bg", "t"; lgx=true, lgy=true) # hide
 ```
+#### Hubble function
+
 ```@example class
 plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide
 ```
+#### Energy densities
 ```@example class
 plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lgy=true) # hide
 ```
+#### Equations of state
 ```@example class
 plot_compare("a_bg", ["wh"]; lgx=true) # hide
 ```
 
 ### Thermodynamics
+
+#### Optical depth derivative
 ```@example class
 plot_compare("a_th", "τ̇"; lgx=true, lgy=true) # hide
 ```
+#### Optical depth exponential
 ```@example class
 plot_compare("a_th", "exp(-τ)"; lgx=true) # hide
 ```
+#### Visibility function
 ```@example class
 plot_compare("a_th", "v"; lgx=true, lgy=false) # hide
 ```
+#### Free electron fraction
 ```@example class
 plot_compare("a_th", "Xe"; lgx=true, lgy=false) # hide
 ```
+#### Baryon temperature
 ```@example class
 plot_compare("a_th", "Tb"; lgx=true, lgy=true) # hide
 ```
+#### Baryon sound speed
 ```@example class
 plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
 ```
 
 ### Perturbations
 
+#### Metric potentials
 ```@example class
 plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
 ```
+#### Energy overdensities
 ```@example class
 plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true) # hide
 ```
+#### Momenta
 ```@example class
 plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true) # hide
 ```
+#### Shear stresses
 ```@example class
 plot_compare("a_pt", ["σγ", "σν"]; lgx=true) # hide
 ```
+#### Polarization
 ```@example class
 plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true) # hide
 ```
 
-### Power spectrum
+### Power spectra
 
+#### Matter power spectrum
 ```@example class
 plot_compare("k", "P"; lgx=true, lgy=true) # hide
 ```
+#### CMB angular power spectrum
 ```@example class
 plot_compare("l", "Dl"; errlim=5e-2) # TODO: fix # hide
 ```
