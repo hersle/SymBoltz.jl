@@ -75,7 +75,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "n_s" => pars[M.I.ns],
 
         # other stuff
-        "Omega_k" => pars[M.K.Ω₀], # curvature
+        "Omega_k" => SymBoltz.have(M, :K) ? pars[M.K.Ω₀] : 0.0, # curvature
         "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
         "Omega_dcdmdr" => 0.0,
@@ -129,6 +129,7 @@ sols = Dict(
     "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.Λ.ρ] / (3/8π)),
     "ρh" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.h.ρ] / (3/8π)),
     "wh" => (sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.w]),
+    "dL" => (sol1["bg"]["lum.dist."], SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc),
 
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
@@ -260,6 +261,10 @@ plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lg
 #### Equations of state
 ```@example class
 plot_compare("a_bg", ["wh"]; lgx=true) # hide
+```
+#### Luminosity distance
+```@example class
+plot_compare("a_bg", "dL"; lgx=true, lgy=true) # hide
 ```
 
 ### Thermodynamics

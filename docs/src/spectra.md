@@ -1,4 +1,4 @@
-# Spectra
+# Spectra and distances
 
 ## Primordial power spectra
 
@@ -111,4 +111,30 @@ plot(log10.(Rs/(u"Mpc"/h)), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "l
 R8 = 8 * u"Mpc"/h
 σ8 = stddev_matter(sol, R8)
 scatter!((log10(R8/(u"Mpc"/h)), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
+```
+
+## Luminosity distance
+
+```@docs
+SymBoltz.distance_luminosity
+```
+
+```@example
+using SymBoltz, Plots
+M = SymBoltz.RMΛ()
+pars = Dict(
+    M.r.Ω₀ => 5e-5,
+    M.m.Ω₀ => 0.3,
+    M.K.Ω₀ => 0.1,
+    M.r.T₀ => NaN,
+    M.g.h => 0.7
+)
+pars[M.Λ.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀] - pars[M.K.Ω₀]
+prob = CosmologyProblem(M, pars)
+sol = solve(prob)
+
+zs = 0.0:1.0:10.0
+ts = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
+dLs = SymBoltz.distance_luminosity(sol, ts) / SymBoltz.Gpc
+plot(zs, dLs; mark=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```

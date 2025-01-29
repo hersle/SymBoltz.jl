@@ -338,3 +338,19 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     rmin = 2π / kmax
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
+
+# TODO: not really a spectrum...
+"""
+    distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = sol[sol.prob.M.t][end])
+
+Compute luminosity distances at the time(s) `t` relative to the (present) time `t0`.
+"""
+function distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = sol[sol.prob.M.t][end])
+    M = sol.prob.M
+    χ = t0 .- t
+    Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
+    r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
+    H0 = sol[M.g.H₀]
+    a = sol(t, M.g.a)
+    return @. r / a * SymBoltz.c / H0 # to meters
+end
