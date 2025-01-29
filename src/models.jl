@@ -11,6 +11,7 @@
         h = massive_neutrinos(g; lmax),
         c = cold_dark_matter(g; name = :c),
         b = baryons(g; recombination, reionization, name = :b),
+        K = curvature(g),
         Λ = cosmological_constant(g),
         I = harrison_zeldovich(g; name = :I),
         name = :ΛCDM,
@@ -32,12 +33,13 @@ function ΛCDM(;
     h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
     b = baryons(g; recombination, reionization, name = :b),
+    K = curvature(g),
     Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),
     name = :ΛCDM,
     kwargs...
 )
-    species = filter(have, [γ, ν, c, b, h, Λ])
+    species = filter(have, [γ, ν, c, b, h, K, Λ])
     pars = @parameters C
     vars = @variables S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     fν = sum(s.ρ for s in [ν, h] if have(s)) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
@@ -96,6 +98,7 @@ end
         r = radiation(g; adiabatic),
         m = matter(g; adiabatic),
         Λ = cosmological_constant(g; adiabatic),
+        K = curvature(g),
         G = general_relativity(g; acceleration),
         name = :RMΛ, kwargs...
     )
@@ -109,10 +112,11 @@ function RMΛ(;
     r = radiation(g; adiabatic),
     m = matter(g; adiabatic),
     Λ = cosmological_constant(g; adiabatic),
+    K = curvature(g),
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
-    species = filter(have, [r, m, Λ])
+    species = filter(have, [r, m, K, Λ])
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)

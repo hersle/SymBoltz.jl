@@ -12,7 +12,7 @@ This is a *symbolic* representation of the variables and equations that describe
 
 To get started, we will simply load the standard ΛCDM model:
 ```@example getting_started
-M = ΛCDM()
+M = ΛCDM(K = nothing) # flat
 ```
 
 The model is structured as a hierarchy of components:

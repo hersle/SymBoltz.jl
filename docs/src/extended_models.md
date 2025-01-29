@@ -19,7 +19,7 @@ First, we create the reference model that is to be extended.
 We will modify the standard ΛCDM model:
 ```@example ext
 using SymBoltz
-M1 = ΛCDM()
+M1 = ΛCDM(K = nothing) # flat
 ```
 The cosmological constant species is stored in the component `M1.Λ`.
 Here are the equations we will remove:
@@ -95,7 +95,7 @@ This connection is made when the component is used to create a full cosmological
 
 Finally, we create a new `ΛCDM` model, but replace `Λ` by `X`, and call it the `w0waCDM` model:
 ```@example ext
-M2 = ΛCDM(Λ = X, name = :w0waCDM)
+M2 = ΛCDM(Λ = X, K = nothing, name = :w0waCDM)
 ```
 Now `M2.Λ` no longer exists, but `M2.X` contains our new equations:
 ```@example ext

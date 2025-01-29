@@ -64,7 +64,7 @@ theoretically, we solve the standard ΛCDM model:
 # TODO: generalize to non-flat
 using SymBoltz
 
-M = RMΛ()
+M = RMΛ(K = nothing)
 prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> NaN); th = false, pt = false)
 
 function dL(z, sol::CosmologySolution)

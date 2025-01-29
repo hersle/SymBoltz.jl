@@ -379,3 +379,31 @@ initialization_equations(Q)
 ```@raw html
 </details>
 ```
+
+### Curvature (effective)
+
+```@docs
+SymBoltz.curvature
+```
+```@example components
+K = SymBoltz.curvature(g)
+nothing # hide
+```
+```@raw html
+<details>
+<summary><h4 style="display: inline-block">Equations</h4></summary>
+```
+```@example components
+equations(K)
+```
+```@raw html
+</details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary>
+```
+```@example components
+initialization_equations(K)
+```
+```@raw html
+</details>
+```

@@ -319,3 +319,28 @@ function quintessence(g, v; name = :Q, kwargs...)
     v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
     return quintessence(g, v(ϕ), v′, v′′; name, kwargs...)
 end
+
+"""
+    curvature(g; name = :K, kwargs...)
+
+Create a species that effectively accounts for curvature in the spacetime with metric `g`.
+"""
+function curvature(g; name = :K, kwargs...)
+    description = "Curvature"
+    vars = @variables ρ(t) w(t) P(t) δ(t) θ(t) cₛ²(t) σ(t)
+    pars = @parameters K Ω₀ ρ₀ # dimless K is physical K*c²/H₀²
+    eqs = [
+        w ~ -1//3
+        ρ ~ ρ₀ / g.a^2
+        P ~ w*ρ
+        δ ~ 0
+        θ ~ 0
+        cₛ² ~ 0
+        σ ~ 0
+    ]
+    defaults = [
+        ρ₀ => 3/(8*Num(π)) * Ω₀
+        K => -8*Num(π)/3 * ρ₀
+    ]
+    return ODESystem(eqs, t, vars, pars; defaults, name, description, kwargs...)
+end

@@ -5,7 +5,7 @@
 ```@example class
 using SymBoltz
 lmax = 6
-M = SymBoltz.ΛCDM(; lmax)
+M = SymBoltz.ΛCDM(; lmax, K = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars; tspan = (1e-6, 1e3))
 ```
@@ -75,7 +75,7 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         "n_s" => pars[M.I.ns],
 
         # other stuff
-        "Omega_k" => 0.0,
+        "Omega_k" => pars[M.K.Ω₀], # curvature
         "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
         "Omega_dcdmdr" => 0.0,
