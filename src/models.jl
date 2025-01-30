@@ -57,7 +57,7 @@ function ΛCDM(;
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
-        b.rec.ρb ~ b.ρ * g.H₀^2/GN # kg/m³ (convert from H₀=1 units to SI units)
+        b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
     ] .|> O(ϵ^0)
     eqs1 = [

@@ -53,7 +53,7 @@ using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wave
 g = M1.g # reuse metric of original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
-pars = @parameters w₀ wₐ cₛ² ρ₀ Ω₀
+pars = @parameters w₀ wₐ cₛ² Ω₀
 
 # 2. Create variables
 vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
@@ -62,7 +62,7 @@ vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
 eqs = [
     # Background equations (of order O(ϵ⁰)
     w ~ w₀ + wₐ * (1 - g.a) # equation of state
-    ρ ~ ρ₀ * g.a^(-3*(1+w₀+wₐ)) * exp(-3*wₐ) # D(ρ) ~ -3 * g.ℰ * ρ * (1 + w) # energy density
+    ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w₀+wₐ)) # D(ρ) ~ -3 * g.ℰ * ρ * (1 + w) # energy density (ρ₀ => 3/(8*Num(π)) * exp(+3*wₐ) * Ω₀)
     P ~ w * ρ # pressure
 
     # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
@@ -77,13 +77,8 @@ initialization_eqs = [
     θ * ϵ ~ 1/2 * (k^2*t) * g.Ψ * ϵ
 ]
 
-# 5. Specify defaults
-defaults = [
-    ρ₀ => 3/(8*Num(π)) * exp(+3*wₐ) * Ω₀ # make E = 1 when a = 1
-]
-
-# 6. Pack into an ODE system called "X"
-@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, defaults)
+# 5. Pack into an ODE system called "X"
+@named X = ODESystem(eqs, t, vars, pars; initialization_eqs)
 ```
 
 Note that the w₀wₐ component only knows about itself (and the metric),

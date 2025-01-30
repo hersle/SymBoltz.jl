@@ -43,7 +43,7 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
     P0 = sol(k, t, M.I.P)
     kunit = only(unique(unit.(k)))
     if kunit != NoUnits
-        H₀ = sol[M.g.H₀]
+        H₀ = sol[M.g.h] * H100
         P0 *= (H₀/c / u"m")^(-3)
         Punit = unit(1 / kunit^3)
         P0 = uconvert.(Punit, P0)
@@ -350,7 +350,7 @@ function distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 =
     χ = t0 .- t
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
     r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
-    H0 = sol[M.g.H₀]
+    H0 = H100 * sol[M.g.h]
     a = sol(t, M.g.a)
     return @. r / a * SymBoltz.c / H0 # to meters
 end

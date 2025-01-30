@@ -5,12 +5,12 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 """
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
-    pars = analytical ? (@parameters ρ₀ Ω₀) : []
+    pars = analytical ? (@parameters Ω₀) : []
     vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cₛ²(t) u(t) u̇(t)
     eqs0 = [
         w ~ _w # equation of state
         P ~ w * ρ # equation of state
-        analytical ? (ρ ~ ρ₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
+        analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
     eqs1 = [
@@ -26,9 +26,8 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
         θ ~ 1//2 * (k^2*t) * g.Ψ # # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
-    defs = analytical ? [ρ₀ => 3/(8*Num(π)) * Ω₀] : Dict()
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, kwargs...)
 end
 
 """
@@ -80,12 +79,10 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         P ~ w * ρ # pressure
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
     if analytical
-        append!(pars, @parameters ρ₀ Ω₀)
-        push!(eqs0, ρ ~ ρ₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
-        defaults = Dict(ρ₀ => 3/(8*Num(π)) * Ω₀)
+        append!(pars, @parameters Ω₀)
+        push!(eqs0, ρ ~ 3/(8*Num(π))*Ω₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
     else
         push!(eqs0, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
-        defaults = Dict()
     end
     eqs1 = [
         D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
@@ -97,7 +94,7 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         θ ~ 1//2 * (k^2*t) * g.Ψ
     ] .|> SymBoltz.O(ϵ^1)
     description = "w₀wₐ (CPL) dark energy"
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
 end
 
 """
@@ -112,7 +109,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
 
     vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
     defs = [
-        γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*g.H₀^2)
+        γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
     eqs1 = [
         # Bertschinger & Ma (64) with anₑσₜ -> -τ̇
@@ -191,7 +188,7 @@ end
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
-    pars = @parameters m T₀ x[1:nx] W[1:nx] Ω₀ ρ₀ y₀ T₀ Iρ₀ E₀[1:nx]
+    pars = @parameters m T₀ x[1:nx] W[1:nx] Ω₀ y₀ T₀ Iρ₀ E₀[1:nx]
     vars = @variables ρ(t) Ω(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) u(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] In(t) Iρ(t) IP(t) Iδρ(t)
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
@@ -204,8 +201,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
         IP ~ ∫dx_x²_f₀(x.^2 ./ E)
-        ρ ~ 2/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / (g.H₀^2*c^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
-        P ~ 2/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / (g.H₀^2*c^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        ρ ~ 2/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        P ~ 2/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
@@ -244,11 +241,10 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         y₀ => m*c^2 / (kB*T₀)
         collect(E₀ .=> .√(x.^2 .+ y₀^2));
         Iρ₀ => ∫dx_x²_f₀(E₀)
-        ρ₀ => 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / (g.H₀^2*c^2/GN)
-        Ω₀ => 8π/3 * ρ₀
+        Ω₀ => 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
     ]
     description = "Massive neutrino"
-    pars = [m, T₀, x, W, Ω₀, ρ₀, y₀, T₀, Iρ₀, E₀...] # need every E₀ index
+    pars = [m, T₀, x, W, Ω₀, y₀, T₀, Iρ₀, E₀...] # need every E₀ index
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
@@ -328,19 +324,15 @@ Create a species that effectively accounts for curvature in the spacetime with m
 function curvature(g; name = :K, kwargs...)
     description = "Curvature"
     vars = @variables ρ(t) w(t) P(t) δ(t) θ(t) cₛ²(t) σ(t)
-    pars = @parameters K Ω₀ ρ₀ # dimless K is physical K*c²/H₀²
+    pars = @parameters Ω₀ # dimless K is physical K*c²/H₀²
     eqs = [
         w ~ -1//3
-        ρ ~ ρ₀ / g.a^2
+        ρ ~ 3/(8*Num(π))*Ω₀ / g.a^2
         P ~ w*ρ
         δ ~ 0
         θ ~ 0
         cₛ² ~ 0
         σ ~ 0
     ]
-    defaults = [
-        ρ₀ => 3/(8*Num(π)) * Ω₀
-        K => -8*Num(π)/3 * ρ₀
-    ]
-    return ODESystem(eqs, t, vars, pars; defaults, name, description, kwargs...)
+    return ODESystem(eqs, t, vars, pars; name, description, kwargs...)
 end

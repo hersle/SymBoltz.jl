@@ -43,7 +43,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
-        D(Tb) ~ -2*Tb*g.ℰ - g.a/g.H₀ * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
+        D(Tb) ~ -2*Tb*g.ℰ - g.a/(H100*g.h) * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
         DTb ~ D(Tb)
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
@@ -58,7 +58,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         KH ~ KH0 + KH1
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺+1e-10)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺+1e-10))
-        D(XH⁺) ~ -g.a/g.H₀ * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side t is physical t/(1/H₀)
+        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side t is physical t/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
@@ -70,7 +70,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
               (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
-        DXHe⁺_singlet ~ -g.a/g.H₀ * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
+        DXHe⁺_singlet ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # He⁺ + e⁻ triplet recombination
         αHe3 ~ αHe3_fit(Tb)
@@ -80,7 +80,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         γ2Pt ~ abs(3*A2Pt*fHe*(1-XHe⁺+1e-10)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+1e-10)) / (f_He_2p_1s_tri)^2) # abs to reduce chance for early-time crash # TODO: address properly
         CHe3 ~ (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
                (1e-10 + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-        DXHe⁺_triplet ~ -g.a/g.H₀ * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+        DXHe⁺_triplet ~ -g.a/(H100*g.h) * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
 
         # He⁺ + e⁻ total recombination
         D(XHe⁺) ~ DXHe⁺_singlet + DXHe⁺_triplet
@@ -97,7 +97,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        τ̇ ~ -g.a/g.H₀ * ne * σT * c # common optical depth τ
+        τ̇ ~ -g.a/(H100*g.h) * ne * σT * c # common optical depth τ
         D(τ) ~ τ̇
         v ~ D(exp(-τ)) # visibility function
         v̇ ~ D(v)
@@ -113,7 +113,7 @@ function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
         eqs = []
     else
         @named rec = thermodynamics_recombination_recfast(bg.g)
-        eqs = [rec.ρb ~ bg.bar.ρ * bg.g.H₀^2/GN, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
+        eqs = [rec.ρb ~ bg.bar.ρ * (H100*bg.g.h)^2/GN, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
     end
     th = ODESystem(eqs, t; kwargs...)
     return compose(th, rec, bg)
