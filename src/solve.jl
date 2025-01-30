@@ -339,6 +339,9 @@ function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
+(sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]
+(sol::CosmologySolution)(t::Number, is::AbstractArray) = sol([t], is)[1, :]
+(sol::CosmologySolution)(t::Number, i::Num) = sol([t], [i])[1, 1]
 
 function neighboring_modes_indices(sol::CosmologySolution, k)
     k = k_dimensionless.(k, sol.bg.ps[:h])
@@ -401,24 +404,24 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
 
     return out
 end
+(sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray) = sol([k], ts, is)[1, :, :]
+(sol::CosmologySolution)(ks::AbstractArray, t::Number, is::AbstractArray) = sol(ks, [t], is)[:, 1, :]
+(sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, i::Num) = sol(ks, ts, [i])[:, :, 1]
+(sol::CosmologySolution)(k::Number, t::Number, is::AbstractArray) = sol([k], [t], is)[1, 1, :]
+(sol::CosmologySolution)(k::Number, ts::AbstractArray, i::Num) = sol([k], ts, [i])[1, :, 1]
+(sol::CosmologySolution)(ks::AbstractArray, t::Number, i::Num) = sol(ks, [t], [i])[:, 1, 1]
+(sol::CosmologySolution)(k::Number, t::Number, i::Num) = sol([k], [t], [i])[1, 1, 1]
 
-# Handle (ts, is) or (ks, ts, is) of arbitrary 0-dimensional and 1-dimensional combinations
-function (sol::CosmologySolution)(args...)
-    # Please read this function with a pirate's voice
-    args_arr = [arg isa Number ? [arg] : arg for arg in args]
-    args_outi = [arg isa Number ? 1 : Colon() for arg in args]
-    out = sol(args_arr...) # convert to all-array call
-    return out[args_outi...] # pick out dimensions for scalar ks/ts/is
+function (sol::CosmologySolution)(tmap::Pair, is)
+    tvar, ts = tmap
+    ts = timeseries(sol, tvar, ts)
+    return sol(ts, is)
 end
 
-function (sol::CosmologySolution)(tvar::Num, t, idxs)
-    ts = timeseries(sol, tvar, t)
-    return sol(ts, idxs)
-end
-
-function (sol::CosmologySolution)(tvar::Num, k, t, idxs)
-    ts = timeseries(sol, tvar, t)
-    return sol(k, ts, idxs)
+function (sol::CosmologySolution)(ks, tmap::Pair, is)
+    tvar, ts = tmap
+    ts = timeseries(sol, tvar, ts)
+    return sol(ks, ts, is)
 end
 
 function timeseries(sol::CosmologySolution; kwargs...)

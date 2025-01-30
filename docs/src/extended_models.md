@@ -120,10 +120,10 @@ sol2 = solve(prob2, ks)
 Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
 ```@example ext
 lgas = range(-3, 0, length=500) # log10(a)
-H1s = sol1(log10(M1.g.a), lgas, M1.g.H)
-H2s = sol2(log10(M2.g.a), lgas, M2.g.H)
-Ψ1s = sol1(log10(M1.g.a), ks, lgas, M1.g.Ψ)
-Ψ2s = sol2(log10(M2.g.a), ks, lgas, M2.g.Ψ)
+H1s = sol1(log10(M1.g.a) => lgas, M1.g.H)
+H2s = sol2(log10(M2.g.a) => lgas, M2.g.H)
+Ψ1s = sol1(ks, log10(M1.g.a) => lgas, M1.g.Ψ)
+Ψ2s = sol2(ks, log10(M2.g.a) => lgas, M2.g.Ψ)
 
 using Plots
 plot(lgas, H2s ./ H1s; xlabel = "lg(a)", label = "H₂ / H₁")
