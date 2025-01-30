@@ -61,34 +61,33 @@ d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 ```
 theoretically, we solve the standard ΛCDM model:
 ```@example fit
-# TODO: generalize to non-flat
 using SymBoltz
 
-M = RMΛ(K = nothing)
-prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> NaN); th = false, pt = false)
+M = RMΛ()
+prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN]); th = false, pt = false)
 
-function dL(z, sol::CosmologySolution)
-    a = @. 1 / (z + 1)
-    t = sol(M.g.z, z, M.t / M.g.H₀)
-    t0 = sol[M.t / M.g.H₀][end]
-    r = @. SymBoltz.c * (t0 .- t)
-    return @. r / a / SymBoltz.Gpc
-end
-
-function dL(z, prob::CosmologyProblem, Ωm0, h; Ωr0 = 5e-5)
+function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-7, maxiters = 1e3))
+    ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
     prob = remake(prob, Dict(
         M.g.h => h,
         M.r.Ω₀ => Ωr0,
         M.m.Ω₀ => Ωm0,
-        M.Λ.Ω₀ => 1 - Ωr0 - Ωm0
+        M.K.Ω₀ => Ωk0,
+        M.Λ.Ω₀ => ΩΛ0
     ), build_initializeprob = false) # bypass unnecessary initialization for performance
-    sol = solve(prob, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8))
-    return dL(z, sol)
+    return solve(prob; bgopts)
+end
+
+function dL(z, sol::CosmologySolution)
+    M = sol.prob.M
+    t = SymBoltz.timeseries(sol, M.g.z, z)
+    return SymBoltz.distance_luminosity(sol, t) / SymBoltz.Gpc
 end
 
 # Show example predictions
 zs = data.zs
-dLs = dL(zs, prob, 0.3, 0.7)
+sol = solve_with(prob, 0.26, 0.08, 0.7)
+dLs = dL(zs, sol)
 scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 ```
 
@@ -101,10 +100,19 @@ using Turing
 @model function supernova(data, prob)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
+    Ωk0 ~ Uniform(-1.0, +1.0)
     h ~ Uniform(0.1, 1.0)
 
+    sol = solve_with(prob, Ωm0, Ωk0, h)
+
+    if Symbol(sol.bg.retcode) != :Terminated
+        println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
+        Turing.@addlogprob! -Inf
+        return nothing # illegal parameters
+    end
+
     # Theoretical prediction
-    dLs = dL(data.zs, prob, Ωm0, h)
+    dLs = dL(data.zs, sol)
 
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
@@ -112,13 +120,60 @@ end
 
 # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, prob) # condition model on data
-chain = sample(sn, NUTS(; init_ϵ = 0.0125), MCMCSerial(), 2000, 1)
+chain = sample(sn, NUTS(), MCMCSerial(), 50, 1)
 ```
 As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
 We can also plot the chains:
 ```@example fit
 using StatsPlots
 plot(chain)
+```
+
+```@setup fit
+using SymBoltz, OrdinaryDiffEq, Turing
+
+function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8)
+    ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
+    H0 = SymBoltz.H100 * h
+    aH(a) = a * H0 * sqrt(Ωr0/a^4 + Ωm0/a^3 + Ωk0/a^2 + ΩΛ0)
+    function f(_, _, b)
+        a = exp(b) # b = ln(a)
+        return 1 / (aH(a)) # dt/db; t is conformal time
+    end
+    tini = 1 / (aH(aini))
+    bini = log(aini)
+    prob = ODEProblem(f, tini, (bini, 0))
+    try # seems faster than going the NaNMath and retcode route
+        sol = solve(prob, Tsit5(); reltol = 1e-8, maxiters = 1e3)
+        a = 1 ./ (z .+ 1)
+        b = log.(a)
+        t = sol(b)
+        t0 = sol.u[end]
+        χ = t0 .- t
+        r = sinc.(√(-Ωk0+0im)*χ*H0/π) .* χ * SymBoltz.c .|> real # Julia's sinc(x) = sin(π*x) / (π*x)
+        return r ./ a / SymBoltz.Gpc # from meters to Gpc
+    catch
+        return nothing
+    end
+end
+
+dLs = dL_fast(zs, 0.26, 0.08, 0.7)
+
+@model function supernova_fast(data)
+    # Parameter priors
+    Ωm0 ~ Uniform(0.0, 1.0)
+    Ωk0 ~ Uniform(-1.0, +1.0)
+    h ~ Uniform(0.5, 1.5)
+    dLs = dL_fast(zs, Ωm0, Ωk0, h)
+    if isnothing(dLs)
+        Turing.@addlogprob! -Inf
+        return nothing # illegal parameters
+    end
+    data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
+end
+
+sn = supernova_fast(data)
+chain = sample(sn, NUTS(), MCMCSerial(), 1000, 1)
 ```
 
 TODO: take som inspiration from the [Catalyst tutorial](https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/)
