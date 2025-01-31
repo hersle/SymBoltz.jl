@@ -139,14 +139,15 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; integrator = SimpsonEven(), verbose = true)
+    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
 
 Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the source function values `Ss` against the spherical kind-1 Bessel functions `jₗ` for the given `ks` and `ls`.
-The element `Ss[i,j]` holds the source function value ``S(k[i], exp(lnts[j]))``.
+The element `Ss[i,j]` holds the source function value ``S(ks[i], ts[j])``.
+An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed on an interval on which the integrand behaves well.
 """
-function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, lnts::AbstractRange; t0 = exp(lnts[end]), integrator = SimpsonEven(), verbose = true)
-    @assert size(Ss) == (length(ks), length(lnts)) # TODO: optimal structure?
-    verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(lnts)) lnts")
+function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
+    @assert size(Ss) == (length(ks), length(us)) # TODO: optimal structure?
+    verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
     lmin, lmax = extrema(ls)
     ls_all = lmin:1:lmax # range with step 1
@@ -157,25 +158,25 @@ function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, 
     @tasks for ik in eachindex(ks)
         @local begin # define task-local values (declared once for all loop iterations)
             Jls_all = zeros(Float64, length(ls_all)) # local task workspace
-            ∂I_∂lnt = zeros(T, (length(ls), length(lnts))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
+            ∂I_∂u = zeros(T, (length(ls), length(us))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
         end
 
         k = ks[ik]
-        for it in eachindex(lnts)
-            t = exp(lnts[it])
-            St = Ss[ik,it] * t # multiply S(k,t) to get (S(k, log(t)))
-            kΔt = k * (t0-t)
-            sphericalbesseljfast!(Jls_all, ls_all, kΔt) # TODO: reuse ∂Θ_∂lnt's memory?
+        for it in eachindex(us)
+            t = ts[it]
+            S = Ss[ik,it]
+            kΔt = k * (ts[end]-t)
+            sphericalbesseljfast!(Jls_all, ls_all, kΔt) # TODO: reuse ∂Θ_∂x's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
                 l = ls[il]
                 Jl = Jls_all[1+l-lmin]
-                ∂I_∂lnt[il,it] = St * Jl
+                ∂I_∂u[il,it] = S * Jl / u′s[it] # ∫dt y(t) = ∫du y(t(u)) / u′(t(u))
                 # TODO: integrate in this loop instead?
             end
         end
         for il in eachindex(ls)
-            integrand = @view ∂I_∂lnt[il,:]
-            Is[ik,il] = integrate(lnts, integrand, integrator) # integrate over t # TODO: add starting I(tini)
+            integrand = @view ∂I_∂u[il,:]
+            Is[ik,il] = integrate(us, integrand, integrator) # integrate over t # TODO: add starting I(tini) to fix small l?
         end
     end
 
@@ -184,7 +185,7 @@ end
 
 # this one is less elegant, but more numerically stable?
 # TODO: saveat = ts
-# TODO: restore sol(ks, exp.(lnts), sol.M.S)
+# TODO: restore sol(ks, xs, sol.M.S)
 """
     source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
 
@@ -223,30 +224,35 @@ function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::Abst
     return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
 end
 
-# TODO: increase Δlnt. should use same Δlnt in T and E when cross-correlating. TE seems to need ≲ 0.01
-"""
-    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
-
-Calculate photon temperature multipoles today by line-of-sight integration.
-"""
-function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
+function los_substitution_range(sol::CosmologySolution, u::Function, u⁻¹::Function, u′::Function; kwargs...)
     tmin, tmax = extrema(sol[sol.prob.M.t])
-    lnts = range(log(tmin), log(tmax), step=Δlnt)
-    STs = source_temperature(sol, ks, exp.(lnts))
-    return los_integrate(STs, ls, ks, lnts; t0=sol[sol.prob.M.t][end], kwargs...)
+    us = range(u(tmin), u(tmax); kwargs...)
+    ts = u⁻¹.(us)
+    all(u.(ts) .≈ us) || error("u(u⁻¹(t)) ≠ t")
+    u′s = u′.(ts)
+    return ts, us, u′s
 end
 
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
+
+Calculate photon temperature multipoles today by line-of-sight integration.
+"""
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
+    ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length)
+    STs = source_temperature(sol, ks, ts)
+    return los_integrate(STs, ls, ks, ts, us, u′s; kwargs...)
+end
+
+"""
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; Δlnt = 0.05, kwargs...)
-    M = sol.prob.M
-    tmin, tmax = extrema(sol[M.t])
-    lnts = range(log(tmin), log(tmax), step=Δlnt)
-    SPs = source_polarization(sol, ks, exp.(lnts))
-    return los_integrate(SPs, ls, ks, lnts; t0=sol[M.t][end], kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
+    ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length) # TODO: do tanh(t/tcmb)?
+    SPs = source_polarization(sol, ks, ts)
+    return los_integrate(SPs, ls, ks, ts, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5

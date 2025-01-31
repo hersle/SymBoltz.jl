@@ -1,5 +1,6 @@
 import SpecialFunctions: zeta as ζ
 import Symbolics: taylor
+import Base: identity
 using QuadGK
 
 ∫(f, a, b) = quadgk(f, a, b)[1] # TODO: use integrator that supports dual numbers
@@ -33,7 +34,7 @@ function replace(sys::ODESystem, old_new_subsys::Pair{ODESystem, ODESystem})
 end
 
 # for testing: transform(identity, sys) should do no harm to a system
-function identity(sys)
+function identity(sys::ODESystem)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
@@ -44,7 +45,7 @@ function identity(sys)
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
-function debugize(sys)
+function debugize(sys::ODESystem)
     return transform((s, _) -> length(s.systems) == 0 ? debug_system(s) : identity(s), sys)
 end
 

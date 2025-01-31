@@ -1,6 +1,6 @@
 using SymBoltz, Plots
 
-M = SymBoltz.ΛCDM(; lmax = 6)
+M = SymBoltz.ΛCDM(; K = nothing, lmax = 6)
 pars = SymBoltz.parameters_Planck18(M)
 
 # 1) Source functions
@@ -8,26 +8,26 @@ pars = SymBoltz.parameters_Planck18(M)
 lmax = 1000
 ls = 10:10:lmax
 k1s, k2s = SymBoltz.cmb_ks(ls[end])
-sol1 = solve(M, pars, k1s; verbose = true, solver = SymBoltz.Rodas5P(), reltol=1e-15)
-sol2 = solve(M, pars, k2s; verbose = true)
+prob = CosmologyProblem(M, pars)
+sol1 = solve(prob, k1s; verbose = true, ptopts = (alg = SymBoltz.Rodas5P(), reltol = 1e-15))
+sol2 = solve(prob, k2s; verbose = true)
 ks = range(extrema(k2s)..., length=10)
-ts = exp.(range(-3.5, -2, step=0.005))
+ts = sol1[M.t]
 
-S1 = SymBoltz.source_temperature(sol1, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol1(ks, ts, M.S)
-S2 = SymBoltz.source_temperature(sol2, ks, ts; sw=false, isw=false, dop=false, pol=true) # sol2(ks, ts, M.S)
+S1 = SymBoltz.source_temperature(sol1, ks, ts) #; sw=false, isw=false, dop=false, pol=true) # sol1(ks, ts, M.S)
+S2 = SymBoltz.source_temperature(sol2, ks, ts) #; sw=false, isw=false, dop=false, pol=true) # sol2(ks, ts, M.S)
 println("max(abs(S2-S1)) = ", maximum(abs.(S2 .- S1)))
 
-p = plot(xlabel = "ln(t)", ylabel = "S", legend = nothing)
-plot!(p, log.(ts), transpose(S1); linestyle = :solid, color = permutedims(1:length(ks)), alpha=0.5)
-plot!(p, log.(ts), transpose(S2); linestyle = :dash,  color = permutedims(1:length(ks)), alpha=0.5)
+p = plot(xlabel = "tanh(t)", ylabel = "S", legend = nothing)
+plot!(p, tanh.(ts), transpose(S1); linestyle = :solid, color = permutedims(1:length(ks)), alpha=0.5)
+plot!(p, tanh.(ts), transpose(S2); linestyle = :dash,  color = permutedims(1:length(ks)), alpha=0.5)
 
 # 2) LOS integration
 
 ks = k2s #range(extrema(k2s)..., length=1*length(k2s))
-#lnts = range(-3.5, -2, step=0.005)
-lnts = range(extrema(log.(sol1[M.t]))..., step=0.01)
-S = SymBoltz.source_temperature(sol1, ks, exp.(lnts)) # sol2(ks, exp.(lnts), M.S)
-Θls = SymBoltz.los_integrate(S, ls, ks, lnts; t0 = sol1[M.t][end])
+ts, us, u′s = SymBoltz.los_substitution_range(sol1, (t->tanh(t)), (u->atanh(u)), (t->1/cosh(t)^2), length=500)
+S = SymBoltz.source_temperature(sol1, ks, ts) # sol2(ks, exp.(lnts), M.S)
+Θls = SymBoltz.los_integrate(S, ls, ks, ts, us, u′s)
 
 plot(ks, Θls[:,10], xlims=(0, 100))
 
