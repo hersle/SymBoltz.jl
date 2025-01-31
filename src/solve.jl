@@ -180,9 +180,11 @@ function remake(
 )
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
-    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, kwargs...) : nothing
-    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars, kwargs...) : nothing
-    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, kwargs...) : nothing
+    vars = isempty(vars) ? missing : vars
+    pars = isempty(pars) ? missing : pars
+    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.bg.f.initialization_data), kwargs...) : nothing
+    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.th.f.initialization_data), kwargs...) : nothing
+    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
