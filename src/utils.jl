@@ -75,7 +75,7 @@ function taylor(sys::ODESystem, ϵ, orders)
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
-have(sys, s::Symbol) = s in Base.propertynames(sys)
+have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
 have(s) = !isnothing(s) # shorthand for checking if we have a given species
 
 function spline(y, x)
