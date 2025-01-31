@@ -25,7 +25,6 @@ function ΛCDM(;
     recombination = true,
     reionization = true,
     acceleration = false,
-    analbginit = true,
     g = metric(),
     G = general_relativity(g; acceleration),
     γ = photons(g; lmax),
@@ -77,14 +76,8 @@ function ΛCDM(;
     if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
         push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: do for all species?
     end
-    initialization_eqs = []
-    if analbginit
-        push!(defs, g.a => √(γ.Ω₀ + ν.Ω₀ + 7*π^4/120 / h.Iρ₀ * h.Ω₀) * t) # analytical radiation-dominated solution (massive neutrino: ρ/ρ₀ = (a/a₀)⁻⁴ * Iρ(yᵢ≪x)/Iρ(y₀) = a⁻⁴ * 7π⁴/120 / Iρ(y₀); can also replace Iρ(y₀) ≈ Iρ(y₀≫x) = 3*ζ(3)/2*y₀)
-    else
-        push!(initialization_eqs, O(ϵ^0)(g.a ~ D(g.a) * t)) # solve this nonlinear equation automatically
-    end
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, initialization_eqs, name, description)
+    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false)
@@ -128,7 +121,6 @@ function RMΛ(;
     ] .|> O(ϵ^1)
     defs = [
         g.Ψ => 20 // 15,
-        g.a => √(r.Ω₀) * t
     ]
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)

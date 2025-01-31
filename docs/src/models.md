@@ -14,8 +14,8 @@ pars[M.Λ.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀]
 prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
-p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ; Nextra = 39) # plot extra points to resolve large time steps
-p2 = plot(sol, ks, log10(M.g.a), M.g.Φ; Nextra = 9)
+p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
@@ -28,7 +28,7 @@ SymBoltz.ΛCDM
 ```@example ΛCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
 M = ΛCDM(K = nothing)
-prob = CosmologyProblem(M, parameters_Planck18(M), Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, parameters_Planck18(M))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
@@ -100,9 +100,6 @@ SymBoltz.QCDM
 ```
 
 ```@example QCDM
-# TODO: fix!
-nothing # hide
-#=
 using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
 V = ϕ -> V0 * ϕ^N
@@ -112,5 +109,4 @@ pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 
 prob = CosmologyProblem(M, pars, Dict(D(M.Q.ϕ) => +1.0), [M.g.ℰ ~ 1])
 sol = solve(prob)
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
-=#
 ```

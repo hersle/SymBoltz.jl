@@ -7,7 +7,7 @@ using SymBoltz
 lmax = 6
 M = SymBoltz.ΛCDM(; lmax, K = nothing)
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; tspan = (1e-6, 1e3))
+prob = CosmologyProblem(M, pars)
 ```
 ```@setup class
 using ModelingToolkit
@@ -111,16 +111,16 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
     return output
 end
 
-k = 1e1 / u"Mpc" # 1/Mpc
-sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas5P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+ks = 1e1 / u"Mpc" # 1/Mpc
+sol1 = solve_class(pars, ks)
+sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas5P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
 sols = Dict(
     # background
     "a_bg" => (1 ./ (sol1["bg"]["z"] .+ 1), sol2[M.g.a]),
-    "t" => (sol1["bg"]["conf.time[Mpc]"], sol2[M.t] / (h * SymBoltz.k0)),
+    "χ" => (sol1["bg"]["conf.time[Mpc]"][end] .- sol1["bg"]["conf.time[Mpc]"], (sol2[M.t][end] .- sol2[M.t]) / (h * SymBoltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[M.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.γ.ρ] / (3/8π)),
     "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.ν.ρ] / (3/8π)),
@@ -247,7 +247,7 @@ nothing # hide
 
 #### Conformal time
 ```@example class
-plot_compare("a_bg", "t"; lgx=true, lgy=true) # hide
+plot_compare("a_bg", "χ") # hide
 ```
 #### Hubble function
 

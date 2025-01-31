@@ -3,7 +3,7 @@ using SymBoltz
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars)
 
 @testset "Solution accessing" begin
     ks = [1e2, 1e3]

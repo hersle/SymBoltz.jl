@@ -110,11 +110,9 @@ function split_vars_pars(M::ODESystem, x::Dict)
 end
 
 """
-    function CosmologyProblem(
+    CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        tspan = (1e-5, 1e3),
-        bg = true, th = true, pt = true,
-        spline_thermo = true, debug = false, kwargs...
+        aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -123,15 +121,14 @@ If `bg`, `th` and `pt`, the model is split into the background, thermodynamics a
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    tspan = (1e-5, 1e3),
-    bg = true, th = true, pt = true,
-    spline_thermo = true, debug = false,
-    kwargs...
+    aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
+    vars[M.g.a] = aini
+    tspan = (0.0, 100.0)
 
     if bg
         bg = structural_simplify(background(M))
@@ -437,7 +434,7 @@ function timeseries(sol::CosmologySolution, k; kwargs...)
 end
 function timeseries(ts::AbstractArray; Nextra = 0)
     if Nextra > 0
-        ts = exp.(extend_array(log.(ts), Nextra))
+        ts = extend_array(ts, Nextra)
     end
     return ts
 end
