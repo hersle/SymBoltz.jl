@@ -33,7 +33,6 @@ For example:
 ```@example sol
 # TODO: document callable solution when this is fixed: https://github.com/JuliaDocs/Documenter.jl/issues/558 # hide
 ts = sol[M.t] # get time points used in the background solution
-ts = exp.(range(log.(extrema(ts))..., length=1000)) # 1000 uniformly log-spaced times
 ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
 as = sol(ts, M.g.a) # scale factors
 Ωms = sol(ts, (M.b.ρ + M.c.ρ) / M.G.ρ) # matter-to-total density ratios

@@ -333,8 +333,8 @@ Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     tmin, tmax = extrema(sol.th.t[[begin, end]])
-    minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
-    maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
+    #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
+    #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
     return permutedims(sol.th(ts, idxs=is)[:, :])
 end
 (sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]

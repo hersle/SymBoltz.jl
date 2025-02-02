@@ -56,17 +56,17 @@ sol = solve(prob, ks) # or just solve(prob) to solve only the background
 ## 3. Use the solution
 
 You are now free to [do whatever you want with the solution object](@ref "Solving models").
-For example, to get the reduced Hubble function $E(t) = H(t) / H_0$ for 300 log-spaced conformal times:
+For example, to get the time points used by the solver and corresponding values of the scale factor $a(t)$:
 ```@example getting_started
-ts = exp.(range(log.(extrema(sol[M.t]))..., length=300))
-Es = sol(ts, M.g.E)
+ts = sol[M.t]
+as = sol(ts, M.g.a)
 ```
-Similarly, to get $\Phi(k,t)$ for the 500 wavenumbers we solved for and the same 300 log-spaced conformal times:
+Similarly, to get $\Phi(k,t)$ for the 500 wavenumbers we solved for at the same times:
 ```@example getting_started
 Φs = sol(ks, ts, M.g.Φ)
 ```
 
-You could plot this with `using Plots; plot(log10.(ts), transpose(Φs))`, but this is more convenient with the included plot recipe:
+You could plot this with `using Plots; plot(log10.(as), transpose(Φs))`, but this is more convenient with the included plot recipe:
 ```@example getting_started
 using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
