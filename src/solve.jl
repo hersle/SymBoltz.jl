@@ -2,7 +2,6 @@ import Base: nameof
 import CommonSolve: solve
 import SciMLBase: remake
 import OhMyThreads: TaskLocalValue
-import Setfield: @set
 
 function background(sys)
     sys = thermodynamics(sys)
@@ -290,7 +289,7 @@ function solve(
             verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
             p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056
             setindex!(p, ks[i], kidx)
-            return @set ptprob.p = p
+            return Setfield.@set ptprob.p = p
         end)
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
         ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
