@@ -127,8 +127,8 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
-        θ ~ 1//2 * (k^2*t) * g.Ψ # Dodelson (7.95)
-        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/dτ * Θ[1], # depends on whether polarization is included
+        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # Dodelson (7.95)
+        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/τ̇ * F[1] # depends on whether polarization is included
         [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
