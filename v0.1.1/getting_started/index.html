@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting started · SymBoltz</title><meta name="title" content="Getting started · SymBoltz"/><meta property="og:title" content="Getting started · SymBoltz"/><meta property="twitter:title" content="Getting started · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Getting started</a><ul class="internal"><li><a class="tocitem" href="#1.-Create-the-model"><span>1. Create the model</span></a></li><li><a class="tocitem" href="#2.-Solve-the-problem"><span>2. Solve the problem</span></a></li><li><a class="tocitem" href="#3.-Use-the-solution"><span>3. Use the solution</span></a></li></ul></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Creating extended models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components</a></li><li><a class="tocitem" href="../models/">Models</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../spectra/">Spectra and distances</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Getting started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/getting_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h1><p><a href="../#Installation">Install SymBoltz.jl</a> and load it with</p><pre><code class="language-julia hljs">using SymBoltz</code></pre><h2 id="1.-Create-the-model"><a class="docs-heading-anchor" href="#1.-Create-the-model">1. Create the model</a><a id="1.-Create-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Create-the-model" title="Permalink"></a></h2><p>The first step is to define our cosmological model. This is a <em>symbolic</em> representation of the variables and equations that describe the various components in the universe, such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons).</p><p>To get started, we will simply load the standard ΛCDM model:</p><pre><code class="language-julia hljs">M = ΛCDM(K = nothing) # flat</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{G.\rho}\left( t \right) &amp;= \mathtt{h.\rho}\left( t \right) + \mathtt{c.\rho}\left( t \right) + \mathtt{b.\rho}\left( t \right) + \mathtt{\gamma.\rho}\left( t \right) + \mathtt{\Lambda.\rho}\left( t \right) + \mathtt{\nu.\rho}\left( t \right) \\
+\mathtt{G.P}\left( t \right) &amp;= \mathtt{b.P}\left( t \right) + \mathtt{c.P}\left( t \right) + \mathtt{h.P}\left( t \right) + \mathtt{\gamma.P}\left( t \right) + \mathtt{\nu.P}\left( t \right) + \mathtt{\Lambda.P}\left( t \right) \\
+\mathtt{b.rec.{\rho}b}\left( t \right) &amp;= 1.5736 \cdot 10^{-25} h^{2} \mathtt{b.\rho}\left( t \right) \\
+\mathtt{b.rec.T\gamma}\left( t \right) &amp;= \mathtt{\gamma.T}\left( t \right) \\
+\mathtt{G.\delta\rho}\left( t \right) \epsilon &amp;= \left( \mathtt{h.\rho}\left( t \right) \mathtt{h.\delta}\left( t \right) + \mathtt{c.\rho}\left( t \right) \mathtt{c.\delta}\left( t \right) + \mathtt{\gamma.\delta}\left( t \right) \mathtt{\gamma.\rho}\left( t \right) + \mathtt{\nu.\delta}\left( t \right) \mathtt{\nu.\rho}\left( t \right) + \mathtt{b.\rho}\left( t \right) \mathtt{b.\delta}\left( t \right) + \mathtt{\Lambda.\rho}\left( t \right) \mathtt{\Lambda.\delta}\left( t \right) \right) \epsilon \\
+\mathtt{G.{\delta}P}\left( t \right) \epsilon &amp;= \left( \mathtt{h.\rho}\left( t \right) \mathtt{h.\delta}\left( t \right) \mathtt{h.c_s^2}\left( t \right) + \mathtt{c.\rho}\left( t \right) \mathtt{c.c_s^2}\left( t \right) \mathtt{c.\delta}\left( t \right) + \mathtt{\gamma.\delta}\left( t \right) \mathtt{\gamma.c_s^2}\left( t \right) \mathtt{\gamma.\rho}\left( t \right) + \mathtt{\nu.c_s^2}\left( t \right) \mathtt{\nu.\delta}\left( t \right) \mathtt{\nu.\rho}\left( t \right) + \mathtt{\Lambda.c_s^2}\left( t \right) \mathtt{\Lambda.\rho}\left( t \right) \mathtt{\Lambda.\delta}\left( t \right) + \mathtt{b.c_s^2}\left( t \right) \mathtt{b.\rho}\left( t \right) \mathtt{b.\delta}\left( t \right) \right) \epsilon \\
+\mathtt{G.\Pi}\left( t \right) \epsilon &amp;= \left( \left( \mathtt{h.\rho}\left( t \right) + \mathtt{h.P}\left( t \right) \right) \mathtt{h.\sigma}\left( t \right) + \left( \mathtt{b.P}\left( t \right) + \mathtt{b.\rho}\left( t \right) \right) \mathtt{b.\sigma}\left( t \right) + \left( \mathtt{c.\rho}\left( t \right) + \mathtt{c.P}\left( t \right) \right) \mathtt{c.\sigma}\left( t \right) + \left( \mathtt{\gamma.\rho}\left( t \right) + \mathtt{\gamma.P}\left( t \right) \right) \mathtt{\gamma.\sigma}\left( t \right) + \left( \mathtt{\Lambda.\rho}\left( t \right) + \mathtt{\Lambda.P}\left( t \right) \right) \mathtt{\Lambda.\sigma}\left( t \right) + \left( \mathtt{\nu.\rho}\left( t \right) + \mathtt{\nu.P}\left( t \right) \right) \mathtt{\nu.\sigma}\left( t \right) \right) \epsilon \\
+\mathtt{b.{\theta}interaction}\left( t \right) \epsilon &amp;= \frac{ - 4 \left( \mathtt{\gamma.\theta}\left( t \right) - \mathtt{b.\theta}\left( t \right) \right) \mathtt{\gamma.\rho}\left( t \right) \mathtt{b.rec.\dot{\tau}}\left( t \right) \epsilon}{3 \mathtt{b.\rho}\left( t \right)} \\
+\mathtt{\gamma.\dot{\tau}}\left( t \right) \epsilon &amp;= \mathtt{b.rec.\dot{\tau}}\left( t \right) \epsilon \\
+\mathtt{\gamma.{\theta}b}\left( t \right) \epsilon &amp;= \mathtt{b.\theta}\left( t \right) \epsilon \\
+\mathtt{S\_SW}\left( t \right) \epsilon &amp;= \left( \frac{1}{4} \mathtt{\gamma.\delta}\left( t \right) + \Psi\left( t \right) \right) \mathtt{b.rec.v}\left( t \right) \epsilon \\
+\mathtt{S\_ISW}\left( t \right) \epsilon &amp;= \frac{\mathrm{d}}{\mathrm{d}t} \left( \Psi\left( t \right) + \Phi\left( t \right) \right) e^{ - \mathtt{b.rec.\tau}\left( t \right)} \epsilon \\
+\mathtt{S\_Dop}\left( t \right) \epsilon &amp;= \frac{\left( \mathtt{b.rec.\dot{v}}\left( t \right) \mathtt{b.u}\left( t \right) + \mathtt{b.rec.v}\left( t \right) \frac{\mathrm{d} \mathtt{b.u}\left( t \right)}{\mathrm{d}t} \right) \epsilon}{k} \\
+\mathtt{S\_pol}\left( t \right) \epsilon &amp;= \frac{3 \left( \mathtt{b.rec.\textnormal{\&quot;{v}}}\left( t \right) \mathtt{G.\Pi}\left( t \right) + 2 \mathtt{b.rec.\dot{v}}\left( t \right) \frac{\mathrm{d} \mathtt{\gamma.\Pi}\left( t \right)}{\mathrm{d}t} \right) \epsilon}{4 k^{2}} \\
+S\left( t \right) \epsilon &amp;= \left( \mathtt{S\_Dop}\left( t \right) + \mathtt{S\_ISW}\left( t \right) + \mathtt{S\_SW}\left( t \right) \right) \epsilon \\
+z\left( t \right) &amp;= -1 + \frac{1}{a\left( t \right)} \\
+\mathscr{E}\left( t \right) &amp;= \frac{\frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t}}{a\left( t \right)} \\
+E\left( t \right) &amp;= \frac{\mathscr{E}\left( t \right)}{a\left( t \right)} \\
+\mathscr{H}\left( t \right) &amp;= 3.2408 \cdot 10^{-18} h \mathscr{E}\left( t \right) \\
+H\left( t \right) &amp;= 3.2408 \cdot 10^{-18} h E\left( t \right) \\
+\mathtt{g_{1 1}}\left( t \right) &amp;= \left( a\left( t \right) \right)^{2} \left( -1 - 2 \Psi\left( t \right) \epsilon \right) \\
+\mathtt{g_{2 2}}\left( t \right) &amp;= \left( a\left( t \right) \right)^{2} \left( 1 - 2 \Phi\left( t \right) \epsilon \right) \\
+\frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} &amp;= \sqrt{\frac{8}{3} \left( a\left( t \right) \right)^{4} \mathtt{G.\rho}\left( t \right) \pi} \\
+\mathtt{G.\Delta}\left( t \right) &amp;= \frac{ - \left( \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} \right)^{2} \left( 1 + \frac{ - 3 \mathtt{G.P}\left( t \right)}{\mathtt{G.\rho}\left( t \right)} \right)}{2 a\left( t \right)} + \frac{\mathrm{d}}{\mathrm{d}t} \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} \\
+\frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{ - k^{2} \Phi\left( t \right)}{3 \mathscr{E}\left( t \right)} + \frac{ - \frac{4}{3} \left( a\left( t \right) \right)^{2} \mathtt{G.\delta\rho}\left( t \right) \pi}{\mathscr{E}\left( t \right)} - \mathscr{E}\left( t \right) \Psi\left( t \right) \right) \epsilon \\
+k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &amp;= 12 \left( a\left( t \right) \right)^{2} \mathtt{G.\Pi}\left( t \right) \pi \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{0}}{\mathrm{d}t} \epsilon &amp;= \left( 4 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} - k \mathtt{\gamma.F}\left( t \right)_{1} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{1}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{ - \frac{4}{3} \left( \mathtt{\gamma.{\theta}b}\left( t \right) - \mathtt{\gamma.\theta}\left( t \right) \right) \mathtt{\gamma.\dot{\tau}}\left( t \right)}{k} + \frac{1}{3} k \left( 4 \Psi\left( t \right) + \mathtt{\gamma.F}\left( t \right)_{0} - 2 \mathtt{\gamma.F}\left( t \right)_{2} \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{2}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{5} k \left( 2 \mathtt{\gamma.F}\left( t \right)_{1} - 3 \mathtt{\gamma.F}\left( t \right)_{3} \right) + \frac{9}{10} \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{2} - \frac{1}{10} \mathtt{\gamma.\dot{\tau}}\left( t \right) \left( \mathtt{\gamma.G}\left( t \right)_{0} + \mathtt{\gamma.G}\left( t \right)_{2} \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{3}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{7} k \left( 3 \mathtt{\gamma.F}\left( t \right)_{2} - 4 \mathtt{\gamma.F}\left( t \right)_{4} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{3} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{4}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{9} k \left( 4 \mathtt{\gamma.F}\left( t \right)_{3} - 5 \mathtt{\gamma.F}\left( t \right)_{5} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{4} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{5}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{11} k \left( 5 \mathtt{\gamma.F}\left( t \right)_{4} - 6 \mathtt{\gamma.F}\left( t \right)_{6} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{5} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.F}\left( t \right)_{6}}{\mathrm{d}t} \epsilon &amp;= \left( k \mathtt{\gamma.F}\left( t \right)_{5} - 7 \mathscr{E}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{6} + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.F}\left( t \right)_{6} \right) \epsilon \\
+\mathtt{\gamma.\delta}\left( t \right) \epsilon &amp;= \mathtt{\gamma.F}\left( t \right)_{0} \epsilon \\
+\mathtt{\gamma.\theta}\left( t \right) \epsilon &amp;= \frac{3}{4} k \mathtt{\gamma.F}\left( t \right)_{1} \epsilon \\
+\mathtt{\gamma.\sigma}\left( t \right) \epsilon &amp;= \frac{1}{2} \mathtt{\gamma.F}\left( t \right)_{2} \epsilon \\
+\mathtt{\gamma.\Pi}\left( t \right) \epsilon &amp;= \left( \mathtt{\gamma.F}\left( t \right)_{2} + \mathtt{\gamma.G}\left( t \right)_{0} + \mathtt{\gamma.G}\left( t \right)_{2} \right) \epsilon \\
+\mathtt{\gamma.\dot{\Pi}}\left( t \right) \epsilon &amp;= \frac{\mathrm{d} \mathtt{\gamma.\Pi}\left( t \right)}{\mathrm{d}t} \epsilon \\
+\mathtt{\gamma.c_s^2}\left( t \right) \epsilon &amp;= \frac{1}{3} \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{0}}{\mathrm{d}t} \epsilon &amp;= \left(  - k \mathtt{\gamma.G}\left( t \right)_{1} + \left(  - \frac{1}{2} \mathtt{\gamma.\Pi}\left( t \right) + \mathtt{\gamma.G}\left( t \right)_{0} \right) \mathtt{\gamma.\dot{\tau}}\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{1}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{3} k \left( \mathtt{\gamma.G}\left( t \right)_{0} - 2 \mathtt{\gamma.G}\left( t \right)_{2} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{1} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{2}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{5} k \left( 2 \mathtt{\gamma.G}\left( t \right)_{1} - 3 \mathtt{\gamma.G}\left( t \right)_{3} \right) + \left(  - \frac{1}{10} \mathtt{\gamma.\Pi}\left( t \right) + \mathtt{\gamma.G}\left( t \right)_{2} \right) \mathtt{\gamma.\dot{\tau}}\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{3}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{7} k \left( 3 \mathtt{\gamma.G}\left( t \right)_{2} - 4 \mathtt{\gamma.G}\left( t \right)_{4} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{3} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{4}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{9} k \left( 4 \mathtt{\gamma.G}\left( t \right)_{3} - 5 \mathtt{\gamma.G}\left( t \right)_{5} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{4} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{5}}{\mathrm{d}t} \epsilon &amp;= \left( \frac{1}{11} k \left( 5 \mathtt{\gamma.G}\left( t \right)_{4} - 6 \mathtt{\gamma.G}\left( t \right)_{6} \right) + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{5} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\gamma.G}\left( t \right)_{6}}{\mathrm{d}t} \epsilon &amp;= \left( k \mathtt{\gamma.G}\left( t \right)_{5} - 7 \mathscr{E}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{6} + \mathtt{\gamma.\dot{\tau}}\left( t \right) \mathtt{\gamma.G}\left( t \right)_{6} \right) \epsilon \\
+\mathtt{\gamma.T}\left( t \right) &amp;= \frac{\mathtt{\gamma.T{_0}}}{a\left( t \right)} \\
+\mathtt{\gamma.w}\left( t \right) &amp;= \frac{1}{3} \\
+\mathtt{\gamma.P}\left( t \right) &amp;= \mathtt{\gamma.\rho}\left( t \right) \mathtt{\gamma.w}\left( t \right) \\
+\mathtt{\gamma.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\gamma.w}\left( t \right) \right)} \mathtt{\gamma.\Omega_0} \\
+\mathtt{\gamma.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\gamma.\rho}\left( t \right) \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{0}}{\mathrm{d}t} \epsilon &amp;= \left( 4 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} - k \mathtt{\nu.F}\left( t \right)_{1} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{1}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{3} k \left( 4 \Psi\left( t \right) + \mathtt{\nu.F}\left( t \right)_{0} - 2 \mathtt{\nu.F}\left( t \right)_{2} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{2}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{5} k \left( 2 \mathtt{\nu.F}\left( t \right)_{1} - 3 \mathtt{\nu.F}\left( t \right)_{3} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{3}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{7} k \left( 3 \mathtt{\nu.F}\left( t \right)_{2} - 4 \mathtt{\nu.F}\left( t \right)_{4} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{4}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{9} k \left( 4 \mathtt{\nu.F}\left( t \right)_{3} - 5 \mathtt{\nu.F}\left( t \right)_{5} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{5}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{11} k \left( 5 \mathtt{\nu.F}\left( t \right)_{4} - 6 \mathtt{\nu.F}\left( t \right)_{6} \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{6}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{13} k \left( 6 \mathtt{\nu.F}\left( t \right)_{5} - 7 \mathtt{\nu.F}\left( t \right)_{7} \right) \epsilon \\
+\mathtt{\nu.F}\left( t \right)_{7} \epsilon &amp;= \left( \frac{13 \mathscr{E}\left( t \right) \mathtt{\nu.F}\left( t \right)_{6}}{k} - \mathtt{\nu.F}\left( t \right)_{5} \right) \epsilon \\
+\mathtt{\nu.\delta}\left( t \right) \epsilon &amp;= \mathtt{\nu.F}\left( t \right)_{0} \epsilon \\
+\mathtt{\nu.\theta}\left( t \right) \epsilon &amp;= \frac{3}{4} k \mathtt{\nu.F}\left( t \right)_{1} \epsilon \\
+\mathtt{\nu.\sigma}\left( t \right) \epsilon &amp;= \frac{1}{2} \mathtt{\nu.F}\left( t \right)_{2} \epsilon \\
+\mathtt{\nu.c_s^2}\left( t \right) \epsilon &amp;= \frac{1}{3} \epsilon \\
+\mathtt{\nu.T}\left( t \right) &amp;= \frac{\mathtt{\nu.T{_0}}}{a\left( t \right)} \\
+\mathtt{\nu.w}\left( t \right) &amp;= \frac{1}{3} \\
+\mathtt{\nu.P}\left( t \right) &amp;= \mathtt{\nu.w}\left( t \right) \mathtt{\nu.\rho}\left( t \right) \\
+\mathtt{\nu.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\nu.w}\left( t \right) \right)} \mathtt{\nu.\Omega_0} \\
+\mathtt{\nu.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\nu.\rho}\left( t \right) \\
+\mathtt{c.c_s^2}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{c.w}\left( t \right) &amp;= 0 \\
+\mathtt{c.P}\left( t \right) &amp;= \mathtt{c.\rho}\left( t \right) \mathtt{c.w}\left( t \right) \\
+\mathtt{c.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{c.w}\left( t \right) \right)} \mathtt{c.\Omega_0}}{8 \pi} \\
+\mathtt{c.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{c.\rho}\left( t \right) \pi \\
+\frac{\mathrm{d} \mathtt{c.\delta}\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left( -1 - \mathtt{c.w}\left( t \right) \right) \left( \mathtt{c.\theta}\left( t \right) - 3 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \right) - 3 \left(  - \mathtt{c.w}\left( t \right) + \mathtt{c.c_s^2}\left( t \right) \right) \mathscr{E}\left( t \right) \mathtt{c.\delta}\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{c.\theta}\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{c.c_s^2}\left( t \right) \mathtt{c.\delta}\left( t \right)}{1 + \mathtt{c.w}\left( t \right)} + \mathtt{c.{\theta}interaction}\left( t \right) + k^{2} \Psi\left( t \right) - k^{2} \mathtt{c.\sigma}\left( t \right) - \left( 1 - 3 \mathtt{c.w}\left( t \right) \right) \mathscr{E}\left( t \right) \mathtt{c.\theta}\left( t \right) \right) \epsilon \\
+\mathtt{c.u}\left( t \right) \epsilon &amp;= \frac{\mathtt{c.\theta}\left( t \right) \epsilon}{k} \\
+\mathtt{c.\dot{u}}\left( t \right) \epsilon &amp;= \frac{\mathrm{d} \mathtt{c.u}\left( t \right)}{\mathrm{d}t} \epsilon \\
+\mathtt{c.\Delta}\left( t \right) \epsilon &amp;= \left( \mathtt{c.\delta}\left( t \right) + \frac{3 \left( 1 + \mathtt{c.w}\left( t \right) \right) \mathscr{E}\left( t \right)}{\mathtt{c.\theta}\left( t \right)} \right) \epsilon \\
+\mathtt{c.\sigma}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{c.{\theta}interaction}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{b.c_s^2}\left( t \right) \epsilon &amp;= \mathtt{b.rec.c_s^2}\left( t \right) \epsilon \\
+\mathtt{b.w}\left( t \right) &amp;= 0 \\
+\mathtt{b.P}\left( t \right) &amp;= \mathtt{b.\rho}\left( t \right) \mathtt{b.w}\left( t \right) \\
+\mathtt{b.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{b.w}\left( t \right) \right)} \mathtt{b.\Omega_0}}{8 \pi} \\
+\mathtt{b.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{b.\rho}\left( t \right) \pi \\
+\frac{\mathrm{d} \mathtt{b.\delta}\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \left( -1 - \mathtt{b.w}\left( t \right) \right) \left( \mathtt{b.\theta}\left( t \right) - 3 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \right) - 3 \mathscr{E}\left( t \right) \left( \mathtt{b.c_s^2}\left( t \right) - \mathtt{b.w}\left( t \right) \right) \mathtt{b.\delta}\left( t \right) \right) \epsilon \\
+\frac{\mathrm{d} \mathtt{b.\theta}\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{k^{2} \mathtt{b.c_s^2}\left( t \right) \mathtt{b.\delta}\left( t \right)}{1 + \mathtt{b.w}\left( t \right)} + \mathtt{b.{\theta}interaction}\left( t \right) + k^{2} \Psi\left( t \right) - k^{2} \mathtt{b.\sigma}\left( t \right) - \mathscr{E}\left( t \right) \left( 1 - 3 \mathtt{b.w}\left( t \right) \right) \mathtt{b.\theta}\left( t \right) \right) \epsilon \\
+\mathtt{b.u}\left( t \right) \epsilon &amp;= \frac{\mathtt{b.\theta}\left( t \right) \epsilon}{k} \\
+\mathtt{b.\dot{u}}\left( t \right) \epsilon &amp;= \frac{\mathrm{d} \mathtt{b.u}\left( t \right)}{\mathrm{d}t} \epsilon \\
+\mathtt{b.\Delta}\left( t \right) \epsilon &amp;= \left( \mathtt{b.\delta}\left( t \right) + \frac{3 \mathscr{E}\left( t \right) \left( 1 + \mathtt{b.w}\left( t \right) \right)}{\mathtt{b.\theta}\left( t \right)} \right) \epsilon \\
+\mathtt{b.\sigma}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{b.rec.nH}\left( t \right) &amp;= 5.9743 \cdot 10^{26} \left( 1 - \mathtt{b.rec.Yp} \right) \mathtt{b.rec.{\rho}b}\left( t \right) \\
+\mathtt{b.rec.nHe}\left( t \right) &amp;= \mathtt{b.rec.fHe} \mathtt{b.rec.nH}\left( t \right) \\
+\frac{\mathrm{d} \mathtt{b.rec.Tb}\left( t \right)}{\mathrm{d}t} &amp;= \frac{ - 4.9146 \cdot 10^{-22} \left( \mathtt{b.rec.T\gamma}\left( t \right) \right)^{4} \left(  - \mathtt{b.rec.T\gamma}\left( t \right) + \mathtt{b.rec.Tb}\left( t \right) \right) a\left( t \right) \mathtt{b.rec.Xe}\left( t \right)}{3.2408 \cdot 10^{-18} \left( 1 + \mathtt{b.rec.fHe} + \mathtt{b.rec.Xe}\left( t \right) \right) h} - 2 \mathscr{E}\left( t \right) \mathtt{b.rec.Tb}\left( t \right) \\
+\mathtt{b.rec.DTb}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.Tb}\left( t \right)}{\mathrm{d}t} \\
+\mathtt{b.rec.{\beta}b}\left( t \right) &amp;= \frac{1}{1.3806 \cdot 10^{-23} \mathtt{b.rec.Tb}\left( t \right)} \\
+\mathtt{b.rec.{\lambda}e}\left( t \right) &amp;= \frac{6.6261 \cdot 10^{-34}}{\sqrt{\frac{5.7236 \cdot 10^{-30}}{\mathtt{b.rec.{\beta}b}\left( t \right)}}} \\
+\mathtt{b.rec.\mu}\left( t \right) &amp;= \frac{1.6738 \cdot 10^{-27}}{1 - 0.74816 \mathtt{b.rec.Yp} + \left( 1 - \mathtt{b.rec.Yp} \right) \mathtt{b.rec.Xe}\left( t \right)} \\
+\mathtt{b.rec.c_s^2}\left( t \right) &amp;= \frac{1.3806 \cdot 10^{-23} \left( \frac{ - \frac{\mathrm{d} \mathtt{b.rec.Tb}\left( t \right)}{\mathrm{d}t}}{3 \mathscr{E}\left( t \right)} + \mathtt{b.rec.Tb}\left( t \right) \right)}{8.9876 \cdot 10^{16} \mathtt{b.rec.\mu}\left( t \right)} \\
+\mathtt{b.rec.{\alpha}H}\left( t \right) &amp;= \frac{4.9123 \cdot 10^{-19}}{0.0034166 \left( \mathtt{b.rec.Tb}\left( t \right) \right)^{0.6166} \left( 1 + 0.0050847 \left( \mathtt{b.rec.Tb}\left( t \right) \right)^{0.53} \right)} \\
+\mathtt{b.rec.{\beta}H}\left( t \right) &amp;= \frac{\mathtt{b.rec.{\alpha}H}\left( t \right) e^{ - 5.4468 \cdot 10^{-19} \mathtt{b.rec.{\beta}b}\left( t \right)}}{\left( \mathtt{b.rec.{\lambda}e}\left( t \right) \right)^{3}} \\
+\mathtt{b.rec.KH0}\left( t \right) &amp;= \frac{1.7966 \cdot 10^{-21}}{25.133 H\left( t \right)} \\
+\mathtt{b.rec.KH1}\left( t \right) &amp;= \left(  - 0.14 e^{ - 30.864 \left( 7.28 + \log\left( a\left( t \right) \right) \right)^{2}} + 0.079 e^{ - 9.1827 \left( 6.73 + \log\left( a\left( t \right) \right) \right)^{2}} \right) \mathtt{b.rec.KH0}\left( t \right) \\
+\mathtt{b.rec.KH}\left( t \right) &amp;= \mathtt{b.rec.KH1}\left( t \right) + \mathtt{b.rec.KH0}\left( t \right) \\
+\mathtt{b.rec.CH}\left( t \right) &amp;= \frac{1 + 8.2246 \mathtt{b.rec.nH}\left( t \right) \mathtt{b.rec.KH}\left( t \right) \left( 1 - \mathtt{b.rec.XH^+}\left( t \right) \right)}{1 + \mathtt{b.rec.nH}\left( t \right) \left( 8.2246 + \mathtt{b.rec.{\beta}H}\left( t \right) \right) \mathtt{b.rec.KH}\left( t \right) \left( 1 - \mathtt{b.rec.XH^+}\left( t \right) \right)} \\
+\frac{\mathrm{d} \mathtt{b.rec.XH^+}\left( t \right)}{\mathrm{d}t} &amp;= \frac{\left(  - \mathtt{b.rec.ne}\left( t \right) \mathtt{b.rec.{\alpha}H}\left( t \right) \mathtt{b.rec.XH^+}\left( t \right) - \mathtt{b.rec.{\beta}H}\left( t \right) \left( -1 + \mathtt{b.rec.XH^+}\left( t \right) \right) e^{ - 1.634 \cdot 10^{-18} \mathtt{b.rec.{\beta}b}\left( t \right)} \right) \mathtt{b.rec.CH}\left( t \right) a\left( t \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{b.rec.{\alpha}He}\left( t \right) &amp;= \frac{1.803 \cdot 10^{-17}}{\left( 1 + \sqrt{0.33333 \mathtt{b.rec.Tb}\left( t \right)} \right)^{0.289} \left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{b.rec.Tb}\left( t \right)} \right)^{1.711} \sqrt{0.33333 \mathtt{b.rec.Tb}\left( t \right)}} \\
+\mathtt{b.rec.{\beta}He}\left( t \right) &amp;= \frac{4 \mathtt{b.rec.{\alpha}He}\left( t \right) e^{ - 6.3633 \cdot 10^{-19} \mathtt{b.rec.{\beta}b}\left( t \right)}}{\left( \mathtt{b.rec.{\lambda}e}\left( t \right) \right)^{3}} \\
+\mathtt{b.rec.KHe0^{- 1}}\left( t \right) &amp;= 1.2597 \cdot 10^{23} H\left( t \right) \\
+\mathtt{b.rec.KHe1^{- 1}}\left( t \right) &amp;=  - \mathtt{b.rec.KHe0^{- 1}}\left( t \right) e^{\frac{ - 5.3949 \cdot 10^{9} \mathtt{b.rec.nHe}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right)}{\mathtt{b.rec.KHe0^{- 1}}\left( t \right)}} \\
+\mathtt{b.rec.{\gamma}2Ps}\left( t \right) &amp;= \left|\frac{4.8487 \cdot 10^{26} \mathtt{b.rec.fHe} \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right)}{4.8748 \cdot 10^{26} \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \mathtt{b.rec.{\beta}b}\left( t \right)}} \left( 1 - \mathtt{b.rec.XH^+}\left( t \right) \right)}\right| \\
+\mathtt{b.rec.KHe2^{- 1}}\left( t \right) &amp;= \frac{5.3949 \cdot 10^{9} \mathtt{b.rec.nHe}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right)}{1 + 0.36 \left( \mathtt{b.rec.{\gamma}2Ps}\left( t \right) \right)^{0.86}} \\
+\mathtt{b.rec.KHe}\left( t \right) &amp;= \frac{1}{\mathtt{b.rec.KHe0^{- 1}}\left( t \right) + \mathtt{b.rec.KHe2^{- 1}}\left( t \right) + \mathtt{b.rec.KHe1^{- 1}}\left( t \right)} \\
+\mathtt{b.rec.CHe}\left( t \right) &amp;= \frac{e^{ - 9.6491 \cdot 10^{-20} \mathtt{b.rec.{\beta}b}\left( t \right)} + 51.3 \mathtt{b.rec.nHe}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right) \mathtt{b.rec.KHe}\left( t \right)}{e^{ - 9.6491 \cdot 10^{-20} \mathtt{b.rec.{\beta}b}\left( t \right)} + \mathtt{b.rec.nHe}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right) \mathtt{b.rec.KHe}\left( t \right) \left( 51.3 + \mathtt{b.rec.{\beta}He}\left( t \right) \right)} \\
+\mathtt{b.rec.DXHe^+\_singlet}\left( t \right) &amp;= \frac{\left(  - \mathtt{b.rec.{\alpha}He}\left( t \right) \mathtt{b.rec.ne}\left( t \right) \mathtt{b.rec.XHe^+}\left( t \right) - \left( -1 + \mathtt{b.rec.XHe^+}\left( t \right) \right) \mathtt{b.rec.{\beta}He}\left( t \right) e^{ - 3.303 \cdot 10^{-18} \mathtt{b.rec.{\beta}b}\left( t \right)} \right) \mathtt{b.rec.CHe}\left( t \right) a\left( t \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{b.rec.{\alpha}He3}\left( t \right) &amp;= \frac{4.9431 \cdot 10^{-17}}{\left( 1 + \sqrt{0.33333 \mathtt{b.rec.Tb}\left( t \right)} \right)^{0.239} \left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{b.rec.Tb}\left( t \right)} \right)^{1.761} \sqrt{0.33333 \mathtt{b.rec.Tb}\left( t \right)}} \\
+\mathtt{b.rec.{\beta}He3}\left( t \right) &amp;= \frac{1.3333 e^{ - 7.6388 \cdot 10^{-19} \mathtt{b.rec.{\beta}b}\left( t \right)} \mathtt{b.rec.{\alpha}He3}\left( t \right)}{\left( \mathtt{b.rec.{\lambda}e}\left( t \right) \right)^{3}} \\
+\mathtt{b.rec.{\tau}He3}\left( t \right) &amp;= \frac{1.102 \cdot 10^{-19} \mathtt{b.rec.nHe}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right)}{25.133 H\left( t \right)} \\
+\mathtt{b.rec.pHe3}\left( t \right) &amp;= \frac{1 - e^{ - \mathtt{b.rec.{\tau}He3}\left( t \right)}}{\mathtt{b.rec.{\tau}He3}\left( t \right)} \\
+\mathtt{b.rec.{\gamma}2Pt}\left( t \right) &amp;= \left|\frac{1.8633 \cdot 10^{-12} \mathtt{b.rec.fHe} \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right)}{1.8917 \cdot 10^{-5} \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \mathtt{b.rec.{\beta}b}\left( t \right)}} \left( 1 - \mathtt{b.rec.XH^+}\left( t \right) \right)}\right| \\
+\mathtt{b.rec.CHe3}\left( t \right) &amp;= \frac{1 \cdot 10^{-10} + 177.58 \left( \mathtt{b.rec.pHe3}\left( t \right) + \frac{\frac{1}{3}}{1 + 0.66 \left( \mathtt{b.rec.{\gamma}2Pt}\left( t \right) \right)^{0.9}} \right) e^{ - 1.8337 \cdot 10^{-19} \mathtt{b.rec.{\beta}b}\left( t \right)}}{1 \cdot 10^{-10} + \mathtt{b.rec.{\beta}He3}\left( t \right) + 177.58 \left( \mathtt{b.rec.pHe3}\left( t \right) + \frac{\frac{1}{3}}{1 + 0.66 \left( \mathtt{b.rec.{\gamma}2Pt}\left( t \right) \right)^{0.9}} \right) e^{ - 1.8337 \cdot 10^{-19} \mathtt{b.rec.{\beta}b}\left( t \right)}} \\
+\mathtt{b.rec.DXHe^+\_triplet}\left( t \right) &amp;= \frac{ - \left( \mathtt{b.rec.ne}\left( t \right) \mathtt{b.rec.XHe^+}\left( t \right) \mathtt{b.rec.{\alpha}He3}\left( t \right) - 3 \mathtt{b.rec.{\beta}He3}\left( t \right) \left( 1 - \mathtt{b.rec.XHe^+}\left( t \right) \right) e^{ - 3.1755 \cdot 10^{-18} \mathtt{b.rec.{\beta}b}\left( t \right)} \right) a\left( t \right) \mathtt{b.rec.CHe3}\left( t \right)}{3.2408 \cdot 10^{-18} h} \\
+\frac{\mathrm{d} \mathtt{b.rec.XHe^+}\left( t \right)}{\mathrm{d}t} &amp;= \mathtt{b.rec.DXHe^+\_triplet}\left( t \right) + \mathtt{b.rec.DXHe^+\_singlet}\left( t \right) \\
+\mathtt{b.rec.RHe^+}\left( t \right) &amp;= \frac{e^{ - 8.7187 \cdot 10^{-18} \mathtt{b.rec.{\beta}b}\left( t \right)}}{\left( \mathtt{b.rec.{\lambda}e}\left( t \right) \right)^{3} \mathtt{b.rec.nH}\left( t \right)} \\
+\mathtt{b.rec.XHe^{+ +}}\left( t \right) &amp;= \frac{2 \mathtt{b.rec.fHe} \mathtt{b.rec.RHe^+}\left( t \right)}{\left( 1 + \mathtt{b.rec.fHe} + \mathtt{b.rec.RHe^+}\left( t \right) \right) \left( 1 + \sqrt{1 + \frac{4 \mathtt{b.rec.fHe} \mathtt{b.rec.RHe^+}\left( t \right)}{\left( 1 + \mathtt{b.rec.fHe} + \mathtt{b.rec.RHe^+}\left( t \right) \right)^{2}}} \right)} \\
+\mathtt{b.rec.re1Xe}\left( t \right) &amp;= 0.5 \left( 1 + \mathtt{b.rec.fHe} + \left( 1 + \mathtt{b.rec.fHe} \right) \tanh\left( \frac{\left( 1 + \mathtt{b.rec.re1z} \right)^{1.5} - \left( 1 + z\left( t \right) \right)^{1.5}}{0.75 \left( 1 + \mathtt{b.rec.re1z} \right)^{0.5}} \right) \right) \\
+\mathtt{b.rec.re2Xe}\left( t \right) &amp;= 0.5 \left( \mathtt{b.rec.fHe} + \mathtt{b.rec.fHe} \tanh\left( \frac{\left( 1 + \mathtt{b.rec.re2z} \right)^{1.5} - \left( 1 + z\left( t \right) \right)^{1.5}}{0.75 \left( 1 + \mathtt{b.rec.re2z} \right)^{0.5}} \right) \right) \\
+\mathtt{b.rec.Xe}\left( t \right) &amp;= \mathtt{b.rec.re1Xe}\left( t \right) + \mathtt{b.rec.re2Xe}\left( t \right) + \mathtt{b.rec.XHe^{+ +}}\left( t \right) + \mathtt{b.rec.XH^+}\left( t \right) + \mathtt{b.rec.fHe} \mathtt{b.rec.XHe^+}\left( t \right) \\
+\mathtt{b.rec.ne}\left( t \right) &amp;= \mathtt{b.rec.nH}\left( t \right) \mathtt{b.rec.Xe}\left( t \right) \\
+\mathtt{b.rec.\dot{\tau}}\left( t \right) &amp;= \frac{ - 1.9944 \cdot 10^{-20} \mathtt{b.rec.ne}\left( t \right) a\left( t \right)}{3.2408 \cdot 10^{-18} h} \\
+\frac{\mathrm{d} \mathtt{b.rec.\tau}\left( t \right)}{\mathrm{d}t} &amp;= \mathtt{b.rec.\dot{\tau}}\left( t \right) \\
+\mathtt{b.rec.v}\left( t \right) &amp;= \frac{\mathrm{d} e^{ - \mathtt{b.rec.\tau}\left( t \right)}}{\mathrm{d}t} \\
+\mathtt{b.rec.\dot{v}}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.v}\left( t \right)}{\mathrm{d}t} \\
+\mathtt{b.rec.\textnormal{\&quot;{v}}}\left( t \right) &amp;= 0 \\
+\mathtt{b.rec.τ̈}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.\dot{\tau}}\left( t \right)}{\mathrm{d}t} \\
+\mathtt{b.rec.τ⃛}\left( t \right) &amp;= 0 \\
+\mathtt{h.T}\left( t \right) &amp;= \frac{\mathtt{h.T{_0}}}{a\left( t \right)} \\
+\mathtt{h.y}\left( t \right) &amp;= \frac{8.9876 \cdot 10^{16} \mathtt{h.m}}{1.3806 \cdot 10^{-23} \mathtt{h.T}\left( t \right)} \\
+\mathtt{h.In}\left( t \right) &amp;= \mathtt{h.W}_{1} + \mathtt{h.W}_{2} + \mathtt{h.W}_{3} + \mathtt{h.W}_{4} + \mathtt{h.W}_{5} \\
+\mathtt{h.I\rho}\left( t \right) &amp;= \mathtt{h.E}\left( t \right)_{1} \mathtt{h.W}_{1} + \mathtt{h.E}\left( t \right)_{2} \mathtt{h.W}_{2} + \mathtt{h.E}\left( t \right)_{3} \mathtt{h.W}_{3} + \mathtt{h.E}\left( t \right)_{4} \mathtt{h.W}_{4} + \mathtt{h.E}\left( t \right)_{5} \mathtt{h.W}_{5} \\
+\mathtt{h.IP}\left( t \right) &amp;= \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5}}{\mathtt{h.E}\left( t \right)_{5}} \\
+\mathtt{h.\rho}\left( t \right) &amp;= \frac{1.165 \cdot 10^{-16} \left( \mathtt{h.T}\left( t \right) \right)^{4} \mathtt{h.I\rho}\left( t \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+\mathtt{h.P}\left( t \right) &amp;= \frac{3.8835 \cdot 10^{-17} \left( \mathtt{h.T}\left( t \right) \right)^{4} \mathtt{h.IP}\left( t \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+\mathtt{h.w}\left( t \right) &amp;= \frac{\mathtt{h.P}\left( t \right)}{\mathtt{h.\rho}\left( t \right)} \\
+\mathtt{h.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{h.\rho}\left( t \right) \pi \\
+\mathtt{h.E}\left( t \right)_{1} &amp;= \sqrt{\mathtt{h.x}_{1}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{2} &amp;= \sqrt{\mathtt{h.x}_{2}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{3} &amp;= \sqrt{\mathtt{h.x}_{3}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{4} &amp;= \sqrt{\mathtt{h.x}_{4}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{5} &amp;= \sqrt{\mathtt{h.x}_{5}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.I\delta\rho}\left( t \right) \epsilon &amp;= \left( \mathtt{h.E}\left( t \right)_{1} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,0} + \mathtt{h.E}\left( t \right)_{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,0} + \mathtt{h.E}\left( t \right)_{3} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,0} + \mathtt{h.E}\left( t \right)_{4} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,0} + \mathtt{h.E}\left( t \right)_{5} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,0} \right) \epsilon \\
+\mathtt{h.\delta}\left( t \right) \epsilon &amp;= \frac{\mathtt{h.I\delta\rho}\left( t \right) \epsilon}{\mathtt{h.I\rho}\left( t \right)} \\
+\mathtt{h.u}\left( t \right) \epsilon &amp;= \frac{\left( \mathtt{h.W}_{1} \mathtt{h.x}_{1} \mathtt{h.\psi}\left( t \right)_{1,1} + \mathtt{h.W}_{2} \mathtt{h.x}_{2} \mathtt{h.\psi}\left( t \right)_{2,1} + \mathtt{h.W}_{3} \mathtt{h.x}_{3} \mathtt{h.\psi}\left( t \right)_{3,1} + \mathtt{h.W}_{4} \mathtt{h.x}_{4} \mathtt{h.\psi}\left( t \right)_{4,1} + \mathtt{h.W}_{5} \mathtt{h.x}_{5} \mathtt{h.\psi}\left( t \right)_{5,1} \right) \epsilon}{\mathtt{h.I\rho}\left( t \right) + \frac{1}{3} \mathtt{h.IP}\left( t \right)} \\
+\mathtt{h.\theta}\left( t \right) \epsilon &amp;= k \mathtt{h.u}\left( t \right) \epsilon \\
+\mathtt{h.\sigma}\left( t \right) \epsilon &amp;= \frac{\frac{2}{3} \left( \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,2}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,2}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,2}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,2}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\rho}\left( t \right) + \frac{1}{3} \mathtt{h.IP}\left( t \right)} \\
+\mathtt{h.c_s^2}\left( t \right) \epsilon &amp;= \frac{\left( \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,0}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,0}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,0}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,0}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,0}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\delta\rho}\left( t \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,0} \epsilon &amp;= \left( \frac{ - \mathtt{h.x}_{1} \mathtt{h.\psi}\left( t \right)_{1,1} k}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{1} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{1}}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{1} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{1}}} + \frac{\frac{1}{3} \mathtt{h.x}_{1} \left( \mathtt{h.\psi}\left( t \right)_{1,0} - 2 \mathtt{h.\psi}\left( t \right)_{1,2} \right) k}{\mathtt{h.E}\left( t \right)_{1}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{1} \left( 2 \mathtt{h.\psi}\left( t \right)_{1,1} - 3 \mathtt{h.\psi}\left( t \right)_{1,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,3} \epsilon &amp;= \frac{\frac{1}{7} \mathtt{h.x}_{1} \left( 3 \mathtt{h.\psi}\left( t \right)_{1,2} - 4 \mathtt{h.\psi}\left( t \right)_{1,4} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,4} \epsilon &amp;= \frac{\frac{1}{9} \mathtt{h.x}_{1} \left( 4 \mathtt{h.\psi}\left( t \right)_{1,3} - 5 \mathtt{h.\psi}\left( t \right)_{1,5} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,5} \epsilon &amp;= \frac{\frac{1}{11} \mathtt{h.x}_{1} \left( 5 \mathtt{h.\psi}\left( t \right)_{1,4} - 6 \mathtt{h.\psi}\left( t \right)_{1,6} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,6} \epsilon &amp;= \frac{\frac{1}{13} \mathtt{h.x}_{1} \left( 6 \mathtt{h.\psi}\left( t \right)_{1,5} - 7 \mathtt{h.\psi}\left( t \right)_{1,7} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
+\mathtt{h.\psi}\left( t \right)_{1,7} \epsilon &amp;= \left(  - \mathtt{h.\psi}\left( t \right)_{1,5} + \frac{13 \mathtt{h.E}\left( t \right)_{1} \mathtt{h.\psi}\left( t \right)_{1,6} \mathscr{E}\left( t \right)}{\mathtt{h.x}_{1} k} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,0} \epsilon &amp;= \left( \frac{\mathtt{h.x}_{2} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{2}}} + \frac{ - \mathtt{h.x}_{2} \mathtt{h.\psi}\left( t \right)_{2,1} k}{\mathtt{h.E}\left( t \right)_{2}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.x}_{2} \left( \mathtt{h.\psi}\left( t \right)_{2,0} - 2 \mathtt{h.\psi}\left( t \right)_{2,2} \right) k}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{2} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{2}}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{2} \left( 2 \mathtt{h.\psi}\left( t \right)_{2,1} - 3 \mathtt{h.\psi}\left( t \right)_{2,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,3} \epsilon &amp;= \frac{\frac{1}{7} \mathtt{h.x}_{2} \left( 3 \mathtt{h.\psi}\left( t \right)_{2,2} - 4 \mathtt{h.\psi}\left( t \right)_{2,4} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,4} \epsilon &amp;= \frac{\frac{1}{9} \mathtt{h.x}_{2} \left( 4 \mathtt{h.\psi}\left( t \right)_{2,3} - 5 \mathtt{h.\psi}\left( t \right)_{2,5} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,5} \epsilon &amp;= \frac{\frac{1}{11} \mathtt{h.x}_{2} \left( 5 \mathtt{h.\psi}\left( t \right)_{2,4} - 6 \mathtt{h.\psi}\left( t \right)_{2,6} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{2,6} \epsilon &amp;= \frac{\frac{1}{13} \mathtt{h.x}_{2} \left( 6 \mathtt{h.\psi}\left( t \right)_{2,5} - 7 \mathtt{h.\psi}\left( t \right)_{2,7} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{2}} \\
+\mathtt{h.\psi}\left( t \right)_{2,7} \epsilon &amp;= \left(  - \mathtt{h.\psi}\left( t \right)_{2,5} + \frac{13 \mathtt{h.E}\left( t \right)_{2} \mathtt{h.\psi}\left( t \right)_{2,6} \mathscr{E}\left( t \right)}{\mathtt{h.x}_{2} k} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,0} \epsilon &amp;= \left( \frac{ - \mathtt{h.x}_{3} \mathtt{h.\psi}\left( t \right)_{3,1} k}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{3} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{3}}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{3} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{3}}} + \frac{\frac{1}{3} \mathtt{h.x}_{3} \left( \mathtt{h.\psi}\left( t \right)_{3,0} - 2 \mathtt{h.\psi}\left( t \right)_{3,2} \right) k}{\mathtt{h.E}\left( t \right)_{3}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{3} \left( 2 \mathtt{h.\psi}\left( t \right)_{3,1} - 3 \mathtt{h.\psi}\left( t \right)_{3,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{3}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,3} \epsilon &amp;= \frac{\frac{1}{7} \mathtt{h.x}_{3} \left( 3 \mathtt{h.\psi}\left( t \right)_{3,2} - 4 \mathtt{h.\psi}\left( t \right)_{3,4} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{3}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,4} \epsilon &amp;= \frac{\frac{1}{9} \mathtt{h.x}_{3} \left( 4 \mathtt{h.\psi}\left( t \right)_{3,3} - 5 \mathtt{h.\psi}\left( t \right)_{3,5} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{3}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,5} \epsilon &amp;= \frac{\frac{1}{11} \mathtt{h.x}_{3} \left( 5 \mathtt{h.\psi}\left( t \right)_{3,4} - 6 \mathtt{h.\psi}\left( t \right)_{3,6} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{3}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{3,6} \epsilon &amp;= \frac{\frac{1}{13} \mathtt{h.x}_{3} \left( 6 \mathtt{h.\psi}\left( t \right)_{3,5} - 7 \mathtt{h.\psi}\left( t \right)_{3,7} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{3}} \\
+\mathtt{h.\psi}\left( t \right)_{3,7} \epsilon &amp;= \left(  - \mathtt{h.\psi}\left( t \right)_{3,5} + \frac{13 \mathtt{h.E}\left( t \right)_{3} \mathtt{h.\psi}\left( t \right)_{3,6} \mathscr{E}\left( t \right)}{\mathtt{h.x}_{3} k} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,0} \epsilon &amp;= \left( \frac{\mathtt{h.x}_{4} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{4}}} + \frac{ - \mathtt{h.x}_{4} \mathtt{h.\psi}\left( t \right)_{4,1} k}{\mathtt{h.E}\left( t \right)_{4}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{4} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{4}}} + \frac{\frac{1}{3} \mathtt{h.x}_{4} \left( \mathtt{h.\psi}\left( t \right)_{4,0} - 2 \mathtt{h.\psi}\left( t \right)_{4,2} \right) k}{\mathtt{h.E}\left( t \right)_{4}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{4} \left( 2 \mathtt{h.\psi}\left( t \right)_{4,1} - 3 \mathtt{h.\psi}\left( t \right)_{4,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{4}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,3} \epsilon &amp;= \frac{\frac{1}{7} \mathtt{h.x}_{4} \left( 3 \mathtt{h.\psi}\left( t \right)_{4,2} - 4 \mathtt{h.\psi}\left( t \right)_{4,4} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{4}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,4} \epsilon &amp;= \frac{\frac{1}{9} \mathtt{h.x}_{4} \left( 4 \mathtt{h.\psi}\left( t \right)_{4,3} - 5 \mathtt{h.\psi}\left( t \right)_{4,5} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{4}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,5} \epsilon &amp;= \frac{\frac{1}{11} \mathtt{h.x}_{4} \left( 5 \mathtt{h.\psi}\left( t \right)_{4,4} - 6 \mathtt{h.\psi}\left( t \right)_{4,6} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{4}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{4,6} \epsilon &amp;= \frac{\frac{1}{13} \mathtt{h.x}_{4} \left( 6 \mathtt{h.\psi}\left( t \right)_{4,5} - 7 \mathtt{h.\psi}\left( t \right)_{4,7} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{4}} \\
+\mathtt{h.\psi}\left( t \right)_{4,7} \epsilon &amp;= \left(  - \mathtt{h.\psi}\left( t \right)_{4,5} + \frac{13 \mathtt{h.E}\left( t \right)_{4} \mathtt{h.\psi}\left( t \right)_{4,6} \mathscr{E}\left( t \right)}{\mathtt{h.x}_{4} k} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,0} \epsilon &amp;= \left( \frac{\mathtt{h.x}_{5} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{5}}} + \frac{ - \mathtt{h.x}_{5} \mathtt{h.\psi}\left( t \right)_{5,1} k}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.x}_{5} \left( \mathtt{h.\psi}\left( t \right)_{5,0} - 2 \mathtt{h.\psi}\left( t \right)_{5,2} \right) k}{\mathtt{h.E}\left( t \right)_{5}} + \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{5} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{5}}} \right) \epsilon \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{5} \left( 2 \mathtt{h.\psi}\left( t \right)_{5,1} - 3 \mathtt{h.\psi}\left( t \right)_{5,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{5}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,3} \epsilon &amp;= \frac{\frac{1}{7} \mathtt{h.x}_{5} \left( 3 \mathtt{h.\psi}\left( t \right)_{5,2} - 4 \mathtt{h.\psi}\left( t \right)_{5,4} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{5}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,4} \epsilon &amp;= \frac{\frac{1}{9} \mathtt{h.x}_{5} \left( 4 \mathtt{h.\psi}\left( t \right)_{5,3} - 5 \mathtt{h.\psi}\left( t \right)_{5,5} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{5}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,5} \epsilon &amp;= \frac{\frac{1}{11} \mathtt{h.x}_{5} \left( 5 \mathtt{h.\psi}\left( t \right)_{5,4} - 6 \mathtt{h.\psi}\left( t \right)_{5,6} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{5}} \\
+\frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{5,6} \epsilon &amp;= \frac{\frac{1}{13} \mathtt{h.x}_{5} \left( 6 \mathtt{h.\psi}\left( t \right)_{5,5} - 7 \mathtt{h.\psi}\left( t \right)_{5,7} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{5}} \\
+\mathtt{h.\psi}\left( t \right)_{5,7} \epsilon &amp;= \left(  - \mathtt{h.\psi}\left( t \right)_{5,5} + \frac{13 \mathtt{h.E}\left( t \right)_{5} \mathtt{h.\psi}\left( t \right)_{5,6} \mathscr{E}\left( t \right)}{\mathtt{h.x}_{5} k} \right) \epsilon \\
+\mathtt{\Lambda.\delta}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{\Lambda.\theta}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{\Lambda.\sigma}\left( t \right) \epsilon &amp;= 0 \\
+\mathtt{\Lambda.c_s^2}\left( t \right) \epsilon &amp;=  - \epsilon \\
+\mathtt{\Lambda.w}\left( t \right) &amp;= -1 \\
+\mathtt{\Lambda.P}\left( t \right) &amp;= \mathtt{\Lambda.\rho}\left( t \right) \mathtt{\Lambda.w}\left( t \right) \\
+\mathtt{\Lambda.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\Lambda.w}\left( t \right) \right)} \mathtt{\Lambda.\Omega_0} \\
+\mathtt{\Lambda.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\Lambda.\rho}\left( t \right) \\
+\mathtt{I.P}\left( t \right) &amp;= \frac{2 \pi^{2} \left( \frac{k}{\mathtt{I.kpivot}} \right)^{-1 + \mathtt{I.ns}} \mathtt{I.As}}{k^{3}}
+\end{align*}
+ \]</p><p>The model is structured as a hierarchy of components:</p><pre><code class="language-julia hljs">hierarchy(M; describe = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">ΛCDM</span>: Standard cosmological constant and cold dark matter cosmological model
+├─ <span class="sgr1">g</span>: Spacetime FLRW metric in Newtonian gauge
+├─ <span class="sgr1">G</span>: General relativity gravity
+├─ <span class="sgr1">γ</span>: Photon radiation
+├─ <span class="sgr1">ν</span>: Massless neutrinos
+├─ <span class="sgr1">c</span>: Cold dark matter
+├─ <span class="sgr1">b</span>: Baryonic matter
+│  └─ <span class="sgr1">rec</span>: Baryon-photon recombination thermodynamics (RECFAST)
+├─ <span class="sgr1">h</span>: Massive neutrino
+├─ <span class="sgr1">Λ</span>: Cosmological constant
+└─ <span class="sgr1">I</span>: Harrison-Zel&#39;dovich inflation</code></pre><p>Each of these components contains a block of self-contained variables and equations that are independent from the other components, making up interchangeable modules of the entire Einstein-Boltzmann system. A full model joins several such incomplete blocks into a complete set of equations for the entire Einstein-Boltzmann system.</p><p>The hierarchical structure can be inspected interactively (with TAB-completion) in the Julia REPL by evaluating <code>M</code>, <code>M.G</code>, <code>M.G.ρ</code> and so on. For example, to see all equations for the theory of gravity:</p><pre><code class="language-julia hljs">equations(M.G)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} &amp;= \sqrt{\frac{8}{3} \left( a\left( t \right) \right)^{4} \rho\left( t \right) \pi} \\
+\Delta\left( t \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}t} \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} + \frac{ - \left( \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} \right)^{2} \left( 1 + \frac{ - 3 P\left( t \right)}{\rho\left( t \right)} \right)}{2 a\left( t \right)} \\
+\frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \epsilon &amp;= \left( \frac{ - k^{2} \Phi\left( t \right)}{3 \mathscr{E}\left( t \right)} + \frac{ - \frac{4}{3} \left( a\left( t \right) \right)^{2} \mathtt{\delta\rho}\left( t \right) \pi}{\mathscr{E}\left( t \right)} - \mathscr{E}\left( t \right) \Psi\left( t \right) \right) \epsilon \\
+k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &amp;= 12 \left( a\left( t \right) \right)^{2} \Pi\left( t \right) \pi \epsilon
+\end{align*}
+ \]</p><h2 id="2.-Solve-the-problem"><a class="docs-heading-anchor" href="#2.-Solve-the-problem">2. Solve the problem</a><a id="2.-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Solve-the-problem" title="Permalink"></a></h2><p>Next, we create a <em>numerical</em> representation of the cosmological problem we want to solve. This splits the full symbolic model into computational stages (like the background, thermodynamics and perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.</p><pre><code class="language-julia hljs">using Unitful, UnitfulAstro # for interfacing without internal code units
+pars = Dict(
+    M.γ.T₀ =&gt; 2.7,
+    M.c.Ω₀ =&gt; 0.27,
+    M.b.Ω₀ =&gt; 0.05,
+    M.ν.Neff =&gt; 3.0,
+    M.g.h =&gt; 0.7,
+    M.b.rec.Yp =&gt; 0.25,
+    M.h.m =&gt; 0.06 * SymBoltz.eV / SymBoltz.c^2,
+    M.I.As =&gt; 2e-9,
+    M.I.ns =&gt; 0.95
+)
+ks = 10 .^ range(-5, 1, length=500) / u&quot;Mpc&quot;
+prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology problem for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background
+  Thermodynamics
+  Perturbations
+<span class="sgr1">Parameters:</span>
+  c₊Ω₀ = 0.27
+  b₊Ω₀ = 0.05
+  γ₊T₀ = 2.7
+  I₊ns = 0.95
+  h = 0.7
+  h₊m = 1.0695971529767385e-37
+  I₊As = 2.0e-9
+  ν₊Neff = 3.0
+  b₊rec₊Yp = 0.25</code></pre><p>Finally, we can simply solve the problem:</p><pre><code class="language-julia hljs">sol = solve(prob, ks) # or just solve(prob) to solve only the background</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: solved with Rodas4P, 58 points
+  Thermodynamics: solved with Rodas4P, 10101 points
+  Perturbations: solved with KenCarp4, 55-284 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))
+<span class="sgr1">Parameters:</span>
+  c₊Ω₀ = 0.27
+  b₊Ω₀ = 0.05
+  γ₊T₀ = 2.7
+  I₊ns = 0.95
+  h = 0.7
+  h₊m = 1.0695971529767385e-37
+  I₊As = 2.0e-9
+  ν₊Neff = 3.0
+  b₊rec₊Yp = 0.25</code></pre><h2 id="3.-Use-the-solution"><a class="docs-heading-anchor" href="#3.-Use-the-solution">3. Use the solution</a><a id="3.-Use-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Use-the-solution" title="Permalink"></a></h2><p>You are now free to <a href="../solve/#Solving-models">do whatever you want with the solution object</a>. For example, to get the time points used by the solver and corresponding values of the scale factor <span>$a(t)$</span>:</p><pre><code class="language-julia hljs">ts = sol[M.t]
+as = sol(ts, M.g.a)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10101-element Vector{Float64}:
+ 1.0e-8
+ 1.0001352486382676e-8
+ 1.0002803423384122e-8
+ 1.0006440515275545e-8
+ 1.0010077607189783e-8
+ 1.0015123895629302e-8
+ 1.0020676417670175e-8
+ 1.0027297795024567e-8
+ 1.003461502901985e-8
+ 1.0042749623039237e-8
+ ⋮
+ 0.5893894034247144
+ 0.6305249897093957
+ 0.6745912668250874
+ 0.7220362401554976
+ 0.7734124652386085
+ 0.8294062317345702
+ 0.8908771982444076
+ 0.9589131634383367
+ 1.000000129724745</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 500 wavenumbers we solved for at the same times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">500×10101 Matrix{Float64}:
+ 0.704214  0.704214  0.704214  …  0.499735    0.484569    0.475423
+ 0.704214  0.704214  0.704214     0.499735    0.484569    0.475424
+ 0.704214  0.704214  0.704214     0.499735    0.484567    0.47542
+ 0.704214  0.704214  0.704214     0.499735    0.484566    0.47542
+ 0.704214  0.704214  0.704214     0.499734    0.484566    0.47542
+ 0.704214  0.704214  0.704214  …  0.499734    0.484566    0.47542
+ 0.704214  0.704214  0.704214     0.499734    0.484565    0.475419
+ 0.704214  0.704214  0.704214     0.499733    0.484565    0.475419
+ 0.704214  0.704214  0.704214     0.499733    0.484565    0.475419
+ 0.704214  0.704214  0.704214     0.499732    0.484565    0.47542
+ ⋮                             ⋱                          ⋮
+ 0.704214  0.704214  0.704214     3.78527e-5  3.67013e-5  3.60061e-5
+ 0.704214  0.704214  0.704214     3.6025e-5   3.49268e-5  3.42661e-5
+ 0.704214  0.704214  0.704214     3.4263e-5   3.322e-5    3.25911e-5
+ 0.704214  0.704214  0.704214     3.26057e-5  3.16115e-5  3.10136e-5
+ 0.704214  0.704214  0.704214  …  3.10409e-5  3.00945e-5  2.95253e-5
+ 0.704214  0.704214  0.704214     2.95224e-5  2.86219e-5  2.80809e-5
+ 0.704214  0.704214  0.704214     2.80905e-5  2.7234e-5   2.67189e-5
+ 0.704214  0.704214  0.704214     2.67433e-5  2.59296e-5  2.54386e-5
+ 0.704214  0.704214  0.704214     2.54284e-5  2.46546e-5  2.41876e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(as), transpose(Φs))</code>, but this is more convenient with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="a15a8144.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="5f870ddf.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+Cls = spectrum_cmb(:TT, sol, ls)
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing)</code></pre><img src="86cf31cd.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
+plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
+plot!(p[3], sol, log10(M.g.a), log10(M.g.E))
+plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.rec.Xe])
+plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
+plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
+plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
+plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="1436b381.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 3 February 2025 11:39">Monday 3 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
