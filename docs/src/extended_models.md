@@ -74,7 +74,7 @@ eqs = [
 # 4. Specify initial conditions (for perturbations)
 initialization_eqs = [
     δ * ϵ ~ -3/2 * (1+w) * g.Ψ * ϵ
-    θ * ϵ ~ 1/2 * (k^2*t) * g.Ψ * ϵ
+    θ * ϵ ~ 1/2 * (k^2/g.ℰ) * g.Ψ * ϵ
 ]
 
 # 5. Pack into an ODE system called "X"
