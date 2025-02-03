@@ -305,9 +305,9 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
 end
 
 """
-    spectrum_cmb(modes, M::ODESystem, pars::Dict, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
 
-Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological model `M` with parameters `pars`.
+Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
 function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
@@ -316,7 +316,7 @@ function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::Abstract
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function cmb_ks(lmax; Δk = 2π/12, Δk_S = 10.0, kmin = Δk, kmax = 1*lmax)
+function cmb_ks(lmax; Δk = 2π/10, Δk_S = 5.0, kmin = Δk, kmax = 2*lmax)
     # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
     ks_fine = range(kmin, kmax, step=Δk) # use integer multiple so endpoints are the same
     ks_coarse = range(ks_fine[begin], ks_fine[end], length = Int(floor((kmax-kmin)/Δk_S+1)))
