@@ -30,7 +30,9 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     return run(`$exec $inpath`) # run
 end
 
-function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.ini", outpath="/tmp/symboltz_class/output/")
+function solve_class(pars, k; exec="class", dir = mktempdir())
+    inpath = joinpath(dir, "input.ini")
+    outpath = joinpath(dir, "output", "")
     k = NoUnits(k / u"1/Mpc")
     in = Dict(
         "write_background" => "yes",
@@ -90,10 +92,11 @@ function solve_class(pars, k; exec="class", inpath="/tmp/symboltz_class/input.in
         #"temperature_contributions" => "pol", # TODO: make agree with polarization
     )
 
-    run_class(in, exec, inpath, outpath)
+    secs = @elapsed run_class(in, exec, inpath, outpath)
+    println("Ran CLASS in $secs seconds")
     output = Dict()
     for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 25000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
-        file = outpath * filename
+        file = joinpath(outpath, filename)
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
         for (n, h) in enumerate(head[begin:end-1])
