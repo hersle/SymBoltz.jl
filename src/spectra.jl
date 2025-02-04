@@ -139,13 +139,13 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
+    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractArray, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
 
 Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the source function values `Ss` against the spherical kind-1 Bessel functions `jₗ` for the given `ks` and `ls`.
 The element `Ss[i,j]` holds the source function value ``S(ks[i], ts[j])``.
 An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed on an interval on which the integrand behaves well.
 """
-function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
+function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractArray, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
     @assert size(Ss) == (length(ks), length(us)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 

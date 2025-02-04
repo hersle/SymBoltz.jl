@@ -52,3 +52,13 @@ function k_dimensionless(k::Number, h)
         return NoUnits(k / k0)
     end
 end
+
+function k_dimensionful(k::Number, h)
+    if unit(k) == NoUnits
+        H₀ = h * H100 # s⁻¹
+        k0 = (H₀ / c) / u"m"
+        return uconvert(u"Mpc^-1", k * k0)
+    else
+        return k
+    end
+end

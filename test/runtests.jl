@@ -1,12 +1,12 @@
-using Test
-using SymBoltz
+using Test, SymBoltz, Unitful, UnitfulAstro
 
-M = ΛCDM(K = nothing) # flat
+lmax = 20
+M = ΛCDM(K = nothing, h = nothing, ν = nothing; lmax) # flat
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
+ks = SymBoltz.k_dimensionless.(ks_dim, pars[M.g.h])
 
 @testset "Solution accessing" begin
-    ks = [1e2, 1e3]
     ts = [1.0, 2.0, 3.0]
     is = [M.g.a, M.g.a, M.g.a, M.g.a]
     nk, nt, ni = length(ks), length(ts), length(is)
@@ -65,3 +65,20 @@ end
     @test all(ts1 .≈ ts2)
 end
 
+# TODO: compare LOS integration with Θ from integration
+ls = 1:lmax
+ks_dim = [1e-4, 1e-3, 1e-2, 1e-1, 1e0] / u"Mpc"
+ks = SymBoltz.k_dimensionless.(ks_dim, pars[M.g.h])
+sol = solve(prob, ks)
+t1, t2 = extrema(sol[M.t])
+Fls1 = sol(ks, t2, [M.γ.F[l] for l in ls]) .- sol(ks, t1, [M.γ.F[l] for l in ls]) # subtract initial value since LOS integration doesn't incorporate initial values (yet) # TODO: fix
+Fls2 = 4 * SymBoltz.los_temperature(sol, ls, ks; length = 300)
+
+p = plot(layout = (length(ks), 1), size = (600, 200 * length(ks)))
+for (ik, k) in enumerate(ks_dim)
+    plot!(p[ik];  xlabel = "l", ylabel = "Fₗ(k)", title = "k = $k", xticks = ls)
+    plot!(p[ik], ls, Fls1[ik, :]; mark = :dot, label = "ODE") # one K
+    plot!(p[ik], ls, Fls2[ik, :]; mark = :dot, label = "LOS")
+end
+display(p)
+#Cls = spectrum_cmb(:TT, prob, ls)
