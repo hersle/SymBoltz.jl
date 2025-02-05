@@ -85,7 +85,7 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
         # approximations (see include/precisions.h)
         "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
-        #"radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
+        "radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
         "ur_fluid_approximation" => 3, # turns off UFA
 
         #"l_max_scalars" => 1500,
@@ -116,7 +116,7 @@ end
 
 ks = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, ks)
-sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas5P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-7, abstol = 1e-7)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
