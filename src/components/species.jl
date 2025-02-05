@@ -127,22 +127,22 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         [Θ[l] ~ F[l]/4 for l in 0:lmax]...
     ] .|> O(ϵ^1)
     ics1 = [
-        δ ~ -2 * g.Ψ # Dodelson (7.89)
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # Dodelson (7.95)
-        F[2] ~ 0 # (polarization ? -8/15 : -20/45) * k/τ̇ * F[1] # depends on whether polarization is included
-        [F[l] ~ 0 #=-l/(2*l+1) * k/dτ * Θ[l-1]=# for l in 3:lmax]...
+        F[0] ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
+        F[1] ~ 2//3 * k/g.ℰ*g.Ψ # Dodelson (7.95)
+        F[2] ~ (polarization ? -8//15 : -20//45) * k/τ̇ * F[1] # depends on whether polarization is included
+        [F[l] ~ -l/(2*l+1) * k/τ̇ * F[l-1] for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
         append!(eqs1, [
-            D(G[0]) ~ k * (-G[1]) - τ̇ * (-G[0] + Π/2)
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) - τ̇ * (-G[l] + Π/10*δkron(l,2)) for l in 1:lmax-1]...
+            D(G[0]) ~ k * (-G[1]) + τ̇ * (G[0] - Π/2)
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + τ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + τ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            G[0] ~ 0 #5/4 * Θ[2],
-            G[1] ~ 0 #-1/4 * k/dτ * Θ[2],
-            G[2] ~ 0 #1/4 * Θ[2],
-            [G[l] ~ 0 #=-l/(2*l+1) * k/dτ * ΘP[l-1]=# for l in 3:lmax]...    
+            G[0] ~ 5//16 * F[2],
+            G[1] ~ -1//16 * k/τ̇ * F[2],
+            G[2] ~ 1//16 * F[2],
+            [G[l] ~ -l/(2*l+1) * k/τ̇ * G[l-1] for l in 3:lmax]...
         ] .|> O(ϵ^1))
     else
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
@@ -176,7 +176,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ
         σ ~ 1//15 * (k/g.ℰ)^2 * g.Ψ
-        [F[l] ~ 0 #=1/(2*l+1) * k/g.ℰ * Θ[l-1]=# for l in 3:lmax]...
+        [F[l] ~ 0 #=1/(2*l+1) * k/g.ℰ * Θ[l-1]=# for l in 3:lmax]... # TODO: nonzero
     ] .|> O(ϵ^1)
     description = "Massless neutrinos"
     return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
