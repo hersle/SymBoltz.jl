@@ -93,8 +93,10 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{b.\sigma}\left( t \right) \epsilon &amp;= 0 \\
 \mathtt{b.rec.nH}\left( t \right) &amp;= 5.9743 \cdot 10^{26} \left( 1 - \mathtt{b.rec.Yp} \right) \mathtt{b.rec.{\rho}b}\left( t \right) \\
 \mathtt{b.rec.nHe}\left( t \right) &amp;= \mathtt{b.rec.fHe} \mathtt{b.rec.nH}\left( t \right) \\
-\frac{\mathrm{d} \mathtt{b.rec.Tb}\left( t \right)}{\mathrm{d}t} &amp;= \frac{ - 4.9146 \cdot 10^{-22} \left( \mathtt{b.rec.T\gamma}\left( t \right) \right)^{4} \left(  - \mathtt{b.rec.T\gamma}\left( t \right) + \mathtt{b.rec.Tb}\left( t \right) \right) a\left( t \right) \mathtt{b.rec.Xe}\left( t \right)}{3.2408 \cdot 10^{-18} \left( 1 + \mathtt{b.rec.fHe} + \mathtt{b.rec.Xe}\left( t \right) \right) h} - 2 \mathscr{E}\left( t \right) \mathtt{b.rec.Tb}\left( t \right) \\
-\mathtt{b.rec.DTb}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.Tb}\left( t \right)}{\mathrm{d}t} \\
+\mathtt{b.rec.DTb}\left( t \right) &amp;= \frac{ - 0.00015165 \left( \mathtt{b.rec.T\gamma}\left( t \right) \right)^{4} a\left( t \right) \mathtt{b.rec.Xe}\left( t \right) \mathtt{b.rec.{\Delta}T}\left( t \right)}{\left( 1 + \mathtt{b.rec.fHe} + \mathtt{b.rec.Xe}\left( t \right) \right) h} - 2 \mathscr{E}\left( t \right) \mathtt{b.rec.Tb}\left( t \right) \\
+\mathtt{b.rec.DT\gamma}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.T\gamma}\left( t \right)}{\mathrm{d}t} \\
+\frac{\mathrm{d} \mathtt{b.rec.{\Delta}T}\left( t \right)}{\mathrm{d}t} &amp;=  - \mathtt{b.rec.DT\gamma}\left( t \right) + \mathtt{b.rec.DTb}\left( t \right) \\
+\mathtt{b.rec.Tb}\left( t \right) &amp;= \mathtt{b.rec.T\gamma}\left( t \right) + \mathtt{b.rec.{\Delta}T}\left( t \right) \\
 \mathtt{b.rec.{\beta}b}\left( t \right) &amp;= \frac{1}{1.3806 \cdot 10^{-23} \mathtt{b.rec.Tb}\left( t \right)} \\
 \mathtt{b.rec.{\lambda}e}\left( t \right) &amp;= \frac{6.6261 \cdot 10^{-34}}{\sqrt{\frac{5.7236 \cdot 10^{-30}}{\mathtt{b.rec.{\beta}b}\left( t \right)}}} \\
 \mathtt{b.rec.\mu}\left( t \right) &amp;= \frac{1.6738 \cdot 10^{-27}}{1 - 0.74816 \mathtt{b.rec.Yp} + \left( 1 - \mathtt{b.rec.Yp} \right) \mathtt{b.rec.Xe}\left( t \right)} \\
@@ -134,28 +136,28 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{b.rec.v}\left( t \right) &amp;= \frac{\mathrm{d} e^{ - \mathtt{b.rec.\tau}\left( t \right)}}{\mathrm{d}t} \\
 \mathtt{b.rec.\dot{v}}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.v}\left( t \right)}{\mathrm{d}t} \\
 \mathtt{b.rec.\textnormal{\&quot;{v}}}\left( t \right) &amp;= 0 \\
-\mathtt{b.rec.τ̈}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.\dot{\tau}}\left( t \right)}{\mathrm{d}t} \\
-\mathtt{b.rec.τ⃛}\left( t \right) &amp;= 0 \\
+\mathtt{b.rec.\ddot{\tau}}\left( t \right) &amp;= \frac{\mathrm{d} \mathtt{b.rec.\dot{\tau}}\left( t \right)}{\mathrm{d}t} \\
+\mathtt{b.rec.\dddot{\tau}}\left( t \right) &amp;= 0 \\
 \mathtt{h.T}\left( t \right) &amp;= \frac{\mathtt{h.T{_0}}}{a\left( t \right)} \\
 \mathtt{h.y}\left( t \right) &amp;= \frac{8.9876 \cdot 10^{16} \mathtt{h.m}}{1.3806 \cdot 10^{-23} \mathtt{h.T}\left( t \right)} \\
 \mathtt{h.In}\left( t \right) &amp;= \mathtt{h.W}_{1} + \mathtt{h.W}_{2} + \mathtt{h.W}_{3} + \mathtt{h.W}_{4} + \mathtt{h.W}_{5} \\
 \mathtt{h.I\rho}\left( t \right) &amp;= \mathtt{h.E}\left( t \right)_{1} \mathtt{h.W}_{1} + \mathtt{h.E}\left( t \right)_{2} \mathtt{h.W}_{2} + \mathtt{h.E}\left( t \right)_{3} \mathtt{h.W}_{3} + \mathtt{h.E}\left( t \right)_{4} \mathtt{h.W}_{4} + \mathtt{h.E}\left( t \right)_{5} \mathtt{h.W}_{5} \\
-\mathtt{h.IP}\left( t \right) &amp;= \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5}}{\mathtt{h.E}\left( t \right)_{5}} \\
+\mathtt{h.IP}\left( t \right) &amp;= \frac{\left( \mathtt{h.x}_{3} \right)^{2} \mathtt{h.W}_{3}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\left( \mathtt{h.x}_{1} \right)^{2} \mathtt{h.W}_{1}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\left( \mathtt{h.x}_{2} \right)^{2} \mathtt{h.W}_{2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\left( \mathtt{h.x}_{4} \right)^{2} \mathtt{h.W}_{4}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\left( \mathtt{h.x}_{5} \right)^{2} \mathtt{h.W}_{5}}{\mathtt{h.E}\left( t \right)_{5}} \\
 \mathtt{h.\rho}\left( t \right) &amp;= \frac{1.165 \cdot 10^{-16} \left( \mathtt{h.T}\left( t \right) \right)^{4} \mathtt{h.I\rho}\left( t \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
 \mathtt{h.P}\left( t \right) &amp;= \frac{3.8835 \cdot 10^{-17} \left( \mathtt{h.T}\left( t \right) \right)^{4} \mathtt{h.IP}\left( t \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
 \mathtt{h.w}\left( t \right) &amp;= \frac{\mathtt{h.P}\left( t \right)}{\mathtt{h.\rho}\left( t \right)} \\
 \mathtt{h.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{h.\rho}\left( t \right) \pi \\
-\mathtt{h.E}\left( t \right)_{1} &amp;= \sqrt{\mathtt{h.x}_{1}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
-\mathtt{h.E}\left( t \right)_{2} &amp;= \sqrt{\mathtt{h.x}_{2}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
-\mathtt{h.E}\left( t \right)_{3} &amp;= \sqrt{\mathtt{h.x}_{3}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
-\mathtt{h.E}\left( t \right)_{4} &amp;= \sqrt{\mathtt{h.x}_{4}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
-\mathtt{h.E}\left( t \right)_{5} &amp;= \sqrt{\mathtt{h.x}_{5}^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{1} &amp;= \sqrt{\left( \mathtt{h.x}_{1} \right)^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{2} &amp;= \sqrt{\left( \mathtt{h.x}_{2} \right)^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{3} &amp;= \sqrt{\left( \mathtt{h.x}_{3} \right)^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{4} &amp;= \sqrt{\left( \mathtt{h.x}_{4} \right)^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
+\mathtt{h.E}\left( t \right)_{5} &amp;= \sqrt{\left( \mathtt{h.x}_{5} \right)^{2} + \left( \mathtt{h.y}\left( t \right) \right)^{2}} \\
 \mathtt{h.I\delta\rho}\left( t \right) \epsilon &amp;= \left( \mathtt{h.E}\left( t \right)_{1} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,0} + \mathtt{h.E}\left( t \right)_{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,0} + \mathtt{h.E}\left( t \right)_{3} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,0} + \mathtt{h.E}\left( t \right)_{4} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,0} + \mathtt{h.E}\left( t \right)_{5} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,0} \right) \epsilon \\
 \mathtt{h.\delta}\left( t \right) \epsilon &amp;= \frac{\mathtt{h.I\delta\rho}\left( t \right) \epsilon}{\mathtt{h.I\rho}\left( t \right)} \\
 \mathtt{h.u}\left( t \right) \epsilon &amp;= \frac{\left( \mathtt{h.W}_{1} \mathtt{h.x}_{1} \mathtt{h.\psi}\left( t \right)_{1,1} + \mathtt{h.W}_{2} \mathtt{h.x}_{2} \mathtt{h.\psi}\left( t \right)_{2,1} + \mathtt{h.W}_{3} \mathtt{h.x}_{3} \mathtt{h.\psi}\left( t \right)_{3,1} + \mathtt{h.W}_{4} \mathtt{h.x}_{4} \mathtt{h.\psi}\left( t \right)_{4,1} + \mathtt{h.W}_{5} \mathtt{h.x}_{5} \mathtt{h.\psi}\left( t \right)_{5,1} \right) \epsilon}{\mathtt{h.I\rho}\left( t \right) + \frac{1}{3} \mathtt{h.IP}\left( t \right)} \\
 \mathtt{h.\theta}\left( t \right) \epsilon &amp;= k \mathtt{h.u}\left( t \right) \epsilon \\
-\mathtt{h.\sigma}\left( t \right) \epsilon &amp;= \frac{\frac{2}{3} \left( \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,2}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,2}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,2}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,2}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\rho}\left( t \right) + \frac{1}{3} \mathtt{h.IP}\left( t \right)} \\
-\mathtt{h.c_s^2}\left( t \right) \epsilon &amp;= \frac{\left( \frac{\mathtt{h.x}_{4}^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,0}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\mathtt{h.x}_{1}^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,0}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{3}^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,0}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\mathtt{h.x}_{2}^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,0}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\mathtt{h.x}_{5}^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,0}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\delta\rho}\left( t \right)} \\
+\mathtt{h.\sigma}\left( t \right) \epsilon &amp;= \frac{\frac{2}{3} \left( \frac{\left( \mathtt{h.x}_{4} \right)^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,2}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\left( \mathtt{h.x}_{2} \right)^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,2}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\left( \mathtt{h.x}_{3} \right)^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,2}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\left( \mathtt{h.x}_{1} \right)^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,2}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\left( \mathtt{h.x}_{5} \right)^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,2}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\rho}\left( t \right) + \frac{1}{3} \mathtt{h.IP}\left( t \right)} \\
+\mathtt{h.c_s^2}\left( t \right) \epsilon &amp;= \frac{\left( \frac{\left( \mathtt{h.x}_{4} \right)^{2} \mathtt{h.W}_{4} \mathtt{h.\psi}\left( t \right)_{4,0}}{\mathtt{h.E}\left( t \right)_{4}} + \frac{\left( \mathtt{h.x}_{1} \right)^{2} \mathtt{h.W}_{1} \mathtt{h.\psi}\left( t \right)_{1,0}}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\left( \mathtt{h.x}_{3} \right)^{2} \mathtt{h.W}_{3} \mathtt{h.\psi}\left( t \right)_{3,0}}{\mathtt{h.E}\left( t \right)_{3}} + \frac{\left( \mathtt{h.x}_{2} \right)^{2} \mathtt{h.W}_{2} \mathtt{h.\psi}\left( t \right)_{2,0}}{\mathtt{h.E}\left( t \right)_{2}} + \frac{\left( \mathtt{h.x}_{5} \right)^{2} \mathtt{h.W}_{5} \mathtt{h.\psi}\left( t \right)_{5,0}}{\mathtt{h.E}\left( t \right)_{5}} \right) \epsilon}{\mathtt{h.I\delta\rho}\left( t \right)} \\
 \frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,0} \epsilon &amp;= \left( \frac{ - \mathtt{h.x}_{1} \mathtt{h.\psi}\left( t \right)_{1,1} k}{\mathtt{h.E}\left( t \right)_{1}} + \frac{\mathtt{h.x}_{1} \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t}}{1 + e^{ - \mathtt{h.x}_{1}}} \right) \epsilon \\
 \frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,1} \epsilon &amp;= \left( \frac{\frac{1}{3} \mathtt{h.E}\left( t \right)_{1} k \Psi\left( t \right)}{1 + e^{ - \mathtt{h.x}_{1}}} + \frac{\frac{1}{3} \mathtt{h.x}_{1} \left( \mathtt{h.\psi}\left( t \right)_{1,0} - 2 \mathtt{h.\psi}\left( t \right)_{1,2} \right) k}{\mathtt{h.E}\left( t \right)_{1}} \right) \epsilon \\
 \frac{\mathrm{d}}{\mathrm{d}t} \mathtt{h.\psi}\left( t \right)_{1,2} \epsilon &amp;= \frac{\frac{1}{5} \mathtt{h.x}_{1} \left( 2 \mathtt{h.\psi}\left( t \right)_{1,1} - 3 \mathtt{h.\psi}\left( t \right)_{1,3} \right) k \epsilon}{\mathtt{h.E}\left( t \right)_{1}} \\
@@ -252,8 +254,8 @@ prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-outp
   b₊rec₊Yp = 0.25</code></pre><p>Finally, we can simply solve the problem:</p><pre><code class="language-julia hljs">sol = solve(prob, ks) # or just solve(prob) to solve only the background</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
 <span class="sgr1">Stages:</span>
   Background: solved with Rodas4P, 58 points
-  Thermodynamics: solved with Rodas4P, 10101 points
-  Perturbations: solved with KenCarp4, 53-282 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))
+  Thermodynamics: solved with Rodas4P, 1664 points
+  Perturbations: solved with KenCarp4, 54-282 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))
 <span class="sgr1">Parameters:</span>
   c₊Ω₀ = 0.27
   b₊Ω₀ = 0.05
@@ -264,52 +266,52 @@ prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-outp
   I₊As = 2.0e-9
   ν₊Neff = 3.0
   b₊rec₊Yp = 0.25</code></pre><h2 id="3.-Use-the-solution"><a class="docs-heading-anchor" href="#3.-Use-the-solution">3. Use the solution</a><a id="3.-Use-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Use-the-solution" title="Permalink"></a></h2><p>You are now free to <a href="../solve/#Solving-models">do whatever you want with the solution object</a>. For example, to get the time points used by the solver and corresponding values of the scale factor <span>$a(t)$</span>:</p><pre><code class="language-julia hljs">ts = sol[M.t]
-as = sol(ts, M.g.a)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10101-element Vector{Float64}:
+as = sol(ts, M.g.a)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1664-element Vector{Float64}:
  1.0e-8
- 1.0001352486382676e-8
- 1.0002803423384122e-8
- 1.0006440515275545e-8
- 1.0010077607189783e-8
- 1.0015123895629302e-8
- 1.0020676417670175e-8
- 1.0027297795024567e-8
- 1.003461502901985e-8
- 1.0042749623039237e-8
+ 1.0014245473387408e-8
+ 1.0019432232694501e-8
+ 1.0029428925684571e-8
+ 1.0039425618847006e-8
+ 1.0050459606404997e-8
+ 1.0061969522643665e-8
+ 1.0074237516011976e-8
+ 1.0087095805576222e-8
+ 1.0100607098465356e-8
  ⋮
- 0.5893894034247144
- 0.6305249897093957
- 0.6745912668250874
- 0.7220362401554976
- 0.7734124652386085
- 0.8294062317345702
- 0.8908771982444076
- 0.9589131634383367
- 1.000000129724745</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 500 wavenumbers we solved for at the same times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">500×10101 Matrix{Float64}:
- 0.704214  0.704214  0.704214  …  0.499722    0.484556    0.47541
- 0.704214  0.704214  0.704214     0.499722    0.484556    0.47541
- 0.704214  0.704214  0.704214     0.499722    0.484556    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214  …  0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- 0.704214  0.704214  0.704214     0.499721    0.484555    0.47541
- ⋮                             ⋱                          ⋮
- 0.704214  0.704214  0.704214     3.795e-5    3.67932e-5  3.60972e-5
- 0.704214  0.704214  0.704214     3.61188e-5  3.5018e-5   3.43554e-5
- 0.704214  0.704214  0.704214     3.43739e-5  3.33277e-5  3.26967e-5
- 0.704214  0.704214  0.704214     3.27127e-5  3.17172e-5  3.11167e-5
- 0.704214  0.704214  0.704214  …  3.11313e-5  3.01838e-5  2.96123e-5
- 0.704214  0.704214  0.704214     2.96263e-5  2.87226e-5  2.81797e-5
- 0.704214  0.704214  0.704214     2.81919e-5  2.7333e-5   2.68158e-5
- 0.704214  0.704214  0.704214     2.68256e-5  2.60096e-5  2.55169e-5
- 0.704214  0.704214  0.704214     2.55254e-5  2.47488e-5  2.42801e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(as), transpose(Φs))</code>, but this is more convenient with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+ 0.6869200472927952
+ 0.7197626666081547
+ 0.7544422179285203
+ 0.7911703047524796
+ 0.8301933027977472
+ 0.8717993188884102
+ 0.916326906806238
+ 0.9641760829741847
+ 1.0000000884413578</code></pre><p>Similarly, to get <span>$\Phi(k,t)$</span> for the 500 wavenumbers we solved for at the same times:</p><pre><code class="language-julia hljs">Φs = sol(ks, ts, M.g.Φ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">500×1664 Matrix{Float64}:
+ 0.704214  0.704214  0.704214  …  0.493681    0.483015    0.475048
+ 0.704214  0.704214  0.704214     0.49368     0.483015    0.475048
+ 0.704214  0.704214  0.704214     0.49368     0.483015    0.475048
+ 0.704214  0.704214  0.704214     0.49368     0.483014    0.475048
+ 0.704214  0.704214  0.704214     0.49368     0.483014    0.475048
+ 0.704214  0.704214  0.704214  …  0.49368     0.483014    0.475048
+ 0.704214  0.704214  0.704214     0.49368     0.483014    0.475047
+ 0.704214  0.704214  0.704214     0.49368     0.483014    0.475047
+ 0.704214  0.704214  0.704214     0.493679    0.483014    0.475047
+ 0.704214  0.704214  0.704214     0.493679    0.483013    0.475047
+ ⋮                             ⋱                          
+ 0.704214  0.704213  0.704213     3.75149e-5  3.67016e-5  3.60944e-5
+ 0.704214  0.704213  0.704213     3.57044e-5  3.49293e-5  3.43524e-5
+ 0.704214  0.704213  0.704213     3.39797e-5  3.32431e-5  3.26938e-5
+ 0.704214  0.704213  0.704213     3.23389e-5  3.16369e-5  3.11142e-5
+ 0.704214  0.704213  0.704213  …  3.07753e-5  3.01072e-5  2.961e-5
+ 0.704214  0.704213  0.704213     2.92858e-5  2.86507e-5  2.81774e-5
+ 0.704214  0.704213  0.704213     2.7869e-5   2.72645e-5  2.68135e-5
+ 0.704214  0.704213  0.704213     2.65186e-5  2.59429e-5  2.55147e-5
+ 0.704214  0.704213  0.704213     2.52334e-5  2.4686e-5   2.42783e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(as), transpose(Φs))</code>, but this is more convenient with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
-plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="7a84b11d.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="a2ceb5b1.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="e9001dd0.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="63c30f77.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
 Cls = spectrum_cmb(:TT, sol, ls)
-plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing)</code></pre><img src="f9c1d718.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot(ls, @. Cls * ls * (ls + 1) / 2π / 1e-6^2; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π / (μK)²&quot;, label = nothing)</code></pre><img src="acf7a225.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
 plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
 plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
 plot!(p[3], sol, log10(M.g.a), log10(M.g.E))
@@ -318,4 +320,4 @@ plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
 plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
 plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
 plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
-plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="652e1cbd.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 3 February 2025 21:47">Monday 3 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="3f9e411b.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 5 February 2025 13:06">Wednesday 5 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
