@@ -142,7 +142,8 @@ sols = Dict(
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     "exp(-τ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.τ)]),
     "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (SymBoltz.k0*h)),
-    #"Tb′" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt 
+    "dTb" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
+    "wb" => (reverse(sol1["th"]["w_b"]), sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]), # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
 
     # perturbations
     "a_pt" => (sol1["pt"]["a"], sol2[1, M.g.a]),
@@ -290,7 +291,11 @@ plot_compare("a_th", "Xe"; lgx=true, lgy=false) # hide
 ```
 #### Baryon temperature
 ```@example class
-plot_compare("a_th", "Tb"; lgx=true, lgy=true) # hide
+plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true) # hide
+```
+#### Baryon equation of state
+```@example class
+plot_compare("a_th", "wb"; lgx=true, lgy=true) # hide
 ```
 #### Baryon sound speed
 ```@example class
