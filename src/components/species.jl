@@ -162,10 +162,10 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
     eqs1 = [
-        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
+        D(F[0]) ~ -k*F[1] + 4*D(g.Φ) # TODO: include CLASS nonstandard "ceff2" term
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
-        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax]...
-        F[lmax+1] ~ (2*lmax+1) * g.ℰ/k * F[lmax] - F[lmax-1]
+        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # t ≈ 1/ℰ
         δ ~ F[0]
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
