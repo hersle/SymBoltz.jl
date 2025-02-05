@@ -2,7 +2,7 @@
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     @parameters Yp fHe re1z re2z
-    @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) DTb(t) βb(t) μ(t) cₛ²(t) λe(t)
+    @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
     @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -21,16 +21,14 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
     KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
     KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
-    initialization_eqs = [
-        XHe⁺ ~ 1 # TODO: add first order correction?
-        XH⁺ ~ 1 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        Tb ~ Tγ
-    ]
     defaults = [
+        XHe⁺ => 1.0 # TODO: add first order correction?
+        XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
         τ => 0.0
         re1z => 7.6711
         re2z => 3.5
+        ΔT => 0.0 # i.e. Tb ~ Tγ at early times
     ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
@@ -43,8 +41,10 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
-        D(Tb) ~ -2*Tb*g.ℰ - g.a/(H100*g.h) * 8/3*σT*aR*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * (Tb-Tγ) # baryon temperature
-        DTb ~ D(Tb)
+        DTb ~ -2*Tb*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
+        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
+        D(ΔT) ~ DTb - DTγ # solve ODE for D(Tb-Tγ), since solving it for D(Tb) instead is extremely sensitive to Tb-Tγ≈0 at early times
+        Tb ~ ΔT + Tγ
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
@@ -104,7 +104,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         v̈ ~ 0 # D(v̇) # TODO: structural_simplify() crashes when this is included
         τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
         τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, τ⃛, v, v̇, v̈, Tb, Tγ, μ, cₛ², re1Xe, re2Xe], [Yp, fHe, re1z, re2z]; initialization_eqs, defaults, description, kwargs...)
+    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, τ⃛, v, v̇, v̈, Tb, Tγ, ΔT, DTb, DTγ, μ, cₛ², re1Xe, re2Xe], [Yp, fHe, re1z, re2z]; defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
