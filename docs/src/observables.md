@@ -1,4 +1,6 @@
-# Spectra and distances
+# Observable quantities
+
+This page shows observable quantities that can be derived from solutions of the Einstein-Boltzmann system, such as power spectra and distances.
 
 ## Primordial power spectra
 
