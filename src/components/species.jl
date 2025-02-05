@@ -107,7 +107,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     description = "Photons"
     γ = radiation(g; name, description, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
 
-    vars = @variables F(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
+    vars = @variables F(t)[0:lmax] Θ(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
     defs = [
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
@@ -124,6 +124,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         Π ~ F[2] + G[0] + G[2]
         Π̇ ~ D(Π)
         γ.cₛ² ~ 1//3
+        [Θ[l] ~ F[l]/4 for l in 0:lmax]...
     ] .|> O(ϵ^1)
     ics1 = [
         δ ~ -2 * g.Ψ # Dodelson (7.89)
