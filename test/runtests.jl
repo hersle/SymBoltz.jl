@@ -65,3 +65,15 @@ end
     @test all(ts1 .≈ ts2)
 end
 
+@testset "Initial conditions" begin
+    ks = [1e-1, 1e0] / u"Mpc"
+    sol = solve(prob, ks)
+
+    # Check that Fₗ(0) ∝ kˡ
+    Fls = sol(ks, 0.0, collect(M.γ.F))
+    @test all(Fls[1,:] ./ Fls[2,:] .≈ map(l -> (ks[1]/ks[2])^l, 0:length(M.γ.F)-1))
+
+    # Check initial ratio of metric potentials
+    sol(ks, 0.0, M.g.Φ / M.g.Ψ) .≈ sol(0.0, (1+2/5*M.fν))
+end
+
