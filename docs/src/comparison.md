@@ -159,7 +159,7 @@ sols = Dict(
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
     "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
     "θh" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)),
-    "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.F[2] / 2]),
+    "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.σ]),
     "σν" => (sol1["pt"]["shear_ur"], sol2[1, M.ν.F[2] / 2]),
     "P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.G[0]]),
     "P1" => (sol1["pt"]["pol1_g"], sol2[1, M.γ.G[1]]),
@@ -186,7 +186,7 @@ sols = merge(sols, Dict(
     "Dl" => (Dls_class, Dls)
 ))
 
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errlim=NaN, alpha=1.0, kwargs...)
+function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, kwargs...)
     if !(ylabels isa AbstractArray)
         ylabels = [ylabels]
     end
@@ -196,29 +196,38 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
     xlab(x) = lgx ? "lg(|$x|)" : x
     ylab(y) = lgy ? "lg(|$y|)" : y
 
-    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600), kwargs...)
+    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
     plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
     maxerr = 0.0
+    xlims = (NaN, NaN)
     for (i, ylabel) in enumerate(ylabels)
         x1, x2 = sols[xlabel]
+        y1, y2 = sols[ylabel]
         x1min, x1max = extrema(x1)
         x2min, x2max = extrema(x2)
-        xmin = max(x1min, x2min)
-        xmax = min(x1max, x2max)
+
+        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "")
+        plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
+
+        if i == 1
+            xlims = (x1min, x1max) # initialize so not NaN
+        end
+        xlims = if common
+            (max(xlims[1], x1min, x2min), min(xlims[2], x1max, x2max))
+        else
+            (min(xlims[1], x1min, x2min), max(xlims[2], x1max, x2max))
+        end
+
+        xmin = max(x1min, x2min) # need common times to compare error
+        xmax = min(x1max, x2max) # need common times to compare error
         i1s = xmin .≤ x1 .≤ xmax # select x values in common range and exclude points too close in time (probably due to CLASS switching between approximation schemes)
         i2s = xmin .≤ x2 .≤ xmax # select x values in common range
         x1 = x1[i1s]
         x2 = x2[i2s]
-        x = x2 # compare ratios at SymBoltz' times
-
-        y1, y2 = sols[ylabel]
         y1 = y1[i1s]
         y2 = y2[i2s]
-        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "")
-        plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
-
-        # TODO: use built-in CosmoloySolution interpolation
-        y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x)
+        x = x2 # compare ratios at SymBoltz' times
+        y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
@@ -241,6 +250,9 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, errtype=:auto, errl
         errlim = a * 10^b
     end
     plot!(p[end], ylims = (-errlim, +errlim))
+
+    xlims = xplot.(xlims) # transform to log?
+    plot!(p; xlims, kwargs...)
 
     return p
 end
