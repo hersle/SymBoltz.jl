@@ -77,3 +77,11 @@ end
     sol(ks, 0.0, M.g.Φ / M.g.Ψ) .≈ sol(0.0, (1+2/5*M.fν))
 end
 
+@testset "Thermodynamics splining" begin
+    sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
+    lga = range(-5, 0, length = 100) # log10(a)
+    vars = [M.b.rec.τ, M.b.rec.τ̇, M.b.rec.v, M.b.rec.v̇, M.b.rec.cₛ²]
+    vals1 = sol(log10(M.g.a) => lga, vars) # from background
+    vals2 = sol(1.0, log10(M.g.a) => lga, vars) # from splined perturbations
+    @test isapprox(vals1, vals2; rtol = 1e-5)
+end
