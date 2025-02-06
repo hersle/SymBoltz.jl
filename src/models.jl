@@ -40,8 +40,7 @@ function ΛCDM(;
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
     pars = @parameters C
-    vars = @variables S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
-    fν = sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
+    vars = @variables fν(t) S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     defs = Dict(
         C => 1//2,
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
@@ -58,6 +57,7 @@ function ΛCDM(;
         G.P ~ sum(s.P for s in species)
         b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
+        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
