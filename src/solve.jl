@@ -195,8 +195,8 @@ end
     function solve(
         prob::CosmologyProblem, ks::AbstractArray = [];
         aterm = 1.0,
-        bgopts = (alg = Rodas4P(), reltol = 1e-10,),
-        thopts = (alg = Rodas4P(), reltol = 1e-10,),
+        bgopts = (alg = Rodas4P(), reltol = 1e-8,),
+        thopts = (alg = Rodas4P(), reltol = 1e-8,),
         ptopts = (alg = KenCarp4(), reltol = 1e-8,),
         shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false),
         thread = true, verbose = false
@@ -210,8 +210,8 @@ If `threads`, integration over independent perturbation modes are parallellized.
 function solve(
     prob::CosmologyProblem, ks::AbstractArray;
     aterm = 1.0,
-    bgopts = (alg = Rodas4P(), reltol = 1e-10,),
-    thopts = (alg = Rodas4P(), reltol = 1e-10,),
+    bgopts = (alg = Rodas4P(), reltol = 1e-8,),
+    thopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
     shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false),
     thread = true, verbose = false

@@ -116,7 +116,7 @@ end
 
 ks = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, ks)
-sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-7, abstol = 1e-7)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 # map results from both codes to common convention
 h = pars[M.g.h]
