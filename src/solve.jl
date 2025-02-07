@@ -206,7 +206,7 @@ end
         thread = true, verbose = false
     )
 
-Solve the cosmological problem `prob` up to the perturbative levels with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
+Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
 The options `bgopts`, `thopts` and `ptopts` are passed to the background, thermodynamics and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
 If `threads`, integration over independent perturbation modes are parallellized.
