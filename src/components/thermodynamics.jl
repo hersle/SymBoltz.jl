@@ -1,14 +1,15 @@
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
-    @parameters Yp fHe re1z re2z
-    @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
-    @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
-    @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
-    @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
-    @variables αHe3(t) βHe3(t) τHe3(t) pHe3(t) CHe3(t) γ2Pt(t) # Helium triplet correction
-    @variables DXHe⁺_singlet(t) DXHe⁺_triplet(t)
-    @variables re1Xe(t) re2Xe(t)
+    pars = @parameters Yp fHe re1z re2z
+    vars1 = @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
+    vars2 = @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
+    vars3 = @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
+    vars4 = @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
+    vars5 = @variables αHe3(t) βHe3(t) τHe3(t) pHe3(t) CHe3(t) γ2Pt(t) # Helium triplet correction
+    vars6 = @variables DXHe⁺_singlet(t) DXHe⁺_triplet(t)
+    vars7 = @variables re1Xe(t) re2Xe(t)
+    vars = [vars1; vars2; vars3; vars4; vars5; vars6; vars7]
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
@@ -104,7 +105,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         v̈ ~ 0 # D(v̇) # TODO: structural_simplify() crashes when this is included
         τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
         τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
-    ], t, [ρb, Xe, XH⁺, XHe⁺, XHe⁺⁺, τ, τ̇, τ̈, τ⃛, v, v̇, v̈, Tb, Tγ, ΔT, DTb, DTγ, μ, cₛ², re1Xe, re2Xe], [Yp, fHe, re1z, re2z]; defaults, description, kwargs...)
+    ], t, vars, pars; defaults, description, kwargs...)
 end
 
 function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
