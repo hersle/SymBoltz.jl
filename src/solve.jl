@@ -15,12 +15,16 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true)
-    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
-        @named rec = thermodynamics_recombination_splined()
-        sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
+function perturbations(sys; spline_thermo = true) # TODO spline_thermo kwarg
+    pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
+
+    if spline_thermo
+        th = structural_simplify(thermodynamics(sys))
+        pt = flatten(pt) # TODO: avoid
+        pt = spline_derivatives(pt, unknowns(th))
     end
-    return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
+
+    return pt
 end
 
 struct CosmologyProblem
@@ -271,12 +275,14 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
         update_vars = Dict(M.g.a => bg[M.g.a][begin])
-        if have(M, :b) && have(M.b, :rec) && prob.spline_thermo
-            update_vars = merge(update_vars, Dict(
-                prob.pt.f.sys.b.rec.τspline => spline(th[M.b.rec.τ], th.t), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-                prob.pt.f.sys.b.rec.τ̇spline => spline(th[M.b.rec.τ̇], th.t),
-                prob.pt.f.sys.b.rec.cₛ²spline => spline(th[M.b.rec.cₛ²], th.t)
-            ))
+        for par in parameters(prob.pt.f.sys)
+            parname = string(nameof(par))
+            if endswith(parname, "_spline")
+                verbose && println("Splining $par")
+                varname = Symbol(chopsuffix(string(parname), "_spline"))
+                var = only(@variables $varname(t))
+                update_vars = merge(update_vars, Dict(par => spline(th[var], th.t)))
+            end
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))

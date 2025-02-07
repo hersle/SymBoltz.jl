@@ -1,5 +1,5 @@
 import SpecialFunctions: zeta as ζ
-import Symbolics: taylor
+import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity
 using QuadGK
 
@@ -136,4 +136,44 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
     else
         return a[1:length(is)]
     end
+end
+
+# TODO: force flatten first?
+# TODO: handle higher-order derivatives
+# TODO: best to use hermite spline? https://github.com/SciML/DataInterpolations.jl/issues/370
+function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose = true)
+    varnames = nameof.(operation.(unwrap.(vars)))
+
+    eqs = ModelingToolkit.get_eqs(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    vars = ModelingToolkit.get_unknowns(sys)
+    pars = ModelingToolkit.get_ps(sys)
+    defs = ModelingToolkit.get_defaults(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+
+    dummyspline = splT([NaN, NaN, NaN], 0.0:1.0:2.0)
+
+    for (i, eq) in enumerate(eqs)
+        var = eq.lhs
+        op = operation(var)
+        if op == D # is time derivative
+            var = only(sorted_arguments(var)) # e.g. a(t)
+            varname = nameof(operation(var)) # e.g. :a
+            if varname in varnames
+                splname = Symbol(varname, :_spline) # e.g. :a_spline
+                spl = only(@parameters $splname::splT)
+                verbose && println("Splining $var -> $spl")
+                eqs[i] = D(var) ~ derivative(spl, t) # replace equation with splined version # TODO: spline value, avoid reintegrating
+                pars = [pars; spl] # add spline parameter
+                defs = merge(defs, Dict(spl => dummyspline))
+            end
+        end
+    end
+
+    pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
+    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
+end
+
+function spline_derivatives(sys::ODESystem, vars)
+    return transform((s, _) -> _spline_derivatives(s, vars), sys)
 end
