@@ -21,7 +21,7 @@ function perturbations(sys; spline_thermo = true) # TODO spline_thermo kwarg
     if spline_thermo
         th = structural_simplify(thermodynamics(sys))
         pt = flatten(pt) # TODO: avoid
-        pt = spline_derivatives(pt, unknowns(th))
+        pt = structural_simplify_spline(pt, unknowns(th)) # spline_derivatives(pt, unknowns(th))
     end
 
     return pt

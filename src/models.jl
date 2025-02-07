@@ -66,11 +66,11 @@ function ΛCDM(;
         b.θinteraction ~ -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
-        #S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ) # TODO: restore allwith autosplining
-        #S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ)
-        #S_Dop ~ (b.rec.v̇*b.u + b.rec.v*D(b.u)) / k
-        #S_pol ~ 3/(4*k^2) * (b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
-        #S ~ S_SW + S_ISW # + S_Dop + 0*S_pol # TODO: include all terms
+        S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ)
+        S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ)
+        S_Dop ~ (b.rec.v̇*b.u + b.rec.v*D(b.u)) / k
+        S_pol ~ 3/(4*k^2) * (b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
+        S ~ S_SW + S_ISW # + S_Dop + 0*S_pol # TODO: include all terms
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
