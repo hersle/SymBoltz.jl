@@ -86,6 +86,13 @@ function spline(y, x)
     return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
 end
 
+function spline(sol::ODESolution, var)
+    t = sol.t
+    y = sol(t, Val{0}; idxs=var).u
+    ẏ = sol(t, Val{1}; idxs=var).u # TODO: actually evaluate derivative
+    return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
+end
+
 # compute dy/dx by splining y(x)
 function D_spline(y, x; order = 1)
     y_spline = spline(y, x)
@@ -145,7 +152,7 @@ end
 function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose = true)
     varnames = nameof.(operation.(unwrap.(vars)))
 
-    eqs = ModelingToolkit.get_eqs(sys)
+    eqs = ModelingToolkit.get_eqs(sys) |> copy # TODO: make neweqs array instead
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
@@ -166,15 +173,6 @@ function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose =
                 spl = only(@parameters $splname::splT)
                 verbose && println("Splining $var -> $spl")
 
-                # derivatives (highest-order first, so D(D(y)) => y_d2 instead of D(y_d1))
-                for order in reverse(1:2)
-                    dvarname = Symbol(varname, :_d, Symbol(order))
-                    dvar = only(@variables $dvarname(t))
-                    eqs = substitute(eqs, (D^order)(var) => dvar)
-                    push!(extraeqs, dvar ~ derivative(spl, t, order))
-                    vars = [vars; var]
-                end
-
                 # value
                 eqs[i] = var ~ value(spl, t) # replace equation with splined version
 
@@ -194,4 +192,36 @@ end
 
 function spline_derivatives(sys::ODESystem, vars)
     return transform((s, _) -> _spline_derivatives(s, vars), sys)
+end
+
+function structural_simplify_spline(sys::ODESystem, vars; kwargs...)
+    # Recreate sys with spline parameters
+    sys = spline_derivatives(sys, vars)
+
+    # Let structural_simplify do its magic, including inserting dummy derivative expressions
+    sys = structural_simplify(sys)
+
+    # Finally substitute derivatives for the spline for the dummy derivatives
+    eqs = ModelingToolkit.get_eqs(sys)
+    obs = ModelingToolkit.get_observed(sys)
+    for var in vars # TODO: robustly iterate over spline parameters
+        varname = nameof(operation(unwrap(var))) # e.g. :a
+        splname = Symbol(varname, :_spline) # e.g. :a_spline
+        spl = only(@parameters $splname::CubicSpline)
+        for order in reverse(1:2)
+            for list in [eqs, obs]
+                for i in eachindex(list)
+                    list[i] = substitute(list[i], (D^order)(value(spl, t)) => derivative(spl, t, order)) # overwrite equations
+                end
+            end
+        end
+    end
+
+    # Copy structurally simplified system into a non-simplified one (because it is not allowed to simplify twice)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    vars = ModelingToolkit.get_unknowns(sys)
+    pars = ModelingToolkit.get_ps(sys)
+    defs = ModelingToolkit.get_defaults(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+    return ODESystem([eqs; obs], t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
