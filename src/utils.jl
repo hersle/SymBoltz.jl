@@ -141,6 +141,7 @@ end
 # TODO: force flatten first?
 # TODO: handle higher-order derivatives
 # TODO: best to use hermite spline? https://github.com/SciML/DataInterpolations.jl/issues/370
+# TODO: handle dummy derivatives properly (important for thermodynamics); merge with structural_simplify using additional_passes=...?
 function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose = true)
     varnames = nameof.(operation.(unwrap.(vars)))
 
@@ -153,7 +154,8 @@ function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose =
 
     dummyspline = splT([NaN, NaN, NaN], 0.0:1.0:2.0)
 
-    for (i, eq) in enumerate(eqs)
+    extraeqs = Equation[]
+    for (i, eq) in enumerate(eqs) # TODO: could just iterate over vars instead...
         var = eq.lhs
         op = operation(var)
         if op == D # is time derivative
@@ -163,13 +165,29 @@ function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose =
                 splname = Symbol(varname, :_spline) # e.g. :a_spline
                 spl = only(@parameters $splname::splT)
                 verbose && println("Splining $var -> $spl")
-                eqs[i] = D(var) ~ derivative(spl, t) # replace equation with splined version # TODO: spline value, avoid reintegrating
+
+                # derivatives (highest-order first, so D(D(y)) => y_d2 instead of D(y_d1))
+                for order in reverse(1:2)
+                    dvarname = Symbol(varname, :_d, Symbol(order))
+                    dvar = only(@variables $dvarname(t))
+                    eqs = substitute(eqs, (D^order)(var) => dvar)
+                    push!(extraeqs, dvar ~ derivative(spl, t, order))
+                    vars = [vars; var]
+                end
+
+                # value
+                eqs[i] = var ~ value(spl, t) # replace equation with splined version
+
+                # remove any existing initial conditions (would cause overdetermined initialization system)
+                delete!(defs, var)
+
                 pars = [pars; spl] # add spline parameter
                 defs = merge(defs, Dict(spl => dummyspline))
             end
         end
     end
 
+    eqs = [eqs; extraeqs]
     pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
     return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end

@@ -43,13 +43,13 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         nHe ~ fHe * nH # 1/m³
 
         DTb ~ -2*Tb*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
-        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
+        DTγ ~ -1*Tγ*g.ℰ # D(Tγ) |> expand_derivatives # or -1*Tγ*g.ℰ # TODO: restore normal derivative with autosplining
         D(ΔT) ~ DTb - DTγ # solve ODE for D(Tb-Tγ), since solving it for D(Tb) instead is extremely sensitive to Tb-Tγ≈0 at early times
         Tb ~ ΔT + Tγ
         βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
         μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
-        cₛ² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        cₛ² ~ kB/(μ*c^2) * (Tb - DTb/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68) # TODO: restore normal D(Tb) derivative with autosplining
 
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
@@ -98,13 +98,15 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        τ̇ ~ -g.a/(H100*g.h) * ne * σT * c # common optical depth τ
-        D(τ) ~ τ̇
-        v ~ D(exp(-τ)) # visibility function
-        v̇ ~ D(v)
-        v̈ ~ 0 # D(v̇) # TODO: structural_simplify() crashes when this is included
-        τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
-        τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
+        D(τ) ~ -g.a/(H100*g.h) * ne * σT * c # common optical depth τ
+        τ̇ ~ D(τ)
+
+        # TODO: restore v̇ ~ D(v) etc. with autosplining
+        v ~ D(exp(-τ)) |> expand_derivatives # visibility function
+        v̇ ~ D(D(exp(-τ))) |> expand_derivatives
+        v̈ ~ 0 # D(D(D(exp(-τ)))) # TODO: structural_simplify() crashes when this is included
+        #τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
+        #τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
     ], t, vars, pars; defaults, description, kwargs...)
 end
 

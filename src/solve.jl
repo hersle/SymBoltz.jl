@@ -130,7 +130,7 @@ function CosmologyProblem(
     vars, pars = split_vars_pars(M, pars_full)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
-    vars[M.g.a] = aini
+    varsa = merge(vars, Dict(M.g.a => aini)) # TODO: treat a like any other unknown IC
     tspan = (0.0, 100.0)
 
     if bg
@@ -138,7 +138,7 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, vars, tspan, parsk; fully_determined = true, kwargs...)
+        bg = ODEProblem(bg, varsa, tspan, parsk; fully_determined = true, kwargs...)
     else
         bg = nothing
     end
@@ -148,7 +148,7 @@ function CosmologyProblem(
         if debug
             th = debug_system(th)
         end
-        th = ODEProblem(th, vars, tspan, parsk; fully_determined = true, kwargs...)
+        th = ODEProblem(th, varsa, tspan, parsk; fully_determined = true, kwargs...)
     else
         th = nothing
     end
@@ -158,7 +158,7 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
-        pt = ODEProblem(pt, vars, tspan, parsk; fully_determined = true, kwargs...)
+        pt = ODEProblem(pt, spline_thermo ? vars : varsa, tspan, parsk; fully_determined = true, kwargs...) # TODO: varsa vs vars
     else
         pt = nothing
     end
@@ -274,10 +274,10 @@ function solve(
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
-        update_vars = Dict(M.g.a => bg[M.g.a][begin])
+        update_vars = Dict() # TODO: aini? handle it like any other variable in pars = Dict(m.g.a => 1e-8) ...
         for par in parameters(prob.pt.f.sys)
-            parname = string(nameof(par))
-            if endswith(parname, "_spline")
+            if par isa Symbolics.BasicSymbolic{CubicSpline} # TODO: any spline type
+                parname = string(nameof(par))
                 verbose && println("Splining $par")
                 varname = Symbol(chopsuffix(string(parname), "_spline"))
                 var = only(@variables $varname(t))
