@@ -15,16 +15,18 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true)
+function perturbations(sys; spline = true)
     pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
 
-    if spline_thermo
+    if spline
         th = structural_simplify(thermodynamics(sys))
         pt = flatten(pt) # TODO: avoid
-        pt = structural_simplify_spline(pt, unknowns(th))
+        pt, var2spl = structural_simplify_spline(pt, unknowns(th))
+    else
+        var2spl = Dict()
     end
 
-    return pt
+    return pt, var2spl
 end
 
 struct CosmologyProblem
@@ -39,7 +41,8 @@ struct CosmologyProblem
     shoot::Base.KeySet
     conditions::AbstractArray
 
-    spline_thermo::Bool
+    spline::Bool
+    var2spl::Dict
 end
 
 struct CosmologySolution
@@ -66,6 +69,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
+        prob.spline && print(io, " (splined thermodynamics)")
     end
 
     printstyled(io, "\nParameters:"; bold = true)
@@ -115,7 +119,7 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
+        aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -124,7 +128,7 @@ If `bg`, `th` and `pt`, the model is split into the background, thermodynamics a
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
+    aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
@@ -154,16 +158,18 @@ function CosmologyProblem(
     end
 
     if pt
-        pt = structural_simplify(perturbations(M; spline_thermo))
+        pt, var2spl = perturbations(M; spline)
+        pt = structural_simplify(pt)
         if debug
             pt = debug_system(pt)
         end
-        pt = ODEProblem(pt, spline_thermo ? vars : varsa, tspan, parsk; fully_determined = true, kwargs...) # TODO: varsa vs vars
+        pt = ODEProblem(pt, spline ? vars : varsa, tspan, parsk; fully_determined = true, kwargs...) # TODO: varsa vs vars
     else
         pt = nothing
+        var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline_thermo)
+    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline, var2spl)
 end
 
 """
@@ -190,7 +196,7 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
+    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline, prob.var2spl)
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
@@ -274,14 +280,9 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
         update_vars = Dict() # TODO: aini? handle it like any other variable in pars = Dict(m.g.a => 1e-8) ...
-        for par in parameters(prob.pt.f.sys)
-            if par isa Symbolics.BasicSymbolic{CubicHermiteSpline} # TODO: any spline type
-                parname = string(nameof(par))
-                verbose && println("Splining $par")
-                varname = Symbol(chopsuffix(string(parname), "_spline"))
-                var = only(@variables $varname(t))
-                update_vars = merge(update_vars, Dict(par => spline(th, var)))
-            end
+        for (var, spl) in prob.var2spl
+            verbose && println("Splining $var")
+            update_vars = merge(update_vars, Dict(spl => spline(th, var)))
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))

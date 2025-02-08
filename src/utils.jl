@@ -147,7 +147,7 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: handle higher-order (3+) derivatives
-function structural_simplify_spline(sys::ODESystem, vars; verbose = true)
+function structural_simplify_spline(sys::ODESystem, vars; verbose = false)
     isempty(ModelingToolkit.get_systems(sys)) || error("System must be flattened")
 
     eqs = ModelingToolkit.get_eqs(sys)
@@ -196,10 +196,10 @@ function structural_simplify_spline(sys::ODESystem, vars; verbose = true)
         end
     end
 
-    # Return splined system
+    # Return splined system and variable-to-parameter map
     vars = ModelingToolkit.get_unknowns(sys)
     pars = [pars; collect(values(var2spl))] # add splines as system parameters
     pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
     sys = ODESystem([eqs; obs], t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description) # copy structurally simplified system into a non-simplified one (2x simplify is forbidden)
-    return sys
+    return sys, var2spl
 end
