@@ -69,7 +69,7 @@ function ΛCDM(;
         S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ)
         S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ)
         S_Dop ~ (b.rec.v̇*b.u + b.rec.v*D(b.u)) / k
-        S_pol ~ 3/(4*k^2) * (b.rec.v̈*G.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
+        S_pol ~ 3/(4*k^2) * (b.rec.v̈*γ.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
         S ~ S_SW + S_ISW + S_Dop + 0*S_pol # TODO: include all terms
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
