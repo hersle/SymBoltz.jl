@@ -95,3 +95,7 @@ end
         @test all(isapprox.(vals1, vals2; atol, rtol))
     end
 end
+
+@testset "Whole model without autosplining" begin
+    @test_nowarn structural_simplify(M)
+end

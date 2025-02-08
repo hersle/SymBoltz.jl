@@ -101,7 +101,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         D(τ) ~ -g.a/(H100*g.h) * ne * σT * c # common optical depth τ
         τ̇ ~ D(τ)
 
-        v ~ D(exp(-τ)) # visibility function
+        v ~ D(exp(-τ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
         v̈ ~ 0 # D(v̇) # TODO: include; structural_simplify() crashes when this is included
         #τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
