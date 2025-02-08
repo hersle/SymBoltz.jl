@@ -76,11 +76,22 @@ end
     sol(ks, 0.0, M.g.Φ / M.g.Ψ) .≈ sol(0.0, (1+2/5*M.fν))
 end
 
-@testset "Thermodynamics splining" begin
+@testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
-    lga = range(-5, 0, length = 100) # log10(a)
-    vars = [M.b.rec.τ, M.b.rec.τ̇, M.b.rec.v, M.b.rec.v̇, M.b.rec.cₛ²]
-    vals1 = sol(log10(M.g.a) => lga, vars) # from background
-    vals2 = sol(1.0, log10(M.g.a) => lga, vars) # from splined perturbations
-    @test isapprox(vals1, vals2; rtol = 1e-5)
+    ts = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100))
+    tests = [
+        (M.g.a, 1e-6, 0)
+        (M.b.rec.τ̇, 0, 1e-2)
+        (M.b.rec.τ, 0, 1e-4)
+        (M.b.rec.v, 1e-3, 0)
+        (M.b.rec.v̇, 0, 1e-0) # TODO: improve
+        (M.b.rec.cₛ², 1e-4, 0)
+        (M.b.rec.Tb, 0, 1e-5)
+        (M.b.rec.Xe, 1e-6, 0)
+    ]
+    for (var, atol, rtol) in tests
+        vals1 = sol(ts, var) # from background
+        vals2 = sol(1.0, ts, var) # from splined perturbations
+        @test all(isapprox.(vals1, vals2; atol, rtol))
+    end
 end

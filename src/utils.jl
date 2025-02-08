@@ -1,3 +1,4 @@
+import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
 import SpecialFunctions: zeta as ζ
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity
@@ -99,10 +100,10 @@ function D_spline(y, x; order = 1)
     return map(x -> DataInterpolations.derivative(y_spline, x, order), x)
 end
 
-value(s, t) = s(t)
-derivative(s, t, order=1) = DataInterpolations.derivative(s, t, order)
-@register_symbolic value(s::CubicSpline, t)
-@register_symbolic derivative(s::CubicSpline, t, order)
+value(s::DataInterpolations.AbstractInterpolation, t) = s(t)
+derivative(s::DataInterpolations.AbstractInterpolation, t, order=1) = DataInterpolations.derivative(s, t, order)
+@register_symbolic value(s::DataInterpolations.AbstractInterpolation, t)
+@register_symbolic derivative(s::DataInterpolations.AbstractInterpolation, t, order)
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
@@ -149,7 +150,7 @@ end
 # TODO: handle higher-order derivatives
 # TODO: best to use hermite spline? https://github.com/SciML/DataInterpolations.jl/issues/370
 # TODO: handle dummy derivatives properly (important for thermodynamics); merge with structural_simplify using additional_passes=...?
-function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose = true)
+function _spline_derivatives(sys::ODESystem, vars; verbose = true)
     varnames = nameof.(operation.(unwrap.(vars)))
 
     eqs = ModelingToolkit.get_eqs(sys) |> copy # TODO: make neweqs array instead
@@ -159,7 +160,7 @@ function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose =
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
 
-    dummyspline = splT([NaN, NaN, NaN], 0.0:1.0:2.0)
+    dummyspline = CubicHermiteSpline([NaN, NaN, NaN], [NaN, NaN, NaN], 0.0:1.0:2.0)
 
     extraeqs = Equation[]
     for (i, eq) in enumerate(eqs) # TODO: could just iterate over vars instead...
@@ -170,7 +171,7 @@ function _spline_derivatives(sys::ODESystem, vars; splT = CubicSpline, verbose =
             varname = nameof(operation(var)) # e.g. :a
             if varname in varnames
                 splname = Symbol(varname, :_spline) # e.g. :a_spline
-                spl = only(@parameters $splname::splT)
+                spl = only(@parameters $splname::CubicHermiteSpline)
                 verbose && println("Splining $var -> $spl")
 
                 # value
@@ -207,7 +208,7 @@ function structural_simplify_spline(sys::ODESystem, vars; kwargs...)
     for var in vars # TODO: robustly iterate over spline parameters
         varname = nameof(operation(unwrap(var))) # e.g. :a
         splname = Symbol(varname, :_spline) # e.g. :a_spline
-        spl = only(@parameters $splname::CubicSpline)
+        spl = only(@parameters $splname::CubicHermiteSpline)
         for order in reverse(1:2)
             for list in [eqs, obs]
                 for i in eachindex(list)

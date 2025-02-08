@@ -276,12 +276,12 @@ function solve(
         ptprob0 = remake(prob.pt; tspan)
         update_vars = Dict() # TODO: aini? handle it like any other variable in pars = Dict(m.g.a => 1e-8) ...
         for par in parameters(prob.pt.f.sys)
-            if par isa Symbolics.BasicSymbolic{CubicSpline} # TODO: any spline type
+            if par isa Symbolics.BasicSymbolic{CubicHermiteSpline} # TODO: any spline type
                 parname = string(nameof(par))
                 verbose && println("Splining $par")
                 varname = Symbol(chopsuffix(string(parname), "_spline"))
                 var = only(@variables $varname(t))
-                update_vars = merge(update_vars, Dict(par => spline(th[var], th.t)))
+                update_vars = merge(update_vars, Dict(par => spline(th, var)))
             end
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))

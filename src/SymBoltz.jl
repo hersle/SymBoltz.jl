@@ -7,7 +7,6 @@ export unknowns, observed, parameters, equations, initialization_equations, defa
 using ModelingToolkit
 using OrdinaryDiffEq
 using NonlinearSolve
-using DataInterpolations
 using OhMyThreads
 using Setfield
 
