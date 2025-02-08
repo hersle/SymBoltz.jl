@@ -6,7 +6,7 @@ import OhMyThreads: TaskLocalValue
 function background(sys)
     sys = thermodynamics(sys)
     if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys))
-        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination
+        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination # TODO: avoid
     end
     return sys
 end
@@ -15,13 +15,13 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true) # TODO spline_thermo kwarg
+function perturbations(sys; spline_thermo = true)
     pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
 
     if spline_thermo
         th = structural_simplify(thermodynamics(sys))
         pt = flatten(pt) # TODO: avoid
-        pt = structural_simplify_spline(pt, unknowns(th)) # spline_derivatives(pt, unknowns(th))
+        pt = structural_simplify_spline(pt, unknowns(th))
     end
 
     return pt
@@ -193,7 +193,6 @@ function remake(
     return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
 end
 
-# TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     function solve(
