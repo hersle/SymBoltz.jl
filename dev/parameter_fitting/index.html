@@ -39,7 +39,7 @@ data = [ # https://cmb.wintherscoming.no/data/supernovadata.txt
 data = (zs = data[:,1], dLs = data[:,2], ΔdLs = data[:,3], C = Diagonal(data[:,3] .^ 2))
 
 using Plots
-scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = &quot;lg(1+z)&quot;, ylabel = &quot;dₗ/z/Gpc&quot;, label = &quot;observations&quot;)</code></pre><img src="9f918d47.svg" alt="Example block output"/><h2 id="Predicting-luminosity-distances"><a class="docs-heading-anchor" href="#Predicting-luminosity-distances">Predicting luminosity distances</a><a id="Predicting-luminosity-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-luminosity-distances" title="Permalink"></a></h2><p>To predict luminosity distances</p><p class="math-container">\[d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
+scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = &quot;lg(1+z)&quot;, ylabel = &quot;dₗ/z/Gpc&quot;, label = &quot;observations&quot;)</code></pre><img src="91387d15.svg" alt="Example block output"/><h2 id="Predicting-luminosity-distances"><a class="docs-heading-anchor" href="#Predicting-luminosity-distances">Predicting luminosity distances</a><a id="Predicting-luminosity-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-luminosity-distances" title="Permalink"></a></h2><p>To predict luminosity distances</p><p class="math-container">\[d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 \qquad \text{where} \qquad
 \chi = c \, (t_0 - t)\]</p><p>theoretically, we solve the standard ΛCDM model:</p><pre><code class="language-julia hljs">using SymBoltz
 
@@ -68,7 +68,7 @@ end
 zs = data.zs
 sol = solve_with(prob, 0.26, 0.08, 0.7)
 dLs = dL(zs, sol)
-scatter!(@. log10(zs+1), dLs ./ zs; label = &quot;prediction&quot;)</code></pre><img src="4f01c730.svg" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we use the <a href="https://turinglang.org/">Turing.jl</a> package:</p><pre><code class="language-julia hljs">using Turing
+scatter!(@. log10(zs+1), dLs ./ zs; label = &quot;prediction&quot;)</code></pre><img src="dfb560e1.svg" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we use the <a href="https://turinglang.org/">Turing.jl</a> package:</p><pre><code class="language-julia hljs">using Turing
 
 @model function supernova(data, prob)
     # Parameter priors
@@ -98,8 +98,8 @@ chain = sample(sn, NUTS(), MCMCSerial(), 50, 1)</code></pre><pre class="document
 Iterations        = 26:1:75
 Number of chains  = 1
 Samples per chain = 50
-Wall duration     = 31.9 seconds
-Compute duration  = 31.9 seconds
+Wall duration     = 52.02 seconds
+Compute duration  = 52.02 seconds
 parameters        = Ωm0, Ωk0, h
 internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
 
@@ -107,17 +107,17 @@ Summary Statistics
  <span class="sgr1"> parameters </span> <span class="sgr1">    mean </span> <span class="sgr1">     std </span> <span class="sgr1">    mcse </span> <span class="sgr1"> ess_bulk </span> <span class="sgr1"> ess_tail </span> <span class="sgr1">    rhat </span> <span class="sgr1"> e</span> ⋯
  <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90">  Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90">  </span> ⋯
 
-         Ωm0    0.3189    0.0705    0.0276     7.8868    20.3649    1.4773     ⋯
-         Ωk0   -0.0283    0.1476    0.0631     6.7363    18.0445    1.1804     ⋯
-           h    0.7002    0.0060    0.0016    16.0925    13.8899    1.0628     ⋯
+         Ωm0    0.3136    0.0636    0.0412     2.5445    12.3624    1.4042     ⋯
+         Ωk0   -0.0742    0.1316    0.0920     2.2986    21.3760    1.4667     ⋯
+           h    0.7038    0.0041    0.0008    21.9027    32.6387    0.9925     ⋯
 <span class="sgr36">                                                                1 column omitted</span>
 
 Quantiles
  <span class="sgr1"> parameters </span> <span class="sgr1">    2.5% </span> <span class="sgr1">   25.0% </span> <span class="sgr1">   50.0% </span> <span class="sgr1">   75.0% </span> <span class="sgr1">   97.5% </span>
  <span class="sgr90">     Symbol </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span> <span class="sgr90"> Float64 </span>
 
-         Ωm0    0.2350    0.2528    0.3143    0.3648    0.4423
-         Ωk0   -0.2910   -0.1512    0.0045    0.0908    0.1672
-           h    0.6886    0.6973    0.7003    0.7036    0.7117
+         Ωm0    0.1996    0.2524    0.3415    0.3587    0.3940
+         Ωk0   -0.2584   -0.1744   -0.1033    0.0817    0.1392
+           h    0.6965    0.7005    0.7042    0.7073    0.7100
 </code></pre><p>As we see above, the MCMC <code>chain</code> displays a summary with information about the fitted parameters, including their posterior means and standard deviations. We can also plot the chains:</p><pre><code class="language-julia hljs">using StatsPlots
-plot(chain)</code></pre><img src="930fda05.svg" alt="Example block output"/><p>TODO: take som inspiration from the <a href="https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/">Catalyst tutorial</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Creating extended models</a><a class="docs-footer-nextpage" href="../components/">Components »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Sunday 9 February 2025 18:10">Sunday 9 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(chain)</code></pre><img src="7dcc16ce.svg" alt="Example block output"/><p>TODO: take som inspiration from the <a href="https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/">Catalyst tutorial</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Creating extended models</a><a class="docs-footer-nextpage" href="../components/">Components »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Sunday 9 February 2025 20:20">Sunday 9 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
