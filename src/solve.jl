@@ -63,13 +63,18 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     printstyled(io, "Stages:"; bold = true)
     if !isnothing(prob.bg)
         print(io, '\n', indent, "Background")
+        print(io, ": ", length(unknowns(prob.bg.f.sys)), " unknowns")
+        print(io, ", ", 0, " splines")
     end
     if !isnothing(prob.th)
         print(io, '\n', indent, "Thermodynamics")
+        print(io, ": ", length(unknowns(prob.th.f.sys)), " unknowns")
+        print(io, ", ", 0, " splines")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
-        prob.spline && print(io, " (splined thermodynamics)")
+        print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
+        print(io, ", ", length(prob.var2spl), " splines")
     end
 
     printstyled(io, "\nParameters:"; bold = true)
