@@ -345,5 +345,5 @@ plot_compare("k", "P"; lgx=true, lgy=true) # hide
 ```
 #### CMB angular power spectrum
 ```@example class
-plot_compare("l", "Dl"; errlim=5e-2) # TODO: fix # hide
+plot_compare("l", "Dl") # hide
 ```

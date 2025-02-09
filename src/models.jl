@@ -40,7 +40,7 @@ function ΛCDM(;
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
     pars = @parameters C
-    vars = @variables fν(t) S(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
+    vars = @variables fν(t) S0(t) S1(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     defs = Dict(
         C => 1//2,
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
@@ -66,11 +66,12 @@ function ΛCDM(;
         b.θinteraction ~ -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.τ̇ ~ b.rec.τ̇
         γ.θb ~ b.θ
-        S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ)
+        S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
         S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ) |> expand_derivatives
-        S_Dop ~ (b.rec.v̇*b.u + b.rec.v*D(b.u)) / k
-        S_pol ~ 3/(4*k^2) * (b.rec.v̈*γ.Π + 2*b.rec.v̇*D(γ.Π) + 0*b.rec.v*D(D(γ.Π)))
-        S ~ S_SW + S_ISW + S_Dop + 0*S_pol # TODO: include all terms
+        S_Dop ~ D(b.rec.v*b.u) / k |> expand_derivatives
+        S_pol ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives # TODO: move last derivative to jₗ with integration by parts?
+        S0 ~ S_SW + S_ISW + S_Dop
+        S1 ~ S_pol
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
     if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")

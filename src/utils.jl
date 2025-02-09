@@ -94,12 +94,6 @@ function spline(sol::ODESolution, var)
     return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
 end
 
-# compute dy/dx by splining y(x)
-function D_spline(y, x; order = 1)
-    y_spline = spline(y, x)
-    return map(x -> DataInterpolations.derivative(y_spline, x, order), x)
-end
-
 value(s::AbstractInterpolation, t) = s(t)
 derivative(s::AbstractInterpolation, t, order=1) = DataInterpolations.derivative(s, t, order)
 @register_symbolic value(s::AbstractInterpolation, t)

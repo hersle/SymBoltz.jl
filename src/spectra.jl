@@ -115,6 +115,7 @@ Compute the standard deviation ``√(⟨δ²⟩)`` of the *linear* matter densit
 """
 stddev_matter(sol::CosmologySolution, R) = √(variance_matter(sol, R))
 
+# TODO: create SphericalBesselFunctionMachine-like struct, which can calculate value, derivative, ...
 # TODO: contribute back to Bessels.jl
 #sphericalbesseljslow(ls::AbstractArray, x) = sphericalbesselj.(ls, x)
 #sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
@@ -129,6 +130,10 @@ function sphericalbesseljfast!(out, ls::AbstractRange, x::Number)
 end
 function sphericalbesseljslow!(out, ls::AbstractRange, x::Number)
     out .= sphericalbesselj.(ls, x)
+end
+function sphericalbesseljprime(l, ls, Jls)
+    i = 1 + l - ls[begin] # ls[i] == l (assuming stepo of ls is 1)
+    return l/(2*l+1)*Jls[i-1] - (l+1)/(2*l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
 end
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
@@ -145,14 +150,15 @@ Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the so
 The element `Ss[i,j]` holds the source function value ``S(ks[i], ts[j])``.
 An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed on an interval on which the integrand behaves well.
 """
-function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
-    @assert size(Ss) == (length(ks), length(us)) # TODO: optimal structure?
+function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true) where {T <: Real}
+    @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
     lmin, lmax = extrema(ls)
+    lmin >= 1 || error("l must be 1 or higher") # TODO: relax?
+    lmin, lmax = lmin - 1, lmax + 1 # calculation of l-th bessel function derivatives depend on l-1 and l+1
     ls_all = lmin:1:lmax # range with step 1
 
-    T = eltype(Ss)
     Is = zeros(T, (length(ks), length(ls)))
 
     @tasks for ik in eachindex(ks)
@@ -164,13 +170,15 @@ function los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, 
         k = ks[ik]
         for it in eachindex(us)
             t = ts[it]
-            S = Ss[ik,it]
+            S0 = S0s[ik,it]
+            S1 = S1s[ik,it]
             kΔt = k * (ts[end]-t)
             sphericalbesseljfast!(Jls_all, ls_all, kΔt) # TODO: reuse ∂Θ_∂x's memory?
             for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
                 l = ls[il]
                 Jl = Jls_all[1+l-lmin]
-                ∂I_∂u[il,it] = S * Jl / u′s[it] # ∫dt y(t) = ∫du y(t(u)) / u′(t(u))
+                Jl′ = sphericalbesseljprime(l, ls_all, Jls_all)
+                ∂I_∂u[il,it] = (S0 * Jl + S1 * Jl′) / u′s[it] # ∫dt y(t) = ∫du y(t(u)) / u′(t(u))
                 # TODO: integrate in this loop instead?
             end
         end
@@ -185,7 +193,6 @@ end
 
 # this one is less elegant, but more numerically stable?
 # TODO: saveat = ts
-# TODO: restore sol(ks, xs, sol.M.S)
 """
     source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
 
@@ -193,24 +200,9 @@ Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the s
 """
 function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=true)
     M = sol.prob.M
-    v = sol(ts, M.b.rec.v)
-    out = sol(ks, ts, [M.S, M.γ.Π])
-    Ss, Π = out[:, :, 1], out[:, :, 2]
-
-    # Polarization contribution requires numerical derivative, so it is added manually
-    @tasks for ik in eachindex(ks)
-        k = ks[ik]
-        vΠ = v .* Π[ik, :] / 4 # TODO: why do I need this factor of 4 do get CLASS' Cₗᵀᵀ with only "pol" source??? is it because of difference between e.g F₀ and Θ₀ = F₀/4 in Π?
-        Ss[ik, :] .+= vΠ / 4 + 3/(4*k^2) * D_spline(vΠ, ts; order=2)
-    end
-
-    # HACK: fix 2nd spline derivative error
-    # (https://github.com/SciML/DataInterpolations.jl/issues/370)
-    #N = 50
-    #Ss[:, end-N:end] .= Ss[:, end-N-1]
-    #Ss[:, begin:begin+N] .= Ss[:, begin+N+1]
-
-    return Ss
+    out = sol(ks, ts, [M.S0, M.S1])
+    S0s, S1s = out[:, :, 1], out[:, :, 2]
+    return S0s, S1s
 end
 
 """
@@ -221,7 +213,9 @@ Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating 
 function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.prob.M
     t0 = sol[t][end]
-    return sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2
+    S0s = sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts?
+    S1s = 0.0 .* S0s # == 0
+    return S0s, S1s
 end
 
 function los_substitution_range(sol::CosmologySolution, u::Function, u⁻¹::Function, u′::Function; kwargs...)
@@ -240,8 +234,8 @@ Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
     ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length)
-    STs = source_temperature(sol, ks, ts)
-    return los_integrate(STs, ls, ks, ts, us, u′s; kwargs...)
+    S0s, S1s = source_temperature(sol, ks, ts)
+    return los_integrate(S0s, S1s, ls, ks, ts, us, u′s; kwargs...)
 end
 
 """
@@ -251,8 +245,8 @@ Calculate photon E-mode polarization multipoles today by line-of-sight integrati
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
     ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length) # TODO: do tanh(t/tcmb)?
-    SPs = source_polarization(sol, ks, ts)
-    return los_integrate(SPs, ls, ks, ts, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    S0s, S1s = source_polarization(sol, ks, ts)
+    return los_integrate(S0s, S1s, ls, ks, ts, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
