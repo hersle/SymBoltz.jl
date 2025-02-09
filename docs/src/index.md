@@ -22,11 +22,11 @@ and more.
 
 ## Installation
 
-[Install](https://julialang.org/downloads/) and launch `julia`, enter the package manager by hitting `]`, and execute *one* of the commands below:
+[Install](https://julialang.org/downloads/) and launch `julia` and execute one of the commands below:
 
 ```
-add SymBoltz # for usage
-dev SymBoltz # for usage and development
+] add SymBoltz # for usage
+] dev SymBoltz # for usage and development
 ```
 
 ## Usage

@@ -6,7 +6,7 @@ import OhMyThreads: TaskLocalValue
 function background(sys)
     sys = thermodynamics(sys)
     if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys))
-        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination
+        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination # TODO: avoid
     end
     return sys
 end
@@ -15,12 +15,18 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline_thermo = true)
-    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys)) && spline_thermo && !all([eq.rhs === 0 for eq in equations(sys.b.rec)])
-        @named rec = thermodynamics_recombination_splined()
-        sys = replace(sys, sys.b.rec => rec) # substitute in splined recombination
+function perturbations(sys; spline = true)
+    pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
+
+    if spline
+        th = structural_simplify(thermodynamics(sys))
+        pt = flatten(pt) # TODO: avoid
+        pt, var2spl = structural_simplify_spline(pt, unknowns(th))
+    else
+        var2spl = Dict()
     end
-    return transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
+
+    return pt, var2spl
 end
 
 struct CosmologyProblem
@@ -35,7 +41,8 @@ struct CosmologyProblem
     shoot::Base.KeySet
     conditions::AbstractArray
 
-    spline_thermo::Bool
+    spline::Bool
+    var2spl::Dict
 end
 
 struct CosmologySolution
@@ -62,6 +69,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
+        prob.spline && print(io, " (splined thermodynamics)")
     end
 
     printstyled(io, "\nParameters:"; bold = true)
@@ -111,7 +119,7 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
+        aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -120,13 +128,13 @@ If `bg`, `th` and `pt`, the model is split into the background, thermodynamics a
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    aini = 1e-8, bg = true, th = true, pt = true, spline_thermo = true, debug = false, kwargs...
+    aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
-    vars[M.g.a] = aini
+    varsa = merge(vars, Dict(M.g.a => aini)) # TODO: treat a like any other unknown IC
     tspan = (0.0, 100.0)
 
     if bg
@@ -134,7 +142,7 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, vars, tspan, parsk; fully_determined = true, kwargs...)
+        bg = ODEProblem(bg, varsa, tspan, parsk; fully_determined = true, kwargs...)
     else
         bg = nothing
     end
@@ -144,22 +152,24 @@ function CosmologyProblem(
         if debug
             th = debug_system(th)
         end
-        th = ODEProblem(th, vars, tspan, parsk; fully_determined = true, kwargs...)
+        th = ODEProblem(th, varsa, tspan, parsk; fully_determined = true, kwargs...)
     else
         th = nothing
     end
 
     if pt
-        pt = structural_simplify(perturbations(M; spline_thermo))
+        pt, var2spl = perturbations(M; spline)
+        pt = structural_simplify(pt)
         if debug
             pt = debug_system(pt)
         end
-        pt = ODEProblem(pt, vars, tspan, parsk; fully_determined = true, kwargs...)
+        pt = ODEProblem(pt, spline ? vars : varsa, tspan, parsk; fully_determined = true, kwargs...) # TODO: varsa vs vars
     else
         pt = nothing
+        var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline_thermo)
+    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline, var2spl)
 end
 
 """
@@ -186,10 +196,9 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline_thermo)
+    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline, prob.var2spl)
 end
 
-# TODO: add generic function spline(sys::ODESystem, how_to_spline_different_vars) that splines the unknowns of a simplified ODESystem 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     function solve(
@@ -202,7 +211,7 @@ end
         thread = true, verbose = false
     )
 
-Solve the cosmological problem `prob` up to the perturbative levels with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
+Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
 The options `bgopts`, `thopts` and `ptopts` are passed to the background, thermodynamics and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
 If `threads`, integration over independent perturbation modes are parallellized.
@@ -270,13 +279,10 @@ function solve(
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
-        update_vars = Dict(M.g.a => bg[M.g.a][begin])
-        if have(M, :b) && have(M.b, :rec) && prob.spline_thermo
-            update_vars = merge(update_vars, Dict(
-                prob.pt.f.sys.b.rec.τspline => spline(th[M.b.rec.τ], th.t), # TODO: when solving thermo with low reltol: even though the solution is correct, just taking its points for splining can be insufficient. should increase number of points, so it won't mess up the perturbations
-                prob.pt.f.sys.b.rec.τ̇spline => spline(th[M.b.rec.τ̇], th.t),
-                prob.pt.f.sys.b.rec.cₛ²spline => spline(th[M.b.rec.cₛ²], th.t)
-            ))
+        update_vars = Dict() # TODO: aini? handle it like any other variable in pars = Dict(m.g.a => 1e-8) ...
+        for (var, spl) in prob.var2spl
+            verbose && println("Splining $var")
+            update_vars = merge(update_vars, Dict(spl => spline(th, var)))
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))

@@ -1,5 +1,6 @@
+import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
 import SpecialFunctions: zeta as ζ
-import Symbolics: taylor
+import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity
 using QuadGK
 
@@ -62,8 +63,8 @@ function taylor(sys::ODESystem, ϵ, orders)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
-    eqs = taylor(eqs, ϵ, orders)
-    ieqs = taylor(ieqs, ϵ, orders)
+    eqs = taylor(eqs, ϵ, orders) # TODO: want taylor_coeff?
+    ieqs = taylor(ieqs, ϵ, orders) # TODO: want taylor_coeff?
 
     # remove resulting trivial equations
     trivial_eqs = [0 ~ 0, 0 ~ -0.0]
@@ -86,16 +87,23 @@ function spline(y, x)
     return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
 end
 
+function spline(sol::ODESolution, var)
+    t = sol.t
+    y = sol(t, Val{0}; idxs=var).u
+    ẏ = sol(t, Val{1}; idxs=var).u # TODO: actually evaluate derivative
+    return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
+end
+
 # compute dy/dx by splining y(x)
 function D_spline(y, x; order = 1)
     y_spline = spline(y, x)
     return map(x -> DataInterpolations.derivative(y_spline, x, order), x)
 end
 
-value(s, t) = s(t)
-derivative(s, t, order=1) = DataInterpolations.derivative(s, t, order)
-@register_symbolic value(s::CubicSpline, t)
-@register_symbolic derivative(s::CubicSpline, t, order)
+value(s::AbstractInterpolation, t) = s(t)
+derivative(s::AbstractInterpolation, t, order=1) = DataInterpolations.derivative(s, t, order)
+@register_symbolic value(s::AbstractInterpolation, t)
+@register_symbolic derivative(s::AbstractInterpolation, t, order)
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
@@ -136,4 +144,62 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
     else
         return a[1:length(is)]
     end
+end
+
+# TODO: handle higher-order (3+) derivatives
+function structural_simplify_spline(sys::ODESystem, vars; verbose = false)
+    isempty(ModelingToolkit.get_systems(sys)) || error("System must be flattened")
+
+    eqs = ModelingToolkit.get_eqs(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    pars = ModelingToolkit.get_ps(sys)
+    defs = ModelingToolkit.get_defaults(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+
+    # 1) Recreate sys with spline parameters
+    dummyspline = CubicHermiteSpline([NaN, NaN, NaN], [NaN, NaN, NaN], 0.0:1.0:2.0)
+    extraeqs = Equation[]
+    var2spl = Dict() # list of additional spline parameters
+    varnames = nameof.(operation.(unwrap.(vars))) # names of variables to spline
+    for (i, eq) in enumerate(eqs) # TODO: iterate over vars instead? needs a little different buildup
+        var = eq.lhs
+        op = operation(var)
+        if op == D # is time derivative
+            var = only(sorted_arguments(var)) # e.g. a(t)
+            varname = nameof(operation(var)) # e.g. :a
+            if varname in varnames
+                splname = Symbol(varname, :_spline) # e.g. :a_spline
+                spl = only(@parameters $splname::CubicHermiteSpline)
+                verbose && println("Splining $var -> $spl")
+                eqs[i] = var ~ value(spl, t) # replace equation with splined version
+                delete!(defs, var) # remove any existing initial conditions (would cause overdetermined initialization system)
+                var2spl[var] = spl # add spline parameter
+                defs = merge(defs, Dict(spl => dummyspline))
+            end
+        end
+    end
+    @set! sys.eqs = [eqs; extraeqs]
+
+    # 2) Let structural_simplify do its magic, including inserting dummy derivative expressions
+    sys = structural_simplify(sys)
+
+    # 3) Finally substitute derivatives for the spline for the dummy derivatives
+    eqs = ModelingToolkit.get_eqs(sys)
+    obs = ModelingToolkit.get_observed(sys)
+    for spl in values(var2spl)
+        for order in reverse(1:2) # start with highest-order derivative (so D(D(y)) is handled as a whole, instead of the inner D(y) first)
+            for list in [eqs, obs]
+                for i in eachindex(list)
+                    list[i] = substitute(list[i], (D^order)(value(spl, t)) => derivative(spl, t, order)) # overwrite equations
+                end
+            end
+        end
+    end
+
+    # Return splined system and variable-to-parameter map
+    vars = ModelingToolkit.get_unknowns(sys)
+    pars = [pars; collect(values(var2spl))] # add splines as system parameters
+    pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
+    sys = ODESystem([eqs; obs], t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description) # copy structurally simplified system into a non-simplified one (2x simplify is forbidden)
+    return sys, var2spl
 end
