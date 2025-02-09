@@ -124,7 +124,7 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
+        bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -133,13 +133,12 @@ If `bg`, `th` and `pt`, the model is split into the background, thermodynamics a
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    aini = 1e-8, bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
+    bg = true, th = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
-    varsa = merge(vars, Dict(M.g.a => aini)) # TODO: treat a like any other unknown IC
     tspan = (0.0, 100.0)
 
     if bg
@@ -147,7 +146,7 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, varsa, tspan, parsk; fully_determined = true, kwargs...)
+        bg = ODEProblem(bg, vars, tspan, parsk; fully_determined, kwargs...)
     else
         bg = nothing
     end
@@ -157,7 +156,7 @@ function CosmologyProblem(
         if debug
             th = debug_system(th)
         end
-        th = ODEProblem(th, varsa, tspan, parsk; fully_determined = true, kwargs...)
+        th = ODEProblem(th, vars, tspan, parsk; fully_determined, kwargs...)
     else
         th = nothing
     end
@@ -168,7 +167,7 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
-        pt = ODEProblem(pt, spline ? vars : varsa, tspan, parsk; fully_determined = true, kwargs...) # TODO: varsa vs vars
+        pt = ODEProblem(pt, vars, tspan, parsk; fully_determined, kwargs...)
     else
         pt = nothing
         var2spl = Dict()
@@ -284,7 +283,7 @@ function solve(
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
-        update_vars = Dict() # TODO: aini? handle it like any other variable in pars = Dict(m.g.a => 1e-8) ...
+        update_vars = Dict()
         for (var, spl) in prob.var2spl
             verbose && println("Splining $var")
             update_vars = merge(update_vars, Dict(spl => spline(th, var)))
