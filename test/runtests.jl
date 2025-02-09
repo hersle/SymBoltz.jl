@@ -1,4 +1,4 @@
-using Test, SymBoltz, Unitful, UnitfulAstro
+using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
