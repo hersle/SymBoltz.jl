@@ -291,7 +291,6 @@ function solve(
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.th.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl
-            verbose && println("Splining $var")
             varname = nameof(operation(var))
             if varname in is_unknown
                 dvar = nothing # compute derivative from ODE f
@@ -299,7 +298,9 @@ function solve(
                 dvarname = Symbol(varname, Symbol("̇")) # add \dot # TODO: generalize to e.g. expand_derivatives(D(var))?
                 dvar = only(@variables($dvarname(t)))
             end
-            update_vars = merge(update_vars, Dict(spl => spline(th, var, dvar)))
+            splval = spline(th, var, dvar)
+            update_vars = merge(update_vars, Dict(spl => splval))
+            verbose && println("Splining $var with $(length(splval.t)) points")
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))
@@ -307,15 +308,23 @@ function solve(
 
         kidx = ModelingToolkit.parameter_index(ptprob0, k)
         ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
+        nmode, nmodes = Atomic{Int}(0), length(ks)
         ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
             ptprob = ptprob_tlv[]
-            verbose && println("$i/$(length(ks)) k = $(ks[i]*k0) Mpc/h")
             p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056
             setindex!(p, ks[i], kidx)
             return Setfield.@set ptprob.p = p
+        end, output_func = (sol, i) -> begin
+            if verbose
+                atomic_add!(nmode, 1)
+                progress = Int(round(nmode[] / nmodes * 100))
+                print("\rSolved perturbation modes $(nmode[])/$(nmodes) = $(round(progress)) %")
+            end
+            return sol, false
         end)
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
         ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
+        verbose && println() # end line in output_func
         for i in 1:length(ptsols)
             check_solution(ptsols[i].retcode)
         end

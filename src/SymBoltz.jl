@@ -8,6 +8,7 @@ using ModelingToolkit
 using OrdinaryDiffEq
 using NonlinearSolve
 using OhMyThreads
+using Base.Threads
 using Setfield
 
 # TODO: generate gravity equations
