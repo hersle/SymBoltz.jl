@@ -63,8 +63,8 @@ function taylor(sys::ODESystem, ϵ, orders)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
-    eqs = taylor(eqs, ϵ, orders) # TODO: want taylor_coeff?
-    ieqs = taylor(ieqs, ϵ, orders) # TODO: want taylor_coeff?
+    eqs = taylor(eqs, ϵ, orders)
+    ieqs = taylor(ieqs, ϵ, orders)
 
     # remove resulting trivial equations
     trivial_eqs = [0 ~ 0, 0 ~ -0.0]
@@ -160,22 +160,21 @@ function structural_simplify_spline(sys::ODESystem, vars; verbose = false)
     var2spl = Dict() # list of additional spline parameters
     varnames = nameof.(operation.(unwrap.(vars))) # names of variables to spline
     for (i, eq) in enumerate(eqs) # TODO: iterate over vars instead? needs a little different buildup
-        var = eq.lhs
-        op = operation(var)
-        if op == D # is time derivative
-            var = only(sorted_arguments(var)) # e.g. a(t)
-            varname = nameof(operation(var)) # e.g. :a
-            if varname in varnames
-                splname = Symbol(varname, :_spline) # e.g. :a_spline
-                spl = only(@parameters $splname::CubicHermiteSpline)
-                verbose && println("Splining $var -> $spl")
-                eqs[i] = var ~ value(spl, t) # replace equation with splined version
-                delete!(defs, var) # remove any existing initial conditions (would cause overdetermined initialization system)
-                var2spl[var] = spl # add spline parameter
-                defs = merge(defs, Dict(spl => dummyspline))
-            end
+        var = eq.lhs # e.g. D(D(a(t)))
+        while operation(var) == D # peel away all derivative operators to uncover variable underneath
+            var = only(sorted_arguments(var)) # e.g. D(a(t)) or a(t)
+        end
+        varname = nameof(operation(var)) # e.g. :a
+        if varname in varnames
+            splname = Symbol(varname, :_spline) # e.g. :a_spline
+            spl = only(@parameters $splname::CubicHermiteSpline)
+            verbose && println("Splining $var -> $spl")
+            eqs[i] = var ~ value(spl, t) # replace equation with splined version
+            var2spl[var] = spl # add spline parameter
+            defs = merge(defs, Dict(spl => dummyspline))
         end
     end
+    defs = remove_initial_conditions!(defs, keys(var2spl))
     @set! sys.eqs = [eqs; extraeqs]
 
     # 2) Let structural_simplify do its magic, including inserting dummy derivative expressions
@@ -200,4 +199,13 @@ function structural_simplify_spline(sys::ODESystem, vars; verbose = false)
     pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
     sys = ODESystem([eqs; obs], t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description) # copy structurally simplified system into a non-simplified one (2x simplify is forbidden)
     return sys, var2spl
+end
+
+function remove_initial_conditions!(ics::Dict, vars; maxorder=2)
+    for var in vars
+        for order in 0:maxorder
+            delete!(ics, (D^order)(var)) # remove any existing initial conditions (would cause overdetermined initialization system)
+        end
+    end
+    return ics
 end

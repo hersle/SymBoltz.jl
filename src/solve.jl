@@ -168,6 +168,7 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
+        vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
         pt = ODEProblem(pt, vars, tspan, parsk; fully_determined, kwargs...)
     else
         pt = nothing
@@ -198,6 +199,9 @@ function remake(
     pars = isempty(pars) ? missing : pars
     bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.bg.f.initialization_data), kwargs...) : nothing
     th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.th.f.initialization_data), kwargs...) : nothing
+    if !ismissing(vars)
+        vars = remove_initial_conditions!(vars, keys(prob.var2spl)) # must filter ICs in remake, too
+    end
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
