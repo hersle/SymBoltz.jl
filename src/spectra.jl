@@ -252,11 +252,12 @@ end
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 # TODO: take scalar l as input
 """
-    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven(), normalization = :Cl)
 
 Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P₀(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
+If `normaliation == :Dl`, compute ``Dₗ = Cₗ * l * (l+1) / 2π`` instead.
 """
-function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven())
+function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven(), normalization = :Cl)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
@@ -275,7 +276,13 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
         Cls[il] = integrate(ks_with0, dCl_dks_with0, integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
-    return Cls
+    if normalization == :Cl
+        return Cls
+    elseif normalization == :Dl
+        return @. Cls * ls * (ls+1) / 2π
+    else
+        error("Normalization $normalization is not :Cl or :Dl")
+    end
 end
 
 """
@@ -283,19 +290,19 @@ end
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 """
-function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; kwargs...)
+function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, kwargs...)
     _, ks_fine = cmb_ks(ls[end])
     ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
     ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
     #P0s = sol(ks_fine, sol[t][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
-    Cls = []
+    spectra = [] # Cls or Dls
     for mode in modes
-        mode == :TT && push!(Cls, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine))
-        mode == :EE && push!(Cls, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine))
-        mode == :TE && push!(Cls, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine))
+        mode == :TT && push!(spectra, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; normalization))
+        mode == :EE && push!(spectra, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine; normalization))
+        mode == :TE && push!(spectra, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine; normalization))
     end
-    return Cls
+    return spectra
 end
 
 """
@@ -303,10 +310,10 @@ end
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
-function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
     sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
-    return spectrum_cmb(modes, sol, ls; integrator)
+    return spectrum_cmb(modes, sol, ls; normalization, integrator)
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
@@ -318,8 +325,6 @@ function cmb_ks(lmax; Δk = 2π/10, Δk_S = 5.0, kmin = Δk, kmax = 2*lmax)
     # kmax is a guideline and may be slightly different from ks_fine[end] and ks_coarse[end]
     return ks_coarse, ks_fine
 end
-
-Dl(Cl, l) = @. Cl * l * (l+1) / 2π
 
 """
     correlation_function(sol::CosmologySolution; N = 2048, spline = true)

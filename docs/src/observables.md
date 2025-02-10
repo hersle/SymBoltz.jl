@@ -61,9 +61,7 @@ pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ls = 10:5:1500
 
-ClTTs, ClEEs, ClTEs = spectrum_cmb([:TT, :EE, :TE], prob, ls)
-DlTTs, DlEEs, DlTEs = [SymBoltz.Dl(Cls, ls) for Cls in [ClTTs, ClEEs, ClTEs]]
-
+DlTTs, DlEEs, DlTEs = spectrum_cmb([:TT, :EE, :TE], prob, ls; normalization = :Dl)
 pTT = plot(ls, DlTTs / 1e-12; ylabel = "Dₗᵀᵀ / 10⁻¹²")
 pEE = plot(ls, DlEEs / 1e-12; ylabel = "Dₗᴱᴱ / 10⁻¹²")
 pTE = plot(ls, DlTEs / 1e-12; ylabel = "Dₗᵀᴱ / 10⁻¹²", xlabel = "l")
