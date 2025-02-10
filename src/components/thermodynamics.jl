@@ -108,15 +108,3 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         #τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
     ], t, vars, pars; defaults, description, kwargs...)
 end
-
-function thermodynamics_ΛCDM(bg::ODESystem; spline=false, kwargs...)
-    if spline
-        @named rec = thermodynamics_recombination_splined(bg.g)
-        eqs = []
-    else
-        @named rec = thermodynamics_recombination_recfast(bg.g)
-        eqs = [rec.ρb ~ bg.bar.ρ * (H100*bg.g.h)^2/GN, rec.Tγ ~ bg.ph.T] # kg/m³ (convert from H₀=1 units to SI units)
-    end
-    th = ODESystem(eqs, t; kwargs...)
-    return compose(th, rec, bg)
-end
