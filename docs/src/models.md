@@ -10,7 +10,6 @@ SymBoltz.RMΛ
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = RMΛ(K = nothing) # flat
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => NaN) # TODO: don't pass h and T₀ to avoid infinite loop
-pars[M.Λ.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀]
 prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)

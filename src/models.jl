@@ -74,9 +74,7 @@ function ΛCDM(;
         S1 ~ S_pol
     ] .|> O(ϵ^1)
     # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
-    if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
-        push!(defs, species[end].Ω₀ => 1 - sum(s.Ω₀ for s in species[begin:end-1])) # TODO: do for all species?
-    end
+    defs = merge(defs, Ω₀_defaults(G, species))
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     components = filter(!isnothing, [g; G; species; I])
@@ -120,9 +118,10 @@ function RMΛ(;
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
-    defs = [
-        g.Ψ => 20 // 15,
-    ]
+    defs = Dict(
+        g.Ψ => 20 // 15
+    )
+    defs = merge(defs, Ω₀_defaults(G, species))
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
     return complete(M; flatten = false)
@@ -174,4 +173,15 @@ function w0waCDM(; name = :w0waCDM, Λanalytical = true, kwargs...)
     M = ΛCDM(; kwargs...)
     X = w0wa(M.g; analytical = Λanalytical)
     return ΛCDM(Λ = X; name, Λanalytical, kwargs...)
+end
+
+function Ω₀_defaults(G::ODESystem, species)
+    defs = Dict()
+    if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
+        s = species[end]
+        if !haskey(defs, s.Ω₀)
+            push!(defs, s.Ω₀ => 1 - sum(s′.Ω₀ for s′ in species[begin:end-1])) # TODO: do for all species, or do sum(s.Ω₀) ~ 1, when parameter initialization is workign
+        end
+    end
+    return defs
 end
