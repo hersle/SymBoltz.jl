@@ -237,7 +237,7 @@ function solve(
     if !isempty(prob.shoot)
         length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
         pars = Dict(par => prob.pars[par] for par in prob.shoot)
-        pars = shoot(prob, pars, prob.conditions; verbose, shootopts...) # TODO: pass options?
+        pars = shoot(prob, pars, prob.conditions; verbose, shootopts...)
         prob = remake(prob, pars)
     end
 
@@ -519,11 +519,11 @@ function shoot(
 
     nguess = collect(values(pars))
     nprob = NonlinearProblem(f, nguess)
-    nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...) # TODO: speed up!
+    nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...)
     check_solution(nsol.retcode)
     return Dict(keys(pars) .=> nsol.u)
 end
 
 # Fix model/solution under broadcasted calls
-Base.broadcastable(sys::ODESystem) = Ref(sys) # TODO: add to ModelingToolkit?
+Base.broadcastable(sys::ODESystem) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)

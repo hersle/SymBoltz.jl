@@ -46,18 +46,18 @@ function ΛCDM(;
         g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
     )
     have(ν) && have(γ) && merge!(defs, Dict(
-        ν.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS uses something slightly different
+        ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
         ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀
     ))
     have(h) && have(γ) && merge!(defs, Dict(
-        h.T₀ => #=(ν.Neff/3)^(1/4) *=# (4/11)^(1/3) * γ.T₀, # TODO: CLASS uses something slightly different
+        h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
     ))
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
-        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s)) # TODO: remake cannot handle parameter depends on time-dependent variables
+        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
@@ -69,7 +69,7 @@ function ΛCDM(;
         S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
         S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ) |> expand_derivatives
         S_Dop ~ D(b.rec.v*b.u) / k |> expand_derivatives
-        S_pol ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives # TODO: move last derivative to jₗ with integration by parts?
+        S_pol ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
         S0 ~ S_SW + S_ISW + S_Dop
         S1 ~ S_pol
     ] .|> O(ϵ^1)

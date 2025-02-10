@@ -36,7 +36,8 @@ end
 Create a particle species for matter (with equation of state `w ~ 0`) in the spacetime with metric `g`.
 """
 function matter(g; name = :m, kwargs...)
-    return species_constant_eos(g, 0; name, kwargs...)
+    description = "Matter"
+    return species_constant_eos(g, 0; name, description, kwargs...)
 end
 
 """
@@ -48,7 +49,8 @@ function radiation(g; name = :r, kwargs...)
     r = species_constant_eos(g, 1//3; name, kwargs...) |> complete
     pars = @parameters T₀
     vars = @variables T(t) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
-    return extend(r, ODESystem([T ~ T₀ / g.a], t, vars, pars; name))
+    description = "Radiation"
+    return extend(r, ODESystem([T ~ T₀ / g.a], t, vars, pars; name); description)
 end
 
 """
@@ -163,7 +165,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff
     eqs1 = [
-        D(F[0]) ~ -k*F[1] + 4*D(g.Φ) # TODO: include CLASS nonstandard "ceff2" term
+        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # t ≈ 1/ℰ

@@ -144,14 +144,14 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(Ss::AbstractArray, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true)
+    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true) where {T <: Real}
 
-Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t))`` over the source function values `Ss` against the spherical kind-1 Bessel functions `jₗ` for the given `ks` and `ls`.
-The element `Ss[i,j]` holds the source function value ``S(ks[i], ts[j])``.
-An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed on an interval on which the integrand behaves well.
+Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t)) = ∫dt S₀(k,t) jₗ(k(t₀-t)) + ∫dt S₁(k,t) jₗ′(k(t₀-t))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
+The element `S0s[i,j]` holds the source function value ``S₀(ks[i], ts[j])`` (and similarly for `S1s`).
+An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dt f(t) = ∫du f(t(u)) / u′(t)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
 """
 function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true) where {T <: Real}
-    @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure?
+    @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
     lmin, lmax = extrema(ls)
@@ -173,13 +173,12 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
             S0 = S0s[ik,it]
             S1 = S1s[ik,it]
             kΔt = k * (ts[end]-t)
-            sphericalbesseljfast!(Jls_all, ls_all, kΔt) # TODO: reuse ∂Θ_∂x's memory?
-            for il in eachindex(ls) # TODO: @simd if I can make Jl access with unit stride? also need @inbounds?
+            sphericalbesseljfast!(Jls_all, ls_all, kΔt)
+            for il in eachindex(ls)
                 l = ls[il]
                 Jl = Jls_all[1+l-lmin]
                 Jl′ = sphericalbesseljprime(l, ls_all, Jls_all)
                 ∂I_∂u[il,it] = (S0 * Jl + S1 * Jl′) / u′s[it] # ∫dt y(t) = ∫du y(t(u)) / u′(t(u))
-                # TODO: integrate in this loop instead?
             end
         end
         for il in eachindex(ls)
@@ -213,7 +212,7 @@ Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating 
 function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.prob.M
     t0 = sol[t][end]
-    S0s = sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts?
+    S0s = sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts? # TODO 3/4 -> 3/16?
     S1s = 0.0 .* S0s # == 0
     return S0s, S1s
 end
@@ -250,7 +249,6 @@ function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::Abstrac
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-# TODO: take scalar l as input
 """
     spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven(), normalization = :Cl)
 

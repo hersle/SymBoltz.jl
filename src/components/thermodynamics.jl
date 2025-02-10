@@ -2,7 +2,7 @@
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     pars = @parameters Yp fHe re1z re2z
-    vars1 = @variables Xe(t) ne(t) τ(t) τ̇(t) τ̈(t) τ⃛(t) v(t) v̇(t) v̈(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
+    vars1 = @variables Xe(t) ne(t) τ(t) τ̇(t) v(t) v̇(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
     vars2 = @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     vars3 = @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     vars4 = @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -103,8 +103,5 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         v ~ D(exp(-τ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-        v̈ ~ 0 # D(v̇) # TODO: include; structural_simplify() crashes when this is included
-        #τ̈ ~ D(τ̇) # TODO: unstable at thermodynamics stage
-        #τ⃛ ~ 0 # D(τ̈) # TODO: unstable at thermodynamics stage # TODO: structural_simplify() crashes when this is included
     ], t, vars, pars; defaults, description, kwargs...)
 end

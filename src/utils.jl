@@ -4,7 +4,7 @@ import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity
 using QuadGK
 
-∫(f, a, b) = quadgk(f, a, b)[1] # TODO: use integrator that supports dual numbers
+∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
 # callback for terminating an integrator when var == val0
@@ -19,14 +19,6 @@ function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
     sys = f(sys, fullname)
     return compose(sys, subs)
 end
-
-#=
-function basename(sys::ODESystem)
-    name = ModelingToolkit.get_name(sys) |> string
-    prefix = ModelingToolkit.get_namespace(sys) * "₊"
-    return chopprefix(name, prefix) |> Symbol
-end
-=#
 
 function replace(sys::ODESystem, old_new_subsys::Pair{ODESystem, ODESystem})
     old_subsys, new_subsys = old_new_subsys # unpack

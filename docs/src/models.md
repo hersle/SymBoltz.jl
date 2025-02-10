@@ -45,7 +45,7 @@ SymBoltz.w0waCDM
 ```@example w0waCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
 M = w0waCDM(K = nothing)
-pars = merge(parameters_Planck18(M), Dict( # TODO: make parameters_planck18 take args... of additional parameters
+pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.2,
     M.X.cₛ² => 1.0
@@ -103,7 +103,7 @@ SymBoltz.QCDM
 using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
 V = ϕ -> V0 * ϕ^N
-M = QCDM(V, h = nothing, I = nothing, K = nothing) # TODO: remove h = nothing
+M = QCDM(V, I = nothing, K = nothing)
 D = Differential(M.t)
 pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
 prob = CosmologyProblem(M, pars, Dict(D(M.Q.ϕ) => +1.0), [M.g.ℰ ~ 1])
