@@ -524,6 +524,24 @@ function shoot(
     return Dict(keys(pars) .=> nsol.u)
 end
 
+"""
+    parameters(prob::CosmologyProblem; bg = true, th = true, pt = true, spline = false)
+
+Get all parameter values of the cosmological problem `prob`.
+"""
+function parameters(prob::CosmologyProblem; bg = true, th = true, pt = true, spline = false)
+    bg = bg && !isnothing(prob.bg) ? parameters(prob.bg) : Dict()
+    th = th && !isnothing(prob.th) ? parameters(prob.th) : Dict()
+    pt = pt && !isnothing(prob.pt) ? parameters(prob.pt) : Dict()
+    pars = merge(bg, th, pt)
+    !spline && delete!.(Ref(pars), values(prob.var2spl))
+    return pars
+end
+function parameters(prob::ODEProblem)
+    pars = parameters(prob.f.sys)
+    return Dict(pars .=> prob.ps[pars])
+end
+
 # Fix model/solution under broadcasted calls
 Base.broadcastable(sys::ODESystem) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)
