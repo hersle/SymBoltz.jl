@@ -78,7 +78,7 @@ end
 
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
-    ts = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100))
+    ts = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
     tests = [
         (M.g.a, 1e-6, 0)
         (M.b.rec.τ̇, 0, 1e-2)
@@ -101,8 +101,18 @@ end
 end
 
 @testset "Spline observed variables" begin
-    spline = [unknowns(prob.th.f.sys); M.b.rec.v]
-    prob′ = CosmologyProblem(M, pars; spline)
-    @test haskey(prob′.var2spl, M.b.rec.v)
-    @test solve(prob′, 1.0) isa Any
+    prob1 = prob
+    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.th.f.sys); M.b.rec.v])
+    @test haskey(prob2.var2spl, M.b.rec.v)
+
+    obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS
+    @test obs2["b₊rec₊v(t)"] == "SymBoltz.value(b₊rec₊v_spline, t)"
+    @test obs2["b₊rec₊vˍt(t)"] == "SymBoltz.derivative(b₊rec₊v_spline, t, 1)"
+
+    sol1 = solve(prob1, 1.0)
+    sol2 = solve(prob2, 1.0)
+    ts = sol1[M.t]
+    v1s = sol1(1.0, ts, M.b.rec.v)
+    v2s = sol2(1.0, ts, M.b.rec.v)
+    @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
