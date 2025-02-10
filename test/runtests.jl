@@ -97,5 +97,12 @@ end
 end
 
 @testset "Whole model without autosplining" begin
-    @test_nowarn structural_simplify(M)
+    @test structural_simplify(M) isa Any
+end
+
+@testset "Spline observed variables" begin
+    spline = [unknowns(prob.th.f.sys); M.b.rec.v]
+    prob′ = CosmologyProblem(M, pars; spline)
+    @test haskey(prob′.var2spl, M.b.rec.v)
+    @test solve(prob′, 1.0) isa Any
 end

@@ -87,10 +87,14 @@ function spline(y, x)
     return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
 end
 
-function spline(sol::ODESolution, var)
+function spline(sol::ODESolution, var, dvar = nothing)
     t = sol.t
     y = sol(t, Val{0}; idxs=var).u
-    ẏ = sol(t, Val{1}; idxs=var).u # TODO: actually evaluate derivative
+    if isnothing(dvar)
+        ẏ = sol(t, Val{1}; idxs=var).u # evaluates derivative from ODE f (?)
+    else
+        ẏ = sol(t, Val{0}; idxs=dvar).u # evaluates derivative from custom expression
+    end
     return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
 end
 

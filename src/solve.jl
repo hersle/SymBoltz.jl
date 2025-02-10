@@ -15,17 +15,9 @@ function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
 end
 
-function perturbations(sys; spline = true)
+function perturbations(sys; spline = [])
     pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
-
-    if spline
-        th = structural_simplify(thermodynamics(sys))
-        pt = flatten(pt) # TODO: avoid
-        pt, var2spl = structural_simplify_spline(pt, unknowns(th))
-    else
-        var2spl = Dict()
-    end
-
+    pt, var2spl = structural_simplify_spline(flatten(pt), spline) # TODO: avoid flatten?
     return pt, var2spl
 end
 
@@ -41,7 +33,6 @@ struct CosmologyProblem
     shoot::Base.KeySet
     conditions::AbstractArray
 
-    spline::Bool
     var2spl::Dict
 end
 
@@ -129,7 +120,10 @@ end
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
+
 If `bg`, `th` and `pt`, the model is split into the background, thermodynamics and perturbations stages.
+If `spline` is a `Bool`, it decides whether all thermodynamics unknowns in the perturbations system are replaced by splines.
+If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
@@ -162,6 +156,13 @@ function CosmologyProblem(
     end
 
     if pt
+        if spline == true
+            spline = unknowns(th.f.sys)
+        elseif spline == false
+            spline = []
+        else
+            # then spline should already be a vector of variables, so leave it unmodified
+        end
         pt, var2spl = perturbations(M; spline)
         pt = structural_simplify(pt)
         if debug
@@ -173,7 +174,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, spline, var2spl)
+    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
 end
 
 """
@@ -200,7 +201,7 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.spline, prob.var2spl)
+    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
@@ -284,9 +285,17 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan)
         update_vars = Dict()
+        is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.th.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl
             verbose && println("Splining $var")
-            update_vars = merge(update_vars, Dict(spl => spline(th, var)))
+            varname = nameof(operation(var))
+            if varname in is_unknown
+                dvar = nothing # compute derivative from ODE f
+            else
+                dvarname = Symbol(varname, Symbol("̇")) # add \dot # TODO: generalize to e.g. expand_derivatives(D(var))?
+                dvar = only(@variables($dvarname(t)))
+            end
+            update_vars = merge(update_vars, Dict(spl => spline(th, var, dvar)))
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))
