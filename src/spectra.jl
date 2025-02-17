@@ -1,7 +1,6 @@
 using NumericalIntegration
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
-using ForwardDiff
 using TwoFAST
 using MatterPower
 
