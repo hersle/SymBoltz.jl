@@ -283,34 +283,53 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
 end
 
 """
-    spectrum_cmb(modes, sol::CosmologySolution, ls::AbstractArray; kwargs...)
+    spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, unit = nothing, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
+If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 """
-function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, kwargs...)
+function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, unit = nothing, kwargs...)
     _, ks_fine = cmb_ks(ls[end])
     ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
     ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
     #P0s = sol(ks_fine, sol[t][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
+
+    if isnothing(unit)
+        factor = 1 # keep dimensionless
+    elseif dimension(unit) == dimension(u"K")
+        factor = uconvert(unit, sol[sol.prob.M.γ.T₀] * u"K") # convert to a temperature unit
+    else
+        error("Requested unit $unit is not a temperature unit")
+    end
+
     spectra = [] # Cls or Dls
     for mode in modes
-        mode == :TT && push!(spectra, spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; normalization))
-        mode == :EE && push!(spectra, spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine; normalization))
-        mode == :TE && push!(spectra, spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine; normalization))
+        if mode == :TT
+            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; normalization)
+        elseif mode == :EE
+            spectrum = spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine; normalization)
+        elseif mode == :TE
+            spectrum = spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine; normalization)
+        else
+            error("Unknown CMB power spectrum mode $mode")
+        end
+        spectrum *= factor^2 # possibly make dimensionful
+        push!(spectra, spectrum)
     end
+
     return spectra
 end
 
 """
-    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), kwargs...)
+    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, unit = nothing, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
-function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, kwargs...)
+function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, unit = nothing, kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
     sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
-    return spectrum_cmb(modes, sol, ls; normalization, integrator)
+    return spectrum_cmb(modes, sol, ls; normalization, unit, integrator)
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 

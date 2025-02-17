@@ -81,8 +81,8 @@ plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel
 Similarly, we can calculate the angular CMB power spectrum:
 ```@example getting_started
 ls = 10:10:1000
-Dls = spectrum_cmb(:TT, sol, ls; normalization = :Dl)
-plot(ls, Dls / 1e-6^2; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π / (μK)²", label = nothing)
+Dls = spectrum_cmb(:TT, sol, ls; normalization = :Dl, unit = u"μK")
+plot(ls, Dls; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π", label = nothing)
 ```
 
 And here is a condensed plot with several quantities:
