@@ -1,20 +1,23 @@
 # Comparison to CLASS
 
-[This comparison script](https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md) automatically builds the latest version of the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) and compares its results to the latest version of SymBoltz:
+This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) for the ΛCDM model.
 
+```@raw html
+<details>
+<summary><h2 style="display: inline-block">Setup</h2></summary>
+```
 ```@example class
 using SymBoltz
-lmax = 6
-M = SymBoltz.ΛCDM(; lmax, K = nothing)
-pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars)
-```
-```@setup class
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
 using Plots
+
+lmax = 6
+M = ΛCDM(; lmax, K = nothing)
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     merge!(in, Dict(
@@ -169,14 +172,14 @@ sols = Dict(
 # matter power spectrum
 ks = sol1["P"]["k(h/Mpc)"] * h # 1/Mpc
 Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
-Ps = spectrum_matter(prob, ks / u"Mpc"; verbose=true) / u"Mpc^3"
+Ps = spectrum_matter(prob, ks / u"Mpc") / u"Mpc^3"
 
 # CMB power spectrum
 ls = sol1["Cl"]["l"]
 ls = Int.(ls[begin:10:end])
 Dls_class = sol1["Cl"]["TT"]
 Dls_class = Dls_class[begin:10:end]
-Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl, verbose=true)
+Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl)
 
 sols = merge(sols, Dict(
     "k" => (ks, ks),
@@ -257,92 +260,95 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
 end
 nothing # hide
 ```
-
-### Background
-
-#### Conformal time
-```@example class
-plot_compare("a_bg", "χ") # hide
-```
-#### Hubble function
-
-```@example class
-plot_compare("a_bg", "E"; lgx=true, lgy=true) # hide
-```
-#### Energy densities
-```@example class
-plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lgy=true) # hide
-```
-#### Equations of state
-```@example class
-plot_compare("a_bg", ["wh"]; lgx=true) # hide
-```
-#### Luminosity distance
-```@example class
-plot_compare("a_bg", "dL"; lgx=true, lgy=true) # hide
+```@raw html
+</details>
 ```
 
-### Thermodynamics
+## Background
 
-#### Optical depth derivative
+### Conformal time
 ```@example class
-plot_compare("a_th", "τ̇"; lgx=true, lgy=true) # hide
+plot_compare("a_bg", "χ")
 ```
-#### Optical depth exponential
+### Hubble function
+
 ```@example class
-plot_compare("a_th", "exp(-τ)"; lgx=true) # hide
+plot_compare("a_bg", "E"; lgx=true, lgy=true)
 ```
-#### Visibility function
+### Energy densities
 ```@example class
-plot_compare("a_th", "v"; lgx=true, lgy=false) # hide
+plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lgy=true)
 ```
-#### Free electron fraction
+### Equations of state
 ```@example class
-plot_compare("a_th", "Xe"; lgx=true, lgy=false) # hide
+plot_compare("a_bg", ["wh"]; lgx=true)
 ```
-#### Baryon temperature
+### Luminosity distance
 ```@example class
-plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true) # hide
-```
-#### Baryon equation of state
-```@example class
-plot_compare("a_th", "wb"; lgx=true, lgy=true) # hide
-```
-#### Baryon sound speed
-```@example class
-plot_compare("a_th", "csb²"; lgx=true, lgy=true) # hide
+plot_compare("a_bg", "dL"; lgx=true, lgy=true)
 ```
 
-### Perturbations
+## Thermodynamics
 
-#### Metric potentials
+### Optical depth derivative
 ```@example class
-plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true) # hide
+plot_compare("a_th", "τ̇"; lgx=true, lgy=true)
 ```
-#### Energy overdensities
+### Optical depth exponential
 ```@example class
-plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true) # hide
+plot_compare("a_th", "exp(-τ)"; lgx=true)
 ```
-#### Momenta
+### Visibility function
 ```@example class
-plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true) # hide
+plot_compare("a_th", "v"; lgx=true, lgy=false)
 ```
-#### Shear stresses
+### Free electron fraction
 ```@example class
-plot_compare("a_pt", ["σγ", "σν"]; lgx=true) # hide
+plot_compare("a_th", "Xe"; lgx=true, lgy=false)
 ```
-#### Polarization
+### Baryon temperature
 ```@example class
-plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true) # hide
+plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true)
+```
+### Baryon equation of state
+```@example class
+plot_compare("a_th", "wb"; lgx=true, lgy=true)
+```
+### Baryon sound speed
+```@example class
+plot_compare("a_th", "csb²"; lgx=true, lgy=true)
 ```
 
-### Power spectra
+## Perturbations
 
-#### Matter power spectrum
+### Metric potentials
 ```@example class
-plot_compare("k", "P"; lgx=true, lgy=true) # hide
+plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true)
 ```
-#### CMB angular power spectrum
+### Energy overdensities
 ```@example class
-plot_compare("l", "Dl") # hide
+plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
+```
+### Momenta
+```@example class
+plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
+```
+### Shear stresses
+```@example class
+plot_compare("a_pt", ["σγ", "σν"]; lgx=true)
+```
+### Polarization
+```@example class
+plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true)
+```
+
+## Power spectra
+
+### Matter power spectrum
+```@example class
+plot_compare("k", "P"; lgx=true, lgy=true)
+```
+### CMB angular power spectrum
+```@example class
+plot_compare("l", "Dl")
 ```
