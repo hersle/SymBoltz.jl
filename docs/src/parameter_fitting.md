@@ -2,6 +2,9 @@
 
 This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data.
 
+!!! note
+    Performance is not good enough for parameter fitting yet, but we are working to improve this.
+
 ## Observed supernova data
 
 We use the data from [Betoule+ (2014)](https://arxiv.org/abs/1401.4064) of redshifts and luminosity distances of supernovae.
