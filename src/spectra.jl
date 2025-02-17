@@ -143,13 +143,13 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true) where {T <: Real}
+    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = false) where {T <: Real}
 
 Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t)) = ∫dt S₀(k,t) jₗ(k(t₀-t)) + ∫dt S₁(k,t) jₗ′(k(t₀-t))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
 The element `S0s[i,j]` holds the source function value ``S₀(ks[i], ts[j])`` (and similarly for `S1s`).
 An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dt f(t) = ∫du f(t(u)) / u′(t)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
 """
-function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = true) where {T <: Real}
+function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = false) where {T <: Real}
     @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 

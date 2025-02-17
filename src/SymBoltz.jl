@@ -40,4 +40,16 @@ export solve, shoot, remake
 export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter
 
+using PrecompileTools: @compile_workload
+@compile_workload begin
+    using SymBoltz, Unitful, UnitfulAstro
+    M = ΛCDM(K = nothing)
+    pars = parameters_Planck18(M)
+    prob = CosmologyProblem(M, pars)
+    ks = 10 .^ range(-5, 1, length=5) / u"Mpc"
+    sol = solve(prob, ks; thread=false)
+    Ps = spectrum_matter(sol, ks)
+    Dls = spectrum_cmb(:TT, sol, 1:3; normalization = :Dl)
+end
+
 end
