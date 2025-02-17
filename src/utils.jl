@@ -1,5 +1,4 @@
 import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
-import SpecialFunctions: zeta as ζ
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity
 using QuadGK
