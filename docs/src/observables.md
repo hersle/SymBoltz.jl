@@ -61,10 +61,11 @@ pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ls = 10:5:1500
 
-DlTTs, DlEEs, DlTEs = spectrum_cmb([:TT, :EE, :TE], prob, ls; normalization = :Dl)
-pTT = plot(ls, DlTTs / 1e-12; ylabel = "Dₗᵀᵀ / 10⁻¹²")
-pEE = plot(ls, DlEEs / 1e-12; ylabel = "Dₗᴱᴱ / 10⁻¹²")
-pTE = plot(ls, DlTEs / 1e-12; ylabel = "Dₗᵀᴱ / 10⁻¹²", xlabel = "l")
+DlTTs, DlEEs, DlTEs = spectrum_cmb([:TT, :EE, :TE], prob, ls; normalization = :Dl, unit = u"μK")
+# TODO: compare EE and TE with CLASS # hide
+pTT = plot(ls, DlTTs; ylabel = "Dₗᵀᵀ")
+pEE = plot(ls, DlEEs; ylabel = "Dₗᴱᴱ")
+pTE = plot(ls, DlTEs; ylabel = "Dₗᵀᴱ", xlabel = "l")
 plot(pTT, pEE, pTE, layout = (3, 1), size = (600, 700), legend = nothing)
 ```
 
