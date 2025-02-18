@@ -45,7 +45,7 @@ O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
-function taylor(sys::ODESystem, ϵ, orders)
+function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
@@ -54,8 +54,8 @@ function taylor(sys::ODESystem, ϵ, orders)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
-    eqs = taylor(eqs, ϵ, orders)
-    ieqs = taylor(ieqs, ϵ, orders)
+    eqs = taylor(eqs, ϵ, orders; kwargs...)
+    ieqs = taylor(ieqs, ϵ, orders; kwargs...)
 
     # remove resulting trivial equations
     trivial_eqs = [0 ~ 0, 0 ~ -0.0]
