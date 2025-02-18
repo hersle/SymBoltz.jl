@@ -59,8 +59,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{\gamma.T}\left( t \right) &amp;= \frac{\mathtt{\gamma.T{_0}}}{a\left( t \right)} \\
 \mathtt{\gamma.w}\left( t \right) &amp;= \frac{1}{3} \\
 \mathtt{\gamma.P}\left( t \right) &amp;= \mathtt{\gamma.\rho}\left( t \right) \mathtt{\gamma.w}\left( t \right) \\
-\mathtt{\gamma.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\gamma.w}\left( t \right) \right)} \mathtt{\gamma.\Omega_0} \\
-\mathtt{\gamma.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\gamma.\rho}\left( t \right) \\
+\mathtt{\gamma.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\gamma.w}\left( t \right) \right)} \mathtt{\gamma.\Omega_0}}{8 \pi} \\
+\mathtt{\gamma.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{\gamma.\rho}\left( t \right) \pi \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{0}}{\mathrm{d}t} \epsilon &amp;= \left( 4 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} - k \mathtt{\nu.F}\left( t \right)_{1} \right) \epsilon \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{1}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{3} k \left( 4 \Psi\left( t \right) + \mathtt{\nu.F}\left( t \right)_{0} - 2 \mathtt{\nu.F}\left( t \right)_{2} \right) \epsilon \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{2}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{5} k \left( 2 \mathtt{\nu.F}\left( t \right)_{1} - 3 \mathtt{\nu.F}\left( t \right)_{3} \right) \epsilon \\
@@ -75,8 +75,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{\nu.T}\left( t \right) &amp;= \frac{\mathtt{\nu.T{_0}}}{a\left( t \right)} \\
 \mathtt{\nu.w}\left( t \right) &amp;= \frac{1}{3} \\
 \mathtt{\nu.P}\left( t \right) &amp;= \mathtt{\nu.w}\left( t \right) \mathtt{\nu.\rho}\left( t \right) \\
-\mathtt{\nu.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\nu.w}\left( t \right) \right)} \mathtt{\nu.\Omega_0} \\
-\mathtt{\nu.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\nu.\rho}\left( t \right) \\
+\mathtt{\nu.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\nu.w}\left( t \right) \right)} \mathtt{\nu.\Omega_0}}{8 \pi} \\
+\mathtt{\nu.\Omega}\left( t \right) &amp;= \frac{8}{3} \pi \mathtt{\nu.\rho}\left( t \right) \\
 \mathtt{c.c_s^2}\left( t \right) \epsilon &amp;= 0 \\
 \mathtt{c.w}\left( t \right) &amp;= 0 \\
 \mathtt{c.P}\left( t \right) &amp;= \mathtt{c.\rho}\left( t \right) \mathtt{c.w}\left( t \right) \\
@@ -210,8 +210,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{\Lambda.c_s^2}\left( t \right) \epsilon &amp;=  - \epsilon \\
 \mathtt{\Lambda.w}\left( t \right) &amp;= -1 \\
 \mathtt{\Lambda.P}\left( t \right) &amp;= \mathtt{\Lambda.\rho}\left( t \right) \mathtt{\Lambda.w}\left( t \right) \\
-\mathtt{\Lambda.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\Lambda.w}\left( t \right) \right)} \mathtt{\Lambda.\Omega_0} \\
-\mathtt{\Lambda.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\Lambda.\rho}\left( t \right) \\
+\mathtt{\Lambda.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\Lambda.w}\left( t \right) \right)} \mathtt{\Lambda.\Omega_0}}{8 \pi} \\
+\mathtt{\Lambda.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{\Lambda.\rho}\left( t \right) \pi \\
 \mathtt{I.P}\left( t \right) &amp;= \frac{2 \pi^{2} \left( \frac{k}{\mathtt{I.kpivot}} \right)^{-1 + \mathtt{I.ns}} \mathtt{I.As}}{k^{3}}
 \end{align*}
  \]</p><p>The cosmological constant species is stored in the component <code>M1.Λ</code>. Here are the equations we will remove:</p><pre><code class="language-julia hljs">equations(M1.Λ)</code></pre><p class="math-container">\[ \begin{align*}
@@ -221,8 +221,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{c_s^2}\left( t \right) \epsilon &amp;=  - \epsilon \\
 w\left( t \right) &amp;= -1 \\
 P\left( t \right) &amp;= \rho\left( t \right) w\left( t \right) \\
-\rho\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + w\left( t \right) \right)} \mathtt{\Omega{_0}} \\
-\Omega\left( t \right) &amp;= 8.3776 \rho\left( t \right)
+\rho\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + w\left( t \right) \right)} \mathtt{\Omega_0}}{8 \pi} \\
+\Omega\left( t \right) &amp;= \frac{8}{3} \rho\left( t \right) \pi
 \end{align*}
  \]</p><h2 id="2.-Create-the-extended-component"><a class="docs-heading-anchor" href="#2.-Create-the-extended-component">2. Create the extended component</a><a id="2.-Create-the-extended-component-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Create-the-extended-component" title="Permalink"></a></h2><p>The background continuity equation <span>$\dot{ρ}(t) = -3 H(t) \, ρ(t) \, (1 + w(t))$</span> can be solved analytically with the w₀wₐ equation of state and the ansatz</p><p class="math-container">\[ρ(t) = ρ(t_0) \, a(t)^m \exp(n (1 - a(t))),\]</p><p>giving <span>$m = -3 (1 + w_0 + w_a)$</span> and <span>$n = -3 w_a$</span>. The perturbation equations are</p><p class="math-container">\[\begin{aligned}
 \dot{δ} &amp;= -(1 + w) (θ - 3 \dot{Φ}) - 3 \frac{\dot{a}}{a} (c_s^2 - w) δ, \\
@@ -324,8 +324,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{\gamma.T}\left( t \right) &amp;= \frac{\mathtt{\gamma.T{_0}}}{a\left( t \right)} \\
 \mathtt{\gamma.w}\left( t \right) &amp;= \frac{1}{3} \\
 \mathtt{\gamma.P}\left( t \right) &amp;= \mathtt{\gamma.\rho}\left( t \right) \mathtt{\gamma.w}\left( t \right) \\
-\mathtt{\gamma.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\gamma.w}\left( t \right) \right)} \mathtt{\gamma.\Omega_0} \\
-\mathtt{\gamma.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\gamma.\rho}\left( t \right) \\
+\mathtt{\gamma.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\gamma.w}\left( t \right) \right)} \mathtt{\gamma.\Omega_0}}{8 \pi} \\
+\mathtt{\gamma.\Omega}\left( t \right) &amp;= \frac{8}{3} \mathtt{\gamma.\rho}\left( t \right) \pi \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{0}}{\mathrm{d}t} \epsilon &amp;= \left( 4 \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} - k \mathtt{\nu.F}\left( t \right)_{1} \right) \epsilon \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{1}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{3} k \left( 4 \Psi\left( t \right) + \mathtt{\nu.F}\left( t \right)_{0} - 2 \mathtt{\nu.F}\left( t \right)_{2} \right) \epsilon \\
 \frac{\mathrm{d} \mathtt{\nu.F}\left( t \right)_{2}}{\mathrm{d}t} \epsilon &amp;= \frac{1}{5} k \left( 2 \mathtt{\nu.F}\left( t \right)_{1} - 3 \mathtt{\nu.F}\left( t \right)_{3} \right) \epsilon \\
@@ -340,8 +340,8 @@ k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &am
 \mathtt{\nu.T}\left( t \right) &amp;= \frac{\mathtt{\nu.T{_0}}}{a\left( t \right)} \\
 \mathtt{\nu.w}\left( t \right) &amp;= \frac{1}{3} \\
 \mathtt{\nu.P}\left( t \right) &amp;= \mathtt{\nu.w}\left( t \right) \mathtt{\nu.\rho}\left( t \right) \\
-\mathtt{\nu.\rho}\left( t \right) &amp;= 0.11937 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\nu.w}\left( t \right) \right)} \mathtt{\nu.\Omega_0} \\
-\mathtt{\nu.\Omega}\left( t \right) &amp;= 8.3776 \mathtt{\nu.\rho}\left( t \right) \\
+\mathtt{\nu.\rho}\left( t \right) &amp;= \frac{3 \left( a\left( t \right) \right)^{ - 3 \left( 1 + \mathtt{\nu.w}\left( t \right) \right)} \mathtt{\nu.\Omega_0}}{8 \pi} \\
+\mathtt{\nu.\Omega}\left( t \right) &amp;= \frac{8}{3} \pi \mathtt{\nu.\rho}\left( t \right) \\
 \mathtt{c.c_s^2}\left( t \right) \epsilon &amp;= 0 \\
 \mathtt{c.w}\left( t \right) &amp;= 0 \\
 \mathtt{c.P}\left( t \right) &amp;= \mathtt{c.\rho}\left( t \right) \mathtt{c.w}\left( t \right) \\
@@ -533,4 +533,4 @@ H2s = sol2(log10(M2.g.a) =&gt; lgas, M2.g.H)
 
 using Plots
 plot(lgas, H2s ./ H1s; xlabel = &quot;lg(a)&quot;, label = &quot;H₂ / H₁&quot;)
-plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="97434bf3.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.1 on <span class="colophon-date" title="Tuesday 18 February 2025 09:33">Tuesday 18 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="267830bf.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.1 on <span class="colophon-date" title="Tuesday 18 February 2025 11:32">Tuesday 18 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
