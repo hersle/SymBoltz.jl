@@ -73,7 +73,8 @@ function ΛCDM(;
         S0 ~ S_SW + S_ISW + S_Dop
         S1 ~ S_pol
     ] .|> O(ϵ^1)
-    # TODO: do various IC types (adiabatic, isocurvature, ...) from here?
+    # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
+    # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     defs = merge(defs, Ω₀_defaults(G, species))
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
