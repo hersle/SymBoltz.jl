@@ -41,7 +41,7 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
         "background_verbose" => 2,
-        "output" => "mPk, tCl", # need one to evolve perturbations
+        "output" => "mPk, tCl, pCl", # need one to evolve perturbations
 
         "k_output_values" => k,
         "ic" => "ad",
@@ -96,7 +96,7 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
     )
 
     secs = @elapsed run_class(in, exec, inpath, outpath)
-    println("Ran CLASS in $secs seconds")
+    println("Ran CLASS in $secs seconds in directory $dir")
     output = Dict()
     for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 25000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
         file = joinpath(outpath, filename)
@@ -175,17 +175,19 @@ Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
 Ps = spectrum_matter(prob, ks / u"Mpc") / u"Mpc^3"
 
 # CMB power spectrum
-ls = sol1["Cl"]["l"]
-ls = Int.(ls[begin:10:end])
-Dls_class = sol1["Cl"]["TT"]
-Dls_class = Dls_class[begin:10:end]
-Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl)
+ls = Int.(sol1["Cl"]["l"][begin:10:end])
+DlTTs_class = sol1["Cl"]["TT"][begin:10:end]
+DlTEs_class = sol1["Cl"]["TE"][begin:10:end]
+DlEEs_class = sol1["Cl"]["EE"][begin:10:end]
+DlTTs, DlTEs, DlEEs = spectrum_cmb([:TT, :TE, :EE], prob, ls; normalization = :Dl)
 
 sols = merge(sols, Dict(
     "k" => (ks, ks),
     "P" => (Ps_class, Ps),
     "l" => (ls, ls),
-    "Dl" => (Dls_class, Dls)
+    "DlTT" => (DlTTs_class, DlTTs),
+    "DlTE" => (DlTEs_class, DlTEs),
+    "DlEE" => (DlEEs_class, DlEEs)
 ))
 
 function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, kwargs...)
@@ -350,5 +352,11 @@ plot_compare("k", "P"; lgx=true, lgy=true)
 ```
 ### CMB angular power spectrum
 ```@example class
-plot_compare("l", "Dl")
+plot_compare("l", "DlTT")
+```
+```@example class
+plot_compare("l", "DlTE")
+```
+```@example class
+plot_compare("l", "DlEE")
 ```

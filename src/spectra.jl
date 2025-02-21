@@ -211,7 +211,7 @@ Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating 
 function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.prob.M
     t0 = sol[t][end]
-    S0s = sol(ks, ts, 3/4 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts? # TODO 3/4 -> 3/16?
+    S0s = sol(ks, ts, 3/16 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts?
     S1s = 0.0 .* S0s # == 0
     return S0s, S1s
 end
