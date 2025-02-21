@@ -7,10 +7,7 @@ function metric(; name = :g, kwargs...)
     vars = a, ℰ, E, H, ℋ, Φ, Ψ, g₁₁, g₂₂, z = GlobalScope.(@variables a(t) ℰ(t) E(t) H(t) ℋ(t) Φ(t) Ψ(t) g₁₁(t) g₂₂(t) z(t))
     pars = h, = GlobalScope.(@parameters h)
     defaults = Dict(
-        a => 1e-8
-    )
-    guesses = Dict(
-        a => 1e-5
+        a => 1e-8 # default initial scale factor
     )
     description = "Spacetime FLRW metric in Newtonian gauge"
     return ODESystem([
@@ -21,5 +18,5 @@ function metric(; name = :g, kwargs...)
         H ~ E * H100 * h
         g₁₁ ~ a^2 * (-1 - 2*ϵ*Ψ)
         g₂₂ ~ a^2 * (+1 - 2*ϵ*Φ)
-    ], t, vars, pars; defaults, guesses, name, description, kwargs...)
+    ], t, vars, pars; defaults, name, description, kwargs...)
 end
