@@ -13,12 +13,9 @@ This is a *symbolic* representation of the variables and equations that describe
 To get started, we will simply load the standard ΛCDM model:
 ```@example getting_started
 M = ΛCDM(K = nothing) # flat
-```
-
-The model is structured as a hierarchy of components:
-```@example getting_started
 hierarchy(M; describe = true)
 ```
+As shown, the model is structured as a hierarchy of the physical components.
 Each of these components contains a block of self-contained variables and equations that are independent from the other components, making up interchangeable modules of the entire Einstein-Boltzmann system.
 A full model joins several such incomplete blocks into a complete set of equations for the entire Einstein-Boltzmann system.
 

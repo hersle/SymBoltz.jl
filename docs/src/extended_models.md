@@ -20,12 +20,13 @@ We will modify the standard ΛCDM model:
 ```@example ext
 using SymBoltz
 M1 = ΛCDM(K = nothing) # flat
+hierarchy(M1; describe = true)
 ```
-The cosmological constant species is stored in the component `M1.Λ`.
-Here are the equations we will remove:
+Everything belonging to the cosmological constant species is stored in the component `M1.Λ`:
 ```@example ext
 equations(M1.Λ)
 ```
+This is what we will replace.
 
 ## 2. Create the extended component
 
@@ -78,7 +79,8 @@ initialization_eqs = [
 ]
 
 # 5. Pack into an ODE system called "X"
-@named X = ODESystem(eqs, t, vars, pars; initialization_eqs)
+description = "w₀wₐ (CPL) dynamical dark energy"
+@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, description)
 ```
 
 Note that the w₀wₐ component only knows about itself (and the metric),
@@ -91,8 +93,9 @@ This connection is made when the component is used to create a full cosmological
 Finally, we create a new `ΛCDM` model, but replace `Λ` by `X`, and call it the `w0waCDM` model:
 ```@example ext
 M2 = ΛCDM(Λ = X, K = nothing, name = :w0waCDM)
+hierarchy(M2; describe = true)
 ```
-Now `M2.Λ` no longer exists, but `M2.X` contains our new equations:
+Now `M2.Λ` no longer exists, but `M2.X` contains our new dark energy species:
 ```@example ext
 equations(M2.X)
 ```
