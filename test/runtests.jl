@@ -116,3 +116,10 @@ end
     v2s = sol2(1.0, ts, M.b.rec.v)
     @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
+
+@testset "Primordial power spectrum pivot scale" begin
+    h = pars[M.g.h]
+    k = 0.05 / u"Mpc" # ≠ 0.05/(Mpc/h)
+    sol = solve(prob, k)
+    @test sol[M.I.kpivot] ≈ SymBoltz.k_dimensionless(k, h)
+end

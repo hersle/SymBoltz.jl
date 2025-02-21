@@ -14,7 +14,7 @@ function spectrum_primordial(k, h, As, ns=1.0)
 
     # compute k / kpivot with equal wavenumber units
     k = k_dimensionless.(k, h)
-    kpivot = k_dimensionless(0.05 / u"Mpc", h)
+    kpivot = k_dimensionless(0.05 / u"Mpc", h) # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
     @. P *= (k/kpivot)^(ns-1)
     return P
 end
