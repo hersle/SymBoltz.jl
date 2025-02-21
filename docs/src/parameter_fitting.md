@@ -69,7 +69,7 @@ using SymBoltz
 M = RMΛ()
 prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN]); th = false, pt = false)
 
-function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-7, maxiters = 1e3))
+function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3))
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
     prob = remake(prob, Dict(
         M.g.h => h,
@@ -83,7 +83,7 @@ end
 
 function dL(z, sol::CosmologySolution)
     M = sol.prob.M
-    t = SymBoltz.timeseries(sol, M.g.z, z)
+    t = SymBoltz.timeseries.(sol, M.g.z, z) # TODO: spline version is not accurate enough and screws up the parameter fit values!
     return SymBoltz.distance_luminosity(sol, t) / SymBoltz.Gpc
 end
 
@@ -96,7 +96,7 @@ scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 
 ## Bayesian inference
 
-To perform bayesian inference, we use the [Turing.jl](https://turinglang.org/) package:
+To perform bayesian inference, we define a probabilistic model in [Turing.jl](https://turinglang.org/):
 ```@example fit
 using Turing
 
@@ -120,13 +120,21 @@ using Turing
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
-
-# TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 sn = supernova(data, prob) # condition model on data
-chain = sample(sn, NUTS(), MCMCSerial(), 50, 1)
 ```
-As we see above, the MCMC `chain` displays a summary with information about the fitted parameters, including their posterior means and standard deviations.
-We can also plot the chains:
+We can [find its maximum a posteriori (MAP) parameter estimate](https://turinglang.org/docs/usage/mode-estimation/) using Turing.jl's interface with [Optimization.jl](https://docs.sciml.ai/Optimization/) and the algorithms in [Optim.jl](https://docs.sciml.ai/Optimization/stable/optimization_packages/optim/):
+```@example fit
+using Optim
+prior_means = mean.(values(Turing.extract_priors(sn)))
+map = maximum_a_posteriori(sn, Optim.LBFGS(linesearch = Optim.BackTracking()); initial_params = prior_means) # or maximum_likelihood(...)
+@assert Symbol(map.optim_result.retcode) == :Success # hide
+map.values
+```
+We can now sample from the model, using the MAP estimate as starting values:
+```@example fit
+chain = sample(sn, NUTS(), 500; initial_params=map.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+```
+We can also plot the chain:
 ```@example fit
 using StatsPlots
 plot(chain)
@@ -135,7 +143,7 @@ plot(chain)
 ```@setup fit
 using SymBoltz, OrdinaryDiffEq, Turing
 
-function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8)
+function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8, reltol = 1e-8, alg = Tsit5(), maxiters = 1e3)
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
     H0 = SymBoltz.H100 * h
     aH(a) = a * H0 * sqrt(Ωr0/a^4 + Ωm0/a^3 + Ωk0/a^2 + ΩΛ0)
@@ -147,7 +155,7 @@ function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8)
     bini = log(aini)
     prob = ODEProblem(f, tini, (bini, 0))
     try # seems faster than going the NaNMath and retcode route
-        sol = solve(prob, Tsit5(); reltol = 1e-8, maxiters = 1e3)
+        sol = solve(prob; alg, reltol, maxiters)
         a = 1 ./ (z .+ 1)
         b = log.(a)
         t = sol(b)
