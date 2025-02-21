@@ -12,11 +12,11 @@ function background(sys)
 end
 
 function thermodynamics(sys)
-    return transform((sys, _) -> taylor(sys, ϵ, [0]), sys)
+    return transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 end
 
 function perturbations(sys; spline = [])
-    pt = transform((sys, _) -> taylor(sys, ϵ, 0:1), sys)
+    pt = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
     pt, var2spl = structural_simplify_spline(flatten(pt), spline) # TODO: avoid flatten?
     return pt, var2spl
 end
@@ -325,7 +325,7 @@ function solve(
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
         ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
         verbose && println() # end line in output_func
-        for i in 1:length(ptsols)
+        for i in eachindex(ptsols)
             check_solution(ptsols[i].retcode)
         end
     else
@@ -540,6 +540,9 @@ end
 function parameters(prob::ODEProblem)
     pars = parameters(prob.f.sys)
     return Dict(pars .=> prob.ps[pars])
+end
+function parameters(sol::CosmologySolution; kwargs...)
+    return parameters(sol.prob; kwargs...)
 end
 
 # Fix model/solution under broadcasted calls
