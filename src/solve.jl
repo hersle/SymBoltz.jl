@@ -474,7 +474,7 @@ end
 """
     timeseries(sol::CosmologySolution, var, val::Number)
 
-Find the time(s) when some variable equals some value with root finding.
+Find the time(s) when some variable `var` equals some value `val` with root finding.
 """
 function timeseries(sol::CosmologySolution, var, val::Number)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
@@ -485,12 +485,26 @@ end
 """
     timeseries(sol::CosmologySolution, var, vals::AbstractArray)
 
-Find the times when some variable equals some values with splining.
+Find the times when some variable `var` equals some values `vals` with a spline.
 """
 function timeseries(sol::CosmologySolution, var, vals::AbstractArray; kwargs...)
     ts = timeseries(sol; kwargs...)
     xs = sol(ts, var)
     spl = spline(ts, xs)
+    ts = spl(vals)
+    return ts
+end
+"""
+    timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray)
+
+Find the times when some variable `var` equals some values `vals` with a Hermite spline, also taking the derivative `dvar` of `var` into account.
+"""
+function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwargs...)
+    ts = timeseries(sol; kwargs...)
+    xs = sol(ts, var)
+    ẋs = sol(ts, dvar) # dx/dt
+    ṫs = 1 ./ ẋs # dt/dx
+    spl = spline(ts, ṫs, xs)
     ts = spl(vals)
     return ts
 end

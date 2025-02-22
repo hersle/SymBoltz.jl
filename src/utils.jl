@@ -78,6 +78,13 @@ function spline(y, x)
     return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
 end
 
+function spline(y, ẏ, x)
+    dx = diff(x)
+    all(diff(x) .< 0) && return spline(reverse(y), reverse(ẏ), reverse(x)) # reverse if monotonically decreasing
+    all(diff(x) .> 0) || error("x is not monotonically increasing")
+    return CubicHermiteSpline(ẏ, y, x)
+end
+
 function spline(sol::ODESolution, var, dvar = nothing)
     t = sol.t
     y = sol(t, Val{0}; idxs=var).u
