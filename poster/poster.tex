@@ -1,0 +1,368 @@
+\documentclass[20pt, a0paper, portrait]{tikzposter}
+
+% original template: https://rig.cs.luc.edu/~rig/home/tex/tikz/tikzposter-example.tex
+\usepackage[colorlinks=true,linkcolor=red,urlcolor=blue]{hyperref}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{twemojis}
+\usepackage{mathrsfs} % \mathscr
+\usepackage{multicol}
+
+\usepackage{fontspec}
+\setmonofont[Scale=MatchLowercase]{JuliaMono}
+\newcommand{\emoji}[1]{{\setmainfont{Noto Color Emoji}[Renderer=Harfbuzz]{#1}}} % instead of \usepackage{emoji}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{trees}
+
+\usepackage{tcolorbox}
+\definecolor{codebg}{HTML}{F5F5F5}
+%\definecolor{codefg}{HTML}{444444}
+\definecolor{codeframe}{HTML}{DBDBDB}
+\newtcolorbox{codeinbox}{
+boxrule = 3pt,
+boxsep = 8pt,
+colback = codebg,
+colframe = codeframe,
+}
+\newtcolorbox{codeoutbox}{
+boxrule = 3pt,
+boxsep = 8pt,
+colback = white,
+colframe = codeframe,
+}
+
+% https://tex.stackexchange.com/a/476488
+% http://www.numdam.org/item/CG_1998___28-29_158_0.pdf
+\usepackage{fancyvrb}
+\fvset{formatcom=\setlength{\lineskip}{0pt}}
+\begin{SaveVerbatim}{code1}
+using SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, Plots
+M = ΛCDM()
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{code2}
+equations(M.G) # view gravity equations (produces LaTeX output in notebooks)
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{code3}
+params = Dict(
+    M.γ.T₀ => 2.7,  M.ν.Neff => 3.0,  M.g.h      => 0.7,
+    M.c.Ω₀ => 0.27, M.b.Ω₀   => 0.05, M.b.rec.Yp => 0.25,
+    M.I.As => 2e-9, M.I.ns   => 0.95, M.h.m      => 0.06u"eV/c^2/kg"+0
+)
+ks = 10 .^ range(-4, 0, length=250) / u"Mpc" # perturbation wavenumbers
+prob = CosmologyProblem(M, params) # compiles symbolic model to numerical problem
+sol = solve(prob, ks) # object with solution of Einstein-Boltzmann equations
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{code4}
+Ps = spectrum_matter(sol, ks)
+ls = 10:10:1000
+Dls = spectrum_cmb(:TT, sol, ls; normalization=:Dl, unit=u"μK")
+p1 = plot(sol, [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc", log10(M.g.a), [M.g.Φ, M.g.Ψ])
+p2 = plot(ks, Ps; xlabel="k", ylabel="P", xaxis=:log, yaxis=:log, label=nothing)
+p3 = plot(ls, Dls; xlabel="l", ylabel="Cₗ l (l+1) / 2π", label=nothing)
+p = plot(p1, p2, p3; size=(1600,400), layout=(1,3), margin=(8,:mm), bg=false, grid=false)
+savefig(p, "poster/plot.pdf")
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{code5}
+using SymBoltz: t, k, ϵ, D, O # use variables, derivative and perturbation operator
+g = M.g # get metric of original model
+pars = @parameters w₀ wₐ cₛ² Ω₀ # create parameters
+vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t) # create variables
+eqs = [ # specify equations
+    O(1)(w ~ w₀ + wₐ * (1 - g.a)) # equation of state
+    O(1)(ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w₀+wₐ))) # energy density
+    O(1)(P ~ w * ρ) # pressure
+    O(ϵ)(D(δ) ~ -(1+w)*(θ-3*g.Φ) - 3*g.ℰ*(cₛ²-w)*δ) # overdensity
+    O(ϵ)(D(θ) ~ -g.ℰ*(1-3*w)*θ - D(w)/(1+w)*θ + k^2*(cₛ²/(1+w)*δ + g.Ψ)) # momentum
+    O(ϵ)(σ ~ 0) # shear stress
+]
+initialization_eqs = [ # initial conditions
+    O(ϵ)(δ ~ -3/2 * (1+w) * g.Ψ)
+    O(ϵ)(θ ~ 1/2 * (k^2/g.ℰ) * g.Ψ)
+]
+description = "w₀wₐ (CPL) dynamical dark energy"
+@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, description)
+
+M′ = ΛCDM(Λ = X; name = "w₀wₐCDM") # recreate ΛCDM model, but replace CC by w0wa
+params′ = merge(params, Dict(M′.X.w₀ => -0.9, M′.X.wₐ => 0.2)) # hooks already available
+prob′ = CosmologyProblem(M′, params′)
+sol′ = solve(prob′, ks)
+# ... proceed as before
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{code6}
+hierarchy(M; describe=true) # view hierarchical structure of model components
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{out6}
+ΛCDM: Standard cosmological constant and cold dark matter cosmological model
+├─ g: Spacetime FLRW metric in Newtonian gauge
+├─ G: General relativity gravity
+├─ γ: Photon radiation
+├─ ν: Massless neutrinos
+├─ c: Cold dark matter
+├─ b: Baryonic matter
+│  └─ rec: Baryon-photon recombination thermodynamics (RECFAST)
+├─ h: Massive neutrino
+├─ Λ: Cosmological constant
+└─ I: Harrison-Zel'dovich inflation
+\end{SaveVerbatim}
+
+\title{\huge SymBoltz.jl: symbolic-numeric, approximation-free and differentiable Boltzmann code}
+\author{\huge Herman Sletmoen -- University of Oslo}
+\institute{}
+\titlegraphic{\includegraphics[width=\textwidth]{logo.png}\\\tiny \textcolor{brown}{\textbf{Dall-E:} ``Albert Einstein (with messy hair) and Ludwig Boltzmann (with long beard) happily solving equations together on a computer. Cartoon. Old style.''}}
+
+% adapted from /usr/share/texlive/texmf-dist/tex/latex/tikzposter/tikzposterColorstyles.tex
+\definecolorstyle{MyColorStyle}{
+    % Define default colors
+    % GrayBlueYellow
+    \definecolor{colorOne}{HTML}{F5F5F5} % gray
+    \definecolor{colorTwo}{HTML}{0066A8} % blue
+    \definecolor{colorThree}{HTML}{f1a73c}
+    %\definecolor{colorThree}{HTML}{FCE565} % yellow
+}{
+     % Background Colors
+    \colorlet{backgroundcolor}{colorOne}
+    \colorlet{framecolor}{colorTwo}
+    % Title Colors
+    \colorlet{titlefgcolor}{black}
+    \colorlet{titlebgcolor}{colorThree}
+    % Block Colors
+    \colorlet{blocktitlebgcolor}{colorThree}
+    \colorlet{blocktitlefgcolor}{black}
+    \colorlet{blockbodybgcolor}{white}
+    \colorlet{blockbodyfgcolor}{black}
+    % Innerblock Colors
+    \colorlet{innerblocktitlebgcolor}{colorThree}
+    \colorlet{innerblocktitlefgcolor}{black}
+    \colorlet{innerblockbodybgcolor}{white}
+    \colorlet{innerblockbodyfgcolor}{black}
+    % Note colors
+    \colorlet{notefgcolor}{black}
+    \colorlet{notebgcolor}{colorThree!70!white}
+    \colorlet{notefrcolor}{colorThree}
+ }
+
+%\useblockstyle[roundedcorners=10,linewidth=0pt]{Default} % must comment \usetheme and \usecolorstyle
+%\usetheme{metropolis}
+\usecolorstyle{MyColorStyle}
+\usetitlestyle{Filled} % title covers width
+\useblockstyle[bodyverticalshift=-1cm]{TornOut} % Default / Basic / Minimal / Envelope / Corner / Slide / TornOut
+%\useinnerblockstyle{Table}
+%\usecolorstyle[colorPalette=BrownBlueOrange]{Germany}
+
+% https://tex.stackexchange.com/a/167527
+\makeatletter
+\renewcommand\TP@maketitle{%
+    \begin{minipage}{0.15\linewidth}
+        \centering
+        \@titlegraphic
+    \end{minipage}%
+    \hfill%
+   \begin{minipage}{0.85\linewidth}
+        \centering
+        \color{titlefgcolor}
+        {\bfseries \Huge \sc \@title \par}
+        \vspace*{1.5em}
+        {\LARGE \@author \par}%
+        %\vspace*{1em}
+        %{\LARGE \@institute}
+    \end{minipage}%
+}
+\makeatother
+
+\begin{document}
+\maketitle
+
+\begin{columns}
+    \column{.50}
+    \block[]{New features}{
+        \begin{itemize}
+        \item \textbf{Symbolic-numeric architecture:} Represents equations symbolically, and generates fast numerical code from them. Combines symbolic equation modeling and logic involving their structure (at compile time) with efficient numerical computing (at run time) into one integrated framework.
+        \item \textbf{Modular physical structure:} Primarily structured around physical components (e.g. gravity and particle species). Easily replace one component with another without modifying the entire model. Build small and reusable physical components with everything defined in one place, and join them into full models. Accomodates extended models in a way that scales in model space. Computational stages (background, perturbations, \ldots) internally detected (semi-)automatically from the equations.
+        \item \textbf{Approximation-free:} Always integrates full (stiff) equations with a wide selection of modern (implicit) solvers. No tight coupling, ultra-relativistic, radiation streaming or other approximations. Makes code simpler and extended models easier to implement.
+        \item \textbf{Convenient:} Automatically calculate any variables or function thereof that are defined by some equations, even if not saved directly by the ODE solver. Eliminate chores one must do when extending traditional codes. Let user focus more on modeling and less on computing.
+        \item \textbf{Differentiable:} Compute $\partial(\mathrm{output})/\partial(\mathrm{input})$ for any input and output with automatic differentiation (a method that calculates exact derivatives of a function using the chain rule on its basic operations). Important for gradient-based numerical methods, like efficient many-parameter inference methods.
+        \end{itemize}
+    }
+
+    \block[]{Architecture}{
+        \begin{minipage}{0.49\linewidth}
+        \begin{tikzfigure}[SymBoltz is structured according to the layout of the physical components of a cosmological model. Separation into computational stages (background $\rightarrow$ thermodynamics $\rightarrow$ perturbations, ...) is secondary and an internal detail. This is to be more friendly to the modeler.]
+        \scalebox{0.6}{
+        \begin{tikzpicture}[
+            font=\normalsize,
+            comp/.style = {draw, circle, fill=gray, minimum size = 5cm, align=center},
+            grow cyclic,
+            level 1/.append style = {level distance = 8cm, sibling angle = 60},
+            interaction/.style = {{Latex[width=5mm,length=5mm]}-{Latex[width=5mm,length=5mm]}, very thick},
+            ]
+            \node[comp] (grav) {Gravity} [interaction]
+            child { node[comp] (bar) {Baryons}}
+            child { node[comp] (pho) {Photons}}
+            child { node[comp] (neu) {Massless\\neutrinos}}
+            child { node[comp] (mneu) {Massive\\neutrinos}}
+            child { node[comp] (cdm) {Cold dark\\matter}}
+            child { node[comp] (cc) {Cosmological\\constant}};
+            \draw[interaction] (bar) -- node[above=, sloped, align=center] {Thomson\\scattering} (pho);
+        \end{tikzpicture}
+        }
+        \end{tikzfigure}
+        \end{minipage}%
+        \hfill%
+        \begin{minipage}{0.49\linewidth}
+        \begin{tikzfigure}[Synergy of features make for a self-reinforcing design.]
+        \scalebox{0.6}{
+        \begin{tikzpicture}[
+            pillar/.style={circle, draw, minimum size=6cm, align=center, font=\normalsize},
+            joiner/.style={midway, sloped, black, font=\normalsize},
+            arrow/.style={-{Latex[width=5mm,length=5mm]}, very thick, red},
+        ]
+        \node[pillar, fill=gray] (sym) at (0:0cm) {Symbolic\\interface};
+        \node[pillar, fill=gray] (app) at (240:15cm) {Approximation-\\free};
+        \node[pillar, fill=gray] (dif) at (300:15cm) {Automatic\\differentiation};
+        \draw[arrow] (sym.305) -- node[joiner, above] {Detect sparsity of $J$} (dif.115);
+        \draw[arrow] (sym.245) -- node[joiner, below] {Generate equations?} (app.55);
+        \draw[arrow] (dif.185) -- node[joiner, below] {Calculate accurate $J$} (app.355);
+        \draw[arrow] (dif.125) -- node[joiner, below] {Model-agnostic shooting} (sym.295);
+        \draw[arrow] (app.65) -- node[joiner, above] {Easier to specify model} (sym.235);
+        \draw[arrow] (app.5) -- node[joiner, above] {No discontinuities} (dif.175);
+        \end{tikzpicture}
+        }
+        \end{tikzfigure}
+        \end{minipage}
+        ModelingToolkit, DifferentialEquations.
+    }
+
+    \block[]{Goals}{
+        \begin{itemize}
+            \item Rethink the traditional Boltzmann solver structure in a way that combines the power of symbolic and numerical computingm, is more friendly to the modeler and provides a better platform for exploring extended models and building them in a way that scales in model space.
+            \item Incorporate extendibility from initial design.
+            \item Be more friendly to the modeler.
+            \item Convenient interface for implementing modified submodels that grows into a modular library of components (instead of duplicating monolithic codes for every combination of submodels).
+            \item Be fast and interface gradient-needing MCMC samplers (e.g. HMC/NUTS) for efficient higher-dimensional parameter inference from next-generation surveys.
+            \item Become part of a fully integrated and interactive cosmological modeling environment: symbolics -> numerical Boltzmann problems -> numerical N-body problems -> analyze ...
+        \end{itemize}
+    }
+
+    \block[]{Advantages and disadvantages}{
+        \begin{itemize}
+            \item TODO
+        \end{itemize}
+    }
+
+    \block[]{Implementation status (\textcolor[HTML]{7CB342}{complete}, \textcolor[HTML]{FFCC32}{in progress} and \textcolor[HTML]{F44336}{planned})}{ % colors from dropper tool on emojis
+        \small
+        \begin{multicols}{3}
+        \emoji{🟩} Baryons+photons (RECFAST recombo.) \\
+        \emoji{🟩} Cold dark matter \\
+        \emoji{🟩} Massless neutrinos \\
+        \emoji{🟩} Massive neutrinos \\ 
+        \emoji{🟩} Cosmological constant \\
+        \emoji{🟨} Quintessence \\
+        \emoji{🟩} $w_0 w_a$ dark energy \\
+        \emoji{🟩} General Relativity \\
+        \emoji{🟨} Brans-Dicke gravity \\
+        \emoji{🟨} Curved geometry \\
+        \emoji{🟩} Symbolic interface \\
+        \emoji{🟩} Approximation-free (no TCA, RSA, UFA, \ldots) \\
+        \emoji{🟩} Forward-mode automatic differentiation \\ 
+        \emoji{🟩} Matter power spectrum \\
+        \emoji{🟩} CMB power spectrum (TT, TE, EE) \\
+        \emoji{🟨} Automatic stage separation ($\text{backgr.} \rightarrow \text{pert.}$) \\
+        \emoji{🟩} Automatic splining of unknown ODE variables \\
+        \emoji{🟩} Automatic handling of observed ODE variables \\
+        \emoji{🟩} Automatic interpolation in $(\tau, k)$ of all variables \\
+        \emoji{🟨} Automatic change of variables ($\frac{\mathrm{d}}{\mathrm{d}\tau} \rightarrow \frac{\mathrm{d}}{\mathrm{d \ln a}}$) \\
+        \emoji{🟩} Automatic parameter assignment hooks \\
+        \emoji{🟩} Plot recipes \\
+        \emoji{🟨} Performance (isolate symbolics from numerics) \\
+        \emoji{🟩} Shooting method for boundary conditions \\
+        \emoji{🟩} Extensive documentation \\
+        \emoji{🟩} Continuous integration and testing \\
+        \emoji{🟩} Comparison with \textsc{class} for ΛCDM \\
+        \emoji{🟨} Non-linear: \textsc{halofit}/\textsc{hmcode} \\
+        \emoji{🟥} Non-linear: generate $N$-body problems \\
+        \emoji{🟥} Reverse-mode automatic differentiation \\
+        \emoji{🟥} Automatic series expansion of initial conditions \\
+        \emoji{🟥} Automatic unit conversion utilities \\
+        \emoji{🟥} Symbolic tensor manipulation \\
+        \emoji{🟥} GPU parallellization \\
+        \emoji{🟥} Better representation of interactions \\
+        \emoji{🟨} Paper \\
+        \emoji{⬛} \textbf{Ideas/contributions are very welcome!}
+        \end{multicols}
+    }
+
+    % https://tex.stackexchange.com/a/183867
+\block[]{\huge Try it! Feedback?}{
+    \noindent
+    \begin{minipage}{0.25\linewidth}
+        \includegraphics[width=\linewidth]{../qr.png}
+    \end{minipage}%
+    \hfill%
+    \begin{adjustbox}{valign=c}%
+    \begin{minipage}{0.75\linewidth}
+        \LARGE Easy installation and extensive documentation:
+        \begin{quote}
+            \LARGE \href{https://github.com/hersle/SymBoltz.jl}{\texttt{github.com/hersle/SymBoltz.jl}}
+        \end{quote}
+        SymBoltz.jl is in development. Feedback is appreciated! \\
+        Interested? Questions? Suggestions? Contributions?\\
+        \textbf{Leave a \emoji{🌟} Open an issue or pull request \emoji{👷}}
+    \end{minipage}
+    \end{adjustbox}
+}
+
+\column{.50}
+    \block{Examples}{
+        Install and launch \texttt{julia}. Load some packages and build a standard ΛCDM model:
+        \begin{codeinbox}
+        \UseVerbatim{code1}
+        \end{codeinbox}
+        This is a \emph{purely symbolic} model representation that can be interactively inspected and modified. For example:
+        \begin{codeinbox}
+        \UseVerbatim{code6}
+        \end{codeinbox}
+        \begin{codeoutbox}
+        \UseVerbatim{out6}
+        \end{codeoutbox}
+        \begin{codeinbox}
+        \UseVerbatim{code2}
+        \end{codeinbox}
+        %\begin{codeoutbox}
+        \begin{align}
+            \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} &= \sqrt{\frac{8}{3} \left( a\left( t \right) \right)^{4} \rho\left( t \right) \pi} \\
+            \Delta\left( t \right) &= \frac{\mathrm{d}}{\mathrm{d}t} \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} + \frac{ - \left( \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} \right)^{2} \left( 1 + \frac{ - 3 P\left( t \right)}{\rho\left( t \right)} \right)}{2 a\left( t \right)} \\
+            \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \epsilon &= \left( \frac{ - k^{2} \Phi\left( t \right)}{3 \mathscr{E}\left( t \right)} + \frac{ - \frac{4}{3} \left( a\left( t \right) \right)^{2} \mathtt{\delta\rho}\left( t \right) \pi}{\mathscr{E}\left( t \right)} - \mathscr{E}\left( t \right) \Psi\left( t \right) \right) \epsilon \\
+            k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &= 12 \left( a\left( t \right) \right)^{2} \Pi\left( t \right) \pi \epsilon
+        \end{align}
+        %\end{codeoutbox}
+        Map parameters to values, then create and solve a \emph{numerical} problem:
+        \begin{codeinbox}
+        \UseVerbatim{code3}
+        \end{codeinbox}
+        Calculate and plot derived quantities, such as power spectra:
+        \begin{codeinbox}
+        \UseVerbatim{code4}
+        \end{codeinbox}
+        \includegraphics[width=\linewidth]{plot.pdf}
+        Create a new species for $w_0 w_a$ dark energy (everything is defined in one place):
+        \begin{codeinbox}
+        \UseVerbatim{code5}
+        \end{codeinbox}
+        %\includesvg[width=\linewidth]{uio-logo.svg}
+    }
+\end{columns}
+
+\end{document}
+
+
+
+
+\endinput
+%%
+%% End of file `tikzposter-example.tex'.
