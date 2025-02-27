@@ -1,24 +1,30 @@
 using RecipesBase
 using Roots
 
+function displayname(var)
+    name = string(var)
+    name = replace(name, Symbolics.NAMESPACE_SEPARATOR => '.')
+    return name
+end
+
 @recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
     ts = timeseries(sol; Nextra)
     xs = sol(ts, x)
     ys = sol(ts, y)
-    xlabel --> (x isa AbstractArray ? "" : x)
-    ylabel --> (y isa AbstractArray ? "" : y)
+    xlabel --> (x isa AbstractArray ? "" : displayname(x))
+    ylabel --> (y isa AbstractArray ? "" : displayname(y))
     line_z = get(plotattributes, :line_z, nothing)
     if line_z isa Num # TODO: add to perturbations?
         line_z := sol(ts, line_z)
-        colorbar_title --> line_z
+        colorbar_title --> displayname(line_z)
     end
-    label --> y'
+    label --> displayname.(y')
     return xs, ys
 end
 
 @recipe function plot(sol::CosmologySolution, k, x, y; Nextra = 0, klabel = true)
-    xlabel --> (x isa AbstractArray ? "" : x)
-    ylabel --> (y isa AbstractArray ? "" : y)
+    xlabel --> (x isa AbstractArray ? "" : displayname(x))
+    ylabel --> (y isa AbstractArray ? "" : displayname(y))
 
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
@@ -49,7 +55,7 @@ end
         @series begin
             linestyle := linestyle
             color := :black
-            label := y[iv]
+            label := displayname(y[iv])
             [NaN], [NaN]
         end
     end

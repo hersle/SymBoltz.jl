@@ -1,6 +1,6 @@
 import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
-import Base: identity
+import Base: identity, replace
 using QuadGK
 
 ∫(f, a, b) = quadgk(f, a, b)[1]
