@@ -2,6 +2,7 @@ import Base: nameof
 import CommonSolve: solve
 import SciMLBase: remake
 import OhMyThreads: TaskLocalValue
+import SymbolicIndexingInterface: getsym
 
 function background(sys)
     sys = thermodynamics(sys)
@@ -373,6 +374,15 @@ end
 (sol::CosmologySolution)(t::Number, is::AbstractArray) = sol([t], is)[1, :]
 (sol::CosmologySolution)(t::Number, i::Num) = sol([t], [i])[1, 1]
 
+# similar to https://github.com/SciML/SciMLBase.jl/blob/c568c0eb554ba78440a83792f058073c286a55d3/src/solutions/ode_solutions.jl#L277
+function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
+    ps = SciMLBase.parameter_values(sol)
+    return t -> begin
+        state = SciMLBase.ProblemState(; u = sol.interp(t, nothing, deriv, ps, continuity), p = ps, t)
+        return getsym(sol, var)(state)
+    end
+end
+
 function neighboring_modes_indices(sol::CosmologySolution, k)
     k = k_dimensionless.(k, sol.bg.ps[:h])
     if k == sol.ks[begin] # k == kmin
@@ -472,27 +482,16 @@ function timeseries(ts::AbstractArray; Nextra = 0)
     return ts
 end
 """
-    timeseries(sol::CosmologySolution, var, val::Number)
-
-Find the time(s) when some variable `var` equals some value `val` with root finding.
-"""
-function timeseries(sol::CosmologySolution, var, val::Number)
-    allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
-    f(t) = sol(t, var) - val # var(t) == val when f(t) == 0
-    tspan = extrema(sol[t])
-    return find_zero(f, tspan)
-end
-"""
-    timeseries(sol::CosmologySolution, var, vals::AbstractArray)
+    timeseries(sol::CosmologySolution, var, vals; kwargs...)
 
 Find the times when some variable `var` equals some values `vals` with a spline.
 """
-function timeseries(sol::CosmologySolution, var, vals::AbstractArray; kwargs...)
-    ts = timeseries(sol; kwargs...)
-    xs = sol(ts, var)
-    spl = spline(ts, xs)
-    ts = spl(vals)
-    return ts
+function timeseries(sol::CosmologySolution, var, vals; kwargs...)
+    allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
+    varfunc = getfunc(sol.th, var)
+    f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
+    tspan = extrema(sol[t])
+    return map(val -> find_zero(f, tspan, val; kwargs...), vals) # TODO: why does adding a method here screw up SN MAP example???
 end
 """
     timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray)

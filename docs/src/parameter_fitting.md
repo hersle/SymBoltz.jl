@@ -83,7 +83,7 @@ end
 
 function dL(z, sol::CosmologySolution)
     M = sol.prob.M
-    t = SymBoltz.timeseries.(sol, M.g.z, z) # TODO: spline version is not accurate enough and screws up the parameter fit values!
+    t = SymBoltz.timeseries(sol, M.g.z, z) # TODO: spline version is not accurate enough and screws up the parameter fit values!
     return SymBoltz.distance_luminosity(sol, t) / SymBoltz.Gpc
 end
 
@@ -126,13 +126,13 @@ We can [find its maximum a posteriori (MAP) parameter estimate](https://turingla
 ```@example fit
 using Optim
 prior_means = mean.(values(Turing.extract_priors(sn)))
-map = maximum_a_posteriori(sn, Optim.LBFGS(linesearch = Optim.BackTracking()); initial_params = prior_means) # or maximum_likelihood(...)
-@assert Symbol(map.optim_result.retcode) == :Success # hide
-map.values
+mapest = maximum_a_posteriori(sn, Optim.LBFGS(linesearch = Optim.BackTracking()); initial_params = prior_means) # or maximum_likelihood(...)
+@assert Symbol(mapest.optim_result.retcode) == :Success # hide
+mapest.values
 ```
 We can now sample from the model, using the MAP estimate as starting values:
 ```@example fit
-chain = sample(sn, NUTS(), 500; initial_params=map.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+chain = sample(sn, NUTS(), 500; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 ```
 We can also plot the chain:
 ```@example fit

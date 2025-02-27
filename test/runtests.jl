@@ -64,16 +64,12 @@ end
     zs = sol(ts, M.g.z)
 
     # 1) Invert z to t with root finding
-    ts1 = SymBoltz.timeseries.(sol, M.g.z, zs)
+    ts1 = SymBoltz.timeseries(sol, M.g.z, zs)
     @test all(isapprox.(ts, ts1; atol = 1e-15))
 
     # 2) Invert z and ż to t with Hermite spline
     ts2 = SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs)
     @test all(isapprox.(ts, ts2; atol = 1e-6))
-
-    # 3) Invert z to t with spline
-    ts3 = SymBoltz.timeseries(sol, M.g.z, zs)
-    @test all(isapprox.(ts, ts3; atol = 1e-5))
 end
 
 @testset "Initial conditions" begin
