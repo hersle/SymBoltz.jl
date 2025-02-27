@@ -210,7 +210,7 @@ Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating 
 """
 function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
     M = sol.prob.M
-    t0 = sol[t][end]
+    t0 = time_today(sol)
     S0s = sol(ks, ts, 3/16 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts?
     S1s = 0.0 .* S0s # == 0
     return S0s, S1s
@@ -362,11 +362,11 @@ end
 
 # TODO: not really a spectrum...
 """
-    distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = sol[sol.prob.M.t][end])
+    distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = time_today(sol))
 
 Compute luminosity distances at the time(s) `t` relative to the (present) time `t0`.
 """
-function distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = sol[sol.prob.M.t][end])
+function distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = time_today(sol))
     M = sol.prob.M
     χ = t0 .- t
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0

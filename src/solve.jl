@@ -249,13 +249,6 @@ function solve(
         bgprob = prob.bg
         bg = solve(bgprob; callback, bgopts...)
         check_solution(bg.retcode)
-
-        # Remove duplicate endpoints due to callback termination
-        if bg.t[end] == bg.t[end-1]
-            ilast = length(bg.t)
-            deleteat!(bg.t, ilast)
-            deleteat!(bg.u, ilast)
-        end
     else
         bg = nothing
     end
@@ -506,6 +499,22 @@ function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwar
     spl = spline(ts, ṫs, xs)
     ts = spl(vals)
     return ts
+end
+
+"""
+    time_today(sol::CosmologySolution; atoday = 1.0)
+
+Return the time today, when the scale factor `a` equals `atoday`.
+"""
+function time_today(sol::CosmologySolution; atoday = 1.0)
+    M = sol.prob.M
+    afinal = sol[M.g.a][end]
+    tfinal = sol[M.t][end]
+    if sol(tfinal, M.g.a) <= 1.0 && afinal ≈ atoday
+        return tfinal # avoid root finding if signs are not different
+    else
+        return timeseries(sol, M.g.a, atoday)
+    end
 end
 
 # TODO: more generic version that can do anything (e.g. S8)
