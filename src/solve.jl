@@ -479,12 +479,13 @@ end
 
 Find the times when some variable `var` equals some values `vals` with a spline.
 """
-function timeseries(sol::CosmologySolution, var, vals; kwargs...)
+function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
     varfunc = getfunc(sol.th, var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
     tspan = extrema(sol[t])
-    return map(val -> find_zero(f, tspan, val; kwargs...), vals) # TODO: why does adding a method here screw up SN MAP example???
+    prob = IntervalNonlinearProblem(f, tspan, vals[1]; kwargs...)
+    return map(val -> solve(remake(prob; p = val); alg).u, vals)
 end
 """
     timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray)

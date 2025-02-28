@@ -1,5 +1,4 @@
 using RecipesBase
-using Roots
 
 function displayname(var)
     name = string(var)

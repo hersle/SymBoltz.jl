@@ -65,7 +65,7 @@ end
 
     # 1) Invert z to t with root finding
     ts1 = SymBoltz.timeseries(sol, M.g.z, zs)
-    @test all(isapprox.(ts, ts1; atol = 1e-15))
+    @test all(isapprox.(ts, ts1; atol = 1e-12))
 
     # 2) Invert z and ż to t with Hermite spline
     ts2 = SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs)
