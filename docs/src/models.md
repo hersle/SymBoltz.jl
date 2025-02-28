@@ -8,7 +8,7 @@ SymBoltz.RMΛ
 
 ```@example RMΛ
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = RMΛ(K = nothing) # flat
+M = RMΛ()
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => NaN) # TODO: don't pass h and T₀ to avoid infinite loop
 prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
@@ -26,7 +26,7 @@ SymBoltz.ΛCDM
 
 ```@example ΛCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
-M = ΛCDM(K = nothing)
+M = ΛCDM()
 prob = CosmologyProblem(M, parameters_Planck18(M))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
@@ -43,7 +43,7 @@ SymBoltz.w0waCDM
 
 ```@example w0waCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
-M = w0waCDM(K = nothing)
+M = w0waCDM()
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.2,
@@ -66,7 +66,7 @@ SymBoltz.BDΛCDM
 Solve background such that `E = G = 1` today, and plot scalar field and Hubble function:
 ```@example BDΛCDM
 using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
-M = BDΛCDM(K = nothing)
+M = BDΛCDM()
 D = Differential(M.t)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 pars = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
@@ -81,7 +81,7 @@ plot(p1, p2, layout = (2, 1), size = (600, 600))
 
 ```@example BDRMΛ
 using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
-M = SymBoltz.BDRMΛ(K = nothing)
+M = SymBoltz.BDRMΛ()
 D = Differential(M.t)
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω₀, M.G.ϕ
 prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.8, M.Λ.Ω₀ => 0.8), [M.g.ℰ ~ 1, M.G.G ~ 1])
@@ -102,7 +102,7 @@ SymBoltz.QCDM
 using SymBoltz, ModelingToolkit, Plots
 @parameters V0 N
 V = ϕ -> V0 * ϕ^N
-M = QCDM(V, I = nothing, K = nothing)
+M = QCDM(V, I = nothing)
 D = Differential(M.t)
 pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
 prob = CosmologyProblem(M, pars, Dict(D(M.Q.ϕ) => +1.0), [M.g.ℰ ~ 1])

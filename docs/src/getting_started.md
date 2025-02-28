@@ -12,7 +12,7 @@ This is a *symbolic* representation of the variables and equations that describe
 
 To get started, we will simply load the standard ΛCDM model:
 ```@example getting_started
-M = ΛCDM(K = nothing) # flat
+M = ΛCDM()
 hierarchy(M; describe = true)
 ```
 As shown, the model is structured as a hierarchy of the physical components.

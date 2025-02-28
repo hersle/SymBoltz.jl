@@ -12,7 +12,7 @@ solve(prob::CosmologyProblem, ks::AbstractArray)
 For example:
 ```@example sol
 using SymBoltz, Unitful, UnitfulAstro
-M = SymBoltz.ΛCDM(K = nothing) # flat
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"

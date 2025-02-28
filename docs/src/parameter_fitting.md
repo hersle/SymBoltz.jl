@@ -66,7 +66,7 @@ theoretically, we solve the standard ΛCDM model:
 ```@example fit
 using SymBoltz
 
-M = RMΛ()
+M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
 prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN]); th = false, pt = false)
 
 function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3))

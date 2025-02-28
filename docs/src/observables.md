@@ -12,7 +12,7 @@ SymBoltz.spectrum_primordial
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = Dict(M.g.h => 0.7, M.I.As => 2e-9, M.I.ns => 0.95)
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
 Ps = spectrum_primordial(ks, M, pars)
@@ -30,7 +30,7 @@ SymBoltz.spectrum_matter_nonlinear
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
@@ -56,7 +56,7 @@ SymBoltz.spectrum_cmb
 ```@example
 # TODO: more generic, source functions, ... # hide
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ls = 10:5:1500
@@ -79,7 +79,7 @@ SymBoltz.correlation_function
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
@@ -98,7 +98,7 @@ SymBoltz.stddev_matter
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
@@ -122,7 +122,7 @@ SymBoltz.distance_luminosity
 
 ```@example
 using SymBoltz, Plots
-M = SymBoltz.RMΛ()
+M = SymBoltz.RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
 pars = Dict(
     M.r.Ω₀ => 5e-5,
     M.m.Ω₀ => 0.3,

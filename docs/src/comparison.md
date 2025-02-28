@@ -15,7 +15,7 @@ using Unitful, UnitfulAstro
 using Plots
 
 lmax = 6
-M = ΛCDM(; lmax, K = nothing)
+M = ΛCDM(; lmax)
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 

@@ -14,7 +14,7 @@ First, we must decide which parameters $\theta$ the power spectrum $P(k; \theta)
 To do so, let us write a small wrapper function that calculates the power spectrum as a function of the parameters $(T_{\gamma 0}, \Omega_{c0}, \Omega_{b0}, N_\textrm{eff}, h, Y_p)$, following the [Getting started tutorial](@ref "Getting started"):
 ```@example ad
 using SymBoltz
-M = ΛCDM(K = nothing)
+M = ΛCDM()
 pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m, M.I.As, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 

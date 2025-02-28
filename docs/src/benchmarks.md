@@ -5,7 +5,7 @@
 
 ```@example bench
 using SymBoltz, Unitful, UnitfulAstro, OrdinaryDiffEq, BenchmarkTools, Plots
-M = SymBoltz.ΛCDM(K = nothing)
+M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M) # TODO: much faster if i set ΩΛ0 explicitly?
 prob = CosmologyProblem(M, pars)
 N = 20

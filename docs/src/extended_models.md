@@ -19,7 +19,7 @@ First, we create the reference model that is to be extended.
 We will modify the standard ΛCDM model:
 ```@example ext
 using SymBoltz
-M1 = ΛCDM(K = nothing) # flat
+M1 = ΛCDM()
 hierarchy(M1; describe = true)
 ```
 Everything belonging to the cosmological constant species is stored in the component `M1.Λ`:
@@ -92,7 +92,7 @@ This connection is made when the component is used to create a full cosmological
 
 Finally, we create a new `ΛCDM` model, but replace `Λ` by `X`, and call it the `w0waCDM` model:
 ```@example ext
-M2 = ΛCDM(Λ = X, K = nothing, name = :w0waCDM)
+M2 = ΛCDM(Λ = X, name = :w0waCDM)
 hierarchy(M2; describe = true)
 ```
 Now `M2.Λ` no longer exists, but `M2.X` contains our new dark energy species:

@@ -44,7 +44,7 @@ export time_today
 using PrecompileTools: @compile_workload
 @compile_workload begin
     using SymBoltz, Unitful, UnitfulAstro
-    M = ΛCDM(K = nothing)
+    M = ΛCDM()
     pars = parameters_Planck18(M)
     prob = CosmologyProblem(M, pars)
     ks = 10 .^ range(-5, 1, length=5) / u"Mpc"
