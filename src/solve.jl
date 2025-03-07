@@ -247,6 +247,9 @@ function solve(
 
     if !isnothing(prob.bg)
         bgprob = prob.bg
+        if !haskey(bgopts, :alg)
+            bgopts = merge(bgopts, (alg = Rodas4P(),)) # default if unspecified
+        end
         bg = solve(bgprob; callback, bgopts...)
         check_solution(bg.retcode)
     else
@@ -257,6 +260,9 @@ function solve(
 
     if !isnothing(prob.th)
         thprob = remake(prob.th; tspan)
+        if !haskey(thopts, :alg)
+            thopts = merge(thopts, (alg = Rodas4P(),)) # default if unspecified
+        end
         th = solve(thprob; thopts...)
         check_solution(th.retcode)
 
@@ -317,6 +323,9 @@ function solve(
             return sol, false
         end)
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
+        if !haskey(ptopts, :alg)
+            ptopts = merge(ptopts, (alg = KenCarp4(),)) # default if unspecified
+        end
         ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
         verbose && println() # end line in output_func
         for i in eachindex(ptsols)
