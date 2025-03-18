@@ -80,7 +80,7 @@ function ΛCDM(;
     connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
-    return complete(M; flatten = false)
+    return complete(M; flatten = false, split = false)
 end
 
 """
@@ -125,7 +125,7 @@ function RMΛ(;
     defs = merge(defs, Ω₀_defaults(G, species))
     connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
-    return complete(M; flatten = false)
+    return complete(M; flatten = false, split = false)
 end
 
 """
