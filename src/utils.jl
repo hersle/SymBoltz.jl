@@ -35,6 +35,7 @@ end
 
 # for testing: transform(identity, sys) should do no harm to a system
 function identity(sys::ODESystem)
+    iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
@@ -42,7 +43,7 @@ function identity(sys::ODESystem)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
     pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
-    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
 function debugize(sys::ODESystem)
@@ -54,6 +55,7 @@ O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
 function taylor(sys::ODESystem, ϵ, orders; kwargs...)
+    iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     vars = ModelingToolkit.get_unknowns(sys)
@@ -72,7 +74,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
 
     pars = filter(p -> Symbol(p) != Symbol("DEF"), pars) # TODO: remove once fixed: https://github.com/SciML/ModelingToolkit.jl/issues/3322
 
-    return ODESystem(eqs, t, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))

@@ -64,27 +64,23 @@ d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 ```
 theoretically, we solve the standard ΛCDM model:
 ```@example fit
-using SymBoltz
+using SymBoltz, ModelingToolkit
 
 M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
-prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN]); th = false, pt = false)
+M = change_independent_variable(M, M.g.a; add_old_diff = true)
+prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀, M.t] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN, 0.0]); th = false, pt = false, ivspan = (1e-8, 1e0))
 
-function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3))
+function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing)
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
-    prob = remake(prob, Dict(
-        M.g.h => h,
-        M.r.Ω₀ => Ωr0,
-        M.m.Ω₀ => Ωm0,
-        M.K.Ω₀ => Ωk0,
-        M.Λ.Ω₀ => ΩΛ0
-    ), build_initializeprob = false) # bypass unnecessary initialization for performance
-    return solve(prob; bgopts)
+    pars = Dict(M.g.h => h, M.r.Ω₀ => Ωr0, M.m.Ω₀ => Ωm0, M.K.Ω₀ => Ωk0, M.Λ.Ω₀ => ΩΛ0)
+    prob = remake(prob, pars; build_initializeprob = false) # skip expensive reinitialization
+    return solve(prob; bgopts, term)
 end
 
 function dL(z, sol::CosmologySolution)
-    M = sol.prob.M
-    t = SymBoltz.timeseries(sol, M.g.z, z) # TODO: spline version is not accurate enough and screws up the parameter fit values!
-    return SymBoltz.distance_luminosity(sol, t) / SymBoltz.Gpc
+    a = @. 1 / (z + 1)
+    t0 = sol[sol.prob.M.t][end]
+    return SymBoltz.distance_luminosity(sol, a, t0) / SymBoltz.Gpc
 end
 
 # Show example predictions
@@ -100,7 +96,7 @@ To perform bayesian inference, we define a probabilistic model in [Turing.jl](ht
 ```@example fit
 using Turing
 
-@model function supernova(data, prob)
+@model function supernova(data, prob; verbose = false)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
     Ωk0 ~ Uniform(-1.0, +1.0)
@@ -108,8 +104,8 @@ using Turing
 
     sol = solve_with(prob, Ωm0, Ωk0, h)
 
-    if Symbol(sol.bg.retcode) != :Terminated
-        println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
+    if Symbol(sol.bg.retcode) == :Unstable
+        verbose && println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
         Turing.@addlogprob! -Inf
         return nothing # illegal parameters
     end

@@ -128,20 +128,19 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    bg = true, th = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
+    ivspan = (0.0, 100.0), bg = true, th = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
-    tspan = (0.0, 100.0)
 
     if bg
         bg = structural_simplify(background(M))
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, vars, tspan, parsk; fully_determined, kwargs...)
+        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, kwargs...)
     else
         bg = nothing
     end
@@ -151,7 +150,7 @@ function CosmologyProblem(
         if debug
             th = debug_system(th)
         end
-        th = ODEProblem(th, vars, tspan, parsk; fully_determined, kwargs...)
+        th = ODEProblem(th, vars, ivspan, parsk; fully_determined, kwargs...)
     else
         th = nothing
     end
@@ -170,7 +169,7 @@ function CosmologyProblem(
             pt = debug_system(pt)
         end
         vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, vars, tspan, parsk; fully_determined, kwargs...)
+        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, kwargs...)
     else
         pt = nothing
         var2spl = Dict()
@@ -228,7 +227,7 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::AbstractArray;
-    aterm = 1.0,
+    term = prob.M.g.a => 1.0,
     bgopts = (alg = Rodas4P(), reltol = 1e-8,),
     thopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
@@ -243,7 +242,7 @@ function solve(
     end
 
     M = prob.M
-    callback = callback_terminator(prob.bg, M.g.a, aterm)
+    callback = isnothing(term) ? nothing : callback_terminator(prob.bg, term[1], term[2])
 
     if !isnothing(prob.bg)
         bgprob = prob.bg
@@ -256,10 +255,10 @@ function solve(
         bg = nothing
     end
 
-    tspan = extrema(bg.t)
+    ivspan = extrema(bg.t)
 
     if !isnothing(prob.th)
-        thprob = remake(prob.th; tspan)
+        thprob = remake(prob.th; tspan = ivspan)
         if !haskey(thopts, :alg)
             thopts = merge(thopts, (alg = Rodas4P(),)) # default if unspecified
         end
@@ -287,7 +286,7 @@ function solve(
         end
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-        ptprob0 = remake(prob.pt; tspan)
+        ptprob0 = remake(prob.pt; tspan = ivspan)
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.th.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl
@@ -304,7 +303,7 @@ function solve(
         end
         update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
         newu0, newp = update(ptprob0, collect(values(update_vars)))
-        ptprob0 = remake(ptprob0; tspan, u0 = newu0, p = newp)
+        ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
 
         kidx = ModelingToolkit.parameter_index(ptprob0, k)
         ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
@@ -353,7 +352,7 @@ end
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
-    if ModelingToolkit.isparameter(i) && i !== t # don't catch independent variable as parameter
+    if ModelingToolkit.isparameter(i) && !isequal(i, ModelingToolkit.get_iv(sol.prob.M)) # don't catch independent variable as parameter
         return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
     else
         return sol.th[i]
@@ -492,8 +491,8 @@ function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
     varfunc = getfunc(sol.th, var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
-    tspan = extrema(sol[t])
-    prob = IntervalNonlinearProblem(f, tspan, vals[1]; kwargs...)
+    ivspan = extrema(sol[t])
+    prob = IntervalNonlinearProblem(f, ivspan, vals[1]; kwargs...)
     return map(val -> solve(remake(prob; p = val); alg).u, vals)
 end
 """
@@ -520,7 +519,7 @@ function time_today(sol::CosmologySolution; atoday = 1.0)
     M = sol.prob.M
     afinal = sol[M.g.a][end]
     tfinal = sol[M.t][end]
-    if sol(tfinal, M.g.a) <= 1.0 && afinal ≈ atoday
+    if sol[M.g.a][end] <= 1.0 && afinal ≈ atoday
         return tfinal # avoid root finding if signs are not different
     else
         return timeseries(sol, M.g.a, atoday)

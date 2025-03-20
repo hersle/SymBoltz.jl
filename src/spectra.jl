@@ -366,12 +366,13 @@ end
 
 Compute luminosity distances at the time(s) `t` relative to the (present) time `t0`.
 """
-function distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = time_today(sol))
+function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, t0 = time_today(sol))
     M = sol.prob.M
+    t = sol(ivs, M.t)
     χ = t0 .- t
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
     r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
     H0 = H100 * sol[M.g.h]
-    a = sol(t, M.g.a)
+    a = sol(ivs, M.g.a)
     return @. r / a * SymBoltz.c / H0 # to meters
 end
