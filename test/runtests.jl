@@ -136,4 +136,5 @@ end
     sol = solve(prob)
     t0 = time_today(sol)
     @test sol(t0, M.g.a) ≈ 1.0
+    @test sol(t0, M.b.rec.τ) == 0.0
 end
