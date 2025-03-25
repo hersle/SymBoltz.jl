@@ -94,15 +94,26 @@ scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 
 To perform bayesian inference, we define a probabilistic model in [Turing.jl](https://turinglang.org/):
 ```@example fit
-using Turing
+# TODO: improve based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
+using Turing, Setfield, PreallocationTools, SymbolicIndexingInterface, SciMLStructures
+using SciMLStructures: canonicalize, Tunable
 
-@model function supernova(data, prob; verbose = false)
+@model function supernova(data, prob, setter!, diffcache; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing, verbose = false)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
     Ωk0 ~ Uniform(-1.0, +1.0)
     h ~ Uniform(0.1, 1.0)
 
-    sol = solve_with(prob, Ωm0, Ωk0, h)
+    ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
+    p = [h, Ωr0, Ωm0, Ωk0, ΩΛ0]
+    ps = parameter_values(prob.bg) # obtain the parameter object from the problem
+    buffer = get_tmp(diffcache, p)
+    copyto!(buffer, canonicalize(Tunable(), ps)[1])
+    ps = SciMLStructures.replace(Tunable(), ps, buffer)
+    setter!(ps, p)
+    bgprob = remake(prob.bg; p = ps)
+    @set! prob.bg = bgprob
+    sol = solve(prob; bgopts, term)
 
     if Symbol(sol.bg.retcode) == :Unstable
         verbose && println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
@@ -116,7 +127,11 @@ using Turing
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
-sn = supernova(data, prob) # condition model on data
+
+setter! = setp(prob.bg, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀])
+diffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(prob.bg))[1]))
+
+sn = supernova(data, prob, setter!, diffcache) # condition model on data
 ```
 We can [find its maximum a posteriori (MAP) parameter estimate](https://turinglang.org/docs/usage/mode-estimation/) using Turing.jl's interface with [Optimization.jl](https://docs.sciml.ai/Optimization/) and the algorithms in [Optim.jl](https://docs.sciml.ai/Optimization/stable/optimization_packages/optim/):
 ```@example fit
