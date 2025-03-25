@@ -1,8 +1,11 @@
 import Base: nameof
 import CommonSolve: solve
 import SciMLBase: remake
+import PreallocationTools: DiffCache, get_tmp
+import SciMLStructures
+import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
-import SymbolicIndexingInterface: getsym
+import SymbolicIndexingInterface: getsym, setp, parameter_values
 
 function background(sys)
     return transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
@@ -17,7 +20,7 @@ end
 struct CosmologyProblem
     M::ODESystem
 
-    bg::Union{ODEProblem, Nothing}
+    bg::ODEProblem
     pt::Union{ODEProblem, Nothing}
 
     pars::Dict
@@ -177,6 +180,25 @@ function remake(
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
+end
+
+function parameter_updater(prob::CosmologyProblem, idxs)
+    # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
+    # TODO: perturbations, remove M, pars, etc. for efficiency?
+
+    @unpack M, bg, pars, shoot, conditions, var2spl = prob
+    bgps = parameter_values(bg)
+    bgsetp! = setp(bg, idxs)
+    diffcache = DiffCache(copy(canonicalize(Tunable(), bgps)[1])) # TODO: separate bg/pt?
+
+    return p -> begin
+        buffer = get_tmp(diffcache, p) # get newly typed buffer
+        copyto!(buffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
+        bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
+        bgsetp!(bgps_new, p) # set new parameters
+        bg_new = remake(bg; p = bgps_new) # create updated problem
+        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl) # TODO: update pars? or remove that field and read parameters from subproblems?
+    end
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline

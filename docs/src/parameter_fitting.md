@@ -94,25 +94,17 @@ scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
 
 To perform bayesian inference, we define a probabilistic model in [Turing.jl](https://turinglang.org/):
 ```@example fit
-# TODO: improve based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
-using Turing, Setfield, PreallocationTools, SymbolicIndexingInterface, SciMLStructures
-using SciMLStructures: canonicalize, Tunable
+using Turing
 
-@model function supernova(data, prob, setter!, diffcache; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing, verbose = false)
+@model function supernova(data, probgen; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing, verbose = false)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
     Ωk0 ~ Uniform(-1.0, +1.0)
     h ~ Uniform(0.1, 1.0)
-
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
+
     p = [h, Ωr0, Ωm0, Ωk0, ΩΛ0]
-    ps = parameter_values(prob.bg) # obtain the parameter object from the problem
-    buffer = get_tmp(diffcache, p)
-    copyto!(buffer, canonicalize(Tunable(), ps)[1])
-    ps = SciMLStructures.replace(Tunable(), ps, buffer)
-    setter!(ps, p)
-    bgprob = remake(prob.bg; p = ps)
-    @set! prob.bg = bgprob
+    prob = probgen(p)
     sol = solve(prob; bgopts, term)
 
     if Symbol(sol.bg.retcode) == :Unstable
@@ -128,10 +120,8 @@ using SciMLStructures: canonicalize, Tunable
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
 
-setter! = setp(prob.bg, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀])
-diffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(prob.bg))[1]))
-
-sn = supernova(data, prob, setter!, diffcache) # condition model on data
+probgen = SymBoltz.parameter_updater(prob, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀])
+sn = supernova(data, probgen) # condition model on data
 ```
 We can [find its maximum a posteriori (MAP) parameter estimate](https://turinglang.org/docs/usage/mode-estimation/) using Turing.jl's interface with [Optimization.jl](https://docs.sciml.ai/Optimization/) and the algorithms in [Optim.jl](https://docs.sciml.ai/Optimization/stable/optimization_packages/optim/):
 ```@example fit
@@ -143,7 +133,7 @@ mapest.values
 ```
 We can now sample from the model, using the MAP estimate as starting values:
 ```@example fit
-chain = sample(sn, NUTS(), 500; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+chain = sample(sn, NUTS(), 1000; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 ```
 We can also plot the chain:
 ```@example fit

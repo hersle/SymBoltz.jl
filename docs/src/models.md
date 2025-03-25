@@ -71,7 +71,7 @@ D = Differential(M.t)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 pars = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
 prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1, M.G.G ~ 1])
-sol = solve(prob, ks)
+sol = solve(prob, ks; shootopts = (alg = SymBoltz.TrustRegion(), abstol = 1e-5), verbose = true)
 p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
 p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
@@ -104,8 +104,8 @@ using SymBoltz, ModelingToolkit, Plots
 V = ϕ -> V0 * ϕ^N
 M = QCDM(V, I = nothing)
 D = Differential(M.t)
-pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, M.Q.V0 => 1e-2, M.Q.N => 2))
-prob = CosmologyProblem(M, pars, Dict(D(M.Q.ϕ) => +1.0), [M.g.ℰ ~ 1])
-sol = solve(prob)
+pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ => 1, D(M.Q.ϕ) => 1.0, M.Q.V0 => 1e-2, M.Q.N => 2))
+prob = CosmologyProblem(M, pars)
+sol = solve(prob) # TODO: shoot so M.g.ℰ ~ 1 today
 plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(t))
 ```
