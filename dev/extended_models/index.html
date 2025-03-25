@@ -87,8 +87,7 @@ prob1 = CosmologyProblem(M1, θ1)
 ks = 1.0
 sol1 = solve(prob1, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
 <span class="sgr1">Stages:</span>
-  Background: solved with Rodas4P, 58 points
-  Thermodynamics: solved with Rodas4P, 1050 points
+  Background: solved with Rodas4P, 1050 points
   Perturbations: solved with KenCarp4, 52-52 points, x1 k ∈ [1.0, 1.0] H₀/c (linear interpolation between log(k))
 <span class="sgr1">Parameters:</span>
   c₊Ω₀ = 0.26447041034523616
@@ -107,8 +106,7 @@ sol1 = solve(prob1, ks)</code></pre><pre class="documenter-example-output"><code
 prob2 = CosmologyProblem(M2, θ2)
 sol2 = solve(prob2, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">w0waCDM</span>
 <span class="sgr1">Stages:</span>
-  Background: solved with Rodas4P, 56 points
-  Thermodynamics: solved with Rodas4P, 1051 points
+  Background: solved with Rodas4P, 1051 points
   Perturbations: solved with KenCarp4, 55-55 points, x1 k ∈ [1.0, 1.0] H₀/c (linear interpolation between log(k))
 <span class="sgr1">Parameters:</span>
   X₊w₀ = -0.9
@@ -130,4 +128,4 @@ H2s = sol2(log10(M2.g.a) =&gt; lgas, M2.g.H)
 
 using Plots
 plot(lgas, H2s ./ H1s; xlabel = &quot;lg(a)&quot;, label = &quot;H₂ / H₁&quot;)
-plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="6609b11b.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Tuesday 18 March 2025 22:08">Tuesday 18 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="4a3446fd.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Tuesday 25 March 2025 15:48">Tuesday 25 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
