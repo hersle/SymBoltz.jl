@@ -60,7 +60,7 @@ Create a particle species for the cosmological constant (with equation of state 
 """
 function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
-    Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> thermodynamics |> complete # discard ill-defined perturbations
+    Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> background |> complete # discard ill-defined perturbations
     vars = @variables δ(t) θ(t) σ(t)
     description = "Cosmological constant"
     return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1), t, vars, []; name); description) # manually set perturbations to zero
@@ -107,7 +107,7 @@ Create a particle species for photons in the spacetime with metric `g`.
 function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     description = "Photons"
-    γ = radiation(g; name, description, kwargs...) |> thermodynamics |> complete # prevent namespacing in extension below
+    γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables F(t)[0:lmax] Θ(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
     defs = [
@@ -160,7 +160,7 @@ Create a particle species for massless neutrinos in the spacetime with metric `g
 """
 function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     description = "Massless neutrinos"
-    ν = radiation(g; name, description, kwargs...) |> thermodynamics |> complete
+    ν = radiation(g; name, description, kwargs...) |> background |> complete
 
     vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
     pars = @parameters Neff

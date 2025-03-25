@@ -110,7 +110,7 @@ end
 
 @testset "Spline observed variables" begin
     prob1 = prob
-    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.th.f.sys); M.b.rec.v])
+    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.rec.v])
     @test haskey(prob2.var2spl, M.b.rec.v)
 
     obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS

@@ -5,14 +5,6 @@ import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface: getsym
 
 function background(sys)
-    sys = thermodynamics(sys)
-    if :b in ModelingToolkit.get_name.(ModelingToolkit.get_systems(sys))
-        sys = replace(sys, sys.b.rec => ODESystem([], t; name = :rec)) # remove recombination # TODO: avoid
-    end
-    return sys
-end
-
-function thermodynamics(sys)
     return transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 end
 
@@ -26,7 +18,6 @@ struct CosmologyProblem
     M::ODESystem
 
     bg::Union{ODEProblem, Nothing}
-    th::Union{ODEProblem, Nothing}
     pt::Union{ODEProblem, Nothing}
 
     pars::Dict
@@ -40,7 +31,6 @@ end
 struct CosmologySolution
     prob::CosmologyProblem
     bg::Union{ODESolution, Nothing}
-    th::Union{ODESolution, Nothing}
     ks::AbstractArray
     pts::Union{EnsembleSolution, Nothing}
 end
@@ -56,11 +46,6 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     if !isnothing(prob.bg)
         print(io, '\n', indent, "Background")
         print(io, ": ", length(unknowns(prob.bg.f.sys)), " unknowns")
-        print(io, ", ", 0, " splines")
-    end
-    if !isnothing(prob.th)
-        print(io, '\n', indent, "Thermodynamics")
-        print(io, ": ", length(unknowns(prob.th.f.sys)), " unknowns")
         print(io, ", ", 0, " splines")
     end
     if !isnothing(prob.pt)
@@ -88,9 +73,6 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
     if !isnothing(sol.bg)
         print(io, '\n', indent, "Background: solved with $(algname(sol.bg.alg)), $(length(sol.bg)) points")
     end
-    if !isnothing(sol.th)
-        print(io, '\n', indent, "Thermodynamics: solved with $(algname(sol.th.alg)), $(length(sol.th)) points")
-    end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
         nmin, nmax = extrema(map(length, sol.pts))
@@ -116,19 +98,19 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        bg = true, th = true, pt = true, spline = true, debug = false, kwargs...
+        bg = true, pt = true, spline = true, debug = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
 
-If `bg`, `th` and `pt`, the model is split into the background, thermodynamics and perturbations stages.
-If `spline` is a `Bool`, it decides whether all thermodynamics unknowns in the perturbations system are replaced by splines.
+If `bg` and `pt`, the model is split into the background and perturbations stages.
+If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), bg = true, th = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
+    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
@@ -145,19 +127,9 @@ function CosmologyProblem(
         bg = nothing
     end
 
-    if th
-        th = structural_simplify(thermodynamics(M))
-        if debug
-            th = debug_system(th)
-        end
-        th = ODEProblem(th, vars, ivspan, parsk; fully_determined, kwargs...)
-    else
-        th = nothing
-    end
-
     if pt
         if spline == true
-            spline = unknowns(th.f.sys)
+            spline = unknowns(bg.f.sys)
         elseif spline == false
             spline = []
         else
@@ -175,13 +147,13 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
+    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
 end
 
 """
     function remake(
         prob::CosmologyProblem, pars::Dict;
-        bg = true, th = true, pt = true, shoot = true,
+        bg = true, pt = true, shoot = true,
         kwargs...
     )
 
@@ -190,7 +162,7 @@ Parameters that are not specified in `pars` keep their values from `prob`.
 """
 function remake(
     prob::CosmologyProblem, pars::Dict;
-    bg = true, th = true, pt = true, shoot = true,
+    bg = true, pt = true, shoot = true,
     kwargs...
 )
     pars_full = merge(prob.pars, pars) # save full dictionary for constructor
@@ -198,14 +170,13 @@ function remake(
     vars = isempty(vars) ? missing : vars
     pars = isempty(pars) ? missing : pars
     bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.bg.f.initialization_data), kwargs...) : nothing
-    th = th && !isnothing(prob.th) ? remake(prob.th; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.th.f.initialization_data), kwargs...) : nothing
     if !ismissing(vars)
         vars = remove_initial_conditions!(vars, keys(prob.var2spl)) # must filter ICs in remake, too
     end
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, th, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
+    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
@@ -214,14 +185,13 @@ end
         prob::CosmologyProblem, ks::AbstractArray = [];
         aterm = 1.0,
         bgopts = (alg = Rodas4P(), reltol = 1e-8,),
-        thopts = (alg = Rodas4P(), reltol = 1e-8,),
         ptopts = (alg = KenCarp4(), reltol = 1e-8,),
-        shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false),
+        shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
         thread = true, verbose = false
     )
 
-Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or up to the thermodynamics level if it is empty).
-The options `bgopts`, `thopts` and `ptopts` are passed to the background, thermodynamics and perturbations ODE `solve()` calls,
+Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
+The options `bgopts` and `ptopts` are passed to the background and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
 If `threads`, integration over independent perturbation modes are parallellized.
 """
@@ -229,9 +199,8 @@ function solve(
     prob::CosmologyProblem, ks::AbstractArray;
     term = prob.M.g.a => 1.0,
     bgopts = (alg = Rodas4P(), reltol = 1e-8,),
-    thopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
-    shootopts = (alg = NewtonRaphson(), reltol = 1e-3, th = false, pt = false),
+    shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
     thread = true, verbose = false
 )
     if !isempty(prob.shoot)
@@ -251,30 +220,19 @@ function solve(
         end
         bg = solve(bgprob; callback, bgopts...)
         check_solution(bg.retcode)
+
+        # Offset optical depth, so it's 0 today
+        if have(M, :b)
+            idx_τ = ModelingToolkit.variable_index(prob.bg, M.b.rec.τ)
+            for i in 1:length(bg.u)
+                bg.u[i][idx_τ] -= bg.u[end][idx_τ]
+            end
+        end
     else
         bg = nothing
     end
 
     ivspan = extrema(bg.t)
-
-    if !isnothing(prob.th)
-        thprob = remake(prob.th; tspan = ivspan)
-        if !haskey(thopts, :alg)
-            thopts = merge(thopts, (alg = Rodas4P(),)) # default if unspecified
-        end
-        th = solve(thprob; thopts...)
-        check_solution(th.retcode)
-
-        # Offset optical depth, so it's 0 today
-        if have(M, :b)
-            idx_τ = ModelingToolkit.variable_index(prob.th, M.b.rec.τ)
-            for i in 1:length(th.u)
-                th.u[i][idx_τ] -= th.u[end][idx_τ]
-            end
-        end
-    else
-        th = bg
-    end
 
     if !isnothing(prob.pt) && !isempty(ks)
         ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
@@ -288,7 +246,7 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan = ivspan)
         update_vars = Dict()
-        is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.th.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
+        is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl
             varname = nameof(operation(var))
             if varname in is_unknown
@@ -297,7 +255,7 @@ function solve(
                 dvarname = Symbol(varname, Symbol("̇")) # add \dot # TODO: generalize to e.g. expand_derivatives(D(var))?
                 dvar = only(@variables($dvarname(t)))
             end
-            splval = spline(th, var, dvar)
+            splval = spline(bg, var, dvar)
             update_vars = merge(update_vars, Dict(spl => splval))
             verbose && println("Splining $var with $(length(splval.t)) points")
         end
@@ -334,7 +292,7 @@ function solve(
         ptsols = nothing
     end
 
-    return CosmologySolution(prob, bg, th, ks, ptsols)
+    return CosmologySolution(prob, bg, ks, ptsols)
 end
 function solve(prob::CosmologyProblem; kwargs...)
     return solve(prob, []; kwargs...)
@@ -353,23 +311,23 @@ end
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
     if ModelingToolkit.isparameter(i) && !isequal(i, ModelingToolkit.get_iv(sol.prob.M)) # don't catch independent variable as parameter
-        return sol.th.ps[i] # assume all parameters are in background/thermodynamics # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
+        return sol.bg.ps[i] # assume all parameters are in background # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
     else
-        return sol.th[i]
+        return sol.bg[i]
     end
 end
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j)
-    return stack(sol.th[i, j])
+    return stack(sol.bg[i, j])
 end
 Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
-    tmin, tmax = extrema(sol.th.t[[begin, end]])
+    tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
     #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
-    return permutedims(sol.th(ts, idxs=is)[:, :])
+    return permutedims(sol.bg(ts, idxs=is)[:, :])
 end
 (sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]
 (sol::CosmologySolution)(t::Number, is::AbstractArray) = sol([t], is)[1, :]
@@ -489,7 +447,7 @@ Find the times when some variable `var` equals some values `vals` with a spline.
 """
 function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
-    varfunc = getfunc(sol.th, var)
+    varfunc = getfunc(sol.bg, var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
     ivspan = extrema(sol[t])
     prob = IntervalNonlinearProblem(f, ivspan, vals[1]; kwargs...)
@@ -531,19 +489,19 @@ end
 """
     function shoot(
         prob::CosmologyProblem, pars::Dict, conditions::AbstractArray;
-        alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...
+        alg = TrustRegion(), bg = true, pt = false, verbose = false, kwargs...
     )
 
 Solve `prob` repeatedly to determine the values in `pars` (with initial guesses) so that the `conditions` are satisfied at the final time.
 """
 function shoot(
     prob::CosmologyProblem, pars::Dict, conditions::AbstractArray;
-    alg = TrustRegion(), bg = true, th = false, pt = false, verbose = false, kwargs...
+    alg = TrustRegion(), bg = true, pt = false, verbose = false, kwargs...
 )
     funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
 
     function f(vals, _)
-        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, th, pt, shoot = false)
+        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, pt, shoot = false)
         sol = solve(newprob)
         return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
     end
@@ -556,15 +514,14 @@ function shoot(
 end
 
 """
-    parameters(prob::CosmologyProblem; bg = true, th = true, pt = true, spline = false)
+    parameters(prob::CosmologyProblem; bg = true, pt = true, spline = false)
 
 Get all parameter values of the cosmological problem `prob`.
 """
-function parameters(prob::CosmologyProblem; bg = true, th = true, pt = true, spline = false)
+function parameters(prob::CosmologyProblem; bg = true, pt = true, spline = false)
     bg = bg && !isnothing(prob.bg) ? parameters(prob.bg) : Dict()
-    th = th && !isnothing(prob.th) ? parameters(prob.th) : Dict()
     pt = pt && !isnothing(prob.pt) ? parameters(prob.pt) : Dict()
-    pars = merge(bg, th, pt)
+    pars = merge(bg, pt)
     !spline && delete!.(Ref(pars), values(prob.var2spl))
     return pars
 end
