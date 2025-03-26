@@ -48,8 +48,12 @@ data = [ # https://cmb.wintherscoming.no/data/supernovadata.txt
 reverse!(data; dims=1) # make redshift increasing
 data = (zs = data[:,1], dLs = data[:,2], ΔdLs = data[:,3], C = Diagonal(data[:,3] .^ 2))
 
-using Plots
-scatter(@. log10(data.zs+1), @. data.dLs / data.zs; yerror = data.ΔdLs ./ data.zs, xlabel = "lg(1+z)", ylabel = "dₗ/z/Gpc", label = "observations")
+using CairoMakie
+fig = Figure()
+ax = Axis(fig[1, 1], xlabel = "lg(1+z)", ylabel = "dₗ/z/Gpc")
+scatter!(ax, log10.(data.zs.+1), data.dLs ./ data.zs; label = "observations")
+errorbars!(ax, log10.(data.zs.+1), data.dLs ./ data.zs, data.ΔdLs ./ data.zs) #, xlabel = "lg(1+z)", ylabel = "dₗ/z/Gpc", label = "observations")
+fig
 ```
 
 ## Predicting luminosity distances
@@ -86,7 +90,9 @@ end
 as = 1 ./ (data.zs .+ 1)
 sol = solve(prob, saveat = as, save_end = true, term = nothing)
 dLs = dL(sol)
-scatter!(sol[log10(M.g.z+1)], dLs ./ sol[M.g.z]; label = "prediction")
+scatter!(ax, sol[log10(M.g.z+1)], dLs ./ sol[M.g.z]; label = "predictions")
+axislegend(ax, position = :rb)
+fig
 ```
 
 ## Bayesian inference
@@ -131,14 +137,14 @@ mapest = maximum_a_posteriori(sn; initial_params = prior_means) # or maximum_lik
 @assert Symbol(mapest.optim_result.retcode) == :Success # hide
 mapest.values
 ```
-We can now sample from the model, using the MAP estimate as starting values:
+We can now sample from the model using the MAP estimate as starting values, obtaining a MCMC chain:
 ```@example fit
-chain = sample(sn, NUTS(), 500; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+chain = sample(sn, NUTS(), 2000; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 ```
-We can also plot the chain:
+Finally, we can visualize the chain with a triangle plot using PairPlots.jl:
 ```@example fit
-using StatsPlots
-plot(chain)
+using PairPlots
+pairplot(chain)
 ```
 
 ```@setup fit
@@ -187,5 +193,3 @@ end
 sn = supernova_fast(data)
 chain = sample(sn, NUTS(), 500)
 ```
-
-TODO: take som inspiration from the [Catalyst tutorial](https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/)
