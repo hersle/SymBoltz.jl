@@ -1,6 +1,7 @@
 import Base: nameof
+import LinearAlgebra: issuccess
 import CommonSolve: solve
-import SciMLBase: remake
+import SciMLBase: remake, successful_retcode
 import PreallocationTools: DiffCache, get_tmp
 import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
@@ -182,7 +183,7 @@ function remake(
     return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
-function parameter_updater(prob::CosmologyProblem, idxs)
+function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
     # TODO: perturbations, remove M, pars, etc. for efficiency?
 
@@ -196,7 +197,7 @@ function parameter_updater(prob::CosmologyProblem, idxs)
         copyto!(buffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
         bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
         bgsetp!(bgps_new, p) # set new parameters
-        bg_new = remake(bg; p = bgps_new) # create updated problem
+        bg_new = remake(bg; p = bgps_new, kwargs...) # create updated problem
         return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl) # TODO: update pars? or remove that field and read parameters from subproblems?
     end
 end
@@ -209,7 +210,7 @@ end
         bgopts = (alg = Rodas4P(), reltol = 1e-8,),
         ptopts = (alg = KenCarp4(), reltol = 1e-8,),
         shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
-        thread = true, verbose = false
+        thread = true, verbose = false, kwargs...
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
@@ -223,7 +224,7 @@ function solve(
     bgopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
     shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
-    thread = true, verbose = false
+    thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
         length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
@@ -240,8 +241,7 @@ function solve(
         if !haskey(bgopts, :alg)
             bgopts = merge(bgopts, (alg = Rodas4P(),)) # default if unspecified
         end
-        bg = solve(bgprob; callback, bgopts...)
-        check_solution(bg.retcode)
+        bg = solve(bgprob; callback, verbose, bgopts..., kwargs...)
 
         # Offset optical depth, so it's 0 today
         if have(M, :b)
@@ -305,11 +305,8 @@ function solve(
         if !haskey(ptopts, :alg)
             ptopts = merge(ptopts, (alg = KenCarp4(),)) # default if unspecified
         end
-        ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), ptopts...) # TODO: test GPU parallellization
+        ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), verbose, ptopts..., kwargs...) # TODO: test GPU parallellization
         verbose && println() # end line in output_func
-        for i in eachindex(ptsols)
-            check_solution(ptsols[i].retcode)
-        end
     else
         ptsols = nothing
     end
@@ -323,10 +320,13 @@ function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
 end
 
-function check_solution(code, stage = "Solution"; good = (:Success, :Terminated))
-    is_good = Symbol(code) in good
-    is_good || @warn "$stage failed with status $code (expected $(join(String.(good), " or ")))"
-    return is_good
+"""
+    issuccess(sol::CosmologySolution)
+
+Returns whether the solution of a cosmological problem was successful (i.e. not failing due to instability or too many time steps).
+"""
+function issuccess(sol::CosmologySolution)
+    return successful_retcode(sol.bg) && (isnothing(sol.pts) || all(successful_retcode(pt) for pt in sol.pts))
 end
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
@@ -531,7 +531,6 @@ function shoot(
     nguess = collect(values(pars))
     nprob = NonlinearProblem(f, nguess)
     nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...)
-    check_solution(nsol.retcode)
     return Dict(keys(pars) .=> nsol.u)
 end
 

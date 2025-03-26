@@ -138,3 +138,8 @@ end
     @test sol(t0, M.g.a) ≈ 1.0
     @test sol(t0, M.b.rec.τ) == 0.0
 end
+
+@testset "Success checking" begin
+    @test issuccess(solve(prob, 1.0))
+    @test !issuccess(solve(prob, 0.0))
+end

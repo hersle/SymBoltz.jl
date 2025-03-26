@@ -2,9 +2,6 @@
 
 This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data.
 
-!!! note
-    Performance is not good enough for parameter fitting yet, but we are working to improve this.
-
 ## Observed supernova data
 
 We use the data from [Betoule+ (2014)](https://arxiv.org/abs/1401.4064) of redshifts and luminosity distances of supernovae.
@@ -48,6 +45,7 @@ data = [ # https://cmb.wintherscoming.no/data/supernovadata.txt
     1.105    7.9947    0.5692 
     1.300    9.2121    0.5874 
 ]
+reverse!(data; dims=1) # make redshift increasing
 data = (zs = data[:,1], dLs = data[:,2], ΔdLs = data[:,3], C = Diagonal(data[:,3] .^ 2))
 
 using Plots
@@ -68,26 +66,27 @@ using SymBoltz, ModelingToolkit
 
 M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
-prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀, M.t] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN, 0.0]); th = false, pt = false, ivspan = (1e-8, 1e0))
+prob = CosmologyProblem(M, Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀, M.t] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN, 0.0]); pt = false, ivspan = (1e-8, 1e0))
 
-function solve_with(prob, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing)
-    ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
-    pars = Dict(M.g.h => h, M.r.Ω₀ => Ωr0, M.m.Ω₀ => Ωm0, M.K.Ω₀ => Ωk0, M.Λ.Ω₀ => ΩΛ0)
-    prob = remake(prob, pars; build_initializeprob = false) # skip expensive reinitialization
-    return solve(prob; bgopts, term)
-end
-
-function dL(z, sol::CosmologySolution)
-    a = @. 1 / (z + 1)
-    t0 = sol[sol.prob.M.t][end]
-    return SymBoltz.distance_luminosity(sol, a, t0) / SymBoltz.Gpc
+# TODO: use luminosity_distance
+function dL(sol::CosmologySolution)
+    M = sol.prob.M
+    a = sol[M.g.a]
+    t = sol[M.t]
+    t0 = t[end]
+    χ = t0 .- t
+    Ωk0 = sol[M.K.Ω₀]
+    r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
+    H0 = SymBoltz.H100 * sol[M.g.h]
+    dLs = r ./ a * SymBoltz.c / H0 # to meters
+    return dLs / SymBoltz.Gpc # to Gpc
 end
 
 # Show example predictions
-zs = data.zs
-sol = solve_with(prob, 0.26, 0.08, 0.7)
-dLs = dL(zs, sol)
-scatter!(@. log10(zs+1), dLs ./ zs; label = "prediction")
+as = 1 ./ (data.zs .+ 1)
+sol = solve(prob, saveat = as, save_end = true, term = nothing)
+dLs = dL(sol)
+scatter!(sol[log10(M.g.z+1)], dLs ./ sol[M.g.z]; label = "prediction")
 ```
 
 ## Bayesian inference
@@ -98,42 +97,43 @@ using Turing
 
 @model function supernova(data, probgen; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing, verbose = false)
     # Parameter priors
+    h ~ Uniform(0.1, 1.0)
     Ωm0 ~ Uniform(0.0, 1.0)
     Ωk0 ~ Uniform(-1.0, +1.0)
-    h ~ Uniform(0.1, 1.0)
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
 
     p = [h, Ωr0, Ωm0, Ωk0, ΩΛ0]
     prob = probgen(p)
-    sol = solve(prob; bgopts, term)
+    as = 1 ./ (data.zs .+ 1)
+    sol = solve(prob; bgopts, term, saveat = as, save_end = true)
 
-    if Symbol(sol.bg.retcode) == :Unstable
+    if !issuccess(sol)
         verbose && println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
         Turing.@addlogprob! -Inf
         return nothing # illegal parameters
     end
 
     # Theoretical prediction
-    dLs = dL(data.zs, sol)
+    dLs = dL(sol)[begin:end-1]
 
     # Compare predictions to data
     data.dLs ~ MvNormal(dLs, data.C) # multivariate Gaussian # TODO: full covariance
 end
 
-probgen = SymBoltz.parameter_updater(prob, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀])
+probgen = SymBoltz.parameter_updater(prob, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀]; build_initializeprob = false)
 sn = supernova(data, probgen) # condition model on data
 ```
 We can [find its maximum a posteriori (MAP) parameter estimate](https://turinglang.org/docs/usage/mode-estimation/) using Turing.jl's interface with [Optimization.jl](https://docs.sciml.ai/Optimization/) and the algorithms in [Optim.jl](https://docs.sciml.ai/Optimization/stable/optimization_packages/optim/):
 ```@example fit
 using Optim
 prior_means = mean.(values(Turing.extract_priors(sn)))
-mapest = maximum_a_posteriori(sn, Optim.LBFGS(linesearch = Optim.BackTracking()); initial_params = prior_means) # or maximum_likelihood(...)
+mapest = maximum_a_posteriori(sn; initial_params = prior_means) # or maximum_likelihood(...)
 @assert Symbol(mapest.optim_result.retcode) == :Success # hide
 mapest.values
 ```
 We can now sample from the model, using the MAP estimate as starting values:
 ```@example fit
-chain = sample(sn, NUTS(), 1000; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+chain = sample(sn, NUTS(), 500; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
 ```
 We can also plot the chain:
 ```@example fit
@@ -169,14 +169,14 @@ function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8, reltol = 1e-8, al
     end
 end
 
-dLs = dL_fast(zs, 0.26, 0.08, 0.7)
+dLs = dL_fast(data.zs, 0.26, 0.08, 0.7)
 
 @model function supernova_fast(data)
     # Parameter priors
     Ωm0 ~ Uniform(0.0, 1.0)
     Ωk0 ~ Uniform(-1.0, +1.0)
     h ~ Uniform(0.5, 1.5)
-    dLs = dL_fast(zs, Ωm0, Ωk0, h)
+    dLs = dL_fast(data.zs, Ωm0, Ωk0, h)
     if isnothing(dLs)
         Turing.@addlogprob! -Inf
         return nothing # illegal parameters
@@ -185,7 +185,7 @@ dLs = dL_fast(zs, 0.26, 0.08, 0.7)
 end
 
 sn = supernova_fast(data)
-chain = sample(sn, NUTS(), MCMCSerial(), 1000, 1)
+chain = sample(sn, NUTS(), 500)
 ```
 
 TODO: take som inspiration from the [Catalyst tutorial](https://docs.sciml.ai/Catalyst/stable/inverse_problems/global_sensitivity_analysis/)
