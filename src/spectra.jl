@@ -162,6 +162,7 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
 
     @tasks for ik in eachindex(ks)
         @local begin # define task-local values (declared once for all loop iterations)
+            lmin = lmin
             Jls_all = zeros(Float64, length(ls_all)) # local task workspace
             ∂I_∂u = zeros(T, (length(ls), length(us))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
         end
