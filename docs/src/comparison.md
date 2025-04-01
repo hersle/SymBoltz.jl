@@ -88,8 +88,9 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
         # approximations (see include/precisions.h)
         "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
-        "radiation_streaming_approximation" => 3, # turns off RSA; commented because the number of perturbation points explodes without RSA
+        "radiation_streaming_approximation" => 3, # turns off RSA
         "ur_fluid_approximation" => 3, # turns off UFA
+        "ncdm_fluid_approximation" => 3, # turns off NCDM fluid approximation
 
         #"l_max_scalars" => 1500,
         #"temperature_contributions" => "pol",
@@ -98,7 +99,7 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
     secs = @elapsed run_class(in, exec, inpath, outpath)
     println("Ran CLASS in $secs seconds in directory $dir")
     output = Dict()
-    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 25000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
+    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 50000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
         file = joinpath(outpath, filename)
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
