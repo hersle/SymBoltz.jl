@@ -8,15 +8,8 @@ import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface: getsym, setp, parameter_values
 
-function background(sys)
-    return transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
-end
-
-function perturbations(sys; spline = [])
-    pt = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
-    pt, var2spl = structural_simplify_spline(flatten(pt), spline) # TODO: avoid flatten?
-    return pt, var2spl
-end
+background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
+perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
 
 struct CosmologyProblem
     M::ODESystem
@@ -122,7 +115,8 @@ function CosmologyProblem(
     shoot_pars = keys(shoot_pars)
 
     if bg
-        bg = structural_simplify(background(M))
+        bg = background(M)
+        bg = structural_simplify(bg)
         if debug
             bg = debug_system(bg)
         end
@@ -139,8 +133,8 @@ function CosmologyProblem(
         else
             # then spline should already be a vector of variables, so leave it unmodified
         end
-        pt, var2spl = perturbations(M; spline)
-        pt = structural_simplify(pt)
+        pt = perturbations(M)
+        pt, var2spl = structural_simplify_spline(pt, spline)
         if debug
             pt = debug_system(pt)
         end
