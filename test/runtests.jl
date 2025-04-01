@@ -126,6 +126,10 @@ end
     @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
 =#
+@testset "Do not spline observed variables" begin
+    @test_throws "not an unknown" SymBoltz.structural_simplify_spline(M, [M.g.E])
+end
+
 
 @testset "Primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
