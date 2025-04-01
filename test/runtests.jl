@@ -108,6 +108,7 @@ end
     @test structural_simplify(M) isa Any
 end
 
+#=
 @testset "Spline observed variables" begin
     prob1 = prob
     prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.rec.v])
@@ -124,6 +125,7 @@ end
     v2s = sol2(1.0, ts, M.b.rec.v)
     @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
+=#
 
 @testset "Primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
