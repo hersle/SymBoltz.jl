@@ -1,4 +1,4 @@
-using NumericalIntegration
+using Integrals
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using TwoFAST
@@ -135,6 +135,12 @@ function sphericalbesseljprime(l, ls, Jls)
     return l/(2*l+1)*Jls[i-1] - (l+1)/(2*l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
 end
 
+function integrate(xs, ys; integrator = TrapezoidalRule())
+    prob = SampledIntegralProblem(ys, xs)
+    sol = solve(prob, integrator)
+    return sol.u
+end
+
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(t0-tini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
@@ -143,13 +149,13 @@ end
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = false) where {T <: Real}
+    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t)) = ∫dt S₀(k,t) jₗ(k(t₀-t)) + ∫dt S₁(k,t) jₗ′(k(t₀-t))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
 The element `S0s[i,j]` holds the source function value ``S₀(ks[i], ts[j])`` (and similarly for `S1s`).
 An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dt f(t) = ∫du f(t(u)) / u′(t)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
 """
-function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = SimpsonEven(), verbose = false) where {T <: Real}
+function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
@@ -183,7 +189,7 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
         end
         for il in eachindex(ls)
             integrand = @view ∂I_∂u[il,:]
-            Is[ik,il] = integrate(us, integrand, integrator) # integrate over t # TODO: add starting I(tini) to fix small l?
+            Is[ik,il] = integrate(us, integrand; integrator) # integrate over t # TODO: add starting I(tini) to fix small l?
         end
     end
 
@@ -250,28 +256,22 @@ end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 """
-    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven(), normalization = :Cl)
+    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = TrapezoidalRule(), normalization = :Cl)
 
 Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P₀(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
 If `normaliation == :Dl`, compute ``Dₗ = Cₗ * l * (l+1) / 2π`` instead.
 """
-function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = SimpsonEven(), normalization = :Cl)
+function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = TrapezoidalRule(), normalization = :Cl)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
     Cls = similar(ΘlAs, length(ls))
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
 
-    # Check that ks have constant spacing if integrator assumes it
-    if endswith(string(integrator), "Even()")
-        dks_with0 = diff(ks_with0)
-        minimum(dks_with0) ≈ maximum(dks_with0) || error("ks_with0 have non-uniform spacing (min=$(minimum(dks_with0)), max=$(maximum(dks_with0)))")
-    end
-
     @tasks for il in eachindex(ls)
         @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
         @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
-        Cls[il] = integrate(ks_with0, dCl_dks_with0, integrator) # integrate over k (_with0 adds one additional point at (0,0))
+        Cls[il] = integrate(ks_with0, dCl_dks_with0; integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     if normalization == :Cl
@@ -323,11 +323,11 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
 end
 
 """
-    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, unit = nothing, kwargs...)
+    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
-function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = SimpsonEven(), normalization = :Cl, unit = nothing, kwargs...)
+function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
     sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
     return spectrum_cmb(modes, sol, ls; normalization, unit, integrator)
