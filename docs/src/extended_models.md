@@ -1,4 +1,4 @@
-# Creating extended models
+# Extending models
 
 This tutorial shows how to create extended (beyond-ΛCDM) models.
 As a simple example, we replace the cosmological constant with equation of state ``w(t) = -1`` by w₀wₐ dark energy with equation of state
