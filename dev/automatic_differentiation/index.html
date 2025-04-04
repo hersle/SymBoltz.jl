@@ -12,53 +12,53 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06 * SymBoltz.eV/SymBoltz.c^2, 2e-9, 0.95]
 ks = 10 .^ range(-3, 0, length=100) / u&quot;Mpc&quot;
 Ps = P(ks, θ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{Unitful.Quantity{Float64, 𝐋^3, Unitful.FreeUnits{(Mpc^3,), 𝐋^3, nothing}}}:
- 15138.314813325442 Mpc^3
- 16110.53423945214 Mpc^3
- 17136.60398825636 Mpc^3
- 18220.777639140975 Mpc^3
- 19364.353829066546 Mpc^3
- 20567.93052632367 Mpc^3
- 21832.494464461437 Mpc^3
- 23161.435062852128 Mpc^3
- 24552.984227769834 Mpc^3
- 26009.518473747183 Mpc^3
+ 15138.299913847735 Mpc^3
+ 16110.245953734368 Mpc^3
+ 17136.58575728744 Mpc^3
+ 18220.77913083196 Mpc^3
+ 19364.35759127613 Mpc^3
+ 20567.93417873465 Mpc^3
+ 21832.493000107832 Mpc^3
+ 23160.96989520237 Mpc^3
+ 24552.961421384436 Mpc^3
+ 26009.51145866071 Mpc^3
      ⋮
-   307.8523906089197 Mpc^3
-   263.1946286485066 Mpc^3
-   224.7666555988758 Mpc^3
-   191.74266520937877 Mpc^3
-   163.38658947451722 Mpc^3
-   139.07408967851907 Mpc^3
-   118.28606515489186 Mpc^3
-   100.5059429908008 Mpc^3
-    85.30660242469007 Mpc^3</code></pre><p>This can be plotted with</p><pre><code class="language-julia hljs">using Plots
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="d20efa33.svg" alt="Example block output"/><h2 id="2.-Calculate-the-derivatives"><a class="docs-heading-anchor" href="#2.-Calculate-the-derivatives">2. Calculate the derivatives</a><a id="2.-Calculate-the-derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Calculate-the-derivatives" title="Permalink"></a></h2><p>To get <span>$\partial \lg P / \partial \lg \theta$</span>, we can simply pass the wrapper function <code>P(k, θ)</code> through <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian"><code>ForwardDiff.jacobian</code></a>:</p><pre><code class="language-julia hljs">using ForwardDiff
+   307.8675773264871 Mpc^3
+   263.1958168085984 Mpc^3
+   224.7840958289508 Mpc^3
+   191.71375999516164 Mpc^3
+   163.38659234559043 Mpc^3
+   139.1011639147134 Mpc^3
+   118.2886820852652 Mpc^3
+   100.4950884277778 Mpc^3
+    85.30660337612024 Mpc^3</code></pre><p>This can be plotted with</p><pre><code class="language-julia hljs">using Plots
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="c247e664.svg" alt="Example block output"/><h2 id="2.-Calculate-the-derivatives"><a class="docs-heading-anchor" href="#2.-Calculate-the-derivatives">2. Calculate the derivatives</a><a id="2.-Calculate-the-derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Calculate-the-derivatives" title="Permalink"></a></h2><p>To get <span>$\partial \lg P / \partial \lg \theta$</span>, we can simply pass the wrapper function <code>P(k, θ)</code> through <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian"><code>ForwardDiff.jacobian</code></a>:</p><pre><code class="language-julia hljs">using ForwardDiff
 lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u&quot;Mpc^3&quot;) # in log-space
 dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100×9 Matrix{Float64}:
- -0.126727  -1.24955  -0.231419  -0.0105999  …  -0.00509493  1.0  -3.71642
- -0.138521  -1.24489  -0.230557  -0.0117364     -0.00499525  1.0  -3.65014
- -0.151232  -1.23831  -0.229337  -0.0129658     -0.00488506  1.0  -3.58385
- -0.165331  -1.23328  -0.228396  -0.0143266     -0.00478155  1.0  -3.51756
- -0.180637  -1.22685  -0.227208  -0.0157981     -0.0046744   1.0  -3.45128
- -0.197288  -1.21978  -0.225899  -0.0174018  …  -0.00456971  1.0  -3.38499
- -0.215335  -1.21164  -0.224396  -0.0191386     -0.0044696   1.0  -3.3187
- -0.235     -1.20378  -0.222938  -0.0210336     -0.00438417  1.0  -3.25242
- -0.256298  -1.19543  -0.221395  -0.0230854     -0.00431516  1.0  -3.18613
- -0.279199  -1.18544  -0.21955   -0.0252977     -0.00426244  1.0  -3.11984
+ -0.126692  -1.24933  -0.231376  -0.0105975  …  -0.00509391  1.0  -3.71642
+ -0.138513  -1.24482  -0.230544  -0.0117361     -0.00499493  1.0  -3.65014
+ -0.151216  -1.23821  -0.22932   -0.0129639     -0.00488463  1.0  -3.58385
+ -0.165284  -1.23283  -0.22832   -0.0143195     -0.00477973  1.0  -3.51756
+ -0.180556  -1.22659  -0.22715   -0.0157953     -0.00467323  1.0  -3.45128
+ -0.197136  -1.21871  -0.225692  -0.0173913  …  -0.004565    1.0  -3.38499
+ -0.215382  -1.2121   -0.22448   -0.0191428     -0.00447161  1.0  -3.3187
+ -0.235003  -1.20385  -0.22295   -0.0210345     -0.00438448  1.0  -3.25242
+ -0.25615   -1.19424  -0.221175  -0.0230766     -0.00430994  1.0  -3.18613
+ -0.279144  -1.18487  -0.219447  -0.0252919     -0.00426001  1.0  -3.11984
   ⋮                                          ⋱                    
- -5.96659    1.90621  -0.395769  -0.46784       -0.0298507   1.0   2.31565
- -5.99732    1.92291  -0.396984  -0.469124      -0.0298624   1.0   2.38194
- -6.02886    1.93888  -0.397659  -0.470382      -0.0298731   1.0   2.44823
- -6.05929    1.95501  -0.398045  -0.471292      -0.0298826   1.0   2.51451
- -6.08875    1.97051  -0.398236  -0.472244   …  -0.0298899   1.0   2.5808
- -6.11753    1.98528  -0.398662  -0.473235      -0.0298968   1.0   2.64709
- -6.14667    1.99958  -0.39871   -0.474158      -0.0299035   1.0   2.71337
- -6.1743     2.01344  -0.398887  -0.475062      -0.0299087   1.0   2.77966
- -6.2004     2.02676  -0.399035  -0.475813      -0.0299139   1.0   2.84595</code></pre><p>The matrix element <code>dlgP_dlgθs[i, j]</code> now contains <span>$\partial \lg P(k_i) / \partial \lg \theta_j$</span>. We can plot them all at once:</p><pre><code class="language-julia hljs">plot(
+ -5.96259    1.90698  -0.396952  -0.467509      -0.0298506   1.0   2.31565
+ -5.99805    1.92255  -0.396764  -0.469151      -0.0298632   1.0   2.38194
+ -6.02885    1.93888  -0.39766   -0.470383      -0.0298732   1.0   2.44823
+ -6.05811    1.9554   -0.398282  -0.471216      -0.0298815   1.0   2.51451
+ -6.08851    1.97055  -0.398451  -0.472275   …  -0.0298896   1.0   2.5808
+ -6.11861    1.98503  -0.398353  -0.47328       -0.0298974   1.0   2.64709
+ -6.14652    1.99947  -0.398813  -0.474195      -0.0299036   1.0   2.71337
+ -6.17434    2.01345  -0.398916  -0.475047      -0.0299086   1.0   2.77966
+ -6.20028    2.02684  -0.399258  -0.475841      -0.0299137   1.0   2.84595</code></pre><p>The matrix element <code>dlgP_dlgθs[i, j]</code> now contains <span>$\partial \lg P(k_i) / \partial \lg \theta_j$</span>. We can plot them all at once:</p><pre><code class="language-julia hljs">plot(
     log10.(ks/u&quot;1/Mpc&quot;), dlgP_dlgθs;
     xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;∂ lg(P) / ∂ lg(θᵢ)&quot;,
     labels = &quot;θᵢ=&quot; .* [&quot;Tγ0&quot; &quot;Ωc0&quot; &quot;Ωb0&quot; &quot;Neff&quot; &quot;h&quot; &quot;Yp&quot; &quot;mh&quot; &quot;As&quot; &quot;ns&quot; &quot;ΩΛ0&quot;]
-)</code></pre><img src="d7e9c706.svg" alt="Example block output"/><h2 id="Get-values-and-derivatives-together"><a class="docs-heading-anchor" href="#Get-values-and-derivatives-together">Get values and derivatives together</a><a id="Get-values-and-derivatives-together-1"></a><a class="docs-heading-anchor-permalink" href="#Get-values-and-derivatives-together" title="Permalink"></a></h2><p>The above example showed how to calculate the power spectrum <em>values</em> and their <em>derivatives</em> through <em>two separate calls</em>. If you need both, it is faster to calculate them simultaneously with the package <a href="https://juliadiff.org/DiffResults.jl/stable/"><code>DiffResults.jl</code></a>:</p><pre><code class="language-julia hljs">using DiffResults
+)</code></pre><img src="cf015907.svg" alt="Example block output"/><h2 id="Get-values-and-derivatives-together"><a class="docs-heading-anchor" href="#Get-values-and-derivatives-together">Get values and derivatives together</a><a id="Get-values-and-derivatives-together-1"></a><a class="docs-heading-anchor-permalink" href="#Get-values-and-derivatives-together" title="Permalink"></a></h2><p>The above example showed how to calculate the power spectrum <em>values</em> and their <em>derivatives</em> through <em>two separate calls</em>. If you need both, it is faster to calculate them simultaneously with the package <a href="https://juliadiff.org/DiffResults.jl/stable/"><code>DiffResults.jl</code></a>:</p><pre><code class="language-julia hljs">using DiffResults
 
 # Following DiffResults documentation:
 Pres = DiffResults.JacobianResult(ks/u&quot;1/Mpc&quot;, θ) # allocate buffer for values+derivatives for a function with θ-sized input and ks-sized output
@@ -75,4 +75,4 @@ p2 = plot(
    xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;∂ lg(P) / ∂ lg(θᵢ)&quot;,
    labels = &quot;θᵢ=&quot; .* [&quot;Tγ0&quot; &quot;Ωc0&quot; &quot;Ωb0&quot; &quot;Neff&quot; &quot;h&quot; &quot;Yp&quot; &quot;mh&quot; &quot;As&quot; &quot;ns&quot; &quot;ΩΛ0&quot;]
 )
-plot(p1, p2, layout=(2, 1), size = (600, 600))</code></pre><img src="b7d6ddd7.svg" alt="Example block output"/><h2 id="General-approach"><a class="docs-heading-anchor" href="#General-approach">General approach</a><a id="General-approach-1"></a><a class="docs-heading-anchor-permalink" href="#General-approach" title="Permalink"></a></h2><p>The technique shown here can be used to calculate the derivative of any SymBoltz.jl output quantity:</p><ol><li>Write a wrapper function <code>output(input)</code> that calculates the desired output quantities from the desired input quantities.</li><li>Use <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative"><code>ForwardDiff.derivative(output, input)</code></a> (scalar-to-scalar), <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.gradient"><code>ForwardDiff.gradient(output, input)</code></a> (vector-to-scalar) or <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian"><code>ForwardDiff.jacobian(output, input)</code></a> (vector-to-vector) to evaluate the derivative of <code>output</code> at the values <code>input</code>. Or use the similar functions in <a href="https://juliadiff.org/DiffResults.jl/stable/"><code>DiffResults</code></a> to calculate the value <em>and</em> derivatives simultaneously.</li></ol></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting_started/">« Getting started</a><a class="docs-footer-nextpage" href="../extended_models/">Creating extended models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Tuesday 1 April 2025 20:59">Tuesday 1 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(p1, p2, layout=(2, 1), size = (600, 600))</code></pre><img src="b59635a7.svg" alt="Example block output"/><h2 id="General-approach"><a class="docs-heading-anchor" href="#General-approach">General approach</a><a id="General-approach-1"></a><a class="docs-heading-anchor-permalink" href="#General-approach" title="Permalink"></a></h2><p>The technique shown here can be used to calculate the derivative of any SymBoltz.jl output quantity:</p><ol><li>Write a wrapper function <code>output(input)</code> that calculates the desired output quantities from the desired input quantities.</li><li>Use <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative"><code>ForwardDiff.derivative(output, input)</code></a> (scalar-to-scalar), <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.gradient"><code>ForwardDiff.gradient(output, input)</code></a> (vector-to-scalar) or <a href="https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian"><code>ForwardDiff.jacobian(output, input)</code></a> (vector-to-vector) to evaluate the derivative of <code>output</code> at the values <code>input</code>. Or use the similar functions in <a href="https://juliadiff.org/DiffResults.jl/stable/"><code>DiffResults</code></a> to calculate the value <em>and</em> derivatives simultaneously.</li></ol></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting_started/">« Getting started</a><a class="docs-footer-nextpage" href="../extended_models/">Creating extended models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Friday 4 April 2025 09:51">Friday 4 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
