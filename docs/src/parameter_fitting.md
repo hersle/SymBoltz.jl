@@ -69,29 +69,35 @@ theoretically, we solve the standard ΛCDM model:
 ```@example fit
 using SymBoltz, ModelingToolkit
 
-M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
+g = SymBoltz.metric()
+K = SymBoltz.curvature(g)
+M = RMΛ(K = K)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
-pars = Dict([M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀, M.g.h, M.r.T₀, M.t] .=> [9.3e-5, 0.26, 0.08, 1 - 9.3e-5 - 0.26 - 0.08, 0.7, NaN, 0.0])
+pars = Dict(M.r.Ω₀ => 9.3e-5, M.m.Ω₀ => 0.26, M.Λ.Ω₀ => 0.66, M.g.h => 0.7, M.t => 0.0, M.r.T₀ => NaN)
+pars[M.K.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀] - pars[M.Λ.Ω₀]
 prob = CosmologyProblem(M, pars; pt = false, ivspan = (1e-8, 1e0))
 
 # TODO: use luminosity_distance
-function dL(sol::CosmologySolution)
-    M = sol.prob.M
-    a = sol[M.g.a]
-    t = sol[M.t]
+using SymbolicIndexingInterface # TODO: move this stuff into package
+geta = getu(prob.bg, M.g.a)
+gett = getu(prob.bg, M.t)
+getΩk0 = getp(prob.bg, M.K.Ω₀)
+geth = getp(prob.bg, M.g.h)
+function dL(sol::CosmologySolution, geta, gett, getΩk0, geth)
+    a, t, Ωk0, h = geta(sol.bg), gett(sol.bg), getΩk0(sol.bg), geth(sol.bg)
     t0 = t[end]
     χ = t0 .- t
-    Ωk0 = sol[M.K.Ω₀]
-    r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
-    H0 = SymBoltz.H100 * sol[M.g.h]
-    dLs = r ./ a * SymBoltz.c / H0 # to meters
+    r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
+    H0 = SymBoltz.H100 * h
+    dLs = @. r / a * SymBoltz.c / H0 # to meters
     return dLs / SymBoltz.Gpc # to Gpc
 end
 
 # Show example predictions
 as = 1 ./ (data.zs .+ 1)
-sol = solve(prob, saveat = as, save_end = true, term = nothing)
-dLs = dL(sol)
+bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-6, maxiters = 1e3)
+sol = solve(prob; bgopts, saveat = as, save_end = true, term = nothing)
+dLs = dL(sol, geta, gett, getΩk0, geth)
 scatter!(ax, sol[log10(M.g.z+1)], dLs ./ sol[M.g.z]; label = "predictions")
 axislegend(ax, position = :rb)
 fig
@@ -103,14 +109,14 @@ To perform bayesian inference, we define a probabilistic model in [Turing.jl](ht
 ```@example fit
 using Turing
 
-@model function supernova(zs, dLs, ΔdLs, probgen; Ωr0 = 9.3e-5, bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-8, maxiters = 1e3), term = nothing, verbose = false)
+@model function supernova(zs, dLs, ΔdLs, probgen, geta, gett, getΩk0, geth; bgopts = bgopts, Ωr0 = 9.3e-5, term = nothing, verbose = false)
     # Parameter priors
     h ~ Uniform(0.1, 1.0)
     Ωm0 ~ Uniform(0.0, 1.0)
-    Ωk0 ~ Uniform(-1.0, +1.0)
-    ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
+    ΩΛ0 ~ Uniform(0.0, 1.0)
+    Ωk0 = 1 - Ωr0 - Ωm0 - ΩΛ0
 
-    p = [h, Ωr0, Ωm0, Ωk0, ΩΛ0]
+    p = [h, Ωm0, ΩΛ0, Ωk0]
     prob = probgen(p)
     as = 1 ./ (zs .+ 1)
     sol = solve(prob; bgopts, term, saveat = as, save_end = true)
@@ -122,32 +128,35 @@ using Turing
     end
 
     # Theoretical prediction
-    dLs_pred = dL(sol)[begin:end-1]
+    dLs_pred = dL(sol, geta, gett, getΩk0, geth)[begin:end-1]
 
     # Compare predictions to data
     return dLs ~ MvNormal(dLs_pred, ΔdLs) # multivariate Gaussian # TODO: full covariance
 end
 
-probgen = SymBoltz.parameter_updater(prob, [M.g.h, M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.Λ.Ω₀]; build_initializeprob = false)
-sn = supernova(data.zs, data.dLs, data.ΔdLs, probgen) # condition model on data
+p = [M.g.h, M.m.Ω₀, M.Λ.Ω₀, M.K.Ω₀]
+probgen = SymBoltz.parameter_updater(prob, p; build_initializeprob = false)
+sn = supernova(data.zs, data.dLs, data.ΔdLs, probgen, geta, gett, getΩk0, geth); # condition model on data
 nothing # hide
 ```
-We can [find its maximum a posteriori (MAP) parameter estimate](https://turinglang.org/docs/usage/mode-estimation/) using Turing.jl's interface with [Optimization.jl](https://docs.sciml.ai/Optimization/) and the algorithms in [Optim.jl](https://docs.sciml.ai/Optimization/stable/optimization_packages/optim/):
+We can now sample from the model to obtain a MCMC chain:
 ```@example fit
-using Optim
-prior_means = mean.(values(Turing.extract_priors(sn)))
-mapest = maximum_a_posteriori(sn; initial_params = prior_means) # or maximum_likelihood(...)
-@assert Symbol(mapest.optim_result.retcode) == :Success # hide
-mapest.values
+chain = sample(sn, NUTS(), 5000; initial_params = (h = 0.5, Ωm0 = 0.5, ΩΛ0 = 0.5)) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+import Plots, StatsPlots # don't collide with Makie
+Plots.plot(chain)
 ```
-We can now sample from the model using the MAP estimate as starting values, obtaining a MCMC chain:
-```@example fit
-chain = sample(sn, NUTS(), 2000; initial_params=mapest.values.array) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
-```
-Finally, we can visualize the chain with a triangle plot using PairPlots.jl:
+Finally, we can visualize the high-dimensional chain with a corner plot using PairPlots.jl:
 ```@example fit
 using PairPlots
-pp = pairplot(chain)
+layout = (
+    PairPlots.Scatter(),
+    PairPlots.Contourf(sigmas = 1:2),
+    PairPlots.MarginHist(),
+    PairPlots.MarginDensity(color = :black),
+    PairPlots.MarginQuantileText(color = :black, font = :regular),
+    PairPlots.MarginQuantileLines(),
+)
+pp = pairplot(chain => layout)
 ```
 
 ## Forecasting
@@ -159,8 +168,7 @@ To start, create another probabilistic supernova model, but instead of observed 
 ```@example fit
 # TODO: motivate errors # hide
 dLs_fid = dLs[begin:end-1]
-pars_fid = [pars[M.g.h], pars[M.m.Ω₀], pars[M.K.Ω₀]]
-sn_fc = supernova(data.zs, dLs_fid, data.ΔdLs, probgen)
+sn_fc = supernova(data.zs, dLs_fid, data.ΔdLs, probgen, geta, gett, getΩk0, geth);
 nothing # hide
 ```
 
@@ -168,8 +176,12 @@ nothing # hide
 
 A general assumption-free, but expensive method to perform forecasting is to explore the likelihood using MCMC (as before, only against simulated data):
 ```@example fit
-chain_fc = sample(sn_fc, NUTS(), 2000)
-pp_fc = pairplot(chain_fc)
+chain_fc = sample(sn_fc, NUTS(), 5000)
+Plots.plot(chain_fc)
+```
+```@example fit
+truth = PairPlots.Truth((h = pars[M.g.h], Ωm0 = pars[M.m.Ω₀], ΩΛ0 = pars[M.Λ.Ω₀]))
+pp_fc = pairplot(chain_fc => layout, truth)
 ```
 
 ### Fisher forecasting
@@ -184,8 +196,9 @@ Under certain assumptions, the Fisher matrix is the inverse of the covariance ma
 
 First, we ask Turing to [estimate the maximum likelihood mode](https://turinglang.org/docs/usage/mode-estimation/) of the probabilistic model:
 ```@example fit
-maxl_fc = maximum_likelihood(sn_fc; initial_params = pars_fid) # TODO: or MAP?
-@assert all(isapprox.(maxl_fc.values.array, pars_fid; atol = 1e-4)) # hide
+maxl_fc = maximum_likelihood(sn_fc; initial_params = [0.5, 0.5, 0.5]) # TODO: or MAP?
+#loglikelihood(sn_fc, (h = 0.70, Ωm0 = 0.26, Ωk0 = 0.10, w0 = -1.01, wa = -0.07)) # hide
+@assert all(isapprox.(maxl_fc.values.array, [pars[M.g.h], pars[M.m.Ω₀], pars[M.Λ.Ω₀]]; atol = 1e-4)) # hide
 maxl_fc # hide
 ```
 As expected, the maximum likelihood corresponds to our chosen fiducial parameters.
@@ -204,11 +217,11 @@ Finally, we [derive 68% (1σ) and 95% (2σ) confidence ellipses from the covaria
 # https://discourse.julialang.org/t/plot-ellipse-in-makie/82814/4 # hide
 # https://docs.juliaplots.org/latest/generated/statsplots/#Covariance-ellipses # hide
 # https://github.com/marcobonici/FisherPlot.jl/blob/main/src/FisherPlot.jl#L19 # hide
-function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd=1, N = 33)
+function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd = 1, N = 33)
     σᵢ², σⱼ², σᵢⱼ = C[i,i], C[j,j], C[i,j]
     θ = (atan(2σᵢⱼ, σᵢ²-σⱼ²)) / 2
     a = √((σᵢ²+σⱼ²)/2 + √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2))
-    b = √((σᵢ²+σⱼ²)/2 - √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2))
+    b = √(max(0.0, (σᵢ²+σⱼ²)/2 - √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2)))
 
     a *= nstd # TODO: correct?
     b *= nstd # TODO: correct?
@@ -232,6 +245,65 @@ for i in eachindex(IndexCartesian(), C)
 end
 
 pp_fc
+```
+
+## Extension with w₀wₐ dark energy
+
+```@example fit
+g = SymBoltz.metric()
+K = SymBoltz.curvature(g)
+X = SymBoltz.w0wa(g; analytical = true)
+M = RMΛ(K = K, Λ = X)
+M = change_independent_variable(M, M.g.a; add_old_diff = true)
+pars = Dict(M.r.Ω₀ => 9.3e-5, M.m.Ω₀ => 0.26, M.X.Ω₀ => 0.66, M.g.h => 0.7, M.X.wa => 0.0, M.X.w0 => -1.0, M.t => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
+pars[M.K.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀] - pars[M.X.Ω₀]
+prob = CosmologyProblem(M, pars; pt = false, ivspan = (1e-8, 1e0))
+
+p = [M.g.h, M.m.Ω₀, M.X.Ω₀, M.X.w0, M.X.wa, M.K.Ω₀]
+probgen = SymBoltz.parameter_updater(prob, p; build_initializeprob = false)
+geta = getu(prob.bg, M.g.a) # must redefine because of new problem # TODO: move into package
+gett = getu(prob.bg, M.t)
+getΩk0 = getp(prob.bg, M.K.Ω₀)
+geth = getp(prob.bg, M.g.h)
+
+@model function supernova(zs, dLs, ΔdLs, probgen, geta, gett, getΩk0, geth; bgopts = bgopts, Ωr0 = 9.3e-5, term = nothing, verbose = false)
+    # Parameter priors
+    h ~ Uniform(0.1, 1.0)
+    Ωm0 ~ Uniform(0.0, 1.0)
+    ΩΛ0 ~ Uniform(0.0, 1.0)
+    w0 ~ Uniform(-2.0, 0.0)
+    wa ~ Uniform(-1.0, +1.0)
+    Ωk0 = 1 - Ωr0 - Ωm0 - ΩΛ0
+
+    p = [h, Ωm0, ΩΛ0, w0, wa, Ωk0]
+    prob = probgen(p)
+    as = 1 ./ (zs .+ 1)
+    sol = solve(prob; bgopts, term, saveat = as, save_end = true)
+
+    if !issuccess(sol)
+        verbose && println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
+        Turing.@addlogprob! -Inf
+        return nothing # illegal parameters
+    end
+
+    # Theoretical prediction
+    dLs_pred = dL(sol, geta, gett, getΩk0, geth)[begin:end-1]
+
+    # TODO: manual chi squared ala https://cmb.wintherscoming.no/milestone1.php
+    #Turing.@addlogprob! -sum((dLs_pred[i] - dLs[i])^2 / ΔdLs[i]^2 for i in eachindex(dLs_pred))
+    #return nothing
+
+    # Compare predictions to data
+    return dLs ~ MvNormal(dLs_pred, ΔdLs) # multivariate Gaussian # TODO: full covariance
+end
+
+sn = supernova(data.zs, data.dLs, data.ΔdLs, probgen, geta, gett, getΩk0, geth);
+chain = sample(sn, NUTS(), 5000; initial_params = (h = 0.5, Ωm0 = 0.5, ΩΛ0 = 0.5, w0 = -1.0, wa = 0.0)) # TODO: speed up: https://discourse.julialang.org/t/modelingtoolkit-odesystem-in-turing/115700/
+Plots.plot(chain)
+```
+```@example fit
+truth = PairPlots.Truth((h = pars[M.g.h], Ωm0 = pars[M.m.Ω₀], ΩΛ0 = pars[M.X.Ω₀], w0 = pars[M.X.w0], wa = pars[M.X.wa]))
+pp = pairplot(chain => layout, truth)
 ```
 
 ```@setup fit

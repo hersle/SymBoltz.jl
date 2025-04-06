@@ -25,11 +25,11 @@ struct CosmologyProblem
     var2spl::Dict
 end
 
-struct CosmologySolution
+struct CosmologySolution{Tbg, Tpt}
     prob::CosmologyProblem
-    bg::Union{ODESolution, Nothing}
+    bg::Tbg
     ks::AbstractArray
-    pts::Union{EnsembleSolution, Nothing}
+    pts::Tpt
 end
 
 algname(alg) = string(nameof(typeof(alg)))
