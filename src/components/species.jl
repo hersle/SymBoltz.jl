@@ -27,7 +27,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # t ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, kwargs...)
+    return ODESystem([eqs0; eqs1], t, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
 end
 
 """
