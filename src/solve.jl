@@ -167,11 +167,11 @@ function remake(
     vars, pars = split_vars_pars(prob.M, pars)
     vars = isempty(vars) ? missing : vars
     pars = isempty(pars) ? missing : pars
-    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.bg.f.initialization_data), kwargs...) : nothing
+    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.bg.f.initialization_data)}, kwargs...) : nothing
     if !ismissing(vars)
         vars = remove_initial_conditions!(vars, keys(prob.var2spl)) # must filter ICs in remake, too
     end
-    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = !isnothing(prob.pt.f.initialization_data), kwargs...) : nothing
+    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
