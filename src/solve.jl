@@ -25,11 +25,12 @@ struct CosmologyProblem
     var2spl::Dict
 end
 
-struct CosmologySolution{Tbg, Tpt}
+struct CosmologySolution{Tbg, Tks, Tpts, Th}
     prob::CosmologyProblem
     bg::Tbg
-    ks::AbstractArray
-    pts::Tpt
+    ks::Tks
+    pts::Tpts
+    h::Th
 end
 
 algname(alg) = string(nameof(typeof(alg)))
@@ -250,8 +251,9 @@ function solve(
 
     ivspan = extrema(bg.t)
 
+    h = prob.pars[prob.bg.f.sys.g.h]
     if !isnothing(prob.pt) && !isempty(ks)
-        ks = k_dimensionless.(ks, prob.pars[prob.bg.f.sys.g.h])
+        ks = k_dimensionless.(ks, h)
         !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
         if Threads.nthreads() == 1 && thread
@@ -305,7 +307,7 @@ function solve(
         ptsols = nothing
     end
 
-    return CosmologySolution(prob, bg, ks, ptsols)
+    return CosmologySolution{typeof(bg), typeof(ks), typeof(ptsols), typeof(h)}(prob, bg, ks, ptsols, h)
 end
 function solve(prob::CosmologyProblem; kwargs...)
     return solve(prob, []; kwargs...)
@@ -359,7 +361,7 @@ function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
 end
 
 function neighboring_modes_indices(sol::CosmologySolution, k)
-    k = k_dimensionless.(k, sol.bg.ps[:h])
+    k = k_dimensionless.(k, sol.h)
     if k == sol.ks[begin] # k == kmin
         i1 = i2 = 1
     elseif k == sol.ks[end] # k == kmax
@@ -371,8 +373,10 @@ function neighboring_modes_indices(sol::CosmologySolution, k)
     return i1, i2
 end
 
-function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray)
-    ks = k_dimensionless.(ks, sol.bg.ps[:h])
+Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
+
+function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::AbstractArray, is::AbstractArray; smart = true)
+    ks = k_dimensionless.(ks, sol.h)
     isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
@@ -383,41 +387,47 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
 
     # Pre-allocate intermediate and output arrays
-    T = eltype(sol.pts[1])
-    v1 = zeros(T, (length(is), length(ts)))
-    v2 = zeros(T, (length(is), length(ts)))
-    out = zeros(T, length(ks), length(ts), length(is))
+    v = zeros(eltype(sol), (length(is), length(ts)))
+    v1 = zeros(eltype(sol), (length(is), length(ts)))
+    v2 = zeros(eltype(sol), (length(is), length(ts)))
 
-    i1_prev, i2_prev = 0, 0 # cache previous looked up solution and reuse it, if possible
+    i1_prev, i2_prev = -1, -1 # cache previous looked up solution and reuse it, if possible
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
         k = ks[ik]
         # Find two wavenumbers to interpolate between
         i1, i2 = neighboring_modes_indices(sol, k)
-        k1 = sol.ks[i1]
-        k2 = sol.ks[i2]
 
         # Evaluate solutions for neighboring wavenumbers,
         # but reuse those from the previous iteration if we are still between the same neighboring wavenumbers
-        if i1 != i1_prev
+        if i1 == i2_prev && smart
+            v1 .= v2 # just set to v2 when incrementing i1 by 1
+            i1_prev = i2_prev
+        elseif i1 != i1_prev || !smart
             v1 .= sol.pts[i1](ts; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
             i1_prev = i1
         end
-        if i2 != i2_prev
+        if i2 != i2_prev || !smart
             v2 .= sol.pts[i2](ts; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
             i2_prev = i2
         end
-        v = v1
+        v .= v1
         if i1 != i2
             # interpolate between solutions
+            k1 = sol.ks[i1]
+            k2 = sol.ks[i2]
             w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
-            v += (v2 - v1) * w # add to v1 from above
+            @. v += (v2 - v1) * w # add to v1 from above
         end
         for ii in eachindex(is)
-            out[ik, :, ii] = v[ii, :]
+            out[ik, :, ii] .= v[ii, :]
         end
     end
 
     return out
+end
+function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray; kwargs...)
+    out = zeros(eltype(sol), length(ks), length(ts), length(is))
+    return sol(out, ks, ts, is; kwargs...)
 end
 (sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray) = sol([k], ts, is)[1, :, :]
 (sol::CosmologySolution)(ks::AbstractArray, t::Number, is::AbstractArray) = sol(ks, [t], is)[:, 1, :]

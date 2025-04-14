@@ -37,6 +37,15 @@ prob = CosmologyProblem(M, pars)
     # TODO: also test array indexing
 end
 
+@testset "Solution interpolation" begin
+    ks = 10 .^ range(-5, 1, length=100) / u"Mpc"
+    sol = solve(prob, ks)
+    ks = range(extrema(ks)..., length=500)
+    ts = range(extrema(sol.bg.t)..., length=500)
+    is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
+    @test sol(ks, ts, is; smart = true) == sol(ks, ts, is; smart = false)
+end
+
 @testset "Spherical Bessel function" begin
     l = 0:1000
     jlfast = zeros(size(l))
