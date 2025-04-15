@@ -45,6 +45,8 @@ using PrecompileTools: @compile_workload
 @compile_workload begin
     using SymBoltz, Unitful, UnitfulAstro
     M = ΛCDM()
+    propertynames(M) # speed up first TAB completion of e.g. M.<TAB>
+    propertynames(M.g) # speed up first TAB completion of e.g. M.g.<TAB>
     pars = parameters_Planck18(M)
     prob = CosmologyProblem(M, pars)
     ks = 10 .^ range(-5, 1, length=5) / u"Mpc"

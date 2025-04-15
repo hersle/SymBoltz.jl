@@ -20,7 +20,7 @@ prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 function P(k, θ)
    prob = remake(prob0, Dict(pars .=> θ)) # TODO: takes up a lot of runtime
-   sol = solve(prob, k; verbose = true, thread = true, ptopts = (reltol = 1e-3,))
+   sol = solve(prob, k; verbose = true, ptopts = (reltol = 1e-3,))
    return spectrum_matter(sol, k)
 end
 ```
