@@ -377,3 +377,32 @@ function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, t0 = time_t
     a = sol(ivs, M.g.a)
     return @. r / a * SymBoltz.c / H0 # to meters
 end
+
+# TODO: test @inferred
+function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs; bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3))
+    isequal(independent_variable(M), M.g.a) || error("Independent variable must be $(M.g.a)")
+
+    pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
+    as = @. 1 / (zs + 1)
+    prob = CosmologyProblem(M, pars; pt = false, iv = M.g.a, ivspan = (minimum(as), 1.0))
+    probgen = SymBoltz.parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
+
+    geta = getsym(prob.bg, M.g.a)
+    gett = getsym(prob.bg, M.t)
+    geth = getsym(prob.bg, M.g.h)
+    getΩk0 = getsym(prob.bg, M.K.Ω₀)
+
+    return p -> begin
+        prob = probgen(p)
+        sol = solve(prob; bgopts, term = nothing, saveat = as, save_end = true)
+        a = geta(sol.bg)
+        t = gett(sol.bg)
+        h = geth(sol.bg)
+        Ωk0 = getΩk0(sol.bg)
+        t0 = t[end] # time today
+        χ = t0 .- t
+        r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
+        H0 = SymBoltz.H100 * h
+        return @. r / a * SymBoltz.c / H0 # luminosity distance in meters
+    end
+end

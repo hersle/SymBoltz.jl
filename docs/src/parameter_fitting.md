@@ -60,40 +60,24 @@ d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 theoretically, we solve the w0waCDM model:
 ```@example fit
 using SymBoltz, ModelingToolkit
-
 g = SymBoltz.metric()
 K = SymBoltz.curvature(g)
 X = SymBoltz.w0wa(g; analytical = true)
 M = RMΛ(K = K, Λ = X)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
-pars = Dict(M.r.Ω₀ => 9.3e-5, M.m.Ω₀ => 0.3, M.K.Ω₀ => 0.0, M.g.h => 0.7, M.X.w0 => -1.0, M.X.wa => 0.0, M.t => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
-zs = data.zcmb
-as = 1 ./ (zs .+ 1)
-prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
+pars_fixed = Dict(M.t => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
+pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.X.Ω₀, M.g.h, M.X.w0, M.X.wa]
 
-# TODO: use luminosity_distance # TODO: move SII and getters into package
-using SymbolicIndexingInterface
-geta = getu(prob.bg, M.g.a)
-gett = getu(prob.bg, M.t)
-geth = getp(prob.bg, M.g.h)
-getΩk0 = getp(prob.bg, M.K.Ω₀)
-function μ(a, t, h, Ωk0 = 0.0)
-    t0 = t[end] # time today
-    χ = t0 .- t
-    r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
-    H0 = SymBoltz.H100 * h
-    dLs = @. r / a * SymBoltz.c / H0 # luminosity distance in meters
-    return 5 * log10.(dLs / (10*SymBoltz.pc)) # distance modulus
-end
-μ(sol::CosmologySolution, geta, gett, geth, getΩk0) = μ(geta(sol.bg), gett(sol.bg), geth(sol.bg), getΩk0(sol.bg))
+dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
+μ(p) = 5 * log10.(dL(p)[begin:end-1] / (10*SymBoltz.pc)) # distance modulus
 
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
 bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3)
-sol = solve(prob; bgopts, saveat = as, save_start = true, save_end = true, term = nothing)
-μs = μ(sol, geta, gett, geth, getΩk0)[begin:end-1] # remove NaN today
+p0 = [9.3e-5, 0.3, 0.0, 0.7, 0.7, -1.0, 0.0] # fiducial parameters
+μs = μ(p0)
 mbs = μs .+ Mb
-lines!(ax1, zs, mbs; color = :black, label = "theory (ΛCDM)")
+lines!(ax1, data.zcmb, mbs; color = :black, label = "theory (ΛCDM)")
 axislegend(ax1, position = :rb)
 fig
 ```
@@ -104,7 +88,7 @@ To perform bayesian inference, we define a probabilistic model in [Turing.jl](ht
 ```@example fit
 using Turing
 
-@model function supernova(zs, mbs, C, probgen, geta, gett, geth, getΩk0; Mb = Mb, Ωr0 = 9.3e-5, bgopts = bgopts, term = nothing, verbose = false)
+@model function supernova(μ_pred, mbs, C; Mb = Mb, Ωr0 = 9.3e-5)
     # Parameter priors
     h ~ Uniform(0.1, 1.0)
     Ωm0 ~ Uniform(0.0, 1.0)
@@ -113,23 +97,15 @@ using Turing
     wa ~ Uniform(-1.0, +1.0)
     ΩX0 = 1 - Ωr0 - Ωm0 - Ωk0
 
-    p = [h, Ωm0, Ωk0, w0, wa, ΩX0]
-    prob = probgen(p)
-    as = 1 ./ (zs .+ 1)
-    sol = solve(prob; bgopts, term, saveat = as, save_end = true)
-
-    if !issuccess(sol)
-        verbose && println("Discarding solution with illegal parameters Ωm0=$Ωm0, Ωk0=$Ωk0")
+    p = [Ωr0, Ωm0, Ωk0, ΩX0, h, w0, wa]
+    μs_pred = μ_pred(p)
+    if isempty(μs_pred)
         Turing.@addlogprob! -Inf
-        return nothing # illegal parameters
+        return nothing
     end
-
-    # Theoretical prediction
-    μs_pred = μ(sol, geta, gett, geth, getΩk0)[begin:end-1]
     mbs_pred = μs_pred .+ Mb
+    return mbs ~ MvNormal(mbs_pred, C) # read "measurements sampled from multivariate normal with predictions and covariance matrix"
 
-    # Compare predictions to data
-    return mbs ~ MvNormal(mbs_pred, C)
     # equivalently:
     #Δmb = mbs .- mbs_pred
     #χ² = transpose(Δmb) * invC * Δmb
@@ -146,9 +122,7 @@ function MvNormal(μ, Σ)
     return Distributions.MvNormal(μ, Σ)
 end
 
-p = [M.g.h, M.m.Ω₀, M.K.Ω₀, M.X.w0, M.X.wa, M.X.Ω₀]
-probgen = SymBoltz.parameter_updater(prob, p; build_initializeprob = Val{false})
-sn_w0waCDM = supernova(data.zcmb, data.mb, C, probgen, geta, gett, geth, getΩk0);
+sn_w0waCDM = supernova(μ, data.mb, C);
 sn_ΛCDM = fix(sn_w0waCDM, w0 = -1.0, wa = 0.0);
 nothing # hide
 ```
@@ -186,7 +160,7 @@ Here we show how one can perform forecasting by combining SymBoltz.jl with Turin
 
 To start, create another probabilistic supernova model, but instead of observed luminosity distances, we now use simulated luminosity distances in a fiducial cosmology:
 ```@example fit
-sn_fc_w0waCDM = supernova(data.zcmb, mbs, Diagonal(C), probgen, geta, gett, geth, getΩk0);
+sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C));
 sn_fc_w0CDM_flat = fix(sn_fc_w0waCDM, Ωk0 = 0.0, wa = 0.0);
 nothing # hide
 ```
@@ -199,7 +173,8 @@ chain_fc = sample(sn_fc_w0CDM_flat, NUTS(), 1000)
 Plots.plot(chain_fc)
 ```
 ```@example fit
-truth = PairPlots.Truth((h = pars[M.g.h], Ωm0 = pars[M.m.Ω₀], w0 = pars[M.X.w0]))
+pars0 = Dict(pars_varying .=> p0)
+truth = PairPlots.Truth((h = pars0[M.g.h], Ωm0 = pars0[M.m.Ω₀], w0 = pars0[M.X.w0]))
 pp_fc = pairplot(chain_fc => layout, truth)
 ```
 
@@ -216,7 +191,7 @@ Under certain assumptions, the Fisher matrix is the inverse of the covariance ma
 First, we ask Turing to [estimate the maximum likelihood mode](https://turinglang.org/docs/usage/mode-estimation/) of the probabilistic model:
 ```@example fit
 maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = [0.5, 0.5, -1.0]) # TODO: or MAP?
-@assert all(isapprox.(maxl_fc.values.array, [pars[M.g.h], pars[M.m.Ω₀], pars[M.X.w0]]; atol = 1e-4)) # hide
+@assert all(isapprox.(maxl_fc.values.array, [pars0[M.g.h], pars0[M.m.Ω₀], pars0[M.X.w0]]; atol = 1e-4)) # hide
 maxl_fc # hide
 ```
 As expected, the maximum likelihood corresponds to our chosen fiducial parameters.
