@@ -73,7 +73,7 @@ Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in
 """
 function w0wa(g; name = :X, analytical = false, kwargs...)
     pars = @parameters w0 wa cₛ²
-    vars = @variables ρ(t) P(t) w(t) ẇ(t) δ(t) θ(t) σ(t)
+    vars = @variables ρ(t) P(t) w(t) ẇ(t) cₐ²(t) δ(t) θ(t) σ(t)
     # TODO: generate equations with a generic species_eos function
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
@@ -87,13 +87,15 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         push!(eqs0, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
     end
     eqs1 = [
-        D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
-        D(θ) ~ -g.ℰ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
+        # Following https://arxiv.org/pdf/1002.1311 section II
+        cₐ² ~ w - ẇ/(3*g.ℰ*(1+w))
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ - 9*(g.ℰ/k)^2*(1+w)*(cₛ²-cₐ²)*θ # energy overdensity
+        D(θ) ~ -g.ℰ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ # momentum
         σ ~ 0 # shear stress
     ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
     ics1 = [
-        δ ~ -3//2 * (1+w) * g.Ψ
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # t ≈ 1/ℰ
+        δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
+        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # t ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ] .|> SymBoltz.O(ϵ^1)
     description = "w₀wₐ (CPL) dark energy"
     return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, description, kwargs...)

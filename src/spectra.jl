@@ -35,7 +35,7 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
     M = sol.prob.M
     species = getproperty.(M, filter(s -> have(M, s), species))
     ρm = sum(s.ρ for s in species)
-    Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
+    Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: wrong with dark energy perturbations? # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
 
     # convert P (through P0) to same units as 1/k^3
     #=

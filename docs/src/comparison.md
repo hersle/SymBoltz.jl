@@ -15,8 +15,12 @@ using Unitful, UnitfulAstro
 using Plots
 
 lmax = 6
-M = ΛCDM(; lmax)
-pars = parameters_Planck18(M)
+M = w0waCDM(; lmax)
+pars = merge(parameters_Planck18(M), Dict(
+    M.X.w0 => -0.9,
+    M.X.wa => 0.1,
+    M.X.cₛ² => 0.9
+))
 prob = CosmologyProblem(M, pars)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
@@ -79,9 +83,15 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
         "A_s" => pars[M.I.As],
         "n_s" => pars[M.I.ns],
 
+        # w0wa dark energy
+        "Omega_Lambda" => 0.0, # unspecified
+        "w0_fld" => SymBoltz.have(M, :X) ? pars[M.X.w0] : -1.0,
+        "wa_fld" => SymBoltz.have(M, :X) ? pars[M.X.wa] : 0.0,
+        "cs2_fld" => SymBoltz.have(M, :X) ? pars[M.X.cₛ²] : 1.0,
+        "use_ppf" => "no", # use full equations
+
         # other stuff
         "Omega_k" => SymBoltz.have(M, :K) ? pars[M.K.Ω₀] : 0.0, # curvature
-        "Omega_fld" => 0.0,
         "Omega_scf" => 0.0,
         "Omega_dcdmdr" => 0.0,
 
@@ -129,23 +139,24 @@ sols = Dict(
     "a_bg" => (1 ./ (sol1["bg"]["z"] .+ 1), sol2[M.g.a]),
     "χ" => (sol1["bg"]["conf.time[Mpc]"][end] .- sol1["bg"]["conf.time[Mpc]"], (sol2[M.t][end] .- sol2[M.t]) / (h * SymBoltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[M.g.E]),
-    "ργ" => (sol1["bg"]["(.)rho_g"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.γ.ρ] / (3/8π)),
-    "ρν" => (sol1["bg"]["(.)rho_ur"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.ν.ρ] / (3/8π)),
-    "ρc" => (sol1["bg"]["(.)rho_cdm"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.c.ρ] / (3/8π)),
-    "ρb" => (sol1["bg"]["(.)rho_b"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.b.ρ] / (3/8π)),
-    "ρΛ" => (sol1["bg"]["(.)rho_lambda"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.Λ.ρ] / (3/8π)),
-    "ρh" => (sol1["bg"]["(.)rho_ncdm[0]"] / sol1["bg"]["(.)rho_crit"][end], sol2[M.h.ρ] / (3/8π)),
+    "ργ" => (sol1["bg"]["(.)rho_g"], sol2[M.γ.ρ] * 8π/3*(h*SymBoltz.k0)^2),
+    "ρν" => (sol1["bg"]["(.)rho_ur"], sol2[M.ν.ρ] * 8π/3*(h*SymBoltz.k0)^2),
+    "ρc" => (sol1["bg"]["(.)rho_cdm"], sol2[M.c.ρ] * 8π/3*(h*SymBoltz.k0)^2),
+    "ρb" => (sol1["bg"]["(.)rho_b"], sol2[M.b.ρ] * 8π/3*(h*SymBoltz.k0)^2),
+    "ρX" => (sol1["bg"]["(.)rho_fld"], sol2[M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
+    "ρh" => (sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.ρ] * 8π/3*(h*SymBoltz.k0)^2),
     "wh" => (sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.w]),
+    "wX" => (sol1["bg"]["(.)w_fld"], sol2[M.X.w]),
     "dL" => (sol1["bg"]["lum.dist."], SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc),
 
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
-    "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.τ̇] * (SymBoltz.k0*h)),
+    "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.τ̇] * (h*SymBoltz.k0)),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
     "exp(-τ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.τ)]),
-    "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (SymBoltz.k0*h)),
+    "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (h*SymBoltz.k0)),
     "dTb" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
     "wb" => (reverse(sol1["th"]["w_b"]), sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]), # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
 
@@ -158,11 +169,13 @@ sols = Dict(
     "δγ" => (sol1["pt"]["delta_g"], sol2[1, M.γ.δ]),
     "δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
     "δh" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
+    "δρX" => (sol1["pt"]["delta_rho_fld"], sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
     "θb" => (sol1["pt"]["theta_b"], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
     "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
     "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
     "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
     "θh" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)),
+    "pX" => (sol1["pt"]["rho_plus_p_theta_fld"], sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]),
     "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.σ]),
     "σν" => (sol1["pt"]["shear_ur"], sol2[1, M.ν.F[2] / 2]),
     "P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.G[0]]),
@@ -280,11 +293,11 @@ plot_compare("a_bg", "E"; lgx=true, lgy=true)
 ```
 ### Energy densities
 ```@example class
-plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρΛ", "ρν", "ρh"]; lgx=true, lgy=true)
+plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true)
 ```
 ### Equations of state
 ```@example class
-plot_compare("a_bg", ["wh"]; lgx=true)
+plot_compare("a_bg", ["wh", "wX"]; lgx=true)
 ```
 ### Luminosity distance
 ```@example class
@@ -335,6 +348,14 @@ plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
 ### Momenta
 ```@example class
 plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
+```
+### Dark energy overdensity
+```@example class
+plot_compare("a_pt", "δρX"; lgx=true, lgy=true)
+```
+### Dark energy momentum
+```@example class
+plot_compare("a_pt", "pX"; lgx=true, lgy=true)
 ```
 ### Shear stresses
 ```@example class
