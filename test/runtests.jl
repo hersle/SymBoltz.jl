@@ -161,7 +161,7 @@ end
     @test sol[M.I.kpivot] ≈ SymBoltz.k_dimensionless(k, h)
 end
 
-@testset "Time today" begin
+@testset "Time and optical depth today" begin
     sol = solve(prob)
     t0 = time_today(sol)
     @test sol(t0, M.g.a) ≈ 1.0

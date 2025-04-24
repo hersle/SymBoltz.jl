@@ -23,6 +23,8 @@ struct CosmologyProblem
     conditions::AbstractArray
 
     var2spl::Dict
+
+    idx_τ::Union{Integer, Nothing} # optical depth index # TODO: generalize to other quantities that should be zero today, e.g. χ = t0 - t?
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
@@ -96,7 +98,9 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        bg = true, pt = true, spline = true, debug = false, kwargs...
+        ivspan = (0.0, 100.0), term = M.g.a => 1.0,
+        bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+        kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -108,7 +112,9 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
+    ivspan = (0.0, 100.0), term = M.g.a => 1.0,
+    bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+    kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
@@ -121,9 +127,12 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, kwargs...)
+        callback = isnothing(term) ? nothing : callback_terminator(bg, term[1], term[2])
+        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
+        idx_τ = have(M, :b) ? ModelingToolkit.variable_index(bg, M.b.rec.τ) : nothing
     else
         bg = nothing
+        idx_τ = nothing
     end
 
     if pt
@@ -146,7 +155,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
+    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl, idx_τ)
 end
 
 """
@@ -175,14 +184,14 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
+    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl, prob.idx_τ)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
     # TODO: perturbations, remove M, pars, etc. for efficiency?
 
-    @unpack M, bg, pars, shoot, conditions, var2spl = prob
+    @unpack M, bg, pars, shoot, conditions, var2spl, idx_τ = prob
     bgps = parameter_values(bg)
     bgsetp! = setp(bg, idxs)
     diffcache = DiffCache(copy(canonicalize(Tunable(), bgps)[1])) # TODO: separate bg/pt?
@@ -193,7 +202,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
         bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
         bgsetp!(bgps_new, p) # set new parameters
         bg_new = remake(bg; p = bgps_new, kwargs...) # create updated problem
-        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl) # TODO: update pars? or remove that field and read parameters from subproblems?
+        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl, idx_τ) # TODO: update pars? or remove that field and read parameters from subproblems?
     end
 end
 
@@ -201,7 +210,6 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::AbstractArray = [];
-        aterm = 1.0,
         bgopts = (alg = Rodas4P(), reltol = 1e-8,),
         ptopts = (alg = KenCarp4(), reltol = 1e-8,),
         shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
@@ -215,7 +223,6 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::AbstractArray;
-    term = prob.M.g.a => 1.0,
     bgopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
     shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
@@ -228,21 +235,18 @@ function solve(
         prob = remake(prob, pars)
     end
 
-    M = prob.M
-    callback = isnothing(term) ? nothing : callback_terminator(prob.bg, term[1], term[2])
-
     if !isnothing(prob.bg)
         bgprob = prob.bg
         if !haskey(bgopts, :alg)
             bgopts = merge(bgopts, (alg = Rodas4P(),)) # default if unspecified
         end
-        bg = solve(bgprob; callback, verbose, bgopts..., kwargs...)
+        bg = solve(bgprob; verbose, bgopts..., kwargs...)
 
         # Offset optical depth, so it's 0 today
-        if have(M, :b)
-            idx_τ = ModelingToolkit.variable_index(prob.bg, M.b.rec.τ)
-            for i in 1:length(bg.u)
-                bg.u[i][idx_τ] -= bg.u[end][idx_τ]
+        if !isnothing(prob.idx_τ)
+            τ0 = bg.u[end][prob.idx_τ]
+            for i in eachindex(bg.u)
+                bg.u[i][prob.idx_τ] -= τ0
             end
         end
     else
@@ -251,7 +255,7 @@ function solve(
 
     ivspan = extrema(bg.t)
 
-    h = prob.pars[prob.bg.f.sys.g.h]
+    h = prob.pars[prob.bg.f.sys.g.h] # TODO: remove symbolic getter
     if !isnothing(prob.pt) && !isempty(ks)
         ks = k_dimensionless.(ks, h)
         !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
