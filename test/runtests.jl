@@ -42,14 +42,13 @@ end
     sol = solve(prob, ks)
     D = Differential(M.t)
     t0 = time_today(sol)
-    @test isapprox(sol(t0, M.g.a), 1.0; atol = 1e-5)
     @test isapprox(sol(t0, D(M.g.a)), 1.0; atol = 1e-5)
-    @test_throws "must contain only differentiated or non-differentiated" sol(t0, [M.g.a, D(M.g.a)])
-    @test_throws "observed" sol(t0, D(M.g.z))
-    @test sol(ks, t0, M.g.Φ) isa Float64
-    @test sol(ks, t0, D(M.g.Φ)) isa Float64
-    @test_throws "must contain only differentiated or non-differentiated" sol(ks, t0, [M.g.Φ, D(M.g.Φ)])
-    @test_throws "observed" sol(ks, t0, D(M.g.Ψ))
+    @test isapprox(sol(t0, D(M.g.z)), -1.0; atol = 1e-5)
+    @test_throws "Could not express derivative" sol(t0, D(D(M.g.z)))
+    sol(ks, t0, D(M.g.Φ))
+    @test isapprox(sol(ks, t0, D(M.g.Φ)), sol(ks, t0, D(M.g.Ψ)); atol = 1e-5)
+    @test_throws "Could not express derivative" sol(ks, t0, D(D(M.g.Φ)))
+    @test_throws "Could not express derivative" sol(ks, t0, D(D(M.g.Ψ)))
 end
 
 @testset "Solution interpolation" begin

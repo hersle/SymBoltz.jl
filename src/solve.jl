@@ -341,15 +341,50 @@ Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
-function get_is_deriv(is)
+"""
+    express_derivatives(expr, sys::ODESystem)
+
+Express derivatives in the symbolic expression `expr` in terms of non-differentiated quantities in the system `sys`.
+"""
+function express_derivatives(expr, prob)
+    # Create a map of as many derivatives-to-expressions that we know
+    bg = prob.bg.f.sys
+    dvarmap_bg = merge(
+        Dict(var => eq.lhs for (var, eq) in map_variables_to_equations(bg) if is_derivative(var)), # observed dummy derivatives
+        Dict(eq.lhs => eq.rhs for eq in equations(bg)) # ODE unknowns
+    )
+    pt = prob.pt.f.sys
+    dvarmap_pt = merge(
+        Dict(var => eq.lhs for (var, eq) in map_variables_to_equations(pt) if is_derivative(var)),
+        Dict(eq.lhs => eq.rhs for eq in equations(pt))
+    )
+    while true
+        expr0 = expr
+        expr = expand_derivatives(expr) # isolate derivatives
+        expr = substitute(expr, dvarmap_bg) # substitute derivatives
+        expr = substitute(expr, dvarmap_pt) # substitute derivatives
+        expr === expr0 && break # stop when expression doesn't change anymore
+    end
+    Symbolics.hasnode(is_derivative, expr) && error("Could not express derivative of $expr")
+    return expr
+end
+
+"""
+    get_is_deriv(prob::CosmologyProblem, is)
+
+Make any transformation of symbolic indices `is` before querying an `ODESolution` with them and the best derivative order `deriv`.
+"""
+function get_is_deriv(prob::CosmologyProblem, is)
     arederivs = Symbolics.is_derivative.(unwrap.(is))
-    if all(arederivs)
+    if all(arederivs) && all(map(i -> Symbolics.contains_var(only(Symbolics.arguments(unwrap(i))), unknowns(prob)), is))
         is = map(i -> only(Symbolics.arguments(unwrap(i))), is) # peel off derivative operators, ...
         deriv = Val{1} # ... but request 1st derivative
     elseif any(arederivs)
-        error("is = $is must contain only differentiated or non-differentiated variables")
+        # expand derivatives in terms of non-differentiated variables
+        is = map(i -> express_derivatives(i, prob), is)
+        deriv = Val{0}
     else # no derivatives
-        deriv = Val{0} # request 0th derivative
+        deriv = Val{0} # request 0th derivative; keep indices as-is (usual case)
     end
     return is, deriv
 end
@@ -358,7 +393,7 @@ function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     #tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
     #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
-    is, deriv = get_is_deriv(is)
+    is, deriv = get_is_deriv(sol.prob, is)
     return permutedims(sol.bg(ts, deriv; idxs=is)[:, :])
 end
 (sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]
@@ -400,7 +435,7 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
     #minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
     #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
 
-    is, deriv = get_is_deriv(is)
+    is, deriv = get_is_deriv(sol.prob, is)
 
     # Pre-allocate intermediate and output arrays
     v = zeros(eltype(sol), (length(is), length(ts)))
@@ -552,6 +587,15 @@ function shoot(
     nprob = NonlinearProblem(f, nguess)
     nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...)
     return Dict(keys(pars) .=> nsol.u)
+end
+
+"""
+    unknowns(prob::CosmologyProblem)
+
+Get all unknown variables from the background and perturbations of the cosmological problem `prob`.
+"""
+function unknowns(prob::CosmologyProblem)
+    return [unknowns(prob.bg.f.sys); unknowns(prob.pt.f.sys)]
 end
 
 """

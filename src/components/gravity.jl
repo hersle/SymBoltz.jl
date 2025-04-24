@@ -4,21 +4,21 @@
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
 function general_relativity(g; acceleration = false, name = :G, kwargs...)
-    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) δP(t) Π(t) Δ(t)
+    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) δP(t) Π(t) F₁(t) F₂(t)
     pars = @parameters Δfac = 0
     a = g.a
-    F1 = D(a)^2 ~ 8*Num(π)/3 * ρ * a^4 # Friedmann constraint equation
-    F2 = D(D(a)) ~ D(a)^2/(2*a) * (1 - 3*P/ρ) # Friedmann acceleration equation (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3 * (ρ + 3*P) * a^3)
     if acceleration
         eqs0 = [
-            F2.lhs ~ F2.rhs + Δfac*Δ # use constraint damping # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
-            Δ ~ F1.lhs - F1.rhs # violation of Friedmann constraint
+            D(D(a)) ~ D(a)^2/(2*a)*(1-3*P/ρ) + Δfac*Δ # use constraint damping (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3*(ρ+3*P)*a^3)) # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
+            F₁ ~ D(a)^2 - 8*Num(π)/3*ρ*a^4 # violation of (squared) Friedmann constraint equation
+            F₂ ~ 0 # we are enforcing the 2nd Friedmann equation
         ] .|> O(ϵ^0)
-        ics0 = [F1] .|> O(ϵ^0)
+        ics0 = [F₁ ~ 0] .|> O(ϵ^0)
     else
         eqs0 = [
-            F1.lhs^(1/2) ~ +√(F1.rhs) # "normal" Friedmann equation
-            Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
+            D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # "normal" Friedmann equation (+√ of (squared) constraint equation)
+            F₁ ~ 0 # we are enforcing the 1st Friedmann equation
+            F₂ ~ D(D(a)) - D(a)^2/(2*a)*(1-3*P/ρ) # violation of acceleration equation
         ] .|> O(ϵ^0)
         ics0 = []
     end
