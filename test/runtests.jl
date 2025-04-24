@@ -37,6 +37,21 @@ prob = CosmologyProblem(M, pars)
     # TODO: also test array indexing
 end
 
+@testset "Accessing derivative variables" begin
+    ks = 1.0 / u"Mpc"
+    sol = solve(prob, ks)
+    D = Differential(M.t)
+    t0 = time_today(sol)
+    @test isapprox(sol(t0, M.g.a), 1.0; atol = 1e-5)
+    @test isapprox(sol(t0, D(M.g.a)), 1.0; atol = 1e-5)
+    @test_throws "must contain only differentiated or non-differentiated" sol(t0, [M.g.a, D(M.g.a)])
+    @test_throws "observed" sol(t0, D(M.g.z))
+    @test sol(ks, t0, M.g.Φ) isa Float64
+    @test sol(ks, t0, D(M.g.Φ)) isa Float64
+    @test_throws "must contain only differentiated or non-differentiated" sol(ks, t0, [M.g.Φ, D(M.g.Φ)])
+    @test_throws "observed" sol(ks, t0, D(M.g.Ψ))
+end
+
 @testset "Solution interpolation" begin
     ks = 10 .^ range(-5, 1, length=100) / u"Mpc"
     sol = solve(prob, ks)

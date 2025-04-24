@@ -341,11 +341,25 @@ Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
+function get_is_deriv(is)
+    arederivs = Symbolics.is_derivative.(unwrap.(is))
+    if all(arederivs)
+        is = map(i -> only(Symbolics.arguments(unwrap(i))), is) # peel off derivative operators, ...
+        deriv = Val{1} # ... but request 1st derivative
+    elseif any(arederivs)
+        error("is = $is must contain only differentiated or non-differentiated variables")
+    else # no derivatives
+        deriv = Val{0} # request 0th derivative
+    end
+    return is, deriv
+end
+
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
-    tmin, tmax = extrema(sol.bg.t[[begin, end]])
+    #tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
     #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
-    return permutedims(sol.bg(ts, idxs=is)[:, :])
+    is, deriv = get_is_deriv(is)
+    return permutedims(sol.bg(ts, deriv; idxs=is)[:, :])
 end
 (sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]
 (sol::CosmologySolution)(t::Number, is::AbstractArray) = sol([t], is)[1, :]
@@ -386,6 +400,8 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
     #minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
     #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
 
+    is, deriv = get_is_deriv(is)
+
     # Pre-allocate intermediate and output arrays
     v = zeros(eltype(sol), (length(is), length(ts)))
     v1 = zeros(eltype(sol), (length(is), length(ts)))
@@ -403,11 +419,11 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
             v1 .= v2 # just set to v2 when incrementing i1 by 1
             i1_prev = i2_prev
         elseif i1 != i1_prev || !smart
-            v1 .= sol.pts[i1](ts; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+            v1 .= sol.pts[i1](ts, deriv; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
             i1_prev = i1
         end
         if i2 != i2_prev || !smart
-            v2 .= sol.pts[i2](ts; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
+            v2 .= sol.pts[i2](ts, deriv; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
             i2_prev = i2
         end
         v .= v1
