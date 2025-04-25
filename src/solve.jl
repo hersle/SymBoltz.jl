@@ -24,7 +24,7 @@ struct CosmologyProblem
 
     var2spl::Dict
 
-    idx_τ::Union{Integer, Nothing} # optical depth index # TODO: generalize to other quantities that should be zero today, e.g. χ = t0 - t?
+    idx_τ::Union{Integer, Nothing} # optical depth index
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}

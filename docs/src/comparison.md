@@ -137,7 +137,7 @@ h = pars[M.g.h]
 sols = Dict(
     # background
     "a_bg" => (1 ./ (sol1["bg"]["z"] .+ 1), sol2[M.g.a]),
-    "χ" => (sol1["bg"]["conf.time[Mpc]"][end] .- sol1["bg"]["conf.time[Mpc]"], (sol2[M.t][end] .- sol2[M.t]) / (h * SymBoltz.k0)),
+    "χ" => (sol1["bg"]["conf.time[Mpc]"][end] .- sol1["bg"]["conf.time[Mpc]"], sol2[M.χ] / (h * SymBoltz.k0)),
     "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[M.g.E]),
     "ργ" => (sol1["bg"]["(.)rho_g"], sol2[M.γ.ρ] * 8π/3*(h*SymBoltz.k0)^2),
     "ρν" => (sol1["bg"]["(.)rho_ur"], sol2[M.ν.ρ] * 8π/3*(h*SymBoltz.k0)^2),

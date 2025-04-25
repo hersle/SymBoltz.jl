@@ -370,8 +370,7 @@ Compute luminosity distances at the time(s) `t` relative to the (present) time `
 """
 function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, t0 = sol[sol.prob.M.t0])
     M = sol.prob.M
-    t = sol(ivs, M.t)
-    χ = t0 .- t
+    χ = sol(ivs, M.χ)
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
     r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
     H0 = H100 * sol[M.g.h]
@@ -401,7 +400,7 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
         h = geth(sol.bg)
         Ωk0 = getΩk0(sol.bg)
         t0 = t[end] # time today
-        χ = t0 .- t
+        χ = t0 .- t # TODO: use M.χ
         r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
         H0 = SymBoltz.H100 * h
         return @. r / a * SymBoltz.c / H0 # luminosity distance in meters
