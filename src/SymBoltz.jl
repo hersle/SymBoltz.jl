@@ -39,7 +39,6 @@ export CosmologyProblem, CosmologySolution
 export solve, shoot, remake, issuccess
 export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter
-export time_today
 export express_derivatives
 
 using PrecompileTools: @compile_workload

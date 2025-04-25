@@ -41,7 +41,7 @@ end
     ks = 1.0 / u"Mpc"
     sol = solve(prob, ks)
     D = Differential(M.t)
-    t0 = time_today(sol)
+    t0 = sol[M.t0]
     @test isapprox(sol(t0, D(M.g.a)), 1.0; atol = 1e-5)
     @test isapprox(sol(t0, D(M.g.z)), -1.0; atol = 1e-5)
     @test_throws "Could not express derivative" sol(t0, D(D(M.g.z)))
@@ -163,7 +163,7 @@ end
 
 @testset "Time and optical depth today" begin
     sol = solve(prob)
-    t0 = time_today(sol)
+    t0 = sol[M.t0]
     @test sol(t0, M.g.a) ≈ 1.0
     @test sol(t0, M.b.rec.τ) == 0.0
 end

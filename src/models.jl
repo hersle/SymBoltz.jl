@@ -39,11 +39,12 @@ function ΛCDM(;
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
-    pars = @parameters C
+    pars = @parameters C t0
     vars = @variables fν(t) S0(t) S1(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
     defs = Dict(
         C => 1//2,
-        g.Ψ => 20C / (15 + 4fν) # Φ found from solving initialization system
+        g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system
+        t0 => NaN
     )
     have(ν) && have(γ) && merge!(defs, Dict(
         ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
@@ -109,6 +110,7 @@ function RMΛ(;
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
+    @parameters t0
     species = filter(have, [r, m, K, Λ])
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
@@ -120,10 +122,11 @@ function RMΛ(;
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ] .|> O(ϵ^1)
     defs = Dict(
-        g.Ψ => 20 // 15
+        g.Ψ => 20 // 15,
+        t0 => NaN
     )
     defs = merge(defs, Ω₀_defaults(G, species))
-    connections = ODESystem([eqs0; eqs1], t, [], [k]; defaults = defs, name)
+    connections = ODESystem([eqs0; eqs1], t, [], [k, t0]; defaults = defs, name)
     M = compose(connections, g, G, species...)
     return complete(M; flatten = false, split = false)
 end

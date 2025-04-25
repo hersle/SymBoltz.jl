@@ -8,9 +8,9 @@ using QuadGK
 
 # callback for terminating an integrator when var >= val0 or var == val0
 # TODO: replace with symbolic events?
-# TODO: time_today(sol) seems to depend on whether the termination is continuous or discrete; check this more thoroughly
-function callback_terminator(sys, var, val0; continuous = true, save_positions = (true, false), kwargs...)
+function callback_today(sys, var, val0; continuous = true, terminate = true, save_positions = (true, false), kwargs...)
     varindex = ModelingToolkit.variable_index(sys, var)
+    t0idx = sys.t0
     if continuous
         T = ContinuousCallback
         f = (u, _, _) -> (val = u[varindex]; val - val0)
@@ -18,7 +18,11 @@ function callback_terminator(sys, var, val0; continuous = true, save_positions =
         T = DiscreteCallback
         f = (u, _, _) -> (val = u[varindex]; val >= val0)
     end
-    return T(f, terminate!; save_positions, kwargs...)
+    function affect!(integrator)
+        integrator.ps[t0idx] = integrator.t # set time today to time when a == 1
+        terminate && terminate!(integrator) # stop integration if desired
+    end
+    return T(f, affect!; save_positions, kwargs...)
 end
 
 function transform(f::Function, sys::ODESystem; fullname=string(sys.name))

@@ -127,7 +127,7 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        callback = isnothing(term) ? nothing : callback_terminator(bg, term[1], term[2])
+        callback = isnothing(term) ? nothing : callback_today(bg, term[1], term[2]; terminate = true)
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
         idx_τ = have(M, :b) ? ModelingToolkit.variable_index(bg, M.b.rec.τ) : nothing
     else
@@ -547,22 +547,6 @@ function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwar
     spl = spline(ts, ṫs, xs)
     ts = spl(vals)
     return ts
-end
-
-"""
-    time_today(sol::CosmologySolution; atoday = 1.0)
-
-Return the time today, when the scale factor `a` equals `atoday`.
-"""
-function time_today(sol::CosmologySolution; atoday = 1.0)
-    M = sol.prob.M
-    afinal = sol[M.g.a][end]
-    tfinal = sol[M.t][end]
-    if sol[M.g.a][end] <= 1.0 && afinal ≈ atoday
-        return tfinal # avoid root finding if signs are not different
-    else
-        return timeseries(sol, M.g.a, atoday)
-    end
 end
 
 # TODO: more generic version that can do anything (e.g. S8)
