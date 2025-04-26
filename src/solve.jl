@@ -23,8 +23,6 @@ struct CosmologyProblem
     conditions::AbstractArray
 
     var2spl::Dict
-
-    idx_τ::Union{Integer, Nothing} # optical depth index
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
@@ -129,10 +127,8 @@ function CosmologyProblem(
         end
         callback = isnothing(term) ? nothing : callback_today(bg, term[1], term[2]; terminate = true)
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
-        idx_τ = have(M, :b) ? ModelingToolkit.variable_index(bg, M.b.rec.τ) : nothing
     else
         bg = nothing
-        idx_τ = nothing
     end
 
     if pt
@@ -155,7 +151,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl, idx_τ)
+    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
 end
 
 """
@@ -184,14 +180,14 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl, prob.idx_τ)
+    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
     # TODO: perturbations, remove M, pars, etc. for efficiency?
 
-    @unpack M, bg, pars, shoot, conditions, var2spl, idx_τ = prob
+    @unpack M, bg, pars, shoot, conditions, var2spl = prob
     bgps = parameter_values(bg)
     bgsetp! = setp(bg, idxs)
     diffcache = DiffCache(copy(canonicalize(Tunable(), bgps)[1])) # TODO: separate bg/pt?
@@ -202,7 +198,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
         bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
         bgsetp!(bgps_new, p) # set new parameters
         bg_new = remake(bg; p = bgps_new, kwargs...) # create updated problem
-        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl, idx_τ) # TODO: update pars? or remove that field and read parameters from subproblems?
+        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl) # TODO: update pars? or remove that field and read parameters from subproblems?
     end
 end
 
@@ -241,14 +237,6 @@ function solve(
             bgopts = merge(bgopts, (alg = Rodas4P(),)) # default if unspecified
         end
         bg = solve(bgprob; verbose, bgopts..., kwargs...)
-
-        # Offset optical depth, so it's 0 today
-        if !isnothing(prob.idx_τ)
-            τ0 = bg.u[end][prob.idx_τ]
-            for i in eachindex(bg.u)
-                bg.u[i][prob.idx_τ] -= τ0
-            end
-        end
     else
         bg = nothing
     end
