@@ -23,6 +23,8 @@ struct CosmologyProblem
     conditions::AbstractArray
 
     var2spl::Dict
+
+    pars_sync::AbstractVector # parameters that must be synchronized in background and perturbations
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
@@ -96,9 +98,7 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (0.0, 100.0), term = M.g.a => 1.0,
-        bg = true, pt = true, spline = true, debug = false, fully_determined = true,
-        kwargs...
+        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -110,9 +110,7 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), term = M.g.a => 1.0,
-    bg = true, pt = true, spline = true, debug = false, fully_determined = true,
-    kwargs...
+    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
@@ -125,7 +123,38 @@ function CosmologyProblem(
         if debug
             bg = debug_system(bg)
         end
-        callback = isnothing(term) ? nothing : callback_today(bg, term[1], term[2]; terminate = true)
+
+        # Set up callback for today # TODO: specify callbacks symbolically?
+        terminate = !isnothing(term)
+        iv = ModelingToolkit.get_iv(M)
+        if Symbol(iv) == :t
+            aidx = ModelingToolkit.variable_index(bg, bg.g.a)
+            f = (u, t, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
+        elseif Symbol(iv) == :a
+            f = (u, t, integrator) -> t - 1.0 # t is a
+        else
+            error("Don't know what to do when independent variable is $iv.")
+        end
+        parsymbols = Symbol.(parameters(bg))
+        havet0 = Symbol("t0") in parsymbols
+        haveτ0 = Symbol("b₊rec₊τ0") in parsymbols
+        t0idx = havet0 ? ModelingToolkit.parameter_index(bg, M.t0) : nothing
+        _τidx = haveτ0 ? ModelingToolkit.variable_index(bg, M.b.rec._τ) : nothing
+        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.τ0) : nothing
+        function affect!(integrator)
+            if havet0
+                integrator.ps[t0idx] = integrator.t # set time today to time when a == 1 # TODO: what if t is not iv
+            end
+            if haveτ0
+                integrator.ps[τ0idx] = integrator.u[_τidx]
+            end
+            terminate && terminate!(integrator) # stop integration if desired
+        end
+        callback = ContinuousCallback(f, affect!; save_positions = (true, false))
+        pars_sync = []
+        havet0 && push!(pars_sync, M.t0) # TODO: specify more efficient numerical indices for bg and pt instead
+        haveτ0 && push!(pars_sync, M.b.rec.τ0) # TODO: specify more efficient numerical indices for bg and pt instead
+
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
     else
         bg = nothing
@@ -151,7 +180,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl)
+    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl, pars_sync)
 end
 
 """
@@ -180,14 +209,14 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl)
+    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl, prob.pars_sync)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
     # TODO: perturbations, remove M, pars, etc. for efficiency?
 
-    @unpack M, bg, pars, shoot, conditions, var2spl = prob
+    @unpack M, bg, pars, shoot, conditions, var2spl, pars_sync = prob
     bgps = parameter_values(bg)
     bgsetp! = setp(bg, idxs)
     diffcache = DiffCache(copy(canonicalize(Tunable(), bgps)[1])) # TODO: separate bg/pt?
@@ -198,7 +227,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
         bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
         bgsetp!(bgps_new, p) # set new parameters
         bg_new = remake(bg; p = bgps_new, kwargs...) # create updated problem
-        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl) # TODO: update pars? or remove that field and read parameters from subproblems?
+        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl, pars_sync) # TODO: update pars? or remove that field and read parameters from subproblems?
     end
 end
 
@@ -255,6 +284,9 @@ function solve(
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan = ivspan)
+        for par in prob.pars_sync
+            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. t0 and τ0)
+        end
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl

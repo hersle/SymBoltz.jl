@@ -153,7 +153,6 @@ end
     @test_throws "not an unknown" SymBoltz.structural_simplify_spline(M, [M.g.E])
 end
 
-
 @testset "Primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
     k = 0.05 / u"Mpc" # ≠ 0.05/(Mpc/h)
@@ -162,10 +161,13 @@ end
 end
 
 @testset "Time and optical depth today" begin
-    sol = solve(prob)
+    ks = 1.0
+    prob = CosmologyProblem(M, pars) # recreate since solution usually modifies problem parameters
+    sol = solve(prob, ks)
     t0 = sol[M.t0]
-    @test sol(t0, M.g.a) ≈ 1.0
-    @test sol(t0, M.b.rec.τ) == 0.0
+    @test sol(t0, M.g.a) ≈ sol(ks, t0, M.g.a) ≈ 1.0
+    @test sol(t0, M.χ) == sol(ks, t0, M.χ) == 0.0
+    @test sol(t0, M.b.rec.τ) == sol(ks, t0, M.b.rec.τ) == 0.0
 end
 
 @testset "Success checking" begin

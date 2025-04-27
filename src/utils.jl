@@ -6,30 +6,6 @@ using QuadGK
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
-# callback for terminating an integrator when var >= val0 or var == val0
-# TODO: replace with symbolic events?
-function callback_today(sys, var, val0; continuous = true, terminate = true, save_positions = (true, false), kwargs...)
-    varindex = ModelingToolkit.variable_index(sys, var)
-    t0idx = ModelingToolkit.parameter_index(sys, sys.t0) # TODO: specify callbacks symbolically
-    _τidx = ModelingToolkit.variable_index(sys, sys.b.rec._τ)
-    τ0idx = isnothing(_τidx) ? nothing : ModelingToolkit.parameter_index(sys, sys.b.rec.τ0)
-    if continuous
-        T = ContinuousCallback
-        f = (u, _, _) -> (val = u[varindex]; val - val0)
-    else
-        T = DiscreteCallback
-        f = (u, _, _) -> (val = u[varindex]; val >= val0)
-    end
-    function affect!(integrator)
-        integrator.ps[t0idx] = integrator.t # set time today to time when a == 1
-        if !isnothing(_τidx) && !isnothing(τ0idx)
-            integrator.ps[τ0idx] = integrator.u[_τidx]
-        end
-        terminate && terminate!(integrator) # stop integration if desired
-    end
-    return T(f, affect!; save_positions, kwargs...)
-end
-
 function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
     subs = [transform(f, sub; fullname = (ModelingToolkit.iscomplete(sys) ? "" : fullname * "₊") * string(sub.name)) for sub in sys.systems]
     sys = f(sys, fullname)

@@ -384,7 +384,7 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
 
     pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
     as = @. 1 / (zs + 1)
-    prob = CosmologyProblem(M, pars; pt = false, iv = M.g.a, ivspan = (minimum(as), 1.0), term = nothing)
+    prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
     probgen = SymBoltz.parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
 
     geta = getsym(prob.bg, M.g.a)
