@@ -65,11 +65,11 @@ function ΛCDM(;
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species)
-        b.θinteraction ~ -b.rec.τ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
-        γ.τ̇ ~ b.rec.τ̇
+        b.θinteraction ~ -b.rec.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
+        γ.κ̇ ~ b.rec.κ̇
         γ.θb ~ b.θ
         S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
-        S_ISW ~ exp(-b.rec.τ) * D(g.Ψ + g.Φ) |> expand_derivatives
+        S_ISW ~ exp(-b.rec.κ) * D(g.Ψ + g.Φ) |> expand_derivatives
         S_Dop ~ D(b.rec.v*b.u) / k |> expand_derivatives
         S_pol ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
         S0 ~ S_SW + S_ISW + S_Dop

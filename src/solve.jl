@@ -137,23 +137,23 @@ function CosmologyProblem(
         end
         parsymbols = Symbol.(parameters(bg))
         havet0 = Symbol("t0") in parsymbols
-        haveτ0 = Symbol("b₊rec₊τ0") in parsymbols
+        haveκ0 = Symbol("b₊rec₊κ0") in parsymbols
         t0idx = havet0 ? ModelingToolkit.parameter_index(bg, M.t0) : nothing
-        _τidx = haveτ0 ? ModelingToolkit.variable_index(bg, M.b.rec._τ) : nothing
-        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.τ0) : nothing
+        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b.rec._κ) : nothing
+        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.κ0) : nothing
         function affect!(integrator)
             if havet0
                 integrator.ps[t0idx] = integrator.t # set time today to time when a == 1 # TODO: what if t is not iv
             end
-            if haveτ0
-                integrator.ps[τ0idx] = integrator.u[_τidx]
+            if haveκ0
+                integrator.ps[κ0idx] = integrator.u[_κidx]
             end
             terminate && terminate!(integrator) # stop integration if desired
         end
         callback = ContinuousCallback(f, affect!; save_positions = (true, false))
         pars_sync = []
         havet0 && push!(pars_sync, M.t0) # TODO: specify more efficient numerical indices for bg and pt instead
-        haveτ0 && push!(pars_sync, M.b.rec.τ0) # TODO: specify more efficient numerical indices for bg and pt instead
+        haveκ0 && push!(pars_sync, M.b.rec.κ0) # TODO: specify more efficient numerical indices for bg and pt instead
 
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
     else
@@ -285,7 +285,7 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan = ivspan)
         for par in prob.pars_sync
-            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. t0 and τ0)
+            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. t0 and κ0)
         end
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem

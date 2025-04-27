@@ -111,17 +111,17 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     description = "Photons"
     γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
-    vars = @variables F(t)[0:lmax] Θ(t)[0:lmax] δ(t) θ(t) σ(t) τ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
+    vars = @variables F(t)[0:lmax] Θ(t)[0:lmax] δ(t) θ(t) σ(t) κ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
     defs = [
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
     eqs1 = [
-        # Bertschinger & Ma (64) with anₑσₜ -> -τ̇
+        # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * τ̇/k * (θb - θ)
-        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*τ̇*F[2] - 1//10*τ̇*(G[0]+G[2])
-        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + τ̇*F[l] for l in 3:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + τ̇ * F[lmax] # t ≈ 1/ℰ
+        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
+        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*κ̇*F[2] - 1//10*κ̇*(G[0]+G[2])
+        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇*F[l] for l in 3:lmax-1]...
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # t ≈ 1/ℰ
         δ ~ F[0]
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
@@ -133,20 +133,20 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ics1 = [
         F[0] ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k/g.ℰ*g.Ψ # Dodelson (7.95)
-        F[2] ~ (polarization ? -8//15 : -20//45) * k/τ̇ * F[1] # depends on whether polarization is included
-        [F[l] ~ -l//(2*l+1) * k/τ̇ * F[l-1] for l in 3:lmax]...
+        F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
+        [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
         append!(eqs1, [
-            D(G[0]) ~ k * (-G[1]) + τ̇ * (G[0] - Π/2)
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + τ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
-            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + τ̇ * G[lmax]
+            D(G[0]) ~ k * (-G[1]) + κ̇ * (G[0] - Π/2)
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + κ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
             G[0] ~ 5//16 * F[2],
-            G[1] ~ -1//16 * k/τ̇ * F[2],
+            G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
-            [G[l] ~ -l//(2*l+1) * k/τ̇ * G[l-1] for l in 3:lmax]...
+            [G[l] ~ -l//(2*l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
         ] .|> O(ϵ^1))
     else
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
@@ -276,8 +276,8 @@ function baryons(g; recombination = true, reionization = true, name = :b, kwargs
     if recombination # TODO: dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g; reionization)
     else
-        vars = @variables τ(t) τ̇(t) ρb(t) Tγ(t) cₛ²(t)
-        @named rec = ODESystem([τ ~ 0, τ̇ ~ 0, cₛ² ~ 0], t, vars, [])
+        vars = @variables κ(t) κ̇(t) ρb(t) Tγ(t) cₛ²(t)
+        @named rec = ODESystem([κ ~ 0, κ̇ ~ 0, cₛ² ~ 0], t, vars, [])
     end
     description = "Baryonic matter"
     b = extend(b, ODESystem([b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1), t, [], []; name); description)

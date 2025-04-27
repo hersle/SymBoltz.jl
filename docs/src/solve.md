@@ -37,7 +37,7 @@ ts = sol[M.t] # get time points used in the background solution
 ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
 as = sol(ts, M.g.a) # scale factors
 Ωms = sol(ts, (M.b.ρ + M.c.ρ) / M.G.ρ) # matter-to-total density ratios
-τs = sol(ts, M.b.rec.τ) # optical depths
+κs = sol(ts, M.b.rec.κ) # optical depths
 Φs = sol(ks, ts, M.g.Φ) # metric potentials
 Φs_over_Ψs = sol(ks, ts, M.g.Φ / M.g.Ψ) # ratio between metric potentials
 nothing # hide
@@ -51,7 +51,7 @@ For example, to plot some of the same quantities that we obtained above:
 ```@example sol
 using Plots
 p1 = plot(sol, log10(M.g.a), (M.b.ρ + M.c.ρ) / M.G.ρ)
-p2 = plot(sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
+p2 = plot(sol, log10(M.g.a), log10(abs(M.b.rec.κ)))
 p3 = plot(sol, ks[1:3], log10(M.g.a), M.g.Φ / M.g.Ψ) # exclude last k, where Φ and Ψ cross 0
 plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
 ```

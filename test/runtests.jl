@@ -112,8 +112,8 @@ end
     ts = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
     tests = [
         (M.g.a, 1e-6, 0)
-        (M.b.rec.τ̇, 0, 1e-2)
-        (M.b.rec.τ, 0, 1e-4)
+        (M.b.rec.κ̇, 0, 1e-2)
+        (M.b.rec.κ, 0, 1e-4)
         (M.b.rec.v, 1e-3, 0)
         (M.b.rec.v̇, 0, 1e-0) # TODO: improve
         (M.b.rec.cₛ², 1e-4, 0)
@@ -167,7 +167,7 @@ end
     t0 = sol[M.t0]
     @test sol(t0, M.g.a) ≈ sol(ks, t0, M.g.a) ≈ 1.0
     @test sol(t0, M.χ) == sol(ks, t0, M.χ) == 0.0
-    @test sol(t0, M.b.rec.τ) == sol(ks, t0, M.b.rec.τ) == 0.0
+    @test sol(t0, M.b.rec.κ) == sol(ks, t0, M.b.rec.κ) == 0.0
 end
 
 @testset "Success checking" begin

@@ -151,11 +151,11 @@ sols = Dict(
 
     # thermodynamics
     "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
-    "τ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.τ̇] * (h*SymBoltz.k0)),
+    "κ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)),
     "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
     "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
     "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
-    "exp(-τ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.τ)]),
+    "exp(-κ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.κ)]),
     "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (h*SymBoltz.k0)),
     "dTb" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
     "wb" => (reverse(sol1["th"]["w_b"]), sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]), # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
@@ -308,11 +308,11 @@ plot_compare("a_bg", "dL"; lgx=true, lgy=true)
 
 ### Optical depth derivative
 ```@example class
-plot_compare("a_th", "τ̇"; lgx=true, lgy=true)
+plot_compare("a_th", "κ̇"; lgx=true, lgy=true)
 ```
 ### Optical depth exponential
 ```@example class
-plot_compare("a_th", "exp(-τ)"; lgx=true)
+plot_compare("a_th", "exp(-κ)"; lgx=true)
 ```
 ### Visibility function
 ```@example class

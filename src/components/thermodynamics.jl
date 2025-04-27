@@ -1,8 +1,8 @@
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
-    pars = @parameters Yp fHe re1z re2z τ0
-    vars1 = @variables Xe(t) ne(t) τ(t) _τ(t) τ̇(t) v(t) v̇(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
+    pars = @parameters Yp fHe re1z re2z κ0
+    vars1 = @variables Xe(t) ne(t) κ(t) _κ(t) κ̇(t) v(t) v̇(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
     vars2 = @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
     vars3 = @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
     vars4 = @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
@@ -26,8 +26,8 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
-        _τ => 0.0
-        τ0 => NaN
+        _κ => 0.0
+        κ0 => NaN
         re1z => 7.6711
         re2z => 3.5
         ΔT => 0.0 # i.e. Tb ~ Tγ at early times
@@ -99,11 +99,11 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
 
-        D(_τ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
-        τ̇ ~ D(_τ) # optical depth derivative
-        τ ~ _τ - τ0 # optical depth offset such that τ = 0 today (non-NaN only after integration)
+        D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
+        κ̇ ~ D(_κ) # optical depth derivative
+        κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
 
-        v ~ D(exp(-τ)) |> expand_derivatives # visibility function
+        v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
     ], t, vars, pars; defaults, description, kwargs...)
 end
