@@ -17,7 +17,8 @@ using Setfield
 # TODO: try different AD sensitivity algorithms: https://docs.sciml.ai/SciMLSensitivity/stable/getting_started/
 # TODO: connector systems for Compton scattering / recombination etc.
 
-using ModelingToolkit: t_nounits as t, D_nounits as D # t is conformal time in units of 1/H₀
+@independent_variables τ # conformal time in units of 1/H₀
+D = Differential(τ)
 k = only(GlobalScope.(@parameters k)) # perturbation wavenumber
 ϵ = only(GlobalScope.(@parameters ϵ = 1)) # perturbative expansion parameter
 

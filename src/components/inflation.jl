@@ -1,6 +1,6 @@
 function harrison_zeldovich(g; kwargs...)
     @parameters As ns kpivot
-    @variables P(t)
+    @variables P(τ)
     eqs = [
         P ~ 2*Num(π)^2 / k^3 * As * (k/kpivot)^(ns-1)
     ]
@@ -10,5 +10,5 @@ function harrison_zeldovich(g; kwargs...)
         ns => NaN
     ]
     description = "Harrison-Zel'dovich inflation"
-    return ODESystem(eqs, t; defaults, description, kwargs...)
+    return ODESystem(eqs, τ; defaults, description, kwargs...)
 end

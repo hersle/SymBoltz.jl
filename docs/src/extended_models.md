@@ -1,9 +1,9 @@
 # Extending models
 
 This tutorial shows how to create extended (beyond-ΛCDM) models.
-As a simple example, we replace the cosmological constant with equation of state ``w(t) = -1`` by w₀wₐ dark energy with equation of state
+As a simple example, we replace the cosmological constant with equation of state ``w(τ) = -1`` by w₀wₐ dark energy with equation of state
 ```math
-w(t) = \frac{P(t)}{ρ(t)} = w_0 + w_a (1 - a(t)),
+w(τ) = \frac{P(τ)}{ρ(τ)} = w_0 + w_a (1 - a(τ)),
 ```
 turning the ΛCDM model into the w₀wₐCDM model,
 as suggested by [Chevallier, Polarski (2000)](https://arxiv.org/abs/gr-qc/0009008) and [Linder (2002)](https://arxiv.org/abs/astro-ph/0208512).
@@ -31,33 +31,33 @@ This is what we will replace.
 ## 2. Create the extended component
 
 The background continuity equation
-``\dot{ρ}(t) = -3 H(t) \, ρ(t) \, (1 + w(t))``
+``ρ̇(τ) = -3 H(τ) \, ρ(τ) \, (1 + w(τ))``
 can be solved analytically with the w₀wₐ equation of state and the ansatz
 ```math
-ρ(t) = ρ(t_0) \, a(t)^m \exp(n (1 - a(t))),
+ρ(τ) = ρ(τ₀) \, a(τ)ᵐ \exp(n (1 - a(τ))),
 ```
-giving ``m = -3 (1 + w_0 + w_a)`` and ``n = -3 w_a``.
+giving ``m = -3 (1 + w₀ + wₐ)`` and ``n = -3 wₐ``.
 The perturbation equations are
 ```math
 \begin{aligned}
-\dot{δ} &= -(1 + w) (θ - 3 \dot{Φ}) - 3 \frac{\dot{a}}{a} (c_s^2 - w) δ, \\
-\dot{θ} &= -\frac{\dot{a}}{a} (1 - 3w) θ - \frac{\dot{w}}{1+w} θ + \frac{c_s^2}{1+w} k^2 δ - k^2 σ + k^2 Ψ,
+δ̇ &= -(1 + w) (θ - 3 Φ̇) - 3 \frac{ȧ}{a} (c_s^2 - w) δ, \\
+θ̇ &= -\frac{ȧ}{a} (1 - 3w) θ - \frac{ẇ}{1+w} θ + \frac{c_s^2}{1+w} k^2 δ - k^2 σ + k^2 Ψ,
 \end{aligned}
 ```
-with (adiabatic) initial conditions ``δ = -\frac{3}{2} (1+w) Ψ`` and ``θ = \frac{1}{2} k^2 t Ψ``,
+with (adiabatic) initial conditions ``δ = -\frac{3}{2} (1+w) Ψ`` and ``θ = \frac{1}{2} k^2 τ Ψ``,
 following [Bertschinger and Ma (equation 30)](https://arxiv.org/pdf/astro-ph/9506072#%5B%7B%22num%22%3A70%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C387%5D).
 
 Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:
 ```@example ext
 using ModelingToolkit # load to create custom components
-using SymBoltz: t, D, k, ϵ # load conformal time, derivative, perturbation wavenumber and perturbation book-keeper variables
+using SymBoltz: τ, D, k, ϵ # load conformal time, derivative, perturbation wavenumber and perturbation book-keeper variables
 g = M1.g # reuse metric of original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
 pars = @parameters w₀ wₐ cₛ² Ω₀
 
 # 2. Create variables
-vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t)
+vars = @variables ρ(τ) P(τ) w(τ) δ(τ) θ(τ) σ(τ)
 
 # 3. Specify equations (~ means equality in ModelingToolkit)
 eqs = [
@@ -80,7 +80,7 @@ initialization_eqs = [
 
 # 5. Pack into an ODE system called "X"
 description = "w₀wₐ (CPL) dynamical dark energy"
-@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, description)
+@named X = ODESystem(eqs, τ, vars, pars; initialization_eqs, description)
 ```
 
 Note that the w₀wₐ component only knows about itself (and the metric),
@@ -120,7 +120,7 @@ And for the w₀wₐCDM model:
 prob2 = CosmologyProblem(M2, θ2)
 sol2 = solve(prob2, ks)
 ```
-Let us compare ``H(t)`` and ``Ψ(k,t)`` at equal scale factors ``a(t)``:
+Let us compare ``H(τ)`` and ``Ψ(k,τ)`` at equal scale factors ``a(τ)``:
 ```@example ext
 lgas = range(-3, 0, length=500) # log10(a)
 H1s = sol1(log10(M1.g.a) => lgas, M1.g.H)

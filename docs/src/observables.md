@@ -135,7 +135,7 @@ prob = CosmologyProblem(M, pars)
 sol = solve(prob)
 
 zs = 0.0:1.0:10.0
-ts = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
-dLs = SymBoltz.distance_luminosity(sol, ts) / SymBoltz.Gpc
+τs = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
+dLs = SymBoltz.distance_luminosity(sol, τs) / SymBoltz.Gpc
 plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```

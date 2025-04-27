@@ -55,7 +55,7 @@ To predict luminosity distances
 ```math
 d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
 \qquad \text{where} \qquad
-\chi = c \, (t_0 - t)
+\chi = c \, (τ₀ - τ)
 ```
 theoretically, we solve the w0waCDM model:
 ```@example fit
@@ -65,7 +65,7 @@ K = SymBoltz.curvature(g)
 X = SymBoltz.w0wa(g; analytical = true)
 M = RMΛ(K = K, Λ = X)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
-pars_fixed = Dict(M.t => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
+pars_fixed = Dict(M.τ => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
 pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.X.Ω₀, M.g.h, M.X.w0, M.X.wa]
 
 dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
@@ -250,18 +250,18 @@ function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8, reltol = 1e-8, al
     aH(a) = a * H0 * √(Ωr0/a^4 + Ωm0/a^3 + Ωk0/a^2 + ΩΛ0)
     function f(_, _, b)
         a = exp(b) # b = ln(a)
-        return 1 / (aH(a)) # dt/db; t is conformal time
+        return 1 / (aH(a)) # dτ/db; τ is conformal time
     end
-    tini = 1 / (aH(aini))
+    τini = 1 / (aH(aini))
     bini = log(aini)
-    prob = ODEProblem(f, tini, (bini, 0))
+    prob = ODEProblem(f, τini, (bini, 0))
     try # seems faster than going the NaNMath and retcode route
         sol = solve(prob; alg, reltol, maxiters)
         a = 1 ./ (z .+ 1)
         b = log.(a)
-        t = sol(b)
-        t0 = sol.u[end]
-        χ = t0 .- t
+        τ = sol(b)
+        τ0 = sol.u[end]
+        χ = τ0 .- τ
         r = sinc.(√(-Ωk0+0im)*χ*H0/π) .* χ * SymBoltz.c .|> real # Julia's sinc(x) = sin(π*x) / (π*x)
         return r ./ a / SymBoltz.Gpc # from meters to Gpc
     catch

@@ -155,7 +155,7 @@ function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
         eqs = ModelingToolkit.get_eqs(sys) # will be modified in-place
         obs = ModelingToolkit.get_observed(sys) # will be modified in-place
 
-        diffvar(expr) = operation(expr) == D ? diffvar(only(sorted_arguments(expr))) : expr # return e.g. a(t) for D(D(a(t)))
+        diffvar(expr) = operation(expr) == D ? diffvar(only(sorted_arguments(expr))) : expr # return e.g. a(τ) for D(D(a(τ)))
 
         for var in vars
             spl = var2spl[var]

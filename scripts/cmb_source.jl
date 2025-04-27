@@ -12,29 +12,29 @@ prob = CosmologyProblem(M, pars)
 sol1 = solve(prob, k1s; verbose = true, ptopts = (alg = SymBoltz.Rodas5P(), reltol = 1e-15))
 sol2 = solve(prob, k2s; verbose = true)
 ks = range(extrema(k2s)..., length=10)
-ts = sol1[M.t]
+τs = sol1[M.τ]
 
-S1 = SymBoltz.source_temperature(sol1, ks, ts) #; sw=false, isw=false, dop=false, pol=true) # sol1(ks, ts, M.S)
-S2 = SymBoltz.source_temperature(sol2, ks, ts) #; sw=false, isw=false, dop=false, pol=true) # sol2(ks, ts, M.S)
+S1 = SymBoltz.source_temperature(sol1, ks, τs) #; sw=false, isw=false, dop=false, pol=true) # sol1(ks, τs, M.S)
+S2 = SymBoltz.source_temperature(sol2, ks, τs) #; sw=false, isw=false, dop=false, pol=true) # sol2(ks, τs, M.S)
 println("max(abs(S2-S1)) = ", maximum(abs.(S2 .- S1)))
 
-p = plot(xlabel = "tanh(t)", ylabel = "S", legend = nothing)
-plot!(p, tanh.(ts), transpose(S1); linestyle = :solid, color = permutedims(1:length(ks)), alpha=0.5)
-plot!(p, tanh.(ts), transpose(S2); linestyle = :dash,  color = permutedims(1:length(ks)), alpha=0.5)
+p = plot(xlabel = "tanh(τ)", ylabel = "S", legend = nothing)
+plot!(p, tanh.(τs), transpose(S1); linestyle = :solid, color = permutedims(1:length(ks)), alpha=0.5)
+plot!(p, tanh.(τs), transpose(S2); linestyle = :dash,  color = permutedims(1:length(ks)), alpha=0.5)
 
 # 2) LOS integration
 
 ks = k2s #range(extrema(k2s)..., length=1*length(k2s))
-ts, us, u′s = SymBoltz.los_substitution_range(sol1, (t->tanh(t)), (u->atanh(u)), (t->1/cosh(t)^2), length=500)
-S = SymBoltz.source_temperature(sol1, ks, ts) # sol2(ks, exp.(lnts), M.S)
-Θls = SymBoltz.los_integrate(S, ls, ks, ts, us, u′s)
+τs, us, u′s = SymBoltz.los_substitution_range(sol1, (τ->tanh(τ)), (u->atanh(u)), (τ->1/cosh(τ)^2), length=500)
+S = SymBoltz.source_temperature(sol1, ks, τs) # sol2(ks, exp.(lnτs), M.S)
+Θls = SymBoltz.los_integrate(S, ls, ks, τs, us, u′s)
 
 plot(ks, Θls[:,10], xlims=(0, 100))
 
 # 3) Cl integrand
 
 P0s = SymBoltz.spectrum_primordial(ks, sol1)
-#P0s = sol1(ks, sol1[M.t][begin], M.I.P)
+#P0s = sol1(ks, sol1[M.τ][begin], M.I.P)
 Cls = similar(Θls, length(ls))
 ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
 il = 1
@@ -84,12 +84,12 @@ end
 # E-mode source functions
 ls = 10:5:1500
 sol, ks = SymBoltz.solve_for_cmb(M, pars, ls[end])
-tmin, tmax = extrema(sol[M.t])
-lnts = range(log(tmin), log(tmax), step=0.01)
-SPs = SymBoltz.source_polarization(sol, ks, exp.(lnts)) # TODO: cut away early/late times? (e.g. S blows up today)
-#plot(lnts, Ss'; label=nothing)
+τmin, τmax = extrema(sol[M.τ])
+lnτs = range(log(τmin), log(τmax), step=0.01)
+SPs = SymBoltz.source_polarization(sol, ks, exp.(lnτs)) # TODO: cut away early/late times? (e.g. S blows up today)
+#plot(lnτs, Ss'; label=nothing)
 
-ΘPls = SymBoltz.los_integrate(SPs, ls, ks, lnts)
+ΘPls = SymBoltz.los_integrate(SPs, ls, ks, lnτs)
 ΘPls .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 
 #plot(ks, Θls, xlims=(0,100))

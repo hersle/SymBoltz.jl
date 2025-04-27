@@ -27,11 +27,11 @@ function spectrum_primordial(k, M::ODESystem, pars::Dict)
 end
 
 """
-    spectrum_matter(sol::CosmologySolution, k[, t])
+    spectrum_matter(sol::CosmologySolution, k[, τ])
 
-Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` and conformal time(s) `t` (final, if omitted).
+Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` and conformal time(s) `τ` (final, if omitted).
 """
-function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [:c, :b, :h])
+function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
     M = sol.prob.M
     species = getproperty.(M, filter(s -> have(M, s), species))
     ρm = sum(s.ρ for s in species)
@@ -39,7 +39,7 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
 
     # convert P (through P0) to same units as 1/k^3
     #=
-    P0 = sol(k, t, M.I.P)
+    P0 = sol(k, τ, M.I.P)
     kunit = only(unique(unit.(k)))
     if kunit != NoUnits
         H₀ = sol[M.g.h] * H100
@@ -50,21 +50,21 @@ function spectrum_matter(sol::CosmologySolution, k, t = sol[t][end]; species = [
     =#
 
     P0 = spectrum_primordial(k, sol)
-    P = P0 .* sol(k, t, Δm^2) # Baumann (4.4.172)
+    P = P0 .* sol(k, τ, Δm^2) # Baumann (4.4.172)
 
     return P
 end
 
 """
-    spectrum_matter(M::ODESystem, pars, k[, t]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+    spectrum_matter(M::ODESystem, pars, k[, τ]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
 
-Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `t` (final, of omitted).
+Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `τ` (final, of omitted).
 The `solver` and other `kwargs` are passed to `solve`.
 """
-function spectrum_matter(prob::CosmologyProblem, k, t = nothing; species = [:c, :b, :h], kwargs...)
+function spectrum_matter(prob::CosmologyProblem, k, τ = nothing; species = [:c, :b, :h], kwargs...)
     sol = solve(prob, k; kwargs...) # TODO: just save endpoints
-    t = isnothing(t) ? sol[prob.M.t][end] : t
-    return spectrum_matter(sol, k, t; species)
+    τ = isnothing(τ) ? sol[prob.M.τ][end] : τ
+    return spectrum_matter(sol, k, τ; species)
 end
 
 """
@@ -142,20 +142,20 @@ function integrate(xs, ys; integrator = TrapezoidalRule())
 end
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
-# TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(t0-tini)
+# TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(τ0-τini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 # TODO: take in symbolic expr?
 """
-    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, τs::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
-Compute the line-of-sight-integrals ``∫dt S(k,t) jₗ(k(t₀-t)) = ∫dt S₀(k,t) jₗ(k(t₀-t)) + ∫dt S₁(k,t) jₗ′(k(t₀-t))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
-The element `S0s[i,j]` holds the source function value ``S₀(ks[i], ts[j])`` (and similarly for `S1s`).
-An integral substitution `u(t)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dt f(t) = ∫du f(t(u)) / u′(t)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
+Compute the line-of-sight-integrals ``∫dτ S(k,τ) jₗ(k(τ₀-τ)) = ∫dτ S₀(k,τ) jₗ(k(τ₀-τ)) + ∫dτ S₁(k,τ) jₗ′(k(τ₀-τ))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
+The element `S0s[i,j]` holds the source function value ``S₀(ks[i], τs[j])`` (and similarly for `S1s`).
+An integral substitution `u(τ)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dτ f(τ) = ∫du f(τ(u)) / u′(τ)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
 """
-function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, ts::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, τs::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
@@ -174,22 +174,23 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
         end
 
         k = ks[ik]
-        for it in eachindex(us)
-            t = ts[it]
-            S0 = S0s[ik,it]
-            S1 = S1s[ik,it]
-            kΔt = k * (ts[end]-t)
-            sphericalbesseljfast!(Jls_all, ls_all, kΔt)
+        for iτ in eachindex(us)
+            τ = τs[iτ]
+            S0 = S0s[ik,iτ]
+            S1 = S1s[ik,iτ]
+            χ = τs[end] - τ
+            kχ = k * χ
+            sphericalbesseljfast!(Jls_all, ls_all, kχ)
             for il in eachindex(ls)
                 l = ls[il]
                 Jl = Jls_all[1+l-lmin]
                 Jl′ = sphericalbesseljprime(l, ls_all, Jls_all)
-                ∂I_∂u[il,it] = (S0 * Jl + S1 * Jl′) / u′s[it] # ∫dt y(t) = ∫du y(t(u)) / u′(t(u))
+                ∂I_∂u[il,iτ] = (S0 * Jl + S1 * Jl′) / u′s[iτ] # ∫dτ y(τ) = ∫du y(τ(u)) / u′(τ(u))
             end
         end
         for il in eachindex(ls)
             integrand = @view ∂I_∂u[il,:]
-            Is[ik,il] = integrate(us, integrand; integrator) # integrate over t # TODO: add starting I(tini) to fix small l?
+            Is[ik,il] = integrate(us, integrand; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
         end
     end
 
@@ -197,61 +198,61 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
 end
 
 # this one is less elegant, but more numerically stable?
-# TODO: saveat = ts
+# TODO: saveat = τs
 """
-    source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    source_temperature(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
 
-Compute the temperature source function ``Sᵀ(k, t)`` by interpolating in the solution object.
+Compute the temperature source function ``Sᵀ(k,τ)`` by interpolating in the solution object.
 """
-function source_temperature(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray; sw=true, isw=true, dop=true, pol=true)
+function source_temperature(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray; sw=true, isw=true, dop=true, pol=true)
     M = sol.prob.M
-    out = sol(ks, ts, [M.S0, M.S1])
+    out = sol(ks, τs, [M.S0, M.S1])
     S0s, S1s = out[:, :, 1], out[:, :, 2]
     return S0s, S1s
 end
 
 """
-    source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+    source_polarization(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
 
-Compute the E-mode polarization source function ``Sᴱ(k, t)`` by interpolating in the solution object.
+Compute the E-mode polarization source function ``Sᴱ(k,τ)`` by interpolating in the solution object.
 """
-function source_polarization(sol::CosmologySolution, ks::AbstractArray, ts::AbstractArray)
+function source_polarization(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
     M = sol.prob.M
-    t0 = sol[M.t0]
-    S0s = sol(ks, ts, 3/16 * M.γ.Π * M.b.rec.v) ./ (ks .* (t0 .- ts)') .^ 2 # TODO: apply integration by parts?
+    τ0 = sol[M.τ0]
+    S0s = sol(ks, τs, 3/16 * M.γ.Π * M.b.rec.v) ./ (ks .* (τ0 .- τs)') .^ 2 # TODO: apply integration by parts?
     S1s = 0.0 .* S0s # == 0
     return S0s, S1s
 end
 
 function los_substitution_range(sol::CosmologySolution, u::Function, u⁻¹::Function, u′::Function; kwargs...)
-    tmin, tmax = extrema(sol[sol.prob.M.t])
+    tmin, tmax = extrema(sol.bg.t)
     us = range(u(tmin), u(tmax); kwargs...)
-    ts = u⁻¹.(us)
-    all(u.(ts) .≈ us) || error("u(u⁻¹(t)) ≠ t")
-    u′s = u′.(ts)
-    return ts, us, u′s
+    τs = u⁻¹.(us)
+    all(u.(τs) .≈ us) || error("u(u⁻¹(τ)) ≠ τ")
+    u′s = u′.(τs)
+    return τs, us, u′s
 end
 
 """
-    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
-    ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length)
-    S0s, S1s = source_temperature(sol, ks, ts)
-    return los_integrate(S0s, S1s, ls, ks, ts, us, u′s; kwargs...)
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
+    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length)
+    S0s, S1s = source_temperature(sol, ks, τs)
+    return los_integrate(S0s, S1s, ls, ks, τs, us, u′s; kwargs...)
 end
 
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(t->tanh(t)), u⁻¹=(u->atanh(u)), u′=(t->1/cosh(t)^2), length=500, kwargs...)
-    ts, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length) # TODO: do tanh(t/tcmb)?
-    S0s, S1s = source_polarization(sol, ks, ts)
-    return los_integrate(S0s, S1s, ls, ks, ts, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
+    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length) # TODO: do tanh(t/tcmb)?
+    S0s, S1s = source_polarization(sol, ks, τs)
+    return los_integrate(S0s, S1s, ls, ks, τs, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -294,7 +295,7 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
     ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
     ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
-    #P0s = sol(ks_fine, sol[t][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
+    #P0s = sol(ks_fine, sol[τ][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
 
     if isnothing(unit)
         factor = 1 # keep dimensionless
@@ -329,13 +330,13 @@ Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) 
 """
 function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
     ks_coarse, _ = cmb_ks(ls[end])
-    sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat ts
+    sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat τs
     return spectrum_cmb(modes, sol, ls; normalization, unit, integrator)
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
 function cmb_ks(lmax; Δk = 2π/10, Δk_S = 5.0, kmin = Δk, kmax = 2*lmax)
-    # Assumes t0 = 1 (e.g. t0 = 1/H0 = 1) # TODO: don't assume t0 = 1
+    # Assumes τ0 = 1 (e.g. τ0 = 1/H0 = 1) # TODO: don't assume τ0 = 1
     ks_fine = range(kmin, kmax, step=Δk) # use integer multiple so endpoints are the same
     ks_coarse = range(ks_fine[begin], ks_fine[end], length = Int(floor((kmax-kmin)/Δk_S+1)))
     ks_coarse[begin] == ks_fine[begin] && ks_coarse[end] == ks_fine[end] || error("different wavenumber endpoints")
@@ -364,11 +365,11 @@ end
 # TODO: not really a spectrum...
 # TODO: add formula
 """
-    distance_luminosity(sol::CosmologySolution, t = sol[sol.prob.M.t], t0 = sol[M.t0])
+    distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
 
-Compute luminosity distances at the time(s) `t` relative to the (present) time `t0`.
+Compute luminosity distances at the independent variable values `ivs` relative to the (present) time `τ0`.
 """
-function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, t0 = sol[sol.prob.M.t0])
+function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
     M = sol.prob.M
     χ = sol(ivs, M.χ)
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
@@ -388,7 +389,7 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
     probgen = SymBoltz.parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
 
     geta = getsym(prob.bg, M.g.a)
-    gett = getsym(prob.bg, M.t)
+    getτ = getsym(prob.bg, M.τ)
     geth = getsym(prob.bg, M.g.h)
     getΩk0 = getsym(prob.bg, M.K.Ω₀)
 
@@ -396,11 +397,11 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
         prob = probgen(p)
         sol = solve(prob; bgopts, saveat = as, save_end = true)
         a = geta(sol.bg)
-        t = gett(sol.bg)
+        τ = getτ(sol.bg)
         h = geth(sol.bg)
         Ωk0 = getΩk0(sol.bg)
-        t0 = t[end] # time today
-        χ = t0 .- t # TODO: use M.χ
+        τ0 = τ[end] # time today
+        χ = τ0 .- τ # TODO: use M.χ
         r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
         H0 = SymBoltz.H100 * h
         return @. r / a * SymBoltz.c / H0 # luminosity distance in meters

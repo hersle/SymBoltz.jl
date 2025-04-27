@@ -7,14 +7,14 @@ function displayname(var)
 end
 
 @recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
-    ts = timeseries(sol; Nextra)
-    xs = sol(ts, x)
-    ys = sol(ts, y)
+    τs = timeseries(sol; Nextra)
+    xs = sol(τs, x)
+    ys = sol(τs, y)
     xlabel --> (x isa AbstractArray ? "" : displayname(x))
     ylabel --> (y isa AbstractArray ? "" : displayname(y))
     line_z = get(plotattributes, :line_z, nothing)
     if line_z isa Num # TODO: add to perturbations?
-        line_z := sol(ts, line_z)
+        line_z := sol(τs, line_z)
         colorbar_title --> displayname(line_z)
     end
     label --> displayname.(y')
@@ -28,10 +28,10 @@ end
     for iv in eachindex(y)
         linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
-            ts = timeseries(sol, k[ik]; Nextra)
+            τs = timeseries(sol, k[ik]; Nextra)
             color = ik
-            xs = sol(k[ik], ts, x)
-            ys = sol(k[ik], ts, y[iv])
+            xs = sol(k[ik], τs, x)
+            ys = sol(k[ik], τs, y[iv])
             @series begin
                 linestyle --> linestyle
                 color --> color

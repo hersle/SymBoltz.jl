@@ -6,33 +6,33 @@ prob = CosmologyProblem(M, pars)
 
 @testset "Solution accessing" begin
     ks = [1e2, 1e3]
-    ts = [1.0, 2.0, 3.0]
+    τs = [1.0, 2.0, 3.0]
     is = [M.g.a, M.g.a, M.g.a, M.g.a]
-    nk, nt, ni = length(ks), length(ts), length(is)
+    nk, nt, ni = length(ks), length(τs), length(is)
 
     # Size of solution output should match input arguments in order
     sol = solve(prob)
-    @test size(sol(ts[1], is[1])) == () # background
-    @test size(sol(ts[1], is)) == (ni,)
-    @test size(sol(ts, is[1])) == (nt,)
-    @test size(sol(ts, is)) == (nt, ni)
-    @test_throws "No perturbations" sol(ks, ts, is)
-    #@test_throws "below minimum solved time" sol(sol[M.t][begin]-1, is)
-    #@test_throws "above maximum solved time" sol(sol[M.t][end]+1, is)
+    @test size(sol(τs[1], is[1])) == () # background
+    @test size(sol(τs[1], is)) == (ni,)
+    @test size(sol(τs, is[1])) == (nt,)
+    @test size(sol(τs, is)) == (nt, ni)
+    @test_throws "No perturbations" sol(ks, τs, is)
+    #@test_throws "below minimum solved time" sol(sol[M.τ][begin]-1, is)
+    #@test_throws "above maximum solved time" sol(sol[M.τ][end]+1, is)
 
     sol = solve(prob, ks)
-    @test size(sol(ks[1], ts[1], is[1])) == () # perturbations
-    @test size(sol(ks[1], ts[1], is)) == (ni,)
-    @test size(sol(ks[1], ts, is[1])) == (nt,)
-    @test size(sol(ks[1], ts, is)) == (nt, ni)
-    @test size(sol(ks, ts[1], is[1])) == (nk,)
-    @test size(sol(ks, ts[1], is)) == (nk, ni)
-    @test size(sol(ks, ts, is[1])) == (nk, nt)
-    @test size(sol(ks, ts, is)) == (nk, nt, ni)
-    @test_throws "below minimum solved wavenumber" sol(ks[begin]-1, ts, is)
-    @test_throws "above maximum solved wavenumber" sol(ks[end]+1, ts, is)
-    #@test_throws "below minimum solved time" sol(ks[1], sol[M.t][begin]-1, is)
-    #@test_throws "above maximum solved time" sol(ks[1], sol[M.t][end]+1, is)
+    @test size(sol(ks[1], τs[1], is[1])) == () # perturbations
+    @test size(sol(ks[1], τs[1], is)) == (ni,)
+    @test size(sol(ks[1], τs, is[1])) == (nt,)
+    @test size(sol(ks[1], τs, is)) == (nt, ni)
+    @test size(sol(ks, τs[1], is[1])) == (nk,)
+    @test size(sol(ks, τs[1], is)) == (nk, ni)
+    @test size(sol(ks, τs, is[1])) == (nk, nt)
+    @test size(sol(ks, τs, is)) == (nk, nt, ni)
+    @test_throws "below minimum solved wavenumber" sol(ks[begin]-1, τs, is)
+    @test_throws "above maximum solved wavenumber" sol(ks[end]+1, τs, is)
+    #@test_throws "below minimum solved time" sol(ks[1], sol[M.τ][begin]-1, is)
+    #@test_throws "above maximum solved time" sol(ks[1], sol[M.τ][end]+1, is)
 
     # TODO: also test array indexing
 end
@@ -40,24 +40,24 @@ end
 @testset "Accessing derivative variables" begin
     ks = 1.0 / u"Mpc"
     sol = solve(prob, ks)
-    D = Differential(M.t)
-    t0 = sol[M.t0]
-    @test isapprox(sol(t0, D(M.g.a)), 1.0; atol = 1e-5)
-    @test isapprox(sol(t0, D(M.g.z)), -1.0; atol = 1e-5)
-    @test_throws "Could not express derivative" sol(t0, D(D(M.g.z)))
-    sol(ks, t0, D(M.g.Φ))
-    @test isapprox(sol(ks, t0, D(M.g.Φ)), sol(ks, t0, D(M.g.Ψ)); atol = 1e-5)
-    @test_throws "Could not express derivative" sol(ks, t0, D(D(M.g.Φ)))
-    @test_throws "Could not express derivative" sol(ks, t0, D(D(M.g.Ψ)))
+    D = Differential(M.τ)
+    τ0 = sol[M.τ0]
+    @test isapprox(sol(τ0, D(M.g.a)), 1.0; atol = 1e-5)
+    @test isapprox(sol(τ0, D(M.g.z)), -1.0; atol = 1e-5)
+    @test_throws "Could not express derivative" sol(τ0, D(D(M.g.z)))
+    sol(ks, τ0, D(M.g.Φ))
+    @test isapprox(sol(ks, τ0, D(M.g.Φ)), sol(ks, τ0, D(M.g.Ψ)); atol = 1e-5)
+    @test_throws "Could not express derivative" sol(ks, τ0, D(D(M.g.Φ)))
+    @test_throws "Could not express derivative" sol(ks, τ0, D(D(M.g.Ψ)))
 end
 
 @testset "Solution interpolation" begin
     ks = 10 .^ range(-5, 1, length=100) / u"Mpc"
     sol = solve(prob, ks)
     ks = range(extrema(ks)..., length=500)
-    ts = range(extrema(sol.bg.t)..., length=500)
+    τs = range(extrema(sol.bg.t)..., length=500)
     is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
-    @test sol(ks, ts, is; smart = true) == sol(ks, ts, is; smart = false)
+    @test sol(ks, τs, is; smart = true) == sol(ks, τs, is; smart = false)
 end
 
 @testset "Spherical Bessel function" begin
@@ -79,20 +79,20 @@ end
 
 @testset "Timeseries" begin
     sol = solve(prob)
-    ts = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(t))
-    @test sol(ts, M.g.a) isa AbstractArray # should be in bounds
+    τs = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
+    @test sol(τs, M.g.a) isa AbstractArray # should be in bounds
 
     # First compute z at known t
-    ts = range(extrema(ts)..., length=500)
-    zs = sol(ts, M.g.z)
+    τs = range(extrema(τs)..., length=500)
+    zs = sol(τs, M.g.z)
 
-    # 1) Invert z to t with root finding
-    ts1 = SymBoltz.timeseries(sol, M.g.z, zs)
-    @test all(isapprox.(ts, ts1; atol = 1e-12))
+    # 1) Invert z to τ with root finding
+    τs1 = SymBoltz.timeseries(sol, M.g.z, zs)
+    @test all(isapprox.(τs, τs1; atol = 1e-12))
 
-    # 2) Invert z and ż to t with Hermite spline
-    ts2 = SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs)
-    @test all(isapprox.(ts, ts2; atol = 1e-6))
+    # 2) Invert z and ż to τ with Hermite spline
+    τs2 = SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs)
+    @test all(isapprox.(τs, τs2; atol = 1e-6))
 end
 
 @testset "Initial conditions" begin
@@ -109,7 +109,7 @@ end
 
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
-    ts = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
+    τs = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
     tests = [
         (M.g.a, 1e-6, 0)
         (M.b.rec.κ̇, 0, 1e-2)
@@ -121,8 +121,8 @@ end
         (M.b.rec.Xe, 1e-6, 0)
     ]
     for (var, atol, rtol) in tests
-        vals1 = sol(ts, var) # from background
-        vals2 = sol(1.0, ts, var) # from splined perturbations
+        vals1 = sol(τs, var) # from background
+        vals2 = sol(1.0, τs, var) # from splined perturbations
         @test all(isapprox.(vals1, vals2; atol, rtol))
     end
 end
@@ -138,14 +138,14 @@ end
     @test haskey(prob2.var2spl, M.b.rec.v)
 
     obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS
-    @test obs2["b₊rec₊v(t)"] == "SymBoltz.value(b₊rec₊v_spline, t)"
-    @test obs2["b₊rec₊vˍt(t)"] == "SymBoltz.derivative(b₊rec₊v_spline, t, 1)"
+    @test obs2["b₊rec₊v(τ)"] == "SymBoltz.value(b₊rec₊v_spline, τ)"
+    @test obs2["b₊rec₊vˍτ(τ)"] == "SymBoltz.derivative(b₊rec₊v_spline, τ, 1)"
 
     sol1 = solve(prob1, 1.0)
     sol2 = solve(prob2, 1.0)
-    ts = sol1[M.t]
-    v1s = sol1(1.0, ts, M.b.rec.v)
-    v2s = sol2(1.0, ts, M.b.rec.v)
+    τs = sol1[M.τ]
+    v1s = sol1(1.0, τs, M.b.rec.v)
+    v2s = sol2(1.0, τs, M.b.rec.v)
     @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
 =#
@@ -164,10 +164,10 @@ end
     ks = 1.0
     prob = CosmologyProblem(M, pars) # recreate since solution usually modifies problem parameters
     sol = solve(prob, ks)
-    t0 = sol[M.t0]
-    @test sol(t0, M.g.a) ≈ sol(ks, t0, M.g.a) ≈ 1.0
-    @test sol(t0, M.χ) == sol(ks, t0, M.χ) == 0.0
-    @test sol(t0, M.b.rec.κ) == sol(ks, t0, M.b.rec.κ) == 0.0
+    τ0 = sol[M.τ0]
+    @test sol(τ0, M.g.a) ≈ sol(ks, τ0, M.g.a) ≈ 1.0
+    @test sol(τ0, M.χ) == sol(ks, τ0, M.χ) == 0.0
+    @test sol(τ0, M.b.rec.κ) == sol(ks, τ0, M.b.rec.κ) == 0.0
 end
 
 @testset "Success checking" begin

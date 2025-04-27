@@ -4,7 +4,7 @@
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
 function general_relativity(g; acceleration = false, name = :G, kwargs...)
-    vars = @variables ρ(t) P(t) ρcrit(t) δρ(t) δP(t) Π(t) F₁(t) F₂(t)
+    vars = @variables ρ(τ) P(τ) ρcrit(τ) δρ(τ) δP(τ) Π(τ) F₁(τ) F₂(τ)
     pars = @parameters Δfac = 0
     a = g.a
     if acceleration
@@ -28,7 +28,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
     ] .|> O(ϵ^1)
     guesses = [ρ => 0.1, D(a) => +1]
     description = "General relativity gravity"
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs = ics0, guesses, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs = ics0, guesses, name, description, kwargs...)
 end
 
 # TODO: potential
@@ -40,7 +40,7 @@ Create a symbolic component for the Brans-Dicke (BD) theory of gravity in the sp
 """
 function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     pars = @parameters ω
-    vars = @variables ρ(t) P(t) ϕ(t) δϕ(t) δρ(t) δP(t) Π(t) Δ(t) G(t)
+    vars = @variables ρ(τ) P(τ) ϕ(τ) δϕ(τ) δρ(τ) δP(τ) Π(τ) Δ(τ) G(τ)
     @unpack a, ℰ, Φ, Ψ = g # shorthand
     F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
@@ -74,5 +74,5 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     ] .|> O(ϵ^1)
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
-    return ODESystem([eqs0; eqs1], t, vars, pars; name, description, initialization_eqs = [ics0; ics1], guesses, kwargs...) # TODO: don't pass vars and pars
+    return ODESystem([eqs0; eqs1], τ, vars, pars; name, description, initialization_eqs = [ics0; ics1], guesses, kwargs...) # TODO: don't pass vars and pars
 end

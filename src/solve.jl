@@ -127,23 +127,23 @@ function CosmologyProblem(
         # Set up callback for today # TODO: specify callbacks symbolically?
         terminate = !isnothing(term)
         iv = ModelingToolkit.get_iv(M)
-        if Symbol(iv) == :t
+        if Symbol(iv) == :τ
             aidx = ModelingToolkit.variable_index(bg, bg.g.a)
-            f = (u, t, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
+            f = (u, τ, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
         elseif Symbol(iv) == :a
-            f = (u, t, integrator) -> t - 1.0 # t is a
+            f = (u, a, integrator) -> a - 1.0 # a is independent variable
         else
             error("Don't know what to do when independent variable is $iv.")
         end
         parsymbols = Symbol.(parameters(bg))
-        havet0 = Symbol("t0") in parsymbols
+        haveτ0 = Symbol("τ0") in parsymbols
         haveκ0 = Symbol("b₊rec₊κ0") in parsymbols
-        t0idx = havet0 ? ModelingToolkit.parameter_index(bg, M.t0) : nothing
+        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.τ0) : nothing
         _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b.rec._κ) : nothing
         κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.κ0) : nothing
         function affect!(integrator)
-            if havet0
-                integrator.ps[t0idx] = integrator.t # set time today to time when a == 1 # TODO: what if t is not iv
+            if haveτ0
+                integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
             end
             if haveκ0
                 integrator.ps[κ0idx] = integrator.u[_κidx]
@@ -152,7 +152,7 @@ function CosmologyProblem(
         end
         callback = ContinuousCallback(f, affect!; save_positions = (true, false))
         pars_sync = []
-        havet0 && push!(pars_sync, M.t0) # TODO: specify more efficient numerical indices for bg and pt instead
+        haveτ0 && push!(pars_sync, M.τ0) # TODO: specify more efficient numerical indices for bg and pt instead
         haveκ0 && push!(pars_sync, M.b.rec.κ0) # TODO: specify more efficient numerical indices for bg and pt instead
 
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
@@ -285,7 +285,7 @@ function solve(
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan = ivspan)
         for par in prob.pars_sync
-            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. t0 and κ0)
+            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. τ0 and κ0)
         end
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
@@ -295,7 +295,7 @@ function solve(
                 dvar = nothing # compute derivative from ODE f
             else
                 dvarname = Symbol(varname, Symbol("̇")) # add \dot # TODO: generalize to e.g. expand_derivatives(D(var))?
-                dvar = only(@variables($dvarname(t)))
+                dvar = only(@variables($dvarname(τ)))
             end
             splval = spline(bg, var, dvar)
             update_vars = merge(update_vars, Dict(spl => splval))
@@ -415,8 +415,8 @@ end
 
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     #tmin, tmax = extrema(sol.bg.t[[begin, end]])
-    #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time t = $(minimum(ts)) is before initial time $tmin")
-    #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time t = $(maximum(ts)) is after final time $tmax")
+    #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time $(minimum(ts)) is before initial time $tmin")
+    #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time $(maximum(ts)) is after final time $tmax")
     is, deriv = get_is_deriv(sol.prob, is)
     return permutedims(sol.bg(ts, deriv; idxs=is)[:, :])
 end
@@ -456,8 +456,8 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
     # disabled; sensitive to exact endpoint values
     #tmin, tmax = extrema(sol.th.t)
-    #minimum(ts) >= tmin || throw("Requested time t = $(minimum(ts)) is below minimum solved time $tmin")
-    #maximum(ts) <= tmax || throw("Requested time t = $(maximum(ts)) is above maximum solved time $tmin")
+    #minimum(ts) >= tmin || throw("Requested time $(minimum(ts)) is below minimum solved time $tmin")
+    #maximum(ts) <= tmax || throw("Requested time $(maximum(ts)) is above maximum solved time $tmin")
 
     is, deriv = get_is_deriv(sol.prob, is)
 
@@ -525,13 +525,13 @@ function (sol::CosmologySolution)(ks, tmap::Pair, is)
 end
 
 function timeseries(sol::CosmologySolution; kwargs...)
-    ts = sol[t]
+    ts = sol.bg.t
     return timeseries(ts; kwargs...)
 end
 function timeseries(sol::CosmologySolution, k; kwargs...)
     i1, i2 = neighboring_modes_indices(sol, k)
-    t1s = sol[i1, t]
-    t2s = sol[i2, t]
+    t1s = sol.pts[i1].t
+    t2s = sol.pts[i2].t
     ts = sort!(unique!([t1s; t2s])) # average or interleave?
     return timeseries(ts; kwargs...)
 end
@@ -550,7 +550,7 @@ function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
     varfunc = getfunc(sol.bg, var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
-    ivspan = extrema(sol[t])
+    ivspan = extrema(sol.bg.t)
     prob = IntervalNonlinearProblem(f, ivspan, vals[1]; kwargs...)
     return map(val -> solve(remake(prob; p = val); alg).u, vals)
 end

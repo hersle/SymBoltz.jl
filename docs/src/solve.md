@@ -23,8 +23,8 @@ sol = solve(prob, ks)
 
 The returned solution `sol` can be conveniently accessed to obtain any variable `y` of the model `M`:
 
-- `sol(t, y)` returns the *background* variable(s) $y(t)$ as a function of conformal time(s) $t$. It interpolates between time points using the ODE solver's custom-tailored interpolator.
-- `sol(k, t, y)` returns the *perturbation* variable(s) $y(k,t)$ as a function of the wavenumber(s) $k$ and conformal time(s) $t$. It also interpolates linearly between the logarithms of the wavenumbers passed to `solve`.
+- `sol(τ, y)` returns the *background* variable(s) $y(τ)$ as a function of conformal time(s) $τ$. It interpolates between time points using the ODE solver's custom-tailored interpolator.
+- `sol(k, τ, y)` returns the *perturbation* variable(s) $y(k,τ)$ as a function of the wavenumber(s) $k$ and conformal time(s) $τ$. It also interpolates linearly between the logarithms of the wavenumbers passed to `solve`.
 
 Note that `y` can be any symbolic variables in the model `M`, and even expressions thereof.
 *Unknown* variables are part of the state vector integrated by the ODE solver are returned directly from its solution.
@@ -33,13 +33,13 @@ For example:
 
 ```@example sol
 # TODO: document callable solution when this is fixed: https://github.com/JuliaDocs/Documenter.jl/issues/558 # hide
-ts = sol[M.t] # get time points used in the background solution
+τs = sol[M.τ] # get time points used in the background solution
 ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
-as = sol(ts, M.g.a) # scale factors
-Ωms = sol(ts, (M.b.ρ + M.c.ρ) / M.G.ρ) # matter-to-total density ratios
-κs = sol(ts, M.b.rec.κ) # optical depths
-Φs = sol(ks, ts, M.g.Φ) # metric potentials
-Φs_over_Ψs = sol(ks, ts, M.g.Φ / M.g.Ψ) # ratio between metric potentials
+as = sol(τs, M.g.a) # scale factors
+Ωms = sol(τs, (M.b.ρ + M.c.ρ) / M.G.ρ) # matter-to-total density ratios
+κs = sol(τs, M.b.rec.κ) # optical depths
+Φs = sol(ks, τs, M.g.Φ) # metric potentials
+Φs_over_Ψs = sol(ks, τs, M.g.Φ / M.g.Ψ) # ratio between metric potentials
 nothing # hide
 ```
 

@@ -8,7 +8,7 @@ The conventions in the code are inspired by the [seminal paper by Ma and Bertsch
 
 ## Variable names
 
-- `t` ($t$) is *conformal time* (not cosmic time).
+- `τ` ($t$) is *conformal time*.
 - `κ` ($κ$) is *optical depth*.
 
 ## Dimensions

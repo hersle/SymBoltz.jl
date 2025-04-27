@@ -39,12 +39,12 @@ function ΛCDM(;
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
-    pars = @parameters C t0
-    vars = @variables χ(t) fν(t) S0(t) S1(t) S_SW(t) S_ISW(t) S_Dop(t) S_pol(t)
+    pars = @parameters C τ0
+    vars = @variables χ(τ) fν(τ) S0(τ) S1(τ) S_SW(τ) S_ISW(τ) S_Dop(τ) S_pol(τ)
     defs = Dict(
         C => 1//2,
         g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system
-        t0 => NaN
+        τ0 => NaN
     )
     have(ν) && have(γ) && merge!(defs, Dict(
         ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
@@ -59,7 +59,7 @@ function ΛCDM(;
         b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
         b.rec.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
-        χ ~ t0 - t
+        χ ~ τ0 - τ
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
@@ -79,7 +79,7 @@ function ΛCDM(;
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     defs = merge(defs, Ω₀_defaults(G, species))
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name, description)
+    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
@@ -111,13 +111,13 @@ function RMΛ(;
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
-    vars = @variables χ(t)
-    pars = @parameters t0
+    vars = @variables χ(τ)
+    pars = @parameters τ0
     species = filter(have, [r, m, K, Λ])
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
-        χ ~ t0 - t
+        χ ~ τ0 - τ
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
@@ -126,10 +126,10 @@ function RMΛ(;
     ] .|> O(ϵ^1)
     defs = Dict(
         g.Ψ => 20 // 15,
-        t0 => NaN
+        τ0 => NaN
     )
     defs = merge(defs, Ω₀_defaults(G, species))
-    connections = ODESystem([eqs0; eqs1], t, vars, [pars; k]; defaults = defs, name)
+    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name)
     M = compose(connections, g, G, species...)
     return complete(M; flatten = false, split = false)
 end

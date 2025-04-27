@@ -87,8 +87,8 @@ initialization_equations(G)
 SymBoltz.species_constant_eos
 ```
 ```@example components
-using SymBoltz: t
-@variables w(t)
+using SymBoltz: τ
+@variables w(τ)
 s = SymBoltz.species_constant_eos(g, w)
 nothing # hide
 ```
@@ -357,7 +357,7 @@ initialization_equations(X)
 SymBoltz.quintessence
 ```
 ```@example components
-@variables ϕ(t) V(ϕ) V′(ϕ) V′′(ϕ)
+@variables ϕ(τ) V(ϕ) V′(ϕ) V′′(ϕ)
 Q = SymBoltz.quintessence(g, V, V′, V′′)
 nothing # hide
 ```

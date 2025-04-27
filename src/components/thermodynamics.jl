@@ -2,13 +2,13 @@
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     pars = @parameters Yp fHe re1z re2z κ0
-    vars1 = @variables Xe(t) ne(t) κ(t) _κ(t) κ̇(t) v(t) v̇(t) ρb(t) Tγ(t) Tb(t) ΔT(t) DTb(t) DTγ(t) βb(t) μ(t) cₛ²(t) λe(t)
-    vars2 = @variables XH⁺(t) nH(t) αH(t) βH(t) KH(t) KH0(t) KH1(t) CH(t) # H <-> H⁺
-    vars3 = @variables XHe⁺(t) nHe(t) αHe(t) βHe(t) KHe(t) KHe0⁻¹(t) KHe1⁻¹(t) KHe2⁻¹(t) γ2Ps(t) CHe(t) # He <-> He⁺
-    vars4 = @variables XHe⁺⁺(t) RHe⁺(t) # He⁺ <-> He⁺⁺
-    vars5 = @variables αHe3(t) βHe3(t) τHe3(t) pHe3(t) CHe3(t) γ2Pt(t) # Helium triplet correction
-    vars6 = @variables DXHe⁺_singlet(t) DXHe⁺_triplet(t)
-    vars7 = @variables re1Xe(t) re2Xe(t)
+    vars1 = @variables Xe(τ) ne(τ) κ(τ) _κ(τ) κ̇(τ) v(τ) v̇(τ) ρb(τ) Tγ(τ) Tb(τ) ΔT(τ) DTb(τ) DTγ(τ) βb(τ) μ(τ) cₛ²(τ) λe(τ)
+    vars2 = @variables XH⁺(τ) nH(τ) αH(τ) βH(τ) KH(τ) KH0(τ) KH1(τ) CH(τ) # H <-> H⁺
+    vars3 = @variables XHe⁺(τ) nHe(τ) αHe(τ) βHe(τ) KHe(τ) KHe0⁻¹(τ) KHe1⁻¹(τ) KHe2⁻¹(τ) γ2Ps(τ) CHe(τ) # He <-> He⁺
+    vars4 = @variables XHe⁺⁺(τ) RHe⁺(τ) # He⁺ <-> He⁺⁺
+    vars5 = @variables αHe3(τ) βHe3(τ) τHe3(τ) pHe3(τ) CHe3(τ) γ2Pt(τ) # Helium triplet correction
+    vars6 = @variables DXHe⁺_singlet(τ) DXHe⁺_triplet(τ)
+    vars7 = @variables re1Xe(τ) re2Xe(τ)
     vars = [vars1; vars2; vars3; vars4; vars5; vars6; vars7]
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
@@ -60,7 +60,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         KH ~ KH0 + KH1
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺+1e-10)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺+1e-10))
-        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side t is physical t/(1/H₀)
+        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
@@ -105,5 +105,5 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-    ], t, vars, pars; defaults, description, kwargs...)
+    ], τ, vars, pars; defaults, description, kwargs...)
 end

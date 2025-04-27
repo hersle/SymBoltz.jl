@@ -6,7 +6,7 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters Ω₀) : []
-    vars = @variables w(t) ρ(t) P(t) Ω(t) δ(t) θ(t) Δ(t) θinteraction(t) σ(t) cₛ²(t) u(t) u̇(t)
+    vars = @variables w(τ) ρ(τ) P(τ) Ω(τ) δ(τ) θ(τ) Δ(τ) θinteraction(τ) σ(τ) cₛ²(τ) u(τ) u̇(τ)
     eqs0 = [
         w ~ _w # equation of state
         P ~ w * ρ # equation of state
@@ -24,10 +24,10 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     adiabatic && push!(eqs1, O(ϵ^1)(cₛ² ~ w))
     ics1 = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # t ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], t, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
+    return ODESystem([eqs0; eqs1], τ, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
 end
 
 """
@@ -48,9 +48,9 @@ Create a particle species for radiation (with equation of state `w ~ 1/3`) in th
 function radiation(g; name = :r, kwargs...)
     r = species_constant_eos(g, 1//3; name, kwargs...) |> complete
     pars = @parameters T₀
-    vars = @variables T(t) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
+    vars = @variables T(τ) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
     description = "Radiation"
-    return extend(r, ODESystem([T ~ T₀ / g.a], t, vars, pars; name); description)
+    return extend(r, ODESystem([T ~ T₀ / g.a], τ, vars, pars; name); description)
 end
 
 """
@@ -61,9 +61,9 @@ Create a particle species for the cosmological constant (with equation of state 
 function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
     Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> background |> complete # discard ill-defined perturbations
-    vars = @variables δ(t) θ(t) σ(t)
+    vars = @variables δ(τ) θ(τ) σ(τ)
     description = "Cosmological constant"
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1), t, vars, []; name); description) # manually set perturbations to zero
+    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1), τ, vars, []; name); description) # manually set perturbations to zero
 end
 
 """
@@ -73,7 +73,7 @@ Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in
 """
 function w0wa(g; name = :X, analytical = false, kwargs...)
     pars = @parameters w0 wa cₛ²
-    vars = @variables ρ(t) P(t) w(t) ẇ(t) cₐ²(t) δ(t) θ(t) σ(t)
+    vars = @variables ρ(τ) P(τ) w(τ) ẇ(τ) cₐ²(τ) δ(τ) θ(τ) σ(τ)
     # TODO: generate equations with a generic species_eos function
     eqs0 = [
         w ~ w0 + wa * (1 - g.a) # equation of state
@@ -95,10 +95,10 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
     ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
     ics1 = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # t ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
+        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ] .|> SymBoltz.O(ϵ^1)
     description = "w₀wₐ (CPL) dark energy"
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
 end
 
 """
@@ -111,7 +111,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     description = "Photons"
     γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
-    vars = @variables F(t)[0:lmax] Θ(t)[0:lmax] δ(t) θ(t) σ(t) κ̇(t) θb(t) Π(t) Π̇(t) G(t)[0:lmax]
+    vars = @variables F(τ)[0:lmax] Θ(τ)[0:lmax] δ(τ) θ(τ) σ(τ) κ̇(τ) θb(τ) Π(τ) Π̇(τ) G(τ)[0:lmax]
     defs = [
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
@@ -121,7 +121,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
         D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*κ̇*F[2] - 1//10*κ̇*(G[0]+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇*F[l] for l in 3:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # t ≈ 1/ℰ
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
         δ ~ F[0]
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
@@ -152,7 +152,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
     description = "Photon radiation"
-    return extend(γ, ODESystem(eqs1, t, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...); description)
+    return extend(γ, ODESystem(eqs1, τ, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...); description)
 end
 
 """
@@ -164,13 +164,13 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     description = "Massless neutrinos"
     ν = radiation(g; name, description, kwargs...) |> background |> complete
 
-    vars = @variables F(t)[0:lmax+1] δ(t) θ(t) σ(t)
+    vars = @variables F(τ)[0:lmax+1] δ(τ) θ(τ) σ(τ)
     pars = @parameters Neff
     eqs1 = [
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # t ≈ 1/ℰ
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # τ ≈ 1/ℰ
         δ ~ F[0]
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
@@ -183,7 +183,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         [F[l] ~ +l//(2*l+1) * k/g.ℰ * F[l-1] for l in 3:lmax]...
     ] .|> O(ϵ^1)
     description = "Massless neutrinos"
-    return extend(ν, ODESystem(eqs1, t, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
+    return extend(ν, ODESystem(eqs1, τ, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
 end
 
 # TODO: use vector equations and simplify loops
@@ -194,7 +194,7 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     pars = @parameters m T₀ x[1:nx] W[1:nx] Ω₀ y₀ T₀ Iρ₀ E₀[1:nx]
-    vars = @variables ρ(t) Ω(t) T(t) y(t) P(t) w(t) cₛ²(t) δ(t) σ(t) θ(t) u(t) E(t)[1:nx] ψ(t)[1:nx,0:lmax+1] In(t) Iρ(t) IP(t) Iδρ(t)
+    vars = @variables ρ(τ) Ω(τ) T(τ) y(τ) P(τ) w(τ) cₛ²(τ) δ(τ) σ(τ) θ(τ) u(τ) E(τ)[1:nx] ψ(τ)[1:nx,0:lmax+1] In(τ) Iρ(τ) IP(τ) Iδρ(τ)
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
@@ -250,7 +250,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     ]
     description = "Massive neutrino"
     pars = [m, T₀, x, W, Ω₀, y₀, T₀, Iρ₀, E₀...] # need every E₀ index
-    return ODESystem([eqs0; eqs1], t, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
 end
 
 """
@@ -261,7 +261,7 @@ Create a particle species for cold dark matter in the spacetime with metric `g`.
 function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
     description = "Cold dark matter"
-    c = extend(c, ODESystem([c.cₛ² ~ 0] .|> O(ϵ^1), t, [], []; name); description)
+    c = extend(c, ODESystem([c.cₛ² ~ 0] .|> O(ϵ^1), τ, [], []; name); description)
     return c
 end
 
@@ -276,11 +276,11 @@ function baryons(g; recombination = true, reionization = true, name = :b, kwargs
     if recombination # TODO: dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g; reionization)
     else
-        vars = @variables κ(t) κ̇(t) ρb(t) Tγ(t) cₛ²(t)
-        @named rec = ODESystem([κ ~ 0, κ̇ ~ 0, cₛ² ~ 0], t, vars, [])
+        vars = @variables κ(τ) κ̇(τ) ρb(τ) Tγ(τ) cₛ²(τ)
+        @named rec = ODESystem([κ ~ 0, κ̇ ~ 0, cₛ² ~ 0], τ, vars, [])
     end
     description = "Baryonic matter"
-    b = extend(b, ODESystem([b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1), t, [], []; name); description)
+    b = extend(b, ODESystem([b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1), τ, [], []; name); description)
     b = compose(b, rec)
     return b
 end
@@ -291,7 +291,7 @@ end
 Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 """
 function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
-    @variables ϕ(t) ρ(t) P(t) w(t) δ(t) σ(t) V(t) V′(t) V′′(t) K(t) m²(t) ϵs(t) ηs(t) cₛ²(t)
+    @variables ϕ(τ) ρ(τ) P(τ) w(τ) δ(τ) σ(τ) V(τ) V′(τ) V′′(τ) K(τ) m²(τ) ϵs(τ) ηs(τ) cₛ²(τ)
     eqs0 = [
         V ~ v
         V′ ~ v′
@@ -311,10 +311,10 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         cₛ² ~ 0
     ] .|> O(ϵ^1)
     description = "Quintessence dark energy"
-    return ODESystem([eqs0; eqs1], t; name, description, kwargs...)
+    return ODESystem([eqs0; eqs1], τ; name, description, kwargs...)
 end
 function quintessence(g, v; name = :Q, kwargs...)
-    @variables ϕ(t)
+    @variables ϕ(τ)
     ∂_∂ϕ = Differential(ϕ)
     v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
     v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
@@ -328,7 +328,7 @@ Create a species that effectively accounts for curvature in the spacetime with m
 """
 function curvature(g; name = :K, kwargs...)
     description = "Curvature"
-    vars = @variables ρ(t) w(t) P(t) δ(t) θ(t) cₛ²(t) σ(t)
+    vars = @variables ρ(τ) w(τ) P(τ) δ(τ) θ(τ) cₛ²(τ) σ(τ)
     pars = @parameters Ω₀ # dimless K is physical K*c²/H₀²
     eqs = [
         w ~ -1//3
@@ -339,5 +339,5 @@ function curvature(g; name = :K, kwargs...)
         cₛ² ~ 0
         σ ~ 0
     ]
-    return ODESystem(eqs, t, vars, pars; name, description, kwargs...)
+    return ODESystem(eqs, τ, vars, pars; name, description, kwargs...)
 end

@@ -9,7 +9,7 @@ function plot_dependency_graph(sys)
     tstate = ModelingToolkit.get_tearing_state(sys) # works on simplified systems # TODO: what to do on unsimplified systems?
 
     names = string.(tstate.fullvars)
-    names = replace.(names, "Differential(t)" => "D", "(t)" => "") # TODO: consider ()′ with something like https://stackoverflow.com/a/35271017
+    names = replace.(names, "Differential(τ)" => "D", "(τ)" => "") # TODO: consider ()′ with something like https://stackoverflow.com/a/35271017
 
     # color each variable based on its subsystem
     names_cleaned = replace.(names, (["D", "(", ")"] .=> "")...) # remove any derivative signs
