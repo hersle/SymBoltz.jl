@@ -46,7 +46,7 @@ prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-outp
   b₊rec₊Yp = 0.25</code></pre><p>Finally, we can simply solve the problem:</p><pre><code class="language-julia hljs">sol = solve(prob, ks) # or just solve(prob) to solve only the background</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
 <span class="sgr1">Stages:</span>
   Background: solved with Rodas4P, 1048 points
-  Perturbations: solved with KenCarp4, 53-279 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))
+  Perturbations: solved with KenCarp4, 53-280 points, x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (linear interpolation between log(k))
 <span class="sgr1">Parameters:</span>
   c₊Ω₀ = 0.27
   b₊Ω₀ = 0.05
@@ -90,25 +90,25 @@ as = sol(ts, M.g.a)</code></pre><pre class="documenter-example-output"><code cla
  0.704214  0.704214  0.704214     0.489929    0.479545    0.47504
  ⋮                             ⋱  ⋮                       
  0.704214  0.704212  0.704212     3.72291e-5  3.64374e-5  3.60941e-5
- 0.704214  0.704212  0.704211     3.54325e-5  3.46793e-5  3.43525e-5
- 0.704214  0.704212  0.704211     3.37217e-5  3.30047e-5  3.26937e-5
- 0.704214  0.704212  0.704211     3.20923e-5  3.141e-5    3.11141e-5
- 0.704214  0.704212  0.704211  …  3.0541e-5   2.98915e-5  2.96099e-5
- 0.704214  0.704212  0.704211     2.90633e-5  2.84454e-5  2.81774e-5
- 0.704214  0.704211  0.704211     2.76566e-5  2.70687e-5  2.68136e-5
- 0.704214  0.704211  0.70421      2.6317e-5   2.57575e-5  2.55148e-5
+ 0.704214  0.704212  0.704211     3.54325e-5  3.46792e-5  3.43525e-5
+ 0.704214  0.704212  0.704211     3.37218e-5  3.30048e-5  3.26938e-5
+ 0.704214  0.704212  0.704211     3.20924e-5  3.14101e-5  3.11141e-5
+ 0.704214  0.704212  0.704211  …  3.0541e-5   2.98916e-5  2.961e-5
+ 0.704214  0.704212  0.704211     2.90634e-5  2.84455e-5  2.81774e-5
+ 0.704214  0.704211  0.704211     2.76566e-5  2.70686e-5  2.68135e-5
+ 0.704214  0.704211  0.70421      2.6317e-5   2.57575e-5  2.55147e-5
  0.704214  0.704211  0.70421      2.50415e-5  2.45091e-5  2.42782e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(as), transpose(Φs))</code>, but this is more convenient with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
-plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="1596e29b.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
-plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="97c4c636.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="3fed8799.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="dcb1db5b.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
 Dls = spectrum_cmb(:TT, sol, ls; normalization = :Dl, unit = u&quot;μK&quot;)
-plot(ls, Dls; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π&quot;, label = nothing)</code></pre><img src="5ad23627.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot(ls, Dls; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π&quot;, label = nothing)</code></pre><img src="8fec2988.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
 plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
 plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
 plot!(p[3], sol, log10(M.g.a), log10(M.g.E))
 plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.rec.Xe])
 plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
-plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.τ)))
+plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.κ)))
 plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
 plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
-plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="5c273d7c.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 27 April 2025 11:26">Sunday 27 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)</code></pre><img src="0cdeab13.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 27 April 2025 18:30">Sunday 27 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
