@@ -80,19 +80,18 @@ end
 @testset "Timeseries" begin
     sol = solve(prob)
     τs = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
-    @test sol(τs, M.g.a) isa AbstractArray # should be in bounds
-
-    # First compute z at known t
-    τs = range(extrema(τs)..., length=500)
     zs = sol(τs, M.g.z)
+    as = sol(τs, M.g.a)
+    @test τs[end-1] != τs[end] # ensure callback does not duplicate last point
+    @test isapprox(as[end], 1.0; atol = 1e-12) && as[end] >= 1.0 # a(τ₀) ≈ 1.0, but not less, so root finding algorithms on time series work with different signs today
+    @test isapprox(zs[end], 0.0; atol = 1e-12) && zs[end] <= 0.0 # z(τ₀) ≈ 0.0, but not more, so root finding algorithms on time series work with different signs today
 
-    # 1) Invert z to τ with root finding
-    τs1 = SymBoltz.timeseries(sol, M.g.z, zs)
-    @test all(isapprox.(τs, τs1; atol = 1e-12))
+    # Invert z to τ with root finding and check we get the same τ
+    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, zs); atol = 1e-12))
+    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.a, as); atol = 1e-12))
 
-    # 2) Invert z and ż to τ with Hermite spline
-    τs2 = SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs)
-    @test all(isapprox.(τs, τs2; atol = 1e-6))
+    # Invert z and ż to τ with Hermite spline and check we get the same τ
+    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs); atol = 1e-6)) # TODO: make more reliable
 end
 
 @testset "Initial conditions" begin

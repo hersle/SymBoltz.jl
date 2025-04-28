@@ -150,7 +150,11 @@ function CosmologyProblem(
             end
             terminate && terminate!(integrator) # stop integration if desired
         end
-        callback = ContinuousCallback(f, affect!; save_positions = (true, false))
+        callback = ContinuousCallback(
+            f, affect!;
+            save_positions = (true, false), # don't duplicate final point
+            rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
+        )
         pars_sync = []
         haveτ0 && push!(pars_sync, M.τ0) # TODO: specify more efficient numerical indices for bg and pt instead
         haveκ0 && push!(pars_sync, M.b.rec.κ0) # TODO: specify more efficient numerical indices for bg and pt instead
