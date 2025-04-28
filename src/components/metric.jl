@@ -4,10 +4,22 @@
 Create a symbolic component for the perturbed FLRW spacetime metric in the conformal Newtonian gauge with sign signature diag(-1, +1, +1, +1).
 """
 function metric(; name = :g, kwargs...)
-    vars = a, ℰ, E, H, ℋ, Φ, Ψ, g₁₁, g₂₂, z, ż = GlobalScope.(@variables a(τ) ℰ(τ) E(τ) H(τ) ℋ(τ) Φ(τ) Ψ(τ) g₁₁(τ) g₂₂(τ) z(τ) ż(τ))
-    pars = h, = GlobalScope.(@parameters h)
+    vars = @variables begin
+        a(τ), [description = "Scale factor"]
+        ℰ(τ), [description = "Reduced conformal Hubble function"]
+        E(τ), [description = "Reduced cosmic Hubble function"]
+        ℋ(τ), [description = "Conformal Hubble function"]
+        H(τ), [description = "Cosmic Hubble function"]
+        Ψ(τ), [description = "Gravitational metric potential in gₜₜ = -a²(1+2Ψ)"]
+        Φ(τ), [description = "Curvature metric potential in gᵢⱼ = a²(1-2Φ)δᵢⱼ"]
+        z(τ), [description = "Redshift"]
+        ż(τ), [description = "Redshift derivative"]
+    end
+    vars = a, ℰ, E, ℋ, H, Ψ, Φ, z, ż = GlobalScope.(vars)
+
+    pars = h, = GlobalScope.(@parameters h [description = "Dimensionless Hubble parameter today (H₀/(100km/s/Mpc))"])
     defaults = Dict(
-        a => 1e-8 # default initial scale factor
+        a => 1e-8 # default initial scale factor # TODO: move elsewhere?
     )
     description = "Spacetime FLRW metric in Newtonian gauge"
     return ODESystem([
@@ -17,7 +29,5 @@ function metric(; name = :g, kwargs...)
         E ~ ℰ / a # E = H/H₀
         ℋ ~ ℰ * H100 * h
         H ~ E * H100 * h
-        g₁₁ ~ a^2 * (-1 - 2*ϵ*Ψ)
-        g₂₂ ~ a^2 * (+1 - 2*ϵ*Φ)
     ], τ, vars, pars; defaults, name, description, kwargs...)
 end

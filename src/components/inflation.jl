@@ -1,5 +1,9 @@
 function harrison_zeldovich(g; kwargs...)
-    @parameters As ns kpivot
+    @parameters begin
+        As, [description = "Spectral amplitude"]
+        ns, [description = "Spectral index"]
+        kpivot, [description = "Pivot scale wavenumber"]
+    end
     @variables P(τ)
     eqs = [
         P ~ 2*Num(π)^2 / k^3 * As * (k/kpivot)^(ns-1)
