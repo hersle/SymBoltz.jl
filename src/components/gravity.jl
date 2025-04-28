@@ -4,17 +4,29 @@
 Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric `g`.
 """
 function general_relativity(g; acceleration = false, name = :G, kwargs...)
-    vars = @variables ρ(τ) P(τ) ρcrit(τ) δρ(τ) δP(τ) Π(τ) F₁(τ) F₂(τ)
-    pars = @parameters Δfac = 0
+    vars = @variables begin
+        ρ(τ), [description = "Total background density"]
+        P(τ), [description = "Total background pressure"]
+        ρcrit(τ), [description = "Critical background density"]
+        δρ(τ), [description = "Total density perturbation"]
+        δP(τ), [description = "Total pressure perturbation"]
+        Π(τ), [description = "Anisotropic stress perturbation"]
+        F₁(τ), [description = "1st Friedmann equation residual"]
+        F₂(τ), [description = "2nd Friedmann equation residual"]
+    end
     a = g.a
     if acceleration
+        pars = @parameters begin
+            Δfac = 0, [description = "Constraint dampening factor of 1st Friedmann equation"]
+        end
         eqs0 = [
-            D(D(a)) ~ D(a)^2/(2*a)*(1-3*P/ρ) + Δfac*Δ # use constraint damping (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3*(ρ+3*P)*a^3)) # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
+            D(D(a)) ~ D(a)^2/(2*a)*(1-3*P/ρ) + Δfac*F₁ # use constraint damping (alternatively D(D(a)) ~ D(a)^2/a - 4*Num(π)/3*(ρ+3*P)*a^3)) # TODO: incorporate sign(∂Δ/∂a′), but positive in GR?
             F₁ ~ D(a)^2 - 8*Num(π)/3*ρ*a^4 # violation of (squared) Friedmann constraint equation
             F₂ ~ 0 # we are enforcing the 2nd Friedmann equation
         ] .|> O(ϵ^0)
         ics0 = [F₁ ~ 0] .|> O(ϵ^0)
     else
+        pars = []
         eqs0 = [
             D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # "normal" Friedmann equation (+√ of (squared) constraint equation)
             F₁ ~ 0 # we are enforcing the 1st Friedmann equation
@@ -39,8 +51,21 @@ end
 Create a symbolic component for the Brans-Dicke (BD) theory of gravity in the spacetime with the metric `g`.
 """
 function brans_dicke(g; name = :G, acceleration = false, kwargs...)
-    pars = @parameters ω
-    vars = @variables ρ(τ) P(τ) ϕ(τ) δϕ(τ) δρ(τ) δP(τ) Π(τ) Δ(τ) G(τ)
+    pars = @parameters begin
+        ω, [description = "Brans-Dicke coupling constant"] 
+    end
+    vars = @variables begin
+        ρ(τ), [description = "Total background density"]
+        P(τ), [description = "Total background pressure"]
+        ϕ(τ), [description = "Brans-Dicke background scalar field"]
+        δϕ(τ), [description = "Brans-Dicke scalar field perturbation"]
+        δρ(τ), [description = "Total density perturbation"]
+        δP(τ), [description = "Total pressure perturbation"]
+        Π(τ), [description = "Anisotropic stress perturbation"]
+        F₁(τ), [description = "1st Friedmann equation residual"]
+        F₂(τ), [description = "2nd Friedmann equation residual"]
+        G(τ), [description = "Effective gravitational strength"]
+    end
     @unpack a, ℰ, Φ, Ψ = g # shorthand
     F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
@@ -53,13 +78,15 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     if acceleration
         append!(eqs0, [
             F2
-            Δ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
+            F₂ ~ 0
+            F₁ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
         ] .|> O(ϵ^0))
         push!(ics0, F1 |> O(ϵ^0))
     else
         append!(eqs0, [
             D(a) ~ -a/2*D(ϕ)/ϕ + √((a/2*D(ϕ)/ϕ)^2 + 8*Num(π)/3*ρ*a^4/ϕ + ω/6*(a*D(ϕ)/ϕ)^2) # solve quadratic equation for ȧ # TODO: Symbolics.symbolic_solve
-            Δ ~ F2.lhs - F2.rhs # violation of acceleration equation
+            F₁ ~ 0
+            F₂ ~ F2.lhs - F2.rhs # violation of acceleration equation
         ] .|> O(ϵ^0))
     end
     eqs1 = [

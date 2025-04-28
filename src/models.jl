@@ -39,8 +39,20 @@ function ΛCDM(;
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
-    pars = @parameters C τ0
-    vars = @variables χ(τ) fν(τ) S0(τ) S1(τ) S_SW(τ) S_ISW(τ) S_Dop(τ) S_pol(τ)
+    pars = @parameters begin
+        C, [description = "Initial conditions integration constant"]
+        τ0, [description = "Conformal time today"]
+    end
+    vars = @variables begin
+        χ(τ), [description = "Conformal lookback time from today"]
+        fν(τ), [description = "Neutrino-to-radiation density fraction"]
+        S0(τ), [description = "1st CMB TT source function for spherical Bessel function"]
+        S1(τ), [description = "2nd CMB TT source function for spherical Bessel function derivative"]
+        S_SW(τ), [description = "Sachs-Wolfe effect's contribution to 1st CMB source function"]
+        S_ISW(τ), [description = "Integrated Sachs-Wolfe effect's contribution to 1st CMB source function"]
+        S_Dop(τ), [description = "Doppler effect's contribution to 1st CMB source function"]
+        S_pol(τ), [description = "Polarization's contribution to 1st CMB source function"]
+    end
     defs = Dict(
         C => 1//2,
         g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system
@@ -64,7 +76,7 @@ function ΛCDM(;
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
-        G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species)
+        G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species) # TODO: factor 2/3 or 3/2? See e.g. https://arxiv.org/pdf/astro-ph/9506072 bottom of page 10? Check all models.
         b.θinteraction ~ -b.rec.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.κ̇ ~ b.rec.κ̇
         γ.θb ~ b.θ
@@ -111,8 +123,12 @@ function RMΛ(;
     G = general_relativity(g; acceleration),
     name = :RMΛ, kwargs...
 )
-    vars = @variables χ(τ)
-    pars = @parameters τ0
+    vars = @variables begin
+        χ(τ), [description = "Conformal lookback time from today"]
+    end
+    pars = @parameters begin
+        τ0, [description = "Conformal time today"]
+    end
     species = filter(have, [r, m, K, Λ])
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)

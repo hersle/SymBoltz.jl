@@ -1,15 +1,48 @@
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
-    pars = @parameters Yp fHe re1z re2z κ0
-    vars1 = @variables Xe(τ) ne(τ) κ(τ) _κ(τ) κ̇(τ) v(τ) v̇(τ) ρb(τ) Tγ(τ) Tb(τ) ΔT(τ) DTb(τ) DTγ(τ) βb(τ) μ(τ) cₛ²(τ) λe(τ)
-    vars2 = @variables XH⁺(τ) nH(τ) αH(τ) βH(τ) KH(τ) KH0(τ) KH1(τ) CH(τ) # H <-> H⁺
-    vars3 = @variables XHe⁺(τ) nHe(τ) αHe(τ) βHe(τ) KHe(τ) KHe0⁻¹(τ) KHe1⁻¹(τ) KHe2⁻¹(τ) γ2Ps(τ) CHe(τ) # He <-> He⁺
-    vars4 = @variables XHe⁺⁺(τ) RHe⁺(τ) # He⁺ <-> He⁺⁺
-    vars5 = @variables αHe3(τ) βHe3(τ) τHe3(τ) pHe3(τ) CHe3(τ) γ2Pt(τ) # Helium triplet correction
-    vars6 = @variables DXHe⁺_singlet(τ) DXHe⁺_triplet(τ)
-    vars7 = @variables re1Xe(τ) re2Xe(τ)
-    vars = [vars1; vars2; vars3; vars4; vars5; vars6; vars7]
+    pars = @parameters begin
+        Yp, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
+        fHe, [description = "Primordial He-to-H nucleon ratio n(He)/n(H)"] # TODO: correct?
+        re1z, [description = "1st reionization redshift"]
+        re2z, [description = "2nd reionization redshift"]
+        κ0, [description = "Optical depth today"] # to make the real κ = 0 today
+    end
+    vars = @variables begin
+        Xe(τ), [description = "Total free electron fraction"]
+        ne(τ), [description = "Free electron number density"]
+        λe(τ), [description = "Electron de-Broglie wavelength"]
+
+        κ(τ), [description = "Optical depth normalized to 0 today"]
+        _κ(τ), [description = "Optical depth normalized to 0 initially"]
+        κ̇(τ), [description = "Optical depth derivative"]
+        v(τ), [description = "Visibility function"]
+        v̇(τ), [description = "Visibility function derivative"]
+
+        Tγ(τ), [description = "Photon temperature"]
+        Tb(τ), [description = "Baryon temperature"]
+        ΔT(τ), [description = "Difference between baryon and photon temperature"]
+        DTγ(τ), [description = "Photon temperature derivative"]
+        DTb(τ), [description = "Baryon temperature derivative"]
+        βb(τ), [description = "inverse temperature (coldness)"]
+        cₛ²(τ), [description = "Speed of sound squared"]
+
+        ρb(τ), [description = "Baryon density"]
+        μ(τ), [description = "Mean molecular weight"]
+
+        re1Xe(τ), [description = "1st reionization free electron fraction contribution"]
+        re2Xe(τ), [description = "2nd reionization free electron fraction contribution"]
+
+        XH⁺(τ), [description = "Hydrogen ionization factor"] # H <-> H⁺
+        nH(τ), [description = "Total Hydrogen number density"]
+        αH(τ), βH(τ), KH(τ), KH0(τ), KH1(τ), CH(τ)
+
+        nHe(τ), [description = "Total Helium number density"]
+        XHe⁺(τ), [description = "Singly ionized Helium fraction"] # He <-> He⁺
+        XHe⁺⁺(τ), [description = "Doubly ionized Helium fraction"] # He⁺ <-> He⁺⁺
+        αHe(τ), βHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), γ2Ps(τ), CHe(τ) # K(...)⁻¹ = 1 / K(...)
+        RHe⁺(τ), αHe3(τ), βHe3(τ), τHe3(τ), pHe3(τ), CHe3(τ), γ2Pt(τ), DXHe⁺_singlet(τ), DXHe⁺_triplet(τ) # He triplet correction variables
+    end
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
@@ -25,7 +58,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH
+        fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
         _κ => 0.0
         κ0 => NaN
         re1z => 7.6711
@@ -47,9 +80,9 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
         D(ΔT) ~ DTb - DTγ # solve ODE for D(Tb-Tγ), since solving it for D(Tb) instead is extremely sensitive to Tb-Tγ≈0 at early times
         Tb ~ ΔT + Tγ
-        βb ~ 1 / (kB*Tb) # inverse temperature ("coldness")
+        βb ~ 1 / (kB*Tb)
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp))) # mean molecular weight
+        μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp)))
         cₛ² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
 
         # H⁺ + e⁻ recombination

@@ -5,18 +5,36 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 """
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
-    pars = analytical ? (@parameters Ω₀) : []
-    vars = @variables w(τ) ρ(τ) P(τ) Ω(τ) δ(τ) θ(τ) θinteraction(τ) σ(τ) cₛ²(τ) u(τ) u̇(τ)
+    if analytical
+        pars = @parameters begin
+            Ω₀, [description = "Reduced background density today"]
+        end
+    else
+        pars = []
+    end
+    vars = @variables begin
+        w(τ), [description = "Equation of state"]
+        ρ(τ), [description = "Background density"]
+        P(τ), [description = "Background pressure"]
+        Ω(τ), [description = "Reduced background density"]
+        δ(τ), [description = "Overdensity"]
+        θ(τ), [description = "Velocity divergence"]
+        θinteraction(τ), [description = "Velocity divergence interaction"]
+        σ(τ), [description = "Shear stress"]
+        cₛ²(τ), [description = "Speed of sound squared"]
+        u(τ), [description = "Velocity"]
+        u̇(τ), [description = "Velocity derivative"]
+    end
     eqs0 = [
-        w ~ _w # equation of state
-        P ~ w * ρ # equation of state
+        w ~ _w
+        P ~ w * ρ
         analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
     eqs1 = [
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
-        u ~ θ / k # velocity
+        u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
     ] .|> O(ϵ^1)
@@ -46,10 +64,15 @@ Create a particle species for radiation (with equation of state `w ~ 1/3`) in th
 """
 function radiation(g; name = :r, kwargs...)
     r = species_constant_eos(g, 1//3; name, kwargs...) |> complete
-    pars = @parameters T₀
-    vars = @variables T(τ) # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
+    pars = @parameters begin
+        T₀, [description = "Temperature today (in K)"]
+    end
+    vars = @variables begin
+        T(τ), [description = "Temperature"] # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
+    end
+    eqs = [T ~ T₀ / g.a] .|> O(ϵ^0)
     description = "Radiation"
-    return extend(r, ODESystem([T ~ T₀ / g.a], τ, vars, pars; name); description)
+    return extend(r, ODESystem(eqs, τ, vars, pars; name); description)
 end
 
 """
@@ -60,9 +83,14 @@ Create a particle species for the cosmological constant (with equation of state 
 function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
     Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> background |> complete # discard ill-defined perturbations
-    vars = @variables δ(τ) θ(τ) σ(τ)
+    vars = @variables begin
+        δ(τ), [description = "Overdensity"]
+        θ(τ), [description = "Velocity divergence"]
+        σ(τ), [description = "Shear stress"]
+    end
+    eqs = [δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1)
     description = "Cosmological constant"
-    return extend(Λ, ODESystem([δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1), τ, vars, []; name); description) # manually set perturbations to zero
+    return extend(Λ, ODESystem(eqs, τ, vars, []; name); description) # manually set perturbations to zero
 end
 
 """
@@ -71,13 +99,26 @@ end
 Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in the spacetime with metric `g`.
 """
 function w0wa(g; name = :X, analytical = false, kwargs...)
-    pars = @parameters w0 wa cₛ²
-    vars = @variables ρ(τ) P(τ) w(τ) ẇ(τ) cₐ²(τ) δ(τ) θ(τ) σ(τ)
+    pars = @parameters begin
+        w0, [description = "Equation of state today"]
+        wa, [description = "Equation of state evolution"]
+        cₛ², [description = "Rest-frame speed of sound squared"]
+    end
+    vars = @variables begin
+        ρ(τ), [description = "Background density"]
+        P(τ), [description = "Background pressure"]
+        w(τ), [description = "Equation of state"]
+        ẇ(τ), [description = "Equation of state derivative"]
+        cₐ²(τ), [description = "Adiabatic speed of sound squared"]
+        δ(τ), [description = "Overdensity"]
+        θ(τ), [description = "Velocity divergence"]
+        σ(τ), [description = "Shear stress"]
+    end
     # TODO: generate equations with a generic species_eos function
     eqs0 = [
-        w ~ w0 + wa * (1 - g.a) # equation of state
+        w ~ w0 + wa * (1 - g.a)
         ẇ ~ D(w)
-        P ~ w * ρ # pressure
+        P ~ w * ρ
     ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
     if analytical
         append!(pars, @parameters Ω₀)
@@ -88,10 +129,10 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
     eqs1 = [
         # Following https://arxiv.org/pdf/1002.1311 section II
         cₐ² ~ w - ẇ/(3*g.ℰ*(1+w))
-        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ - 9*(g.ℰ/k)^2*(1+w)*(cₛ²-cₐ²)*θ # energy overdensity
-        D(θ) ~ -g.ℰ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ # momentum
-        σ ~ 0 # shear stress
-    ] .|> SymBoltz.O(ϵ^1) # O(ϵ¹) multiplies all equations by ϵ, marking them as perturbation equations
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ - 9*(g.ℰ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
+        D(θ) ~ -g.ℰ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
+        σ ~ 0
+    ] .|> SymBoltz.O(ϵ^1)
     ics1 = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
@@ -110,7 +151,18 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     description = "Photons"
     γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
-    vars = @variables F(τ)[0:lmax] Θ(τ)[0:lmax] δ(τ) θ(τ) σ(τ) κ̇(τ) θb(τ) Π(τ) Π̇(τ) G(τ)[0:lmax]
+    vars = @variables begin
+        F(τ)[0:lmax], [description = "Distribution function multipoles"]
+        Θ(τ)[0:lmax], [description = "Temperature perturbation multipoles"]
+        δ(τ), [description = "Overdensity"]
+        θ(τ), [description = "Velocity divergence"]
+        σ(τ), [description = "Shears tress"]
+        κ̇(τ), [description = "Optical depth derivative"]
+        θb(τ), [description = "Baryon velocity divergence"]
+        Π(τ), [description = "Anisotropic stress perturbation"]
+        Π̇(τ), [description = "Anisotropic stress perturbation derivative"]
+        G(τ)[0:lmax], [description = "Polarization component"]
+    end
     defs = [
         γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
@@ -163,8 +215,15 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     description = "Massless neutrinos"
     ν = radiation(g; name, description, kwargs...) |> background |> complete
 
-    vars = @variables F(τ)[0:lmax+1] δ(τ) θ(τ) σ(τ)
-    pars = @parameters Neff
+    vars = @variables begin
+        F(τ)[0:lmax+1], [description = "Distribution function multipoles"]
+        δ(τ), [description = "Overdensity"]
+        θ(τ), [description = "Velocity divergence"]
+        σ(τ), [description = "Shear stress"]
+    end
+    pars = @parameters begin
+        Neff, [description = "Effective number of neutrino species"] # TODO: massless vs. massive?
+    end
     eqs1 = [
         D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
@@ -192,8 +251,35 @@ end
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
-    pars = @parameters m T₀ x[1:nx] W[1:nx] Ω₀ y₀ T₀ Iρ₀ E₀[1:nx]
-    vars = @variables ρ(τ) Ω(τ) T(τ) y(τ) P(τ) w(τ) cₛ²(τ) δ(τ) σ(τ) θ(τ) u(τ) E(τ)[1:nx] ψ(τ)[1:nx,0:lmax+1] In(τ) Iρ(τ) IP(τ) Iδρ(τ)
+    pars = @parameters begin
+        m, [description = "Mass (in kg)"] # TODO: to eV/c^2?
+        T₀, [description = "Temperature today (in K)"]
+        x[1:nx], [description = "Dimensionless momentum bins"]
+        W[1:nx], [description = "Gaussian momentum quadrature weights"]
+        Ω₀, [description = "Reduced background density today"]
+        y₀, [description = "Temperature-reduced mass today"]
+        Iρ₀, [description = "Density integral today"]
+        E₀[1:nx], [description = "Dimensionless energies today"]
+    end
+    vars = @variables begin
+        ρ(τ), [description = "Background density"]
+        P(τ), [description = "Background pressure"]
+        Ω(τ), [description = "Reduced background density"]
+        T(τ), [description = "Temperature"]
+        y(τ), [description = "Temperature-deuced mass"]
+        w(τ), [description = "Equation of state"]
+        cₛ²(τ), [description = "Speed of sound squared"]
+        δ(τ), [description = "Overdensity"]
+        σ(τ), [description = "Shear stress"]
+        θ(τ), [description = "Velocity divergence"]
+        u(τ), [description = "Velocity"]
+        E(τ)[1:nx], [description = "Dimensionless energies"]
+        ψ(τ)[1:nx,0:lmax+1], [description = "Distribution function multipoles"]
+        In(τ), [description = "Number density integral"]
+        Iρ(τ), [description = "Density integral"]
+        IP(τ), [description = "Pressure integral"]
+        Iδρ(τ), [description = "Overdensity integral"]
+    end
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
@@ -259,8 +345,9 @@ Create a particle species for cold dark matter in the spacetime with metric `g`.
 """
 function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
+    eqs = [c.cₛ² ~ 0] .|> O(ϵ^1)
     description = "Cold dark matter"
-    c = extend(c, ODESystem([c.cₛ² ~ 0] .|> O(ϵ^1), τ, [], []; name); description)
+    c = extend(c, ODESystem(eqs, τ, [], []; name); description)
     return c
 end
 
@@ -272,14 +359,22 @@ Create a particle species for baryons in the spacetime with metric `g`.
 function baryons(g; recombination = true, reionization = true, name = :b, kwargs...)
     description = "Baryons"
     b = matter(g; θinteract=true, name, description, kwargs...) |> complete
-    if recombination # TODO: dont add recombination system when recombination = false
+    if recombination # TODO: simply dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g; reionization)
     else
-        vars = @variables κ(τ) κ̇(τ) ρb(τ) Tγ(τ) cₛ²(τ)
-        @named rec = ODESystem([κ ~ 0, κ̇ ~ 0, cₛ² ~ 0], τ, vars, [])
+        vars = @variables begin
+            κ(τ), [description = "Optical depth"]
+            κ̇(τ), [description = "Optical depth derivative"]
+            ρb(τ), [description = "Baryon background density"]
+            Tγ(τ), [description = "Photon temperature"]
+            cₛ²(τ), [description = "Speed of sound squared"]
+        end
+        eqs = [κ ~ 0, κ̇ ~ 0, cₛ² ~ 0] .|> O(ϵ^0)
+        @named rec = ODESystem(eqs, τ, vars, [])
     end
+    eqs = [b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1)
     description = "Baryonic matter"
-    b = extend(b, ODESystem([b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1), τ, [], []; name); description)
+    b = extend(b, ODESystem(eqs, τ, [], []; name); description)
     b = compose(b, rec)
     return b
 end
@@ -290,7 +385,22 @@ end
 Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
 """
 function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
-    @variables ϕ(τ) ρ(τ) P(τ) w(τ) δ(τ) σ(τ) V(τ) V′(τ) V′′(τ) K(τ) m²(τ) ϵs(τ) ηs(τ) cₛ²(τ)
+    @variables begin
+        ϕ(τ), [description = "Background scalar field"]
+        ρ(τ), [description = "Effective background density"]
+        P(τ), [description = "Effective background pressure"]
+        w(τ), [description = "Equation of state"]
+        δ(τ), [description = "Overdensity"]
+        σ(τ), [description = "Shear stress"]
+        V(τ), [description = "Potential of scalar field"]
+        V′(τ), [description = "Potential derivative wrt. scalar field"]
+        V′′(τ), [description = "Potential 2nd derivative wrt. scalar field"]
+        K(τ), [description = "Effective kinetic energy"]
+        m²(τ), [description = "Effective mass"]
+        ϵs(τ), [description = "1st slow roll parameter"]
+        ηs(τ), [description = "2nd slow roll parameter"]
+        cₛ²(τ), [description = "Speed of sound squared"]
+    end
     eqs0 = [
         V ~ v
         V′ ~ v′
@@ -301,8 +411,8 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         P ~ K - V
         w ~ P / ρ
         m² ~ V′′
-        ϵs ~ (V′/V)^2 / (16*Num(π)) # 1st slow roll parameter
-        ηs ~ (V′′/V) / (8*Num(π)) # 2nd slow roll parameter
+        ϵs ~ (V′/V)^2 / (16*Num(π))
+        ηs ~ (V′′/V) / (8*Num(π))
     ] .|> O(ϵ^0)
     eqs1 = [ # TODO: perturbations
         δ ~ 0
@@ -313,13 +423,16 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
     return ODESystem([eqs0; eqs1], τ; name, description, kwargs...)
 end
 function quintessence(g, v; name = :Q, kwargs...)
-    @variables ϕ(τ)
+    @variables begin
+        ϕ(τ), [description = "Background scalar field"]
+    end
     ∂_∂ϕ = Differential(ϕ)
     v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
     v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
     return quintessence(g, v(ϕ), v′, v′′; name, kwargs...)
 end
 
+# TODO: incorporate in metric/gravity; don't define as effective species
 """
     curvature(g; name = :K, kwargs...)
 
@@ -327,8 +440,18 @@ Create a species that effectively accounts for curvature in the spacetime with m
 """
 function curvature(g; name = :K, kwargs...)
     description = "Curvature"
-    vars = @variables ρ(τ) w(τ) P(τ) δ(τ) θ(τ) cₛ²(τ) σ(τ)
-    pars = @parameters Ω₀ # dimless K is physical K*c²/H₀²
+    vars = @variables begin
+        ρ(τ), [description = "Effective background density"]
+        P(τ), [description = "Effective background pressure"]
+        w(τ), [description = "Effective equation of state"]
+        δ(τ),
+        θ(τ),
+        cₛ²(τ),
+        σ(τ)
+    end
+    pars = @parameters begin
+        Ω₀, [description = "Effective reduced background density today"] # dimless K is physical K*c²/H₀²
+    end
     eqs = [
         w ~ -1//3
         ρ ~ 3/(8*Num(π))*Ω₀ / g.a^2

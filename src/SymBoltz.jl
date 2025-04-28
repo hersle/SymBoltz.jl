@@ -17,10 +17,11 @@ using Setfield
 # TODO: try different AD sensitivity algorithms: https://docs.sciml.ai/SciMLSensitivity/stable/getting_started/
 # TODO: connector systems for Compton scattering / recombination etc.
 
-@independent_variables τ # conformal time in units of 1/H₀
+# TODO: descriptions
+@independent_variables τ [description = "Conformal time"] # conformal time in units of 1/H₀
 D = Differential(τ)
-k = only(GlobalScope.(@parameters k)) # perturbation wavenumber
-ϵ = only(GlobalScope.(@parameters ϵ = 1)) # perturbative expansion parameter
+k = only(GlobalScope.(@parameters k [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
+ϵ = only(GlobalScope.(@parameters ϵ = 1 [description = "Perturbation expansion parameter"])) # perturbative expansion parameter
 
 include("utils.jl")
 include("constants.jl")
