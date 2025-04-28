@@ -23,6 +23,7 @@ makedocs(
             "models.md"
         ],
         "solve.md",
+        "plot.md",
         "observables.md",
         "comparison.md",
         "benchmarks.md",
