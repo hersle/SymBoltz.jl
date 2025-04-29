@@ -204,7 +204,7 @@ sols = merge(sols, Dict(
     "DlEE" => (DlEEs_class, DlEEs)
 ))
 
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, kwargs...)
+function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, atol = nothing, rtol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
         ylabels = [ylabels]
     end
@@ -248,6 +248,9 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
         y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
+        !isnothing(atol) && @assert all(isapprox.(y1, y2; atol)) "$ylabel does not match within absolute tolerance $atol"
+        !isnothing(rtol) && @assert all(isapprox.(y1, y2; rtol)) "$ylabel does not match within relative tolerance $rtol"
+
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
         if abserr
@@ -284,20 +287,19 @@ nothing # hide
 
 ### Conformal time
 ```@example class
-plot_compare("a_bg", "χ")
+plot_compare("a_bg", "χ"; atol = 1e-2)
 ```
 ### Hubble function
-
 ```@example class
-plot_compare("a_bg", "E"; lgx=true, lgy=true)
+plot_compare("a_bg", "E"; lgx=true, lgy=true, rtol = 1e-5)
 ```
 ### Energy densities
 ```@example class
-plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true)
+plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, rtol = 1e-3)
 ```
 ### Equations of state
 ```@example class
-plot_compare("a_bg", ["wh", "wX"]; lgx=true)
+plot_compare("a_bg", ["wh", "wX"]; lgx=true, atol = 1e-3)
 ```
 ### Luminosity distance
 ```@example class
@@ -308,38 +310,38 @@ plot_compare("a_bg", "dL"; lgx=true, lgy=true)
 
 ### Optical depth derivative
 ```@example class
-plot_compare("a_th", "κ̇"; lgx=true, lgy=true)
+plot_compare("a_th", "κ̇"; lgx=true, lgy=true, rtol = 1e-1)
 ```
 ### Optical depth exponential
 ```@example class
-plot_compare("a_th", "exp(-κ)"; lgx=true)
+plot_compare("a_th", "exp(-κ)"; lgx=true, atol = 1e-3)
 ```
 ### Visibility function
 ```@example class
-plot_compare("a_th", "v"; lgx=true, lgy=false)
+plot_compare("a_th", "v"; lgx=true, lgy=false, atol = 1e-4)
 ```
 ### Free electron fraction
 ```@example class
-plot_compare("a_th", "Xe"; lgx=true, lgy=false)
+plot_compare("a_th", "Xe"; lgx=true, lgy=false, atol = 1e-3)
 ```
 ### Baryon temperature
 ```@example class
-plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true)
+plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true, atol = 1e1)
 ```
 ### Baryon equation of state
 ```@example class
-plot_compare("a_th", "wb"; lgx=true, lgy=true)
+plot_compare("a_th", "wb"; lgx=true, lgy=true, rtol = 1e-2)
 ```
 ### Baryon sound speed
 ```@example class
-plot_compare("a_th", "csb²"; lgx=true, lgy=true)
+plot_compare("a_th", "csb²"; lgx=true, lgy=true, atol = 1e-8)
 ```
 
 ## Perturbations
 
 ### Metric potentials
 ```@example class
-plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true)
+plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true, atol = 1e-1)
 ```
 ### Energy overdensities
 ```@example class
@@ -351,19 +353,19 @@ plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
 ```
 ### Dark energy overdensity
 ```@example class
-plot_compare("a_pt", "δρX"; lgx=true, lgy=true)
+plot_compare("a_pt", "δρX"; lgx=true, lgy=true, atol = 1e-4)
 ```
 ### Dark energy momentum
 ```@example class
-plot_compare("a_pt", "pX"; lgx=true, lgy=true)
+plot_compare("a_pt", "pX"; lgx=true, lgy=true, atol = 1e-4)
 ```
 ### Shear stresses
 ```@example class
-plot_compare("a_pt", ["σγ", "σν"]; lgx=true)
+plot_compare("a_pt", ["σγ", "σν"]; lgx=true, atol = 1e-0)
 ```
 ### Polarization
 ```@example class
-plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true)
+plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true, atol = 1e-1)
 ```
 
 ## Power spectra
