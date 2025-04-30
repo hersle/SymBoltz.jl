@@ -7,23 +7,22 @@ This tutorial shows how to perform Bayesian parameter inference on a cosmologica
 We load the binned [Pantheon dataset](https://github.com/dscolnic/Pantheon/).
 This includes redshifts and apparent magnitudes of over 1000 Type Ia supernovae.
 ```@example fit
-using DataFrames, CSV, LinearAlgebra, PDMats
+using DataFrames, CSV, LinearAlgebra, PDMats, SymBoltz
 
 binned = true # use compressed dataset in the documentation
+docsdir = joinpath(pkgdir(SymBoltz), "docs")
 if binned # choose compressed dataset with 40 redshift bins
-    data = "https://github.com/dscolnic/Pantheon/raw/master/Binned_data/lcparam_DS17f.txt"
-    Csyst = "https://github.com/dscolnic/Pantheon/raw/master/Binned_data/sys_DS17f.txt"
+    data = joinpath(docsdir, "Pantheon/Binned_data/lcparam_DS17f.txt")
+    Csyst = joinpath(docsdir, "Pantheon/Binned_data/sys_DS17f.txt")
 else # choose full dataset with 1048 supernovae
-    data = "https://github.com/dscolnic/Pantheon/raw/master/lcparam_full_long.txt"
-    Csyst = "https://github.com/dscolnic/Pantheon/raw/master/sys_full_long.txt"
+    data = joinpath(docsdir, "Pantheon/lcparam_full_long.txt")
+    Csyst = joinpath(docsdir, "Pantheon/sys_full_long.txt")
 end
 
 # Read data table
-data = download(data)
 data = CSV.read(data, DataFrame, delim = " ", silencewarnings = true)
 
 # Read covariance matrix of apparent magnitudes (mb)
-Csyst = download(Csyst)
 Csyst = CSV.read(Csyst, DataFrame, header = false) # long vector
 Csyst = collect(reshape(Csyst[2:end, 1], (Int(Csyst[1, 1]), Int(Csyst[1, 1])))) # to matrix
 Cstat = Diagonal(data.dmb)^2 # TODO: should this be squared?
