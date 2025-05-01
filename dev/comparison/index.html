@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Comparison to CLASS · SymBoltz</title><meta name="title" content="Comparison to CLASS · SymBoltz"/><meta property="og:title" content="Comparison to CLASS · SymBoltz"/><meta property="twitter:title" content="Comparison to CLASS · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters and forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components</a></li><li><a class="tocitem" href="../models/">Models</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li class="is-active"><a class="tocitem" href>Comparison to CLASS</a><ul class="internal"><li><a class="tocitem" href="#Background"><span>Background</span></a></li><li><a class="tocitem" href="#Thermodynamics"><span>Thermodynamics</span></a></li><li><a class="tocitem" href="#Perturbations"><span>Perturbations</span></a></li><li><a class="tocitem" href="#Power-spectra"><span>Power spectra</span></a></li></ul></li><li><a class="tocitem" href="../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Comparison to CLASS</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Comparison to CLASS</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Comparison-to-CLASS"><a class="docs-heading-anchor" href="#Comparison-to-CLASS">Comparison to CLASS</a><a id="Comparison-to-CLASS-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-to-CLASS" title="Permalink"></a></h1><p>This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver <a href="https://github.com/lesgourg/class_public/">CLASS</a> for the ΛCDM model.</p><details>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Comparison to CLASS · SymBoltz</title><meta name="title" content="Comparison to CLASS · SymBoltz"/><meta property="og:title" content="Comparison to CLASS · SymBoltz"/><meta property="twitter:title" content="Comparison to CLASS · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters and forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components</a></li><li><a class="tocitem" href="../models/">Models</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li class="is-active"><a class="tocitem" href>Comparison to CLASS</a><ul class="internal"><li><a class="tocitem" href="#Background"><span>Background</span></a></li><li><a class="tocitem" href="#Thermodynamics"><span>Thermodynamics</span></a></li><li><a class="tocitem" href="#Perturbations"><span>Perturbations</span></a></li><li><a class="tocitem" href="#Matter-power-spectrum"><span>Matter power spectrum</span></a></li><li><a class="tocitem" href="#CMB-power-spectrum"><span>CMB power spectrum</span></a></li></ul></li><li><a class="tocitem" href="../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Comparison to CLASS</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Comparison to CLASS</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Comparison-to-CLASS"><a class="docs-heading-anchor" href="#Comparison-to-CLASS">Comparison to CLASS</a><a id="Comparison-to-CLASS-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-to-CLASS" title="Permalink"></a></h1><p>This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver <a href="https://github.com/lesgourg/class_public/">CLASS</a> for the ΛCDM model.</p><details>
 <summary><h2 style="display: inline-block">Setup</h2></summary><pre><code class="language-julia hljs">using SymBoltz
 using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
-using Plots
+using CairoMakie
 
 lmax = 6
 M = w0waCDM(; lmax)
@@ -14,6 +14,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.wa =&gt; 0.1,
     M.X.cₛ² =&gt; 0.9
 ))
+h = pars[M.g.h] # needed later
 prob = CosmologyProblem(M, pars)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
@@ -30,17 +31,17 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     return run(`$exec $inpath`) # run
 end
 
-function solve_class(pars, k; exec=&quot;class&quot;, dir = mktempdir())
+function solve_class(pars, k = nothing; exec=&quot;class&quot;, dir = mktempdir(), out = Set([&quot;bg&quot;, &quot;th&quot;, &quot;pt&quot;, &quot;P&quot;, &quot;Cl&quot;]))
+    isnothing(k) &amp;&amp; filter!(s -&gt; s != &quot;pt&quot;, out)
     inpath = joinpath(dir, &quot;input.ini&quot;)
     outpath = joinpath(dir, &quot;output&quot;, &quot;&quot;)
-    k = NoUnits(k / u&quot;1/Mpc&quot;)
     in = Dict(
         &quot;write_background&quot; =&gt; &quot;yes&quot;,
         &quot;write_thermodynamics&quot; =&gt; &quot;yes&quot;,
         &quot;background_verbose&quot; =&gt; 2,
         &quot;output&quot; =&gt; &quot;mPk, tCl, pCl&quot;, # need one to evolve perturbations
 
-        &quot;k_output_values&quot; =&gt; k,
+        &quot;k_output_values&quot; =&gt; isnothing(k) ? &quot;&quot; : NoUnits(k / u&quot;1/Mpc&quot;),
         &quot;ic&quot; =&gt; &quot;ad&quot;,
         &quot;modes&quot; =&gt; &quot;s&quot;,
         &quot;gauge&quot; =&gt; &quot;newtonian&quot;,
@@ -102,7 +103,8 @@ function solve_class(pars, k; exec=&quot;class&quot;, dir = mktempdir())
     secs = @elapsed run_class(in, exec, inpath, outpath)
     println(&quot;Ran CLASS in $secs seconds in directory $dir&quot;)
     output = Dict()
-    for (name, filename, skipstart, target_length) in [(&quot;bg&quot;, &quot;_background.dat&quot;, 3, typemax(Int)), (&quot;th&quot;, &quot;_thermodynamics.dat&quot;, 10, typemax(Int)), (&quot;pt&quot;, &quot;_perturbations_k0_s.dat&quot;, 1, 50000), (&quot;P&quot;, &quot;_pk.dat&quot;, 3, typemax(Int)), (&quot;Cl&quot;, &quot;_cl.dat&quot;, 6, typemax(Int))]
+    for (name, filename, skipstart, target_length) in [(&quot;bg&quot;, &quot;_background.dat&quot;, 3, typemax(Int)), (&quot;th&quot;, &quot;_thermodynamics.dat&quot;, 10, typemax(Int)), (&quot;pt&quot;, &quot;_perturbations_k0_s.dat&quot;, 1, typemax(Int)), (&quot;P&quot;, &quot;_pk.dat&quot;, 3, typemax(Int)), (&quot;Cl&quot;, &quot;_cl.dat&quot;, 6, typemax(Int))]
+        name ∉ out &amp;&amp; continue
         file = joinpath(outpath, filename)
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, &quot;&quot;), &quot;:&quot;)
@@ -121,84 +123,14 @@ function solve_class(pars, k; exec=&quot;class&quot;, dir = mktempdir())
     return output
 end
 
-ks = 1e1 / u&quot;Mpc&quot; # 1/Mpc
-sol1 = solve_class(pars, ks)
-sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 &quot;emulate&quot; radiation streaming, while higher-precision Rodas5P continues in an exact way
+k = 1e1 / u&quot;Mpc&quot; # 1/Mpc
+sol1 = solve_class(pars, k)
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 &quot;emulate&quot; radiation streaming, while higher-precision Rodas5P continues in an exact way
 
-# map results from both codes to common convention
-h = pars[M.g.h]
-sols = Dict(
-    # background
-    &quot;a_bg&quot; =&gt; (1 ./ (sol1[&quot;bg&quot;][&quot;z&quot;] .+ 1), sol2[M.g.a]),
-    &quot;χ&quot; =&gt; (sol1[&quot;bg&quot;][&quot;conf.time[Mpc]&quot;][end] .- sol1[&quot;bg&quot;][&quot;conf.time[Mpc]&quot;], sol2[M.χ] / (h * SymBoltz.k0)),
-    &quot;E&quot; =&gt; (sol1[&quot;bg&quot;][&quot;H[1/Mpc]&quot;] ./ sol1[&quot;bg&quot;][&quot;H[1/Mpc]&quot;][end], sol2[M.g.E]),
-    &quot;ργ&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_g&quot;], sol2[M.γ.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;ρν&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_ur&quot;], sol2[M.ν.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;ρc&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_cdm&quot;], sol2[M.c.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;ρb&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_b&quot;], sol2[M.b.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;ρX&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_fld&quot;], sol2[M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;ρh&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)rho_ncdm[0]&quot;], sol2[M.h.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;wh&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)p_ncdm[0]&quot;] ./ sol1[&quot;bg&quot;][&quot;(.)rho_ncdm[0]&quot;], sol2[M.h.w]),
-    &quot;wX&quot; =&gt; (sol1[&quot;bg&quot;][&quot;(.)w_fld&quot;], sol2[M.X.w]),
-    &quot;dL&quot; =&gt; (sol1[&quot;bg&quot;][&quot;lum.dist.&quot;], SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc),
-
-    # thermodynamics
-    &quot;a_th&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;scalefactora&quot;]), sol2[M.g.a]),
-    &quot;κ̇&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;kappa&#39;[Mpc^-1]&quot;]), -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)),
-    &quot;csb²&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;c_b^2&quot;]), sol2[M.b.rec.cₛ²]),
-    &quot;Xe&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;x_e&quot;]), sol2[M.b.rec.Xe]),
-    &quot;Tb&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;Tb[K]&quot;]), sol2[M.b.rec.Tb]),
-    &quot;exp(-κ)&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;exp(-kappa)&quot;]), sol2[exp(-M.b.rec.κ)]),
-    &quot;v&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;g[Mpc^-1]&quot;]), sol2[M.b.rec.v] * (h*SymBoltz.k0)),
-    &quot;dTb&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;dTb[K]&quot;]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS&#39; dT/dz = -1/H * dT/dt
-    &quot;wb&quot; =&gt; (reverse(sol1[&quot;th&quot;][&quot;w_b&quot;]), sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]), # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
-
-    # perturbations
-    &quot;a_pt&quot; =&gt; (sol1[&quot;pt&quot;][&quot;a&quot;], sol2[1, M.g.a]),
-    &quot;Φ&quot; =&gt; (sol1[&quot;pt&quot;][&quot;phi&quot;], sol2[1, M.g.Φ]),
-    &quot;Ψ&quot; =&gt; (sol1[&quot;pt&quot;][&quot;psi&quot;], sol2[1, M.g.Ψ]),
-    &quot;δb&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_b&quot;], sol2[1, M.b.δ]),
-    &quot;δc&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_cdm&quot;], sol2[1, M.c.δ]),
-    &quot;δγ&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_g&quot;], sol2[1, M.γ.δ]),
-    &quot;δν&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_ur&quot;], sol2[1, M.ν.δ]),
-    &quot;δh&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_ncdm[0]&quot;], sol2[1, M.h.δ]),
-    &quot;δρX&quot; =&gt; (sol1[&quot;pt&quot;][&quot;delta_rho_fld&quot;], sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    &quot;θb&quot; =&gt; (sol1[&quot;pt&quot;][&quot;theta_b&quot;], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
-    &quot;θc&quot; =&gt; (sol1[&quot;pt&quot;][&quot;theta_cdm&quot;], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
-    &quot;θγ&quot; =&gt; (sol1[&quot;pt&quot;][&quot;theta_g&quot;], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
-    &quot;θν&quot; =&gt; (sol1[&quot;pt&quot;][&quot;theta_ur&quot;], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
-    &quot;θh&quot; =&gt; (sol1[&quot;pt&quot;][&quot;theta_ncdm[0]&quot;], sol2[1, M.h.θ] * (h*SymBoltz.k0)),
-    &quot;pX&quot; =&gt; (sol1[&quot;pt&quot;][&quot;rho_plus_p_theta_fld&quot;], sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]),
-    &quot;σγ&quot; =&gt; (sol1[&quot;pt&quot;][&quot;shear_g&quot;], sol2[1, M.γ.σ]),
-    &quot;σν&quot; =&gt; (sol1[&quot;pt&quot;][&quot;shear_ur&quot;], sol2[1, M.ν.F[2] / 2]),
-    &quot;P0&quot; =&gt; (sol1[&quot;pt&quot;][&quot;pol0_g&quot;], sol2[1, M.γ.G[0]]),
-    &quot;P1&quot; =&gt; (sol1[&quot;pt&quot;][&quot;pol1_g&quot;], sol2[1, M.γ.G[1]]),
-    &quot;P2&quot; =&gt; (sol1[&quot;pt&quot;][&quot;pol2_g&quot;], sol2[1, M.γ.G[2]]),
-)
-
-# matter power spectrum
-ks = sol1[&quot;P&quot;][&quot;k(h/Mpc)&quot;] * h # 1/Mpc
-Ps_class = sol1[&quot;P&quot;][&quot;P(Mpc/h)^3&quot;] / h^3
-Ps = spectrum_matter(prob, ks / u&quot;Mpc&quot;) / u&quot;Mpc^3&quot;
-
-# CMB power spectrum
-ls = Int.(sol1[&quot;Cl&quot;][&quot;l&quot;][begin:10:end])
-DlTTs_class = sol1[&quot;Cl&quot;][&quot;TT&quot;][begin:10:end]
-DlTEs_class = sol1[&quot;Cl&quot;][&quot;TE&quot;][begin:10:end]
-DlEEs_class = sol1[&quot;Cl&quot;][&quot;EE&quot;][begin:10:end]
-DlTTs, DlTEs, DlEEs = spectrum_cmb([:TT, :TE, :EE], prob, ls; normalization = :Dl)
-
-sols = merge(sols, Dict(
-    &quot;k&quot; =&gt; (ks, ks),
-    &quot;P&quot; =&gt; (Ps_class, Ps),
-    &quot;l&quot; =&gt; (ls, ls),
-    &quot;DlTT&quot; =&gt; (DlTTs_class, DlTTs),
-    &quot;DlTE&quot; =&gt; (DlTEs_class, DlTEs),
-    &quot;DlEE&quot; =&gt; (DlEEs_class, DlEEs)
-))
-
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, atol = nothing, rtol = nothing, kwargs...)
+function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
+        y1s = [y1s]
+        y2s = [y2s]
         ylabels = [ylabels]
     end
 
@@ -207,18 +139,23 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
     xlab(x) = lgx ? &quot;lg(|$x|)&quot; : x
     ylab(y) = lgy ? &quot;lg(|$y|)&quot; : y
 
-    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
-    plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), &quot;, &quot;))
+    fig = Figure(width = 800, height = 600)
+    ylabel = join(ylab.(ylabels), &quot;, &quot;)
+    ax1 = Axis(fig[1:2, 1]; ylabel = ylabel, xticklabelsvisible = false)
+    ax2 = Axis(fig[3, 1]; xlabel = xlab(xlabel), yminorticks = IntervalsBetween(10), yminorgridvisible = true)
     maxerr = 0.0
     xlims = (NaN, NaN)
-    for (i, ylabel) in enumerate(ylabels)
-        x1, x2 = sols[xlabel]
-        y1, y2 = sols[ylabel]
+    for (i, (y1, y2, ylabel)) in enumerate(zip(y1s, y2s, ylabels))
+        x1, x2 = x1s, x2s
         x1min, x1max = extrema(x1)
         x2min, x2max = extrema(x2)
 
-        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? &quot;CLASS&quot; : nothing, xformatter = _ -&gt; &quot;&quot;)
-        plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? &quot;SymBoltz&quot; : nothing)
+        plotx1 = xplot(x1) # https://discourse.julialang.org/t/makie-axis-limits-with-inf/85784
+        plotx2 = xplot(x2)
+        ploty1 = replace!(yplot(y1), -Inf =&gt; NaN, Inf =&gt; NaN)
+        ploty2 = replace!(yplot(y2), -Inf =&gt; NaN, Inf =&gt; NaN)
+        lines!(ax1, plotx1, ploty1; color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? &quot;CLASS&quot; : nothing)
+        lines!(ax1, plotx2, ploty2; color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? &quot;SymBoltz&quot; : nothing)
 
         if i == 1
             xlims = (x1min, x1max) # initialize so not NaN
@@ -241,8 +178,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
         y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
-        !isnothing(atol) &amp;&amp; @assert all(isapprox.(y1, y2; atol)) &quot;$ylabel does not match within absolute tolerance $atol&quot;
-        !isnothing(rtol) &amp;&amp; @assert all(isapprox.(y1, y2; rtol)) &quot;$ylabel does not match within relative tolerance $rtol&quot;
+        !isnothing(tol) &amp;&amp; @assert all(isapprox.(y1, y2; atol = tol)) &quot;$ylabel does not match within absolute tolerance $tol. Maximum difference was $(maximum(abs.(y1.-y2))).&quot;
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto &amp;&amp; (any(y1 .&lt;= 0) || any(y2 .&lt;= 0)))
@@ -253,8 +189,9 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
             err = y2 ./ y1 .- 1
             ylabel = &quot;SymBoltz / CLASS - 1&quot;
         end
+        ax2.ylabel = ylabel
         maxerr = max(maxerr, maximum(abs.(err)))
-        plot!(p[end], xplot(x), err; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel, top_margin = -5*Plots.mm, label = nothing)
+        lines!(ax2, xplot(x), err; linewidth = 2, color = :black)
     end
 
     # write maximum error like a * 10^b (for integer a and b)
@@ -263,12 +200,15 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
         a = ceil(maxerr / 10^b)
         errlim = a * 10^b
     end
-    plot!(p[end], ylims = (-errlim, +errlim))
+    Makie.ylims!(ax2, (-errlim, +errlim))
 
     xlims = xplot.(xlims) # transform to log?
-    plot!(p; xlims, kwargs...)
+    Makie.xlims!(ax1, xlims)
+    Makie.xlims!(ax2, xlims)
 
-    return p
+    axislegend(ax1)
+
+    return fig
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Running CLASS version v3.3.0
 Computing background
  -&gt; non-cold dark matter species with i=1 has m_i = 6.000000e-02 eV (so m_i / omega_i =9.405928e+01 eV)
@@ -298,9 +238,98 @@ Chose ndf15 as generic_evolver
  Other Content                    Omega = 0.684664        , omega = 0.310658
  TOTAL                            Omega = 1               , omega = 0.453737
  --------------------------------------------------------------------
-Ran CLASS in 22.209317854 seconds in directory /tmp/jl_akBLxm
+Ran CLASS in 22.295160206 seconds in directory /tmp/jl_hcXrtq
 Read _background.dat with 40000x22 numbers
 Read _thermodynamics.dat with 28333x12 numbers
 Read _perturbations_k0_s.dat with 970515x24 numbers
 Read _pk.dat with 524x2 numbers
-Read _cl.dat with 2499x5 numbers</code></pre></details><h2 id="Background"><a class="docs-heading-anchor" href="#Background">Background</a><a id="Background-1"></a><a class="docs-heading-anchor-permalink" href="#Background" title="Permalink"></a></h2><h3 id="Conformal-time"><a class="docs-heading-anchor" href="#Conformal-time">Conformal time</a><a id="Conformal-time-1"></a><a class="docs-heading-anchor-permalink" href="#Conformal-time" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_bg&quot;, &quot;χ&quot;; atol = 1e-2)</code></pre><img src="c1e4c989.svg" alt="Example block output"/><h3 id="Hubble-function"><a class="docs-heading-anchor" href="#Hubble-function">Hubble function</a><a id="Hubble-function-1"></a><a class="docs-heading-anchor-permalink" href="#Hubble-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_bg&quot;, &quot;E&quot;; lgx=true, lgy=true, rtol = 1e-5)</code></pre><img src="25df9acd.svg" alt="Example block output"/><h3 id="Energy-densities"><a class="docs-heading-anchor" href="#Energy-densities">Energy densities</a><a id="Energy-densities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-densities" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_bg&quot;, [&quot;ργ&quot;, &quot;ρb&quot;, &quot;ρc&quot;, &quot;ρX&quot;, &quot;ρν&quot;, &quot;ρh&quot;]; lgx=true, lgy=true, rtol = 1e-3)</code></pre><img src="ac1d50e2.svg" alt="Example block output"/><h3 id="Equations-of-state"><a class="docs-heading-anchor" href="#Equations-of-state">Equations of state</a><a id="Equations-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Equations-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_bg&quot;, [&quot;wh&quot;, &quot;wX&quot;]; lgx=true, atol = 1e-3)</code></pre><img src="06498f0f.svg" alt="Example block output"/><h3 id="Luminosity-distance"><a class="docs-heading-anchor" href="#Luminosity-distance">Luminosity distance</a><a id="Luminosity-distance-1"></a><a class="docs-heading-anchor-permalink" href="#Luminosity-distance" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_bg&quot;, &quot;dL&quot;; lgx=true, lgy=true)</code></pre><img src="61f5a493.svg" alt="Example block output"/><h2 id="Thermodynamics"><a class="docs-heading-anchor" href="#Thermodynamics">Thermodynamics</a><a id="Thermodynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Thermodynamics" title="Permalink"></a></h2><h3 id="Optical-depth-derivative"><a class="docs-heading-anchor" href="#Optical-depth-derivative">Optical depth derivative</a><a id="Optical-depth-derivative-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-derivative" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;κ̇&quot;; lgx=true, lgy=true, rtol = 1e-1)</code></pre><img src="8f8820da.svg" alt="Example block output"/><h3 id="Optical-depth-exponential"><a class="docs-heading-anchor" href="#Optical-depth-exponential">Optical depth exponential</a><a id="Optical-depth-exponential-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-exponential" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;exp(-κ)&quot;; lgx=true, atol = 1e-3)</code></pre><img src="ccce1662.svg" alt="Example block output"/><h3 id="Visibility-function"><a class="docs-heading-anchor" href="#Visibility-function">Visibility function</a><a id="Visibility-function-1"></a><a class="docs-heading-anchor-permalink" href="#Visibility-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;v&quot;; lgx=true, lgy=false, atol = 1e-4)</code></pre><img src="97a90390.svg" alt="Example block output"/><h3 id="Free-electron-fraction"><a class="docs-heading-anchor" href="#Free-electron-fraction">Free electron fraction</a><a id="Free-electron-fraction-1"></a><a class="docs-heading-anchor-permalink" href="#Free-electron-fraction" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;Xe&quot;; lgx=true, lgy=false, atol = 1e-3)</code></pre><img src="5a8a3aff.svg" alt="Example block output"/><h3 id="Baryon-temperature"><a class="docs-heading-anchor" href="#Baryon-temperature">Baryon temperature</a><a id="Baryon-temperature-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-temperature" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, [&quot;Tb&quot;, &quot;dTb&quot;]; lgx=true, lgy=true, atol = 1e1)</code></pre><img src="1cf87e57.svg" alt="Example block output"/><h3 id="Baryon-equation-of-state"><a class="docs-heading-anchor" href="#Baryon-equation-of-state">Baryon equation of state</a><a id="Baryon-equation-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-equation-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;wb&quot;; lgx=true, lgy=true, rtol = 1e-2)</code></pre><img src="d1f2b4db.svg" alt="Example block output"/><h3 id="Baryon-sound-speed"><a class="docs-heading-anchor" href="#Baryon-sound-speed">Baryon sound speed</a><a id="Baryon-sound-speed-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-sound-speed" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_th&quot;, &quot;csb²&quot;; lgx=true, lgy=true, atol = 1e-8)</code></pre><img src="b93284fd.svg" alt="Example block output"/><h2 id="Perturbations"><a class="docs-heading-anchor" href="#Perturbations">Perturbations</a><a id="Perturbations-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations" title="Permalink"></a></h2><h3 id="Metric-potentials"><a class="docs-heading-anchor" href="#Metric-potentials">Metric potentials</a><a id="Metric-potentials-1"></a><a class="docs-heading-anchor-permalink" href="#Metric-potentials" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, [&quot;Ψ&quot;, &quot;Φ&quot;]; lgx=true, atol = 1e-1)</code></pre><img src="299e4ef4.svg" alt="Example block output"/><h3 id="Energy-overdensities"><a class="docs-heading-anchor" href="#Energy-overdensities">Energy overdensities</a><a id="Energy-overdensities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-overdensities" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, [&quot;δb&quot;, &quot;δc&quot;, &quot;δγ&quot;, &quot;δν&quot;, &quot;δh&quot;]; lgx=true, lgy=true)</code></pre><img src="0a137034.svg" alt="Example block output"/><h3 id="Momenta"><a class="docs-heading-anchor" href="#Momenta">Momenta</a><a id="Momenta-1"></a><a class="docs-heading-anchor-permalink" href="#Momenta" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, [&quot;θb&quot;, &quot;θc&quot;, &quot;θγ&quot;, &quot;θν&quot;, &quot;θh&quot;]; lgx=true, lgy=true)</code></pre><img src="d1182da5.svg" alt="Example block output"/><h3 id="Dark-energy-overdensity"><a class="docs-heading-anchor" href="#Dark-energy-overdensity">Dark energy overdensity</a><a id="Dark-energy-overdensity-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-overdensity" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, &quot;δρX&quot;; lgx=true, lgy=true, atol = 1e-4)</code></pre><img src="69106173.svg" alt="Example block output"/><h3 id="Dark-energy-momentum"><a class="docs-heading-anchor" href="#Dark-energy-momentum">Dark energy momentum</a><a id="Dark-energy-momentum-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-momentum" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, &quot;pX&quot;; lgx=true, lgy=true, atol = 1e-4)</code></pre><img src="3a4e7499.svg" alt="Example block output"/><h3 id="Shear-stresses"><a class="docs-heading-anchor" href="#Shear-stresses">Shear stresses</a><a id="Shear-stresses-1"></a><a class="docs-heading-anchor-permalink" href="#Shear-stresses" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, [&quot;σγ&quot;, &quot;σν&quot;]; lgx=true, atol = 1e-0)</code></pre><img src="a4f7a2f7.svg" alt="Example block output"/><h3 id="Polarization"><a class="docs-heading-anchor" href="#Polarization">Polarization</a><a id="Polarization-1"></a><a class="docs-heading-anchor-permalink" href="#Polarization" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;a_pt&quot;, [&quot;P0&quot;, &quot;P1&quot;, &quot;P2&quot;]; lgx=true, atol = 1e-1)</code></pre><img src="71bc474b.svg" alt="Example block output"/><h2 id="Power-spectra"><a class="docs-heading-anchor" href="#Power-spectra">Power spectra</a><a id="Power-spectra-1"></a><a class="docs-heading-anchor-permalink" href="#Power-spectra" title="Permalink"></a></h2><h3 id="Matter-power-spectrum"><a class="docs-heading-anchor" href="#Matter-power-spectrum">Matter power spectrum</a><a id="Matter-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#Matter-power-spectrum" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;k&quot;, &quot;P&quot;; lgx=true, lgy=true)</code></pre><img src="6352a2f6.svg" alt="Example block output"/><h3 id="CMB-angular-power-spectrum"><a class="docs-heading-anchor" href="#CMB-angular-power-spectrum">CMB angular power spectrum</a><a id="CMB-angular-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#CMB-angular-power-spectrum" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_compare(&quot;l&quot;, &quot;DlTT&quot;)</code></pre><img src="002cda03.svg" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(&quot;l&quot;, &quot;DlTE&quot;)</code></pre><img src="cc01fe71.svg" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(&quot;l&quot;, &quot;DlEE&quot;)</code></pre><img src="750505da.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Wednesday 30 April 2025 13:08">Wednesday 30 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Read _cl.dat with 2499x5 numbers</code></pre></details><h2 id="Background"><a class="docs-heading-anchor" href="#Background">Background</a><a id="Background-1"></a><a class="docs-heading-anchor-permalink" href="#Background" title="Permalink"></a></h2><h3 id="Conformal-time"><a class="docs-heading-anchor" href="#Conformal-time">Conformal time</a><a id="Conformal-time-1"></a><a class="docs-heading-anchor-permalink" href="#Conformal-time" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = (1 ./ (sol1[&quot;bg&quot;][&quot;z&quot;] .+ 1))
+a2 = sol2[M.g.a]
+χ1 = sol1[&quot;bg&quot;][&quot;conf.time[Mpc]&quot;][end].-sol1[&quot;bg&quot;][&quot;conf.time[Mpc]&quot;]
+χ2 = sol2[M.χ] / (h * SymBoltz.k0)
+plot_compare(a1, a2, χ1, χ2, &quot;a&quot;, &quot;χ&quot;; tol = 1e-2)</code></pre><img src="187d0ba0.png" alt="Example block output"/><h3 id="Hubble-function"><a class="docs-heading-anchor" href="#Hubble-function">Hubble function</a><a id="Hubble-function-1"></a><a class="docs-heading-anchor-permalink" href="#Hubble-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">E1 = sol1[&quot;bg&quot;][&quot;H[1/Mpc]&quot;]./sol1[&quot;bg&quot;][&quot;H[1/Mpc]&quot;][end]
+E2 = sol2[M.g.E]
+plot_compare(a1, a2, E1, E2, &quot;a&quot;, &quot;E&quot;; lgx=true, lgy=true, tol = 1e9)</code></pre><img src="a38f9047.png" alt="Example block output"/><h3 id="Energy-densities"><a class="docs-heading-anchor" href="#Energy-densities">Energy densities</a><a id="Energy-densities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-densities" title="Permalink"></a></h3><pre><code class="language-julia hljs">ρ1 = map(s -&gt; sol1[&quot;bg&quot;][&quot;(.)rho_$s&quot;], [&quot;g&quot;, &quot;ur&quot;, &quot;cdm&quot;, &quot;b&quot;, &quot;fld&quot;, &quot;ncdm[0]&quot;])
+ρ2 = map(s -&gt; sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
+plot_compare(a1, a2, ρ1, ρ2, &quot;a&quot;, [&quot;ργ&quot;, &quot;ρb&quot;, &quot;ρc&quot;, &quot;ρX&quot;, &quot;ρν&quot;, &quot;ρh&quot;]; lgx=true, lgy=true, tol = 1e16)</code></pre><img src="159a15df.png" alt="Example block output"/><h3 id="Equations-of-state"><a class="docs-heading-anchor" href="#Equations-of-state">Equations of state</a><a id="Equations-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Equations-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs">wh1 = sol1[&quot;bg&quot;][&quot;(.)p_ncdm[0]&quot;] ./ sol1[&quot;bg&quot;][&quot;(.)rho_ncdm[0]&quot;]
+wh2 = sol2[M.h.w]
+wX1 = sol1[&quot;bg&quot;][&quot;(.)w_fld&quot;]
+wX2 = sol2[M.X.w]
+plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], &quot;a&quot;, [&quot;wh&quot;, &quot;wX&quot;]; lgx=true, tol = 1e-3)</code></pre><img src="a1175311.png" alt="Example block output"/><h3 id="Luminosity-distance"><a class="docs-heading-anchor" href="#Luminosity-distance">Luminosity distance</a><a id="Luminosity-distance-1"></a><a class="docs-heading-anchor-permalink" href="#Luminosity-distance" title="Permalink"></a></h3><pre><code class="language-julia hljs">dL1 = sol1[&quot;bg&quot;][&quot;lum.dist.&quot;]
+dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
+plot_compare(a1, a2, dL1, dL2, &quot;a&quot;, &quot;dL&quot;; lgx=true, lgy=true)</code></pre><img src="fa72b8c0.png" alt="Example block output"/><h2 id="Thermodynamics"><a class="docs-heading-anchor" href="#Thermodynamics">Thermodynamics</a><a id="Thermodynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Thermodynamics" title="Permalink"></a></h2><h3 id="Optical-depth-derivative"><a class="docs-heading-anchor" href="#Optical-depth-derivative">Optical depth derivative</a><a id="Optical-depth-derivative-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-derivative" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = reverse(sol1[&quot;th&quot;][&quot;scalefactora&quot;])
+a2 = sol2[M.g.a]
+dκ1 = reverse(sol1[&quot;th&quot;][&quot;kappa&#39;[Mpc^-1]&quot;])
+dκ2 = -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)
+plot_compare(a1, a2, dκ1, dκ2, &quot;a&quot;, &quot;κ̇&quot;; lgx=true, lgy=true, tol = 1e4)</code></pre><img src="c19c46cc.png" alt="Example block output"/><h3 id="Optical-depth-exponential"><a class="docs-heading-anchor" href="#Optical-depth-exponential">Optical depth exponential</a><a id="Optical-depth-exponential-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-exponential" title="Permalink"></a></h3><pre><code class="language-julia hljs">expmκ1 = reverse(sol1[&quot;th&quot;][&quot;exp(-kappa)&quot;])
+expmκ2 = sol2[exp(-M.b.rec.κ)]
+plot_compare(a1, a2, expmκ1, expmκ2, &quot;a&quot;, &quot;exp(-κ)&quot;; lgx=true, tol = 1e-3)</code></pre><img src="67859c98.png" alt="Example block output"/><h3 id="Visibility-function"><a class="docs-heading-anchor" href="#Visibility-function">Visibility function</a><a id="Visibility-function-1"></a><a class="docs-heading-anchor-permalink" href="#Visibility-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">v1 = reverse(sol1[&quot;th&quot;][&quot;g[Mpc^-1]&quot;])
+v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
+plot_compare(a1, a2, v1, v2, &quot;a&quot;, &quot;v&quot;; lgx=true, lgy=false, tol = 1e-4)</code></pre><img src="7c58de95.png" alt="Example block output"/><h3 id="Free-electron-fraction"><a class="docs-heading-anchor" href="#Free-electron-fraction">Free electron fraction</a><a id="Free-electron-fraction-1"></a><a class="docs-heading-anchor-permalink" href="#Free-electron-fraction" title="Permalink"></a></h3><pre><code class="language-julia hljs">Xe1 = reverse(sol1[&quot;th&quot;][&quot;x_e&quot;])
+Xe2 = sol2[M.b.rec.Xe]
+plot_compare(a1, a2, Xe1, Xe2, &quot;a&quot;, &quot;Xe&quot;; lgx=true, lgy=false, tol = 1e-3)</code></pre><img src="fd586ea9.png" alt="Example block output"/><h3 id="Baryon-temperature"><a class="docs-heading-anchor" href="#Baryon-temperature">Baryon temperature</a><a id="Baryon-temperature-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-temperature" title="Permalink"></a></h3><pre><code class="language-julia hljs">Tb1 = reverse(sol1[&quot;th&quot;][&quot;Tb[K]&quot;])
+Tb2 = sol2[M.b.rec.Tb]
+dTb1 = reverse(sol1[&quot;th&quot;][&quot;dTb[K]&quot;])
+dTb2 = sol2[M.b.rec.DTb] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS&#39; dT/dz = -1/H * dT/dt
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], &quot;a&quot;, [&quot;Tb&quot;, &quot;dTb&quot;]; lgx=true, lgy=true, tol = 1e1)</code></pre><img src="479effba.png" alt="Example block output"/><h3 id="Baryon-equation-of-state"><a class="docs-heading-anchor" href="#Baryon-equation-of-state">Baryon equation of state</a><a id="Baryon-equation-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-equation-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs"># baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
+wb1 = reverse(sol1[&quot;th&quot;][&quot;w_b&quot;])
+wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]
+plot_compare(a1, a2, wb1, wb2, &quot;a&quot;, &quot;wb&quot;; lgx=true, lgy=true, tol = 1e-9)</code></pre><img src="000a527b.png" alt="Example block output"/><h3 id="Baryon-sound-speed"><a class="docs-heading-anchor" href="#Baryon-sound-speed">Baryon sound speed</a><a id="Baryon-sound-speed-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-sound-speed" title="Permalink"></a></h3><pre><code class="language-julia hljs">csb²1 = reverse(sol1[&quot;th&quot;][&quot;c_b^2&quot;])
+csb²2 = sol2[M.b.rec.cₛ²]
+plot_compare(a1, a2, csb²1, csb²2, &quot;a&quot;, &quot;csb²&quot;; lgx=true, lgy=true, tol = 1e-8)</code></pre><img src="19cd403e.png" alt="Example block output"/><h2 id="Perturbations"><a class="docs-heading-anchor" href="#Perturbations">Perturbations</a><a id="Perturbations-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations" title="Permalink"></a></h2><h3 id="Metric-potentials"><a class="docs-heading-anchor" href="#Metric-potentials">Metric potentials</a><a id="Metric-potentials-1"></a><a class="docs-heading-anchor-permalink" href="#Metric-potentials" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = sol1[&quot;pt&quot;][&quot;a&quot;]
+a2 = sol2[1, M.g.a]
+Φ1, Ψ1 = sol1[&quot;pt&quot;][&quot;phi&quot;], sol1[&quot;pt&quot;][&quot;psi&quot;]
+Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], &quot;a&quot;, [&quot;Ψ&quot;, &quot;Φ&quot;]; lgx=true, tol = 1e-1)</code></pre><img src="f2a5f565.png" alt="Example block output"/><h3 id="Energy-overdensities"><a class="docs-heading-anchor" href="#Energy-overdensities">Energy overdensities</a><a id="Energy-overdensities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-overdensities" title="Permalink"></a></h3><pre><code class="language-julia hljs">δ1 = map(s -&gt; sol1[&quot;pt&quot;][&quot;delta_$s&quot;], [&quot;b&quot;, &quot;cdm&quot;, &quot;g&quot;, &quot;ur&quot;, &quot;ncdm[0]&quot;])
+δ2 = map(s -&gt; sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, δ1, δ2, &quot;a&quot;, [&quot;δb&quot;, &quot;δc&quot;, &quot;δγ&quot;, &quot;δν&quot;, &quot;δh&quot;]; lgx=true, lgy=true)</code></pre><img src="167c1318.png" alt="Example block output"/><h3 id="Momenta"><a class="docs-heading-anchor" href="#Momenta">Momenta</a><a id="Momenta-1"></a><a class="docs-heading-anchor-permalink" href="#Momenta" title="Permalink"></a></h3><pre><code class="language-julia hljs">θ1 = map(s -&gt; sol1[&quot;pt&quot;][&quot;theta_$s&quot;], [&quot;b&quot;, &quot;cdm&quot;, &quot;g&quot;, &quot;ur&quot;, &quot;ncdm[0]&quot;])
+θ2 = map(s -&gt; sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, θ1, θ2, &quot;a&quot;, [&quot;θb&quot;, &quot;θc&quot;, &quot;θγ&quot;, &quot;θν&quot;, &quot;θh&quot;]; lgx=true, lgy=true)</code></pre><img src="ed6807cb.png" alt="Example block output"/><h3 id="Dark-energy-overdensity"><a class="docs-heading-anchor" href="#Dark-energy-overdensity">Dark energy overdensity</a><a id="Dark-energy-overdensity-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-overdensity" title="Permalink"></a></h3><pre><code class="language-julia hljs">δρX1 = sol1[&quot;pt&quot;][&quot;delta_rho_fld&quot;]
+δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
+plot_compare(a1, a2, δρX1, δρX2, &quot;a&quot;, &quot;δρX&quot;; lgx=true, lgy=true, tol = 1e-4)</code></pre><img src="43ea761a.png" alt="Example block output"/><h3 id="Dark-energy-momentum"><a class="docs-heading-anchor" href="#Dark-energy-momentum">Dark energy momentum</a><a id="Dark-energy-momentum-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-momentum" title="Permalink"></a></h3><pre><code class="language-julia hljs">pX1 = sol1[&quot;pt&quot;][&quot;rho_plus_p_theta_fld&quot;]
+pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
+plot_compare(a1, a2, pX1, pX2, &quot;a&quot;, &quot;pX&quot;; lgx=true, lgy=true, tol = 1e-4)</code></pre><img src="0abff7c9.png" alt="Example block output"/><h3 id="Shear-stresses"><a class="docs-heading-anchor" href="#Shear-stresses">Shear stresses</a><a id="Shear-stresses-1"></a><a class="docs-heading-anchor-permalink" href="#Shear-stresses" title="Permalink"></a></h3><pre><code class="language-julia hljs">σ1 = [sol1[&quot;pt&quot;][&quot;shear_g&quot;], sol1[&quot;pt&quot;][&quot;shear_ur&quot;]]
+σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
+plot_compare(a1, a2, σ1, σ2, &quot;a&quot;, [&quot;σγ&quot;, &quot;σν&quot;]; lgx=true, tol = 1e-0)</code></pre><img src="e9ff6aaa.png" alt="Example block output"/><h3 id="Polarization"><a class="docs-heading-anchor" href="#Polarization">Polarization</a><a id="Polarization-1"></a><a class="docs-heading-anchor-permalink" href="#Polarization" title="Permalink"></a></h3><pre><code class="language-julia hljs">P1 = map(n -&gt; sol1[&quot;pt&quot;][&quot;pol$(n)_g&quot;], 0:2)
+P2 = map(n -&gt; sol2[1, M.γ.G[n]], 0:2)
+plot_compare(a1, a2, P1, P2, &quot;a&quot;, [&quot;P0&quot;, &quot;P1&quot;, &quot;P2&quot;]; lgx=true, tol = 1e-1)</code></pre><img src="31e5aa0d.png" alt="Example block output"/><h2 id="Matter-power-spectrum"><a class="docs-heading-anchor" href="#Matter-power-spectrum">Matter power spectrum</a><a id="Matter-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#Matter-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function P_class(pars)
+    sol = solve_class(pars; out = [&quot;P&quot;])
+    k = sol[&quot;P&quot;][&quot;k(h/Mpc)&quot;] * h
+    P = sol[&quot;P&quot;][&quot;P(Mpc/h)^3&quot;] / h^3
+    return k, P
+end
+function P_symboltz(k, pars)
+    prob′ = remake(prob, pars)
+    P = spectrum_matter(prob′, k / u&quot;Mpc&quot;) / u&quot;Mpc^3&quot;
+    return k, P
+end
+k, P1 = P_class(pars)
+_, P2 = P_symboltz(k, pars)
+plot_compare(k, k, P1, P2, &quot;k/Mpc⁻¹&quot;, &quot;P/Mpc³&quot;; lgx = true, lgy = true, tol = 1e3)</code></pre><img src="111b951c.png" alt="Example block output"/><pre><code class="language-julia hljs">using ForwardDiff, FiniteDiff
+diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h] # TODO: more
+θ = map(var -&gt; pars[var], diffpars)
+# TODO: how to be sure finite difference uses same ks always?
+∂logP1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; log.(P_class(merge(pars, Dict(diffpars .=&gt; θ)))[2]), θ; relstep = 1e-4)
+∂logP2_∂θ = ForwardDiff.jacobian(θ -&gt; log.(P_symboltz(k, Dict(diffpars .=&gt; θ))[2]), θ)
+plot_compare(k, k, eachcol(∂logP1_∂θ), eachcol(∂logP2_∂θ), &quot;k&quot;, [&quot;∂(lg(P))/∂($par)&quot; for par in [&quot;Ωc0&quot;, &quot;Ωb0&quot;, &quot;h&quot;]]; lgx = true)</code></pre><img src="a3909866.png" alt="Example block output"/><h2 id="CMB-power-spectrum"><a class="docs-heading-anchor" href="#CMB-power-spectrum">CMB power spectrum</a><a id="CMB-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#CMB-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function Dl_class(modes, l, pars)
+    sol = solve_class(pars; out = [&quot;Cl&quot;])
+    lout = sol[&quot;Cl&quot;][&quot;l&quot;]
+    Dl = [sol[&quot;Cl&quot;][string(mode)] for mode in modes]
+    i = findall(l′ -&gt; l′ in l, lout)
+    Dl = [Dl[j][i] for j in eachindex(modes)]
+    return Dl
+end
+function Dl_symboltz(modes, l, pars)
+    prob′ = remake(prob, pars)
+    return spectrum_cmb(modes, prob′, l; normalization = :Dl)
+end
+
+l = 10:10:2500 # CLASS default is lmax = 2500
+Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
+Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
+plot_compare(l, l, Dl1[1:1], Dl2[1:1], &quot;l&quot;, [&quot;Dₗ(TT)&quot;]; tol = 1e-11)</code></pre><img src="6c0ba117.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[2:2], Dl2[2:2], &quot;l&quot;, [&quot;Dₗ(TE)&quot;]; tol = 1e-13)</code></pre><img src="717807d8.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[3:3], Dl2[3:3], &quot;l&quot;, [&quot;Dₗ(EE)&quot;]; tol = 1e-13)</code></pre><img src="db68972a.png" alt="Example block output"/><h3 id="Derivatives"><a class="docs-heading-anchor" href="#Derivatives">Derivatives</a><a id="Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">function plot_compare_Dl_diff(mode)
+    ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; only(Dl_class([mode], l, merge(pars, Dict(diffpars .=&gt; θ)))), θ; relstep = 1e-2) # 1e-5 very noisy, 1e-4 noisy
+    ∂Dl2_∂θ = ForwardDiff.jacobian(θ -&gt; only(Dl_symboltz([mode], l, Dict(diffpars .=&gt; θ))), θ)
+    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), &quot;l&quot;, [&quot;∂(Dₗ)/∂($par) ($mode)&quot; for par in [&quot;Ωc0&quot;, &quot;Ωb0&quot;, &quot;h&quot;]])
+end
+plot_compare_Dl_diff(:TT)</code></pre><img src="d31b7196.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:TE)</code></pre><img src="973528b1.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:EE)</code></pre><img src="1abd95a7.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Thursday 1 May 2025 22:05">Thursday 1 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
