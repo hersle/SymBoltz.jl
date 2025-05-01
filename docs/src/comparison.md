@@ -12,7 +12,7 @@ using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
-using Plots
+using CairoMakie
 
 lmax = 6
 M = w0waCDM(; lmax)
@@ -21,6 +21,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.wa => 0.1,
     M.X.cₛ² => 0.9
 ))
+h = pars[M.g.h] # needed later
 prob = CosmologyProblem(M, pars)
 
 function run_class(in::Dict{String, Any}, exec, inpath, outpath)
@@ -37,17 +38,17 @@ function run_class(in::Dict{String, Any}, exec, inpath, outpath)
     return run(`$exec $inpath`) # run
 end
 
-function solve_class(pars, k; exec="class", dir = mktempdir())
+function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = Set(["bg", "th", "pt", "P", "Cl"]))
+    isnothing(k) && filter!(s -> s != "pt", out)
     inpath = joinpath(dir, "input.ini")
     outpath = joinpath(dir, "output", "")
-    k = NoUnits(k / u"1/Mpc")
     in = Dict(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
         "background_verbose" => 2,
         "output" => "mPk, tCl, pCl", # need one to evolve perturbations
 
-        "k_output_values" => k,
+        "k_output_values" => isnothing(k) ? "" : NoUnits(k / u"1/Mpc"),
         "ic" => "ad",
         "modes" => "s",
         "gauge" => "newtonian",
@@ -109,7 +110,8 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
     secs = @elapsed run_class(in, exec, inpath, outpath)
     println("Ran CLASS in $secs seconds in directory $dir")
     output = Dict()
-    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, 50000), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
+    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, typemax(Int)), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
+        name ∉ out && continue
         file = joinpath(outpath, filename)
         data, head = readdlm(file, skipstart=skipstart, header=true)
         head = split(join(head, ""), ":")
@@ -128,84 +130,14 @@ function solve_class(pars, k; exec="class", dir = mktempdir())
     return output
 end
 
-ks = 1e1 / u"Mpc" # 1/Mpc
-sol1 = solve_class(pars, ks)
-sol2 = solve(prob, ks; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+k = 1e1 / u"Mpc" # 1/Mpc
+sol1 = solve_class(pars, k)
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
-# map results from both codes to common convention
-h = pars[M.g.h]
-sols = Dict(
-    # background
-    "a_bg" => (1 ./ (sol1["bg"]["z"] .+ 1), sol2[M.g.a]),
-    "χ" => (sol1["bg"]["conf.time[Mpc]"][end] .- sol1["bg"]["conf.time[Mpc]"], sol2[M.χ] / (h * SymBoltz.k0)),
-    "E" => (sol1["bg"]["H[1/Mpc]"] ./ sol1["bg"]["H[1/Mpc]"][end], sol2[M.g.E]),
-    "ργ" => (sol1["bg"]["(.)rho_g"], sol2[M.γ.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "ρν" => (sol1["bg"]["(.)rho_ur"], sol2[M.ν.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "ρc" => (sol1["bg"]["(.)rho_cdm"], sol2[M.c.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "ρb" => (sol1["bg"]["(.)rho_b"], sol2[M.b.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "ρX" => (sol1["bg"]["(.)rho_fld"], sol2[M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "ρh" => (sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "wh" => (sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"], sol2[M.h.w]),
-    "wX" => (sol1["bg"]["(.)w_fld"], sol2[M.X.w]),
-    "dL" => (sol1["bg"]["lum.dist."], SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc),
-
-    # thermodynamics
-    "a_th" => (reverse(sol1["th"]["scalefactora"]), sol2[M.g.a]),
-    "κ̇" => (reverse(sol1["th"]["kappa'[Mpc^-1]"]), -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)),
-    "csb²" => (reverse(sol1["th"]["c_b^2"]), sol2[M.b.rec.cₛ²]),
-    "Xe" => (reverse(sol1["th"]["x_e"]), sol2[M.b.rec.Xe]),
-    "Tb" => (reverse(sol1["th"]["Tb[K]"]), sol2[M.b.rec.Tb]),
-    "exp(-κ)" => (reverse(sol1["th"]["exp(-kappa)"]), sol2[exp(-M.b.rec.κ)]),
-    "v" => (reverse(sol1["th"]["g[Mpc^-1]"]), sol2[M.b.rec.v] * (h*SymBoltz.k0)),
-    "dTb" => (reverse(sol1["th"]["dTb[K]"]), sol2[M.b.rec.DTb] ./ -sol2[M.g.E]), # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
-    "wb" => (reverse(sol1["th"]["w_b"]), sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]), # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
-
-    # perturbations
-    "a_pt" => (sol1["pt"]["a"], sol2[1, M.g.a]),
-    "Φ" => (sol1["pt"]["phi"], sol2[1, M.g.Φ]),
-    "Ψ" => (sol1["pt"]["psi"], sol2[1, M.g.Ψ]),
-    "δb" => (sol1["pt"]["delta_b"], sol2[1, M.b.δ]),
-    "δc" => (sol1["pt"]["delta_cdm"], sol2[1, M.c.δ]),
-    "δγ" => (sol1["pt"]["delta_g"], sol2[1, M.γ.δ]),
-    "δν" => (sol1["pt"]["delta_ur"], sol2[1, M.ν.δ]),
-    "δh" => (sol1["pt"]["delta_ncdm[0]"], sol2[1, M.h.δ]),
-    "δρX" => (sol1["pt"]["delta_rho_fld"], sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2),
-    "θb" => (sol1["pt"]["theta_b"], sol2[1, M.b.θ] * (h*SymBoltz.k0)),
-    "θc" => (sol1["pt"]["theta_cdm"], sol2[1, M.c.θ] * (h*SymBoltz.k0)),
-    "θγ" => (sol1["pt"]["theta_g"], sol2[1, M.γ.θ] * (h*SymBoltz.k0)),
-    "θν" => (sol1["pt"]["theta_ur"], sol2[1, M.ν.θ] * (h*SymBoltz.k0)),
-    "θh" => (sol1["pt"]["theta_ncdm[0]"], sol2[1, M.h.θ] * (h*SymBoltz.k0)),
-    "pX" => (sol1["pt"]["rho_plus_p_theta_fld"], sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]),
-    "σγ" => (sol1["pt"]["shear_g"], sol2[1, M.γ.σ]),
-    "σν" => (sol1["pt"]["shear_ur"], sol2[1, M.ν.F[2] / 2]),
-    "P0" => (sol1["pt"]["pol0_g"], sol2[1, M.γ.G[0]]),
-    "P1" => (sol1["pt"]["pol1_g"], sol2[1, M.γ.G[1]]),
-    "P2" => (sol1["pt"]["pol2_g"], sol2[1, M.γ.G[2]]),
-)
-
-# matter power spectrum
-ks = sol1["P"]["k(h/Mpc)"] * h # 1/Mpc
-Ps_class = sol1["P"]["P(Mpc/h)^3"] / h^3
-Ps = spectrum_matter(prob, ks / u"Mpc") / u"Mpc^3"
-
-# CMB power spectrum
-ls = Int.(sol1["Cl"]["l"][begin:10:end])
-DlTTs_class = sol1["Cl"]["TT"][begin:10:end]
-DlTEs_class = sol1["Cl"]["TE"][begin:10:end]
-DlEEs_class = sol1["Cl"]["EE"][begin:10:end]
-DlTTs, DlTEs, DlEEs = spectrum_cmb([:TT, :TE, :EE], prob, ls; normalization = :Dl)
-
-sols = merge(sols, Dict(
-    "k" => (ks, ks),
-    "P" => (Ps_class, Ps),
-    "l" => (ls, ls),
-    "DlTT" => (DlTTs_class, DlTTs),
-    "DlTE" => (DlTEs_class, DlTEs),
-    "DlEE" => (DlEEs_class, DlEEs)
-))
-
-function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, alpha=1.0, atol = nothing, rtol = nothing, kwargs...)
+function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
+        y1s = [y1s]
+        y2s = [y2s]
         ylabels = [ylabels]
     end
 
@@ -214,18 +146,27 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
     xlab(x) = lgx ? "lg(|$x|)" : x
     ylab(y) = lgy ? "lg(|$y|)" : y
 
-    p = plot(; layout=grid(2, 1, heights=(3/4, 1/4)), size = (800, 600))
-    plot!(p[1]; titlefontsize = 8, ylabel = join(ylab.(ylabels), ", "))
+    fig = Figure(width = 800, height = 600)
+    ax1 = Axis(fig[2:3, 1]; xticklabelsvisible = false)
+    ax2 = Axis(fig[4, 1]; xlabel = xlab(xlabel), yminorticks = IntervalsBetween(10), yminorgridvisible = true)
     maxerr = 0.0
     xlims = (NaN, NaN)
-    for (i, ylabel) in enumerate(ylabels)
-        x1, x2 = sols[xlabel]
-        y1, y2 = sols[ylabel]
+    linewidth = 2
+    lines!(ax1, [NaN]; color = :black, linewidth, linestyle = :solid, label = "CLASS") # dummy for legend entry
+    lines!(ax1, [NaN]; color = :black, linewidth, linestyle = :dash, label = "SymBoltz") # dummy for legend entry
+    for (i, (y1, y2, ylabel)) in enumerate(zip(y1s, y2s, ylabels))
+        x1, x2 = x1s, x2s
         x1min, x1max = extrema(x1)
         x2min, x2max = extrema(x2)
 
-        plot!(p[1], xplot(x1), yplot(y1); color = :grey, linewidth = 2, alpha, linestyle = :solid, label = i == 1 ? "CLASS" : nothing, xformatter = _ -> "")
-        plot!(p[1], xplot(x2), yplot(y2); color = :black, linewidth = 2, alpha, linestyle = :dash,  label = i == 1 ? "SymBoltz" : nothing)
+        plotx1 = xplot(x1) # https://discourse.julialang.org/t/makie-axis-limits-with-inf/85784
+        plotx2 = xplot(x2)
+        ploty1 = replace!(yplot(y1), -Inf => NaN, Inf => NaN)
+        ploty2 = replace!(yplot(y2), -Inf => NaN, Inf => NaN)
+        color = Makie.wong_colors()[i]
+        lines!(ax1, plotx1, ploty1; color, alpha = 0.6, linewidth, linestyle = :solid)
+        lines!(ax1, plotx2, ploty2; color, alpha = 0.6, linewidth, linestyle = :dash)
+        lines!(ax1, [NaN]; color, linewidth, label = ylab(ylabel)) # dummy for legend entry
 
         if i == 1
             xlims = (x1min, x1max) # initialize so not NaN
@@ -248,8 +189,7 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
         y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
-        !isnothing(atol) && @assert all(isapprox.(y1, y2; atol)) "$ylabel does not match within absolute tolerance $atol"
-        !isnothing(rtol) && @assert all(isapprox.(y1, y2; rtol)) "$ylabel does not match within relative tolerance $rtol"
+        !isnothing(tol) && @assert all(isapprox.(y1, y2; atol = tol)) "$ylabel does not match within absolute tolerance $tol. Maximum difference was $(maximum(abs.(y1.-y2)))."
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
@@ -260,8 +200,9 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
             err = y2 ./ y1 .- 1
             ylabel = "SymBoltz / CLASS - 1"
         end
+        ax2.ylabel = ylabel
         maxerr = max(maxerr, maximum(abs.(err)))
-        plot!(p[end], xplot(x), err; linewidth = 2, yminorticks = 10, yminorgrid = true, color = :black, xlabel = xlab(xlabel), ylabel, top_margin = -5*Plots.mm, label = nothing)
+        lines!(ax2, xplot(x), err; color, alpha = 1.0, linewidth)
     end
 
     # write maximum error like a * 10^b (for integer a and b)
@@ -270,12 +211,16 @@ function plot_compare(xlabel, ylabels; lgx=false, lgy=false, common=false, errty
         a = ceil(maxerr / 10^b)
         errlim = a * 10^b
     end
-    plot!(p[end], ylims = (-errlim, +errlim))
+    Makie.ylims!(ax2, (-errlim, +errlim))
 
     xlims = xplot.(xlims) # transform to log?
-    plot!(p; xlims, kwargs...)
+    Makie.xlims!(ax1, xlims)
+    Makie.xlims!(ax2, xlims)
 
-    return p
+    #axislegend(ax1)
+    fig[1, 1] = Legend(fig, ax1; padding = (0, 0, 0, 0), margin = (0, 0, 0, 0), framevisible = false, orientation = :horizontal)
+
+    return fig
 end
 nothing # hide
 ```
@@ -287,100 +232,229 @@ nothing # hide
 
 ### Conformal time
 ```@example class
-plot_compare("a_bg", "χ"; atol = 1e-2)
+a1 = (1 ./ (sol1["bg"]["z"] .+ 1))
+a2 = sol2[M.g.a]
+χ1 = sol1["bg"]["conf.time[Mpc]"][end].-sol1["bg"]["conf.time[Mpc]"]
+χ2 = sol2[M.χ] / (h * SymBoltz.k0)
+plot_compare(a1, a2, χ1, χ2, "a", "χ"; tol = 1e-2)
 ```
 ### Hubble function
 ```@example class
-plot_compare("a_bg", "E"; lgx=true, lgy=true, rtol = 1e-5)
+E1 = sol1["bg"]["H[1/Mpc]"]./sol1["bg"]["H[1/Mpc]"][end]
+E2 = sol2[M.g.E]
+plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 1e9)
 ```
 ### Energy densities
 ```@example class
-plot_compare("a_bg", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, rtol = 1e-3)
+ρ1 = map(s -> sol1["bg"]["(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
+ρ2 = map(s -> sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
+plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 1e16)
 ```
 ### Equations of state
 ```@example class
-plot_compare("a_bg", ["wh", "wX"]; lgx=true, atol = 1e-3)
+wh1 = sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"]
+wh2 = sol2[M.h.w]
+wX1 = sol1["bg"]["(.)w_fld"]
+wX2 = sol2[M.X.w]
+plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 1e-3)
 ```
 ### Luminosity distance
 ```@example class
-plot_compare("a_bg", "dL"; lgx=true, lgy=true)
+dL1 = sol1["bg"]["lum.dist."]
+dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
+plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true)
 ```
 
 ## Thermodynamics
 
 ### Optical depth derivative
 ```@example class
-plot_compare("a_th", "κ̇"; lgx=true, lgy=true, rtol = 1e-1)
+a1 = reverse(sol1["th"]["scalefactora"])
+a2 = sol2[M.g.a]
+dκ1 = reverse(sol1["th"]["kappa'[Mpc^-1]"])
+dκ2 = -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)
+plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 1e4)
 ```
 ### Optical depth exponential
 ```@example class
-plot_compare("a_th", "exp(-κ)"; lgx=true, atol = 1e-3)
+expmκ1 = reverse(sol1["th"]["exp(-kappa)"])
+expmκ2 = sol2[exp(-M.b.rec.κ)]
+plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-3)
 ```
 ### Visibility function
 ```@example class
-plot_compare("a_th", "v"; lgx=true, lgy=false, atol = 1e-4)
+v1 = reverse(sol1["th"]["g[Mpc^-1]"])
+v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
+plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-4)
 ```
 ### Free electron fraction
 ```@example class
-plot_compare("a_th", "Xe"; lgx=true, lgy=false, atol = 1e-3)
+Xe1 = reverse(sol1["th"]["x_e"])
+Xe2 = sol2[M.b.rec.Xe]
+plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 1e-3)
 ```
 ### Baryon temperature
 ```@example class
-plot_compare("a_th", ["Tb", "dTb"]; lgx=true, lgy=true, atol = 1e1)
+Tb1 = reverse(sol1["th"]["Tb[K]"])
+Tb2 = sol2[M.b.rec.Tb]
+dTb1 = reverse(sol1["th"]["dTb[K]"])
+dTb2 = sol2[M.b.rec.DTb] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 1e1)
 ```
 ### Baryon equation of state
 ```@example class
-plot_compare("a_th", "wb"; lgx=true, lgy=true, rtol = 1e-2)
+# baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
+wb1 = reverse(sol1["th"]["w_b"])
+wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]
+plot_compare(a1, a2, wb1, wb2, "a", "wb"; lgx=true, lgy=true, tol = 1e-9)
 ```
 ### Baryon sound speed
 ```@example class
-plot_compare("a_th", "csb²"; lgx=true, lgy=true, atol = 1e-8)
+csb²1 = reverse(sol1["th"]["c_b^2"])
+csb²2 = sol2[M.b.rec.cₛ²]
+plot_compare(a1, a2, csb²1, csb²2, "a", "csb²"; lgx=true, lgy=true, tol = 1e-8)
 ```
 
 ## Perturbations
 
 ### Metric potentials
 ```@example class
-plot_compare("a_pt", ["Ψ", "Φ"]; lgx=true, atol = 1e-1)
+a1 = sol1["pt"]["a"]
+a2 = sol2[1, M.g.a]
+Φ1, Ψ1 = sol1["pt"]["phi"], sol1["pt"]["psi"]
+Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 1e-1)
 ```
 ### Energy overdensities
 ```@example class
-plot_compare("a_pt", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
+δ1 = map(s -> sol1["pt"]["delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
+δ2 = map(s -> sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
 ```
 ### Momenta
 ```@example class
-plot_compare("a_pt", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
+θ1 = map(s -> sol1["pt"]["theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
+θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
 ```
 ### Dark energy overdensity
 ```@example class
-plot_compare("a_pt", "δρX"; lgx=true, lgy=true, atol = 1e-4)
+δρX1 = sol1["pt"]["delta_rho_fld"]
+δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
+plot_compare(a1, a2, δρX1, δρX2, "a", "δρX"; lgx=true, lgy=true, tol = 1e-4)
 ```
 ### Dark energy momentum
 ```@example class
-plot_compare("a_pt", "pX"; lgx=true, lgy=true, atol = 1e-4)
+pX1 = sol1["pt"]["rho_plus_p_theta_fld"]
+pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
+plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 1e-4)
 ```
 ### Shear stresses
 ```@example class
-plot_compare("a_pt", ["σγ", "σν"]; lgx=true, atol = 1e-0)
+σ1 = [sol1["pt"]["shear_g"], sol1["pt"]["shear_ur"]]
+σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 1e-0)
 ```
 ### Polarization
 ```@example class
-plot_compare("a_pt", ["P0", "P1", "P2"]; lgx=true, atol = 1e-1)
+P1 = map(n -> sol1["pt"]["pol$(n)_g"], 0:2)
+P2 = map(n -> sol2[1, M.γ.G[n]], 0:2)
+plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 1e-1)
 ```
 
-## Power spectra
+## Matter power spectrum
+```@example class
+function P_class(pars)
+    sol = solve_class(pars; out = ["P"])
+    h = pars[M.g.h]
+    k = sol["P"]["k(h/Mpc)"] * h
+    P = sol["P"]["P(Mpc/h)^3"] / h^3
+    return k, P
+end
+function P_class(k, pars)
+    k′, P′ = P_class(pars)
+    P = exp.(LinearInterpolation(log.(P′), log.(k′)).(log.(k)))
+    return P
+end
+function P_symboltz(k, pars)
+    prob′ = remake(prob, pars)
+    P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
+    return P
+end
+k, P1 = P_class(pars)
+P2 = P_symboltz(k, pars)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 1e2)
+```
+```@example class
+using ForwardDiff, FiniteDiff
 
-### Matter power spectrum
-```@example class
-plot_compare("k", "P"; lgx=true, lgy=true)
+k = 10 .^ range(-3, 0, length=100) # 1/Mpc
+function plot_compare_P_diff(par, val; relstep = 1e-2, kwargs...)
+    out = zeros(length(k))
+    f = function(out, logval)
+        val = exp(logval)
+        out .= log.(P_class(k, merge(pars, Dict(par => val))))
+        return out
+    end
+    ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
+    ∂logP2_∂logθ = ForwardDiff.derivative(logval -> log.(P_symboltz(k, Dict(par => exp(logval)))), log(val))
+    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, "k", "∂(log(P))/∂(log($par))"; lgx = true, kwargs...)
+end
+
+#∂logP1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> log.(P_class(merge(pars, Dict(diffpars .=> θ)))[2]), θ, Val{:central}; relstep = 1e-4) # hide
+#∂logP2_∂θ = ForwardDiff.jacobian(θ -> log.(P_symboltz(k, Dict(diffpars .=> θ))[2]), θ) # hide
+#plot_compare(k, k, eachcol(∂logP1_∂θ), eachcol(∂logP2_∂θ), "k", ["∂(lg(P))/∂($par)" for par in ["Ωc0", "Ωb0", "h"]]; lgx = true) # hide
+
+plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
 ```
-### CMB angular power spectrum
 ```@example class
-plot_compare("l", "DlTT")
+plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
 ```
 ```@example class
-plot_compare("l", "DlTE")
+plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
+```
+
+## CMB power spectrum
+```@example class
+function Dl_class(modes, l, pars)
+    sol = solve_class(pars; out = ["Cl"])
+    lout = sol["Cl"]["l"]
+    Dl = [sol["Cl"][string(mode)] for mode in modes]
+    i = findall(l′ -> l′ in l, lout)
+    Dl = [Dl[j][i] for j in eachindex(modes)]
+    return Dl
+end
+function Dl_symboltz(modes, l, pars)
+    prob′ = remake(prob, pars)
+    return spectrum_cmb(modes, prob′, l; normalization = :Dl)
+end
+
+l = 10:10:2500 # CLASS default is lmax = 2500
+Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
+Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
+plot_compare(l, l, Dl1[1:1], Dl2[1:1], "l", ["Dₗ(TT)"]; tol = 1e-11)
 ```
 ```@example class
-plot_compare("l", "DlEE")
+plot_compare(l, l, Dl1[2:2], Dl2[2:2], "l", ["Dₗ(TE)"]; tol = 1e-13)
 ```
+```@example class
+plot_compare(l, l, Dl1[3:3], Dl2[3:3], "l", ["Dₗ(EE)"]; tol = 1e-13)
+```
+### Derivatives
+```@example class
+diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
+θ = [pars[par] for par in diffpars]
+function plot_compare_Dl_diff(mode)
+    ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> only(Dl_class([mode], l, merge(pars, Dict(diffpars .=> θ)))), θ, Val{:central}; relstep = 1e-3)
+    ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> only(Dl_symboltz([mode], l, Dict(diffpars .=> θ))), θ)
+    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($par) ($mode)" for par in ["Ωc0", "Ωb0", "h"]])
+end
+plot_compare_Dl_diff(:TT)
+```
+```@example class
+plot_compare_Dl_diff(:TE)
+```
+```@example class
+plot_compare_Dl_diff(:EE)
+```
+

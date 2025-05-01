@@ -3,6 +3,7 @@ using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using TwoFAST
 using MatterPower
+using ForwardDiff # TODO: get rid of; to convert to Float64 inside spectrum_cmb
 
 """
     spectrum_primordial(k, h, As, ns=1.0)
@@ -158,6 +159,8 @@ An integral substitution `u(τ)` can be specified with `us` and `u′s`, so the 
 function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, τs::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
+
+    τs = ForwardDiff.value.(τs) # convert from Duals to e.g. Float64s; it is the independent parameter and is only used as an integration range, so should not affect the final result # TODO: safe?
 
     lmin, lmax = extrema(ls)
     lmin >= 1 || error("l must be 1 or higher") # TODO: relax?
