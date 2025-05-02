@@ -6,17 +6,21 @@ using MatterPower
 using ForwardDiff # TODO: get rid of; to convert to Float64 inside spectrum_cmb
 
 """
-    spectrum_primordial(k, h, As, ns=1.0)
+    spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
 
-Compute the primordial power spectrum with amplitude `As` at the wavenumber(s) `k`.
+Compute the primordial power spectrum
+```math
+P₀(k) = 2π² Aₛ (k/kₚ)^{nₛ-1} / k³
+```
+with spectral amplitude `As`, spectral index `ns` and pivot scale wavenumber `kp` at the wavenumber(s) `k`.
 """
-function spectrum_primordial(k, h, As, ns=1.0)
+function spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
     P = @. 2*π^2 / k^3 * As
 
     # compute k / kpivot with equal wavenumber units
     k = k_dimensionless.(k, h)
-    kpivot = k_dimensionless(0.05 / u"Mpc", h) # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
-    @. P *= (k/kpivot)^(ns-1)
+    @. P *= (k/kp)^(ns-1)
+
     return P
 end
 function spectrum_primordial(k, sol::CosmologySolution)
@@ -28,15 +32,31 @@ function spectrum_primordial(k, M::ODESystem, pars::Dict)
 end
 
 """
-    spectrum_matter(sol::CosmologySolution, k[, τ])
+    spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
 
-Compute the matter power spectrum from the cosmology solution `sol` at wavenumber(s) `k` and conformal time(s) `τ` (final, if omitted).
+Compute the power spectrum
+```math
+P(k,τ) = P₀(k) |Δ(k,τ)|²
+```
+of the total gauge-invariant overdensity
+```math
+Δ = δ + (3ℰ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℰ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
+```
+for the given `species` at wavenumber(s) `k` and conformal time(s) `tau` (final, if omitted) from the solution `sol`.
+By default, the species are cold dark matter, baryons and massive neutrinos, which are matter-like at late times in the ΛCDM model.
 """
 function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
     M = sol.prob.M
     species = getproperty.(M, filter(s -> have(M, s), species))
-    ρm = sum(s.ρ for s in species)
-    Δm = M.k^2*M.g.Φ / (4π*M.g.a^2*ρm) # TODO: wrong with dark energy perturbations? # TODO: compute sum(s.δ*s.ρ for s in species) / sum(s.ρ for s in species) + 3*M.g.ℰ*θm/k^2, like in https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L6615
+
+    δρ = sum(s.ρ*s.δ for s in species)
+    ρ = sum(s.ρ for s in species)
+    δ = δρ / ρ # total gauge-dependent overdensity
+
+    ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
+    ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
+    θ = ρ_plus_P_θ / ρ_plus_P
+    Δ = δ + 3*M.g.ℰ*θ/M.k^2 # total gauge-independent overdensity
 
     # convert P (through P0) to same units as 1/k^3
     #=
@@ -51,16 +71,15 @@ function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species =
     =#
 
     P0 = spectrum_primordial(k, sol)
-    P = P0 .* sol(k, τ, Δm^2) # Baumann (4.4.172)
+    P = P0 .* sol(k, τ, Δ^2) # Baumann (4.4.172)
 
     return P
 end
 
 """
-    spectrum_matter(M::ODESystem, pars, k[, τ]; species = [:c, :b, :h], solver = KenCarp4(), kwargs...)
+    spectrum_matter(prob::CosmologyProblem, k, τ = nothing; species = [:c, :b, :h], kwargs...)
 
-Compute the matter power spectrum from the cosmological model `M` with parameter `pars` at wavenumber(s) `k` and conformal time(s) `τ` (final, of omitted).
-The `solver` and other `kwargs` are passed to `solve`.
+Solve the problem `prob` with exact wavenumber(s) `k`, and then compute the power spectrum with the solution `sol`.
 """
 function spectrum_matter(prob::CosmologyProblem, k, τ = nothing; species = [:c, :b, :h], kwargs...)
     sol = solve(prob, k; kwargs...) # TODO: just save endpoints
