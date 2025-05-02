@@ -6,7 +6,7 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     pars = analytical ? (@parameters Ω₀) : []
-    vars = @variables w(τ) ρ(τ) P(τ) Ω(τ) δ(τ) θ(τ) Δ(τ) θinteraction(τ) σ(τ) cₛ²(τ) u(τ) u̇(τ)
+    vars = @variables w(τ) ρ(τ) P(τ) Ω(τ) δ(τ) θ(τ) θinteraction(τ) σ(τ) cₛ²(τ) u(τ) u̇(τ)
     eqs0 = [
         w ~ _w # equation of state
         P ~ w * ρ # equation of state
@@ -18,7 +18,6 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
         u ~ θ / k # velocity
         u̇ ~ D(u)
-        Δ ~ δ + 3(1+w) * g.ℰ/θ # Baumann (4.2.144) with v -> -u
         σ ~ _σ
     ] .|> O(ϵ^1)
     adiabatic && push!(eqs1, O(ϵ^1)(cₛ² ~ w))
