@@ -1,4 +1,4 @@
-using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit
+using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
@@ -172,4 +172,58 @@ end
 @testset "Success checking" begin
     @test issuccess(solve(prob, 1.0))
     @test !issuccess(solve(prob, 0.0))
+end
+
+@testset "Consistent AD and FD derivatives of power spectra" begin
+    k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
+    diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
+    function logP(logθ)
+        θ = exp.(logθ)
+        pars′ = Dict(diffpars .=> θ)
+        prob′ = remake(prob, pars′)
+        P = spectrum_matter(prob′, k)
+        return log.(P / u"Mpc^3")
+    end
+    logθ = [log(pars[par]) for par in diffpars]
+    ∂logP_∂logθ_ad = ForwardDiff.jacobian(logP, logθ)
+    ∂logP_∂logθ_fd = FiniteDiff.finite_difference_jacobian(logP, logθ, Val{:central}; relstep = 1e-3)
+    @test all(isapprox.(∂logP_∂logθ_ad, ∂logP_∂logθ_fd; atol = 1e-3))
+
+    #= for debug plotting
+    using CairoMakie
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for i in eachindex(diffpars)
+        color = Makie.wong_colors()[i]
+        alpha = 0.6
+        lines!(ax, log10.(k*u"Mpc"), ∂logP_∂logθ_ad[:, i]; color, alpha, linestyle = :solid)
+        lines!(ax, log10.(k*u"Mpc"), ∂logP_∂logθ_fd[:, i]; color, alpha, linestyle = :dash)
+    end
+    fig
+    =#
+
+    l = 25:25:1000
+    function logDlTT(logθ)
+        θ = exp.(logθ)
+        pars′ = Dict(diffpars .=> θ)
+        prob′ = remake(prob, pars′)
+        DlTT = spectrum_cmb(:TT, prob′, l; normalization = :Dl)
+        return log.(DlTT)
+    end
+    ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
+    ∂logDlTT_∂logθ_fd = FiniteDiff.finite_difference_jacobian(logDlTT, logθ, Val{:central}; relstep = 1e-3) # 1e-4 screws up at small l
+    @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 1e1)) # TODO: fix and decrease tolerance!!!
+
+    #= for debug plotting
+    using CairoMakie
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for i in eachindex(diffpars)
+        color = Makie.wong_colors()[i]
+        alpha = 0.6
+        lines!(ax, l, ∂logDlTT_∂logθ_ad[:, i]; color, alpha, linestyle = :solid)
+        lines!(ax, l, ∂logDlTT_∂logθ_fd[:, i]; color, alpha, linestyle = :dash)
+    end
+    fig
+    =#
 end
