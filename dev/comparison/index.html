@@ -238,7 +238,7 @@ Chose ndf15 as generic_evolver
  Other Content                    Omega = 0.684664        , omega = 0.310658
  TOTAL                            Omega = 1               , omega = 0.453737
  --------------------------------------------------------------------
-Ran CLASS in 22.289716052 seconds in directory /tmp/jl_fNIVng
+Ran CLASS in 22.191903259 seconds in directory /tmp/jl_h9mikd
 Read _background.dat with 40000x22 numbers
 Read _thermodynamics.dat with 28333x12 numbers
 Read _perturbations_k0_s.dat with 970515x24 numbers
@@ -294,24 +294,40 @@ plot_compare(a1, a2, σ1, σ2, &quot;a&quot;, [&quot;σγ&quot;, &quot;σν&quot
 P2 = map(n -&gt; sol2[1, M.γ.G[n]], 0:2)
 plot_compare(a1, a2, P1, P2, &quot;a&quot;, [&quot;P0&quot;, &quot;P1&quot;, &quot;P2&quot;]; lgx=true, tol = 1e-1)</code></pre><img src="31e5aa0d.png" alt="Example block output"/><h2 id="Matter-power-spectrum"><a class="docs-heading-anchor" href="#Matter-power-spectrum">Matter power spectrum</a><a id="Matter-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#Matter-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function P_class(pars)
     sol = solve_class(pars; out = [&quot;P&quot;])
+    h = pars[M.g.h]
     k = sol[&quot;P&quot;][&quot;k(h/Mpc)&quot;] * h
     P = sol[&quot;P&quot;][&quot;P(Mpc/h)^3&quot;] / h^3
     return k, P
 end
+function P_class(k, pars)
+    k′, P′ = P_class(pars)
+    P = exp.(LinearInterpolation(log.(P′), log.(k′)).(log.(k)))
+    return P
+end
 function P_symboltz(k, pars)
     prob′ = remake(prob, pars)
     P = spectrum_matter(prob′, k / u&quot;Mpc&quot;) / u&quot;Mpc^3&quot;
-    return k, P
+    return P
 end
 k, P1 = P_class(pars)
-_, P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, &quot;k/Mpc⁻¹&quot;, &quot;P/Mpc³&quot;; lgx = true, lgy = true, tol = 1e3)</code></pre><img src="33d265c0.png" alt="Example block output"/><pre><code class="language-julia hljs">using ForwardDiff, FiniteDiff
-diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h] # TODO: more
-θ = map(var -&gt; pars[var], diffpars)
-# TODO: how to be sure finite difference uses same ks always?
-∂logP1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; log.(P_class(merge(pars, Dict(diffpars .=&gt; θ)))[2]), θ; relstep = 1e-4)
-∂logP2_∂θ = ForwardDiff.jacobian(θ -&gt; log.(P_symboltz(k, Dict(diffpars .=&gt; θ))[2]), θ)
-plot_compare(k, k, eachcol(∂logP1_∂θ), eachcol(∂logP2_∂θ), &quot;k&quot;, [&quot;∂(lg(P))/∂($par)&quot; for par in [&quot;Ωc0&quot;, &quot;Ωb0&quot;, &quot;h&quot;]]; lgx = true)</code></pre><img src="7171f676.png" alt="Example block output"/><h2 id="CMB-power-spectrum"><a class="docs-heading-anchor" href="#CMB-power-spectrum">CMB power spectrum</a><a id="CMB-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#CMB-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function Dl_class(modes, l, pars)
+P2 = P_symboltz(k, pars)
+plot_compare(k, k, P1, P2, &quot;k/Mpc⁻¹&quot;, &quot;P/Mpc³&quot;; lgx = true, lgy = true, tol = 1e2)</code></pre><img src="33d265c0.png" alt="Example block output"/><pre><code class="language-julia hljs">using ForwardDiff, FiniteDiff
+
+k = 10 .^ range(-3, 0, length=100) # 1/Mpc
+function plot_compare_P_diff(par, val; relstep = 1e-2, kwargs...)
+    out = zeros(length(k))
+    f = function(out, logval)
+        val = exp(logval)
+        out .= log.(P_class(k, merge(pars, Dict(par =&gt; val))))
+        return out
+    end
+    ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
+    ∂logP2_∂logθ = ForwardDiff.derivative(logval -&gt; log.(P_symboltz(k, Dict(par =&gt; exp(logval)))), log(val))
+    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, &quot;k&quot;, &quot;∂(log(P))/∂(log($par))&quot;; lgx = true, kwargs...)
+end
+
+
+plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier</code></pre><img src="8f172309.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier</code></pre><img src="42962845.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier</code></pre><img src="c93d6819.png" alt="Example block output"/><h2 id="CMB-power-spectrum"><a class="docs-heading-anchor" href="#CMB-power-spectrum">CMB power spectrum</a><a id="CMB-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#CMB-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function Dl_class(modes, l, pars)
     sol = solve_class(pars; out = [&quot;Cl&quot;])
     lout = sol[&quot;Cl&quot;][&quot;l&quot;]
     Dl = [sol[&quot;Cl&quot;][string(mode)] for mode in modes]
@@ -327,9 +343,11 @@ end
 l = 10:10:2500 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[1:1], Dl2[1:1], &quot;l&quot;, [&quot;Dₗ(TT)&quot;]; tol = 1e-11)</code></pre><img src="6c0ba117.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[2:2], Dl2[2:2], &quot;l&quot;, [&quot;Dₗ(TE)&quot;]; tol = 1e-13)</code></pre><img src="717807d8.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[3:3], Dl2[3:3], &quot;l&quot;, [&quot;Dₗ(EE)&quot;]; tol = 1e-13)</code></pre><img src="db68972a.png" alt="Example block output"/><h3 id="Derivatives"><a class="docs-heading-anchor" href="#Derivatives">Derivatives</a><a id="Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">function plot_compare_Dl_diff(mode)
-    ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; only(Dl_class([mode], l, merge(pars, Dict(diffpars .=&gt; θ)))), θ; relstep = 1e-2) # 1e-5 very noisy, 1e-4 noisy
+plot_compare(l, l, Dl1[1:1], Dl2[1:1], &quot;l&quot;, [&quot;Dₗ(TT)&quot;]; tol = 1e-11)</code></pre><img src="6c0ba117.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[2:2], Dl2[2:2], &quot;l&quot;, [&quot;Dₗ(TE)&quot;]; tol = 1e-13)</code></pre><img src="717807d8.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[3:3], Dl2[3:3], &quot;l&quot;, [&quot;Dₗ(EE)&quot;]; tol = 1e-13)</code></pre><img src="db68972a.png" alt="Example block output"/><h3 id="Derivatives"><a class="docs-heading-anchor" href="#Derivatives">Derivatives</a><a id="Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
+θ = [pars[par] for par in diffpars]
+function plot_compare_Dl_diff(mode)
+    ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; only(Dl_class([mode], l, merge(pars, Dict(diffpars .=&gt; θ)))), θ, Val{:central}; relstep = 1e-3)
     ∂Dl2_∂θ = ForwardDiff.jacobian(θ -&gt; only(Dl_symboltz([mode], l, Dict(diffpars .=&gt; θ))), θ)
     plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), &quot;l&quot;, [&quot;∂(Dₗ)/∂($par) ($mode)&quot; for par in [&quot;Ωc0&quot;, &quot;Ωb0&quot;, &quot;h&quot;]])
 end
-plot_compare_Dl_diff(:TT)</code></pre><img src="bc5ae930.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:TE)</code></pre><img src="973528b1.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:EE)</code></pre><img src="1abd95a7.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Saturday 3 May 2025 19:52">Saturday 3 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot_compare_Dl_diff(:TT)</code></pre><img src="5a2f86c1.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:TE)</code></pre><img src="334615ef.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:EE)</code></pre><img src="a0940991.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 4 May 2025 10:58">Sunday 4 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
