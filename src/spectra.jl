@@ -151,8 +151,14 @@ function sphericalbesseljslow!(out, ls::AbstractRange, x::Number)
     out .= sphericalbesselj.(ls, x)
 end
 function sphericalbesseljprime(l, ls, Jls)
-    i = 1 + l - ls[begin] # ls[i] == l (assuming stepo of ls is 1)
+    i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
     return l/(2*l+1)*Jls[i-1] - (l+1)/(2*l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
+end
+function sphericalbesselj_over_x2!(out, ls::AbstractRange, x::Number)
+    x = max(x, 1e-20) # avoid division by zero
+    sphericalbesseljfast!(out, ls, x)
+    out ./= x .^2
+    return out
 end
 
 function integrate(xs, ys; integrator = TrapezoidalRule())
