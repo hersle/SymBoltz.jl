@@ -140,3 +140,9 @@ dLs = SymBoltz.distance_luminosity(sol, τs) / SymBoltz.Gpc
 @assert dLs[begin] == 0.0 || zs[begin] != 0.0 # ensure bug does not reappear # hide
 plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```
+
+## Line-of-sight integration
+
+```@docs
+SymBoltz.los_integrate
+```

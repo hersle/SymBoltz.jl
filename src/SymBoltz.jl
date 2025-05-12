@@ -56,7 +56,8 @@ using PrecompileTools: @compile_workload
     Ps = spectrum_matter(sol, ks)
     ls = 1:3
     ks = sol.ks
-    Dls = spectrum_cmb(:TT, sol, ls, ks; normalization = :Dl)
+    τs = sol.bg.t
+    Dls = spectrum_cmb(:TT, sol, ls, ks, τs; normalization = :Dl)
 end
 
 end
