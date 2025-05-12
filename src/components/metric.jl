@@ -12,10 +12,12 @@ function metric(; name = :g, kwargs...)
         H(τ), [description = "Cosmic Hubble function"]
         Ψ(τ), [description = "Gravitational metric potential in gₜₜ = -a²(1+2Ψ)"]
         Φ(τ), [description = "Curvature metric potential in gᵢⱼ = a²(1-2Φ)δᵢⱼ"]
+        Ψ̇(τ), [description = "Derivative of Φ wrt. conformal time"]
+        Φ̇(τ), [description = "Derivative of Ψ wrt. conformal time"]
         z(τ), [description = "Redshift"]
         ż(τ), [description = "Redshift derivative"]
     end
-    vars = a, ℰ, E, ℋ, H, Ψ, Φ, z, ż = GlobalScope.(vars)
+    vars = a, ℰ, E, ℋ, H, Ψ, Φ, Ψ̇, Φ̇, z, ż = GlobalScope.(vars)
 
     pars = h, = GlobalScope.(@parameters h [description = "Dimensionless Hubble parameter today (H₀/(100km/s/Mpc))"])
     defaults = Dict(

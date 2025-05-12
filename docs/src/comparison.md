@@ -89,7 +89,7 @@ function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = S
         "w0_fld" => SymBoltz.have(M, :X) ? pars[M.X.w0] : -1.0,
         "wa_fld" => SymBoltz.have(M, :X) ? pars[M.X.wa] : 0.0,
         "cs2_fld" => SymBoltz.have(M, :X) ? pars[M.X.cₛ²] : 1.0,
-        "use_ppf" => "no", # use full equations
+        "use_ppf" => SymBoltz.have(M, :X) ? "no" : "yes", # use full equations (must be yes with CC to prevent crash)
 
         # other stuff
         "Omega_k" => SymBoltz.have(M, :K) ? pars[M.K.Ω₀] : 0.0, # curvature
@@ -432,13 +432,13 @@ end
 l = 10:10:2500 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[1:1], Dl2[1:1], "l", ["Dₗ(TT)"]; tol = 1e-11)
+plot_compare(l, l, Dl1[1], Dl2[1], "l", "Dₗ(TT)"; tol = 7e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[2:2], Dl2[2:2], "l", ["Dₗ(TE)"]; tol = 1e-13)
+plot_compare(l, l, Dl1[2], Dl2[2], "l", "Dₗ(TE)"; tol = 8e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[3:3], Dl2[3:3], "l", ["Dₗ(EE)"]; tol = 1e-13)
+plot_compare(l, l, Dl1[3], Dl2[3], "l", "Dₗ(EE)"; tol = 2e-14)
 ```
 ### Derivatives
 ```@example class

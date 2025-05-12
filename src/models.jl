@@ -48,10 +48,6 @@ function ΛCDM(;
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         S0(τ), [description = "1st CMB TT source function for spherical Bessel function"]
         S1(τ), [description = "2nd CMB TT source function for spherical Bessel function derivative"]
-        S_SW(τ), [description = "Sachs-Wolfe effect's contribution to 1st CMB source function"]
-        S_ISW(τ), [description = "Integrated Sachs-Wolfe effect's contribution to 1st CMB source function"]
-        S_Dop(τ), [description = "Doppler effect's contribution to 1st CMB source function"]
-        S_pol(τ), [description = "Polarization's contribution to 1st CMB source function"]
     end
     defs = Dict(
         C => 1//2,
@@ -80,12 +76,11 @@ function ΛCDM(;
         b.θinteraction ~ -b.rec.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.κ̇ ~ b.rec.κ̇
         γ.θb ~ b.θ
-        S_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
-        S_ISW ~ exp(-b.rec.κ) * D(g.Ψ + g.Φ) |> expand_derivatives
-        S_Dop ~ D(b.rec.v*b.u) / k |> expand_derivatives
-        S_pol ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
-        S0 ~ S_SW + S_ISW + S_Dop
-        S1 ~ S_pol
+
+        S0 ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16) + exp(-b.rec.κ) * (g.Ψ̇ + g.Φ̇) + D(b.rec.v*b.u) / k |> expand_derivatives
+        S1 ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
+        #S0 ~ b.rec.v*(γ.δ/4+g.Φ) + exp(-b.rec.κ)*2*D(g.Φ) + D(b.rec.v*b.u)/k + b.rec.v*γ.Π/16 |> expand_derivatives # equivalent alternative, after integration by parts
+        #S1 ~ exp(-b.rec.κ)*k*(g.Ψ-g.Φ) + 3/(16*k)*D(b.rec.v*γ.Π) |> expand_derivatives # equivalent alternative, after integration by parts
     ] .|> O(ϵ^1)
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?

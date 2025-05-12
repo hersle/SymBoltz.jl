@@ -37,6 +37,8 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
     eqs1 = [
         D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
+        g.Ψ̇ ~ D(g.Ψ)
+        g.Φ̇ ~ D(g.Φ)
     ] .|> O(ϵ^1)
     guesses = [ρ => 0.1, D(a) => +1]
     description = "General relativity gravity"
@@ -94,6 +96,8 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         D(Φ) ~ -(8*Num(π)*a^2*(2*Ψ*ρ+δρ) + 2*k^2*Φ*ϕ - (3*ℰ^2+k^2)*δϕ - 3*ℰ*D(δϕ) - ω/2*(δϕ*(D(ϕ)/ϕ)^2-2*D(ϕ)*D(δϕ))) / (6*ℰ*ϕ + 3*D(ϕ)) # (μ,ν) = (0,0)
         Ψ ~ Φ - δϕ/ϕ - 12*Num(π)/ϕ * a^2 * Π / k^2 # (μ,ν) = (i,j), i ≠ j, add matter stress divided by ϕ from field equations # TODO: correct?
         D(D(δϕ)) ~ -8*Num(π)/(3+2*ω)*a^2*(3*δP-δρ) + 2*D(D(ϕ))*Ψ - k^2*δϕ - 2*ℰ*D(δϕ) + D(ϕ)*(D(Ψ)+3*D(ϕ)) + 4*ℰ*Ψ*D(ϕ) # perturbed Klein-Gordon equation
+        g.Ψ̇ ~ D(g.Ψ)
+        g.Φ̇ ~ D(g.Φ)
     ] .|> O(ϵ^1)
     ics1 = [
         δϕ ~ 0.0 # TODO: set properly

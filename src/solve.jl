@@ -6,6 +6,7 @@ import PreallocationTools: DiffCache, get_tmp
 import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
+import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setp, parameter_values
 
 background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
@@ -77,7 +78,7 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
         kmin, kmax = extrema(sol.ks)
         nmin, nmax = extrema(map(length, sol.pts))
         n = length(sol.pts)
-        print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (linear interpolation between log(k))")
+        print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (interpolation in-between)")
     end
 
     printstyled(io, "\nParameters:"; bold = true)
@@ -437,6 +438,15 @@ function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
     end
 end
 
+function getp(prob::CosmologyProblem, p)
+    getp_bg = SymbolicIndexingInterface.getp(prob.bg, p)
+    return prob -> getp_bg(prob.bg)
+end
+function getp(sol::CosmologySolution, p)
+    getp_bg = SymbolicIndexingInterface.getp(sol.bg, p)
+    return sol -> getp_bg(sol.bg)
+end
+
 function neighboring_modes_indices(sol::CosmologySolution, k)
     k = k_dimensionless.(k, sol.h)
     if k == sol.ks[begin] # k == kmin
@@ -452,7 +462,7 @@ end
 
 Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 
-function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::AbstractArray, is::AbstractArray; smart = true)
+function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::AbstractArray, is::AbstractArray; smart = true, ktransform = log)
     ks = k_dimensionless.(ks, sol.h)
     isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
     kmin, kmax = extrema(sol.ks)
@@ -494,7 +504,7 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
             # interpolate between solutions
             k1 = sol.ks[i1]
             k2 = sol.ks[i2]
-            w = (log(k) - log(k1)) / (log(k2) - log(k1)) # quantities vary smoothest (?) when interpolated in log(k) # TODO: cubic spline?
+            w = (ktransform(k) - ktransform(k1)) / (ktransform(k2) - ktransform(k1)) # interpolate between some function of the wavenumbers between ktransform(k) (e.g. k -> k or k -> log(k)) # TODO: cubic spline?
             @. v += (v2 - v1) * w # add to v1 from above
         end
         for ii in eachindex(is)
@@ -508,13 +518,13 @@ function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::Abst
     out = zeros(eltype(sol), length(ks), length(ts), length(is))
     return sol(out, ks, ts, is; kwargs...)
 end
-(sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray) = sol([k], ts, is)[1, :, :]
-(sol::CosmologySolution)(ks::AbstractArray, t::Number, is::AbstractArray) = sol(ks, [t], is)[:, 1, :]
-(sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, i::Num) = sol(ks, ts, [i])[:, :, 1]
-(sol::CosmologySolution)(k::Number, t::Number, is::AbstractArray) = sol([k], [t], is)[1, 1, :]
-(sol::CosmologySolution)(k::Number, ts::AbstractArray, i::Num) = sol([k], ts, [i])[1, :, 1]
-(sol::CosmologySolution)(ks::AbstractArray, t::Number, i::Num) = sol(ks, [t], [i])[:, 1, 1]
-(sol::CosmologySolution)(k::Number, t::Number, i::Num) = sol([k], [t], [i])[1, 1, 1]
+(sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray; kwargs...) = sol([k], ts, is; kwargs...)[1, :, :]
+(sol::CosmologySolution)(ks::AbstractArray, t::Number, is::AbstractArray; kwargs...) = sol(ks, [t], is; kwargs...)[:, 1, :]
+(sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, i::Num; kwargs...) = sol(ks, ts, [i]; kwargs...)[:, :, 1]
+(sol::CosmologySolution)(k::Number, t::Number, is::AbstractArray; kwargs...) = sol([k], [t], is; kwargs...)[1, 1, :]
+(sol::CosmologySolution)(k::Number, ts::AbstractArray, i::Num; kwargs...) = sol([k], ts, [i]; kwargs...)[1, :, 1]
+(sol::CosmologySolution)(ks::AbstractArray, t::Number, i::Num; kwargs...) = sol(ks, [t], [i]; kwargs...)[:, 1, 1]
+(sol::CosmologySolution)(k::Number, t::Number, i::Num; kwargs...) = sol([k], [t], [i]; kwargs...)[1, 1, 1]
 
 function (sol::CosmologySolution)(tmap::Pair, is)
     tvar, ts = tmap

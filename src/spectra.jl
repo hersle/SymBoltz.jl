@@ -168,17 +168,20 @@ end
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
 # TODO: take in symbolic expr?
+# TODO: implement chain rule using fundamental theorem of calculus, to make faster and remove need of differentiating Bessel functions? https://juliadiff.org/ChainRulesCore.jl/stable/rule_author/which_functions_need_rules.html
+# TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 """
-    los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, τs::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, us::AbstractRange, u′s::AbstractVector; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 Compute the line-of-sight-integrals ``∫dτ S(k,τ) jₗ(k(τ₀-τ)) = ∫dτ S₀(k,τ) jₗ(k(τ₀-τ)) + ∫dτ S₁(k,τ) jₗ′(k(τ₀-τ))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
 The element `S0s[i,j]` holds the source function value ``S₀(ks[i], τs[j])`` (and similarly for `S1s`).
 An integral substitution `u(τ)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dτ f(τ) = ∫du f(τ(u)) / u′(τ)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
 """
-function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::AbstractArray, ks::AbstractRange, τs::AbstractArray, us::AbstractRange, u′s::AbstractArray; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, us::AbstractVector, u′s::AbstractVector; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     @assert size(S0s) == (length(ks), length(us)) # TODO: optimal structure? integration order? @simd?
     verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(us)) us")
 
+    # TODO: only do to total τ0 - τ? otherwise Dual errors can propagate if one is dual and the other isn't
     τs = ForwardDiff.value.(τs) # convert from Duals to e.g. Float64s; it is the independent parameter and is only used as an integration range, so should not affect the final result # TODO: safe?
 
     lmin, lmax = extrema(ls)
@@ -199,11 +202,12 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
         for iτ in eachindex(us)
             τ = τs[iτ]
             S0 = S0s[ik,iτ]
-            S1 = S1s[ik,iτ]
-            χ = τs[end] - τ
+            S1 = S1s[ik,iτ] # TODO: don't need?
+            χ = τs[end] - τ # TODO: precompute χs?
             kχ = k * χ
             sphericalbesseljfast!(Jls_all, ls_all, kχ)
             for il in eachindex(ls)
+                # TODO: skip and set to zero if l ≳ kτ0?
                 l = ls[il]
                 Jl = Jls_all[1+l-lmin]
                 Jl′ = sphericalbesseljprime(l, ls_all, Jls_all)
@@ -211,6 +215,7 @@ function los_integrate(S0s::AbstractArray{T}, S1s::AbstractArray{T}, ls::Abstrac
             end
         end
         for il in eachindex(ls)
+            # TODO: skip and set to zero if l ≳ kτ0?
             integrand = @view ∂I_∂u[il,:]
             Is[ik,il] = integrate(us, integrand; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
         end
@@ -222,69 +227,79 @@ end
 # this one is less elegant, but more numerically stable?
 # TODO: saveat = τs
 """
-    source_temperature(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
+    source_temperature(sol::CosmologySolution, ks::AbstractVector, τs::AbstractVector; ktransform = identity)
 
 Compute the temperature source function ``Sᵀ(k,τ)`` by interpolating in the solution object.
 """
-function source_temperature(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray; sw=true, isw=true, dop=true, pol=true)
+function source_temperature(sol::CosmologySolution, ks::AbstractVector, τs::AbstractVector; ktransform = identity)
     M = sol.prob.M
-    out = sol(ks, τs, [M.S0, M.S1])
+    out = sol(ks, τs, [M.S0, M.S1]; ktransform)
     S0s, S1s = out[:, :, 1], out[:, :, 2]
     return S0s, S1s
 end
 
 """
-    source_polarization(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
+    source_polarization(sol::CosmologySolution, ks::AbstractVector, τs::AbstractVector; ktransform = identity)
 
 Compute the E-mode polarization source function ``Sᴱ(k,τ)`` by interpolating in the solution object.
 """
-function source_polarization(sol::CosmologySolution, ks::AbstractArray, τs::AbstractArray)
+function source_polarization(sol::CosmologySolution, ks::AbstractVector, τs::AbstractVector; ktransform = identity)
     M = sol.prob.M
-    τ0 = sol[M.τ0]
-    S0s = sol(ks, τs, 3/16 * M.γ.Π * M.b.rec.v) ./ (ks .* (τ0 .- τs)') .^ 2 # TODO: apply integration by parts?
+    S0s = sol(ks, τs, 3/16*M.γ.Π*M.b.rec.v / (M.k*(M.τ0-M.τ))^2; ktransform) # TODO: apply integration by parts? # TODO: deal with last point better to avoid division by zero!!!
     S1s = 0.0 .* S0s # == 0
     return S0s, S1s
 end
 
-function los_substitution_range(sol::CosmologySolution, u::Function, u⁻¹::Function, u′::Function; kwargs...)
-    tmin, tmax = extrema(sol.bg.t)
-    us = range(u(tmin), u(tmax); kwargs...)
-    τs = u⁻¹.(us)
-    all(u.(τs) .≈ us) || error("u(u⁻¹(τ)) ≠ τ")
-    u′s = u′.(τs)
+function los_substitution_range(sol::CosmologySolution, u::Function, u⁻¹::Function, u′::Function; N = 0)
+    τs = sol.bg.t # times used by background/thermodynamics ODE solver
+    if N == 0 # adaptive method: use same times as ODE solver
+        us = τs
+        u′s = range(1.0, 1.0, length = length(us))
+    else # fixed method: evaluate τ(u) for uniform u
+        τmin, τmax = extrema(τs)
+        us = range(u(τmin), u(τmax); length = N)
+        τs = u⁻¹.(us)
+        all(u.(τs) .≈ us) || error("u(u⁻¹(τ)) ≠ τ")
+        u′s = u′.(τs)
+    end
     return τs, us, u′s
 end
 
 """
-    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), u′ = (τ->1/cosh(τ)^2), N = 768, ktransform = identity, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
-    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length)
-    S0s, S1s = source_temperature(sol, ks, τs)
+function los_temperature(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), u′ = (τ->1/cosh(τ)^2), N = 768, ktransform = identity, kwargs...)
+    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; N)
+    S0s, S1s = source_temperature(sol, ks, τs; ktransform)
     return los_integrate(S0s, S1s, ls, ks, τs, us, u′s; kwargs...)
 end
 
+# TODO: make a function for calculating jl(x)/x^2 for use in polarization
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), u′ = (τ->1/cosh(τ)^2), N = 768, ktransform = identity, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u=(τ->tanh(τ)), u⁻¹=(u->atanh(u)), u′=(τ->1/cosh(τ)^2), length=500, kwargs...)
-    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; length) # TODO: do tanh(t/tcmb)?
-    S0s, S1s = source_polarization(sol, ks, τs)
+function los_polarization(sol::CosmologySolution, ls::AbstractArray, ks::AbstractArray; u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), u′ = (τ->1/cosh(τ)^2), N = 768, ktransform = identity, kwargs...)
+    τs, us, u′s = los_substitution_range(sol, u, u⁻¹, u′; N) # TODO: do tanh(t/tcmb)?
+    S0s, S1s = source_polarization(sol, ks, τs; ktransform)
     return los_integrate(S0s, S1s, ls, ks, τs, us, u′s; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-"""
-    spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = TrapezoidalRule(), normalization = :Cl)
+raw"""
+    spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl)
 
-Compute ``Cₗᴬᴮ = (2/π) ∫dk k^2 P₀(k) Θₗᴬ(k) Θₗᴮ(k)`` for the given `ls`.
-If `normaliation == :Dl`, compute ``Dₗ = Cₗ * l * (l+1) / 2π`` instead.
+Compute the angular power spectrum
+```math
+Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,τ₀)
+```
+for the given `ls`.
+If `normaliation == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
 """
-function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractArray, ls::AbstractArray, ks::AbstractRange; integrator = TrapezoidalRule(), normalization = :Cl)
+function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
@@ -292,6 +307,7 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
 
     @tasks for il in eachindex(ls)
+        # TODO: skip kτ0 ≲ l
         @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
         @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
         Cls[il] = integrate(ks_with0, dCl_dks_with0; integrator) # integrate over k (_with0 adds one additional point at (0,0))
@@ -307,15 +323,16 @@ function spectrum_cmb(ΘlAs::AbstractArray, ΘlBs::AbstractArray, P0s::AbstractA
 end
 
 """
-    spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, unit = nothing, kwargs...)
+    spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector; normalization = :Cl, unit = nothing, integrator = TrapezoidalRule(), kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 """
-function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractArray; normalization = :Cl, unit = nothing, kwargs...)
-    _, ks_fine = cmb_ks(ls[end])
-    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; kwargs...) : nothing
-    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; kwargs...) : nothing
+function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector; normalization = :Cl, unit = nothing, integrator = TrapezoidalRule(), kwargs...)
+    ks_fine = ks
+
+    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks_fine; integrator, kwargs...) : nothing
+    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks_fine; integrator, kwargs...) : nothing
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
     #P0s = sol(ks_fine, sol[τ][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
 
@@ -330,11 +347,11 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
     spectra = [] # Cls or Dls
     for mode in modes
         if mode == :TT
-            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; normalization)
+            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
         elseif mode == :EE
-            spectrum = spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine; normalization)
+            spectrum = spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks_fine; integrator, normalization)
         elseif mode == :TE
-            spectrum = spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine; normalization)
+            spectrum = spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks_fine; integrator, normalization)
         else
             error("Unknown CMB power spectrum mode $mode")
         end
@@ -346,24 +363,26 @@ function spectrum_cmb(modes::AbstractArray, sol::CosmologySolution, ls::Abstract
 end
 
 """
-    spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
-function spectrum_cmb(modes::AbstractArray, prob::CosmologyProblem, ls::AbstractArray; integrator = TrapezoidalRule(), normalization = :Cl, unit = nothing, kwargs...)
-    ks_coarse, _ = cmb_ks(ls[end])
-    sol = solve(prob, ks_coarse; kwargs...) # TODO: saveat τs
-    return spectrum_cmb(modes, sol, ls; normalization, unit, integrator)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), kwargs...)
+    kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
+    sol = solve(prob; bgopts)
+    τ0 = getp(sol, prob.M.τ0)(sol) |> ForwardDiff.value
+    ks_coarse = kτ0s_coarse / τ0
+    sol = solve(prob, ks_coarse; ptopts) # TODO: saveat τs
+    ks_fine = kτ0s_fine / τ0
+    return spectrum_cmb(modes, sol, ls, ks_fine; normalization, unit, integrator, kwargs...)
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
-function cmb_ks(lmax; Δk = 2π/10, Δk_S = 5.0, kmin = Δk, kmax = 2*lmax)
-    # Assumes τ0 = 1 (e.g. τ0 = 1/H0 = 1) # TODO: don't assume τ0 = 1
-    ks_fine = range(kmin, kmax, step=Δk) # use integer multiple so endpoints are the same
-    ks_coarse = range(ks_fine[begin], ks_fine[end], length = Int(floor((kmax-kmin)/Δk_S+1)))
-    ks_coarse[begin] == ks_fine[begin] && ks_coarse[end] == ks_fine[end] || error("different wavenumber endpoints")
-    # kmax is a guideline and may be slightly different from ks_fine[end] and ks_coarse[end]
-    return ks_coarse, ks_fine
+function cmb_kτ0s(lmin, lmax; Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*lmin, kτ0max = 3*lmax)
+    kτ0s_fine = range(kτ0min, kτ0max, step=Δkτ0) # use integer multiple so endpoints are the same
+    kτ0s_coarse = range(kτ0s_fine[begin], kτ0s_fine[end], length = Int(floor((kτ0max-kτ0min)/Δkτ0_S+1)))
+    kτ0s_coarse[begin] == kτ0s_fine[begin] && kτ0s_coarse[end] == kτ0s_fine[end] || error("different wavenumber endpoints")
+    return kτ0s_coarse, kτ0s_fine
 end
 
 """
