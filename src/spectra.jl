@@ -177,7 +177,7 @@ end
 # TODO: implement chain rule using fundamental theorem of calculus, to make faster and remove need of differentiating Bessel functions? https://juliadiff.org/ChainRulesCore.jl/stable/rule_author/which_functions_need_rules.html
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 """
-    los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, us::AbstractRange, u′s::AbstractVector; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl0!::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 Compute the line-of-sight-integrals ``∫dτ S(k,τ) jₗ(k(τ₀-τ)) = ∫dτ S₀(k,τ) jₗ(k(τ₀-τ)) + ∫dτ S₁(k,τ) jₗ′(k(τ₀-τ))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
 The element `S0s[i,j]` holds the source function value ``S₀(ks[i], τs[j])`` (and similarly for `S1s`).
@@ -237,7 +237,7 @@ Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    out = sol(ks, τs, [M.S0, M.S1]; ktransform)
+    out = sol(ks, τs, [M.ST0, M.ST1]; ktransform)
     S0s, S1s = out[:, :, 1], out[:, :, 2]
     return los_integrate(S0s, S1s, ls, ks, τs, sphericalbesseljfast!; kwargs...)
 end

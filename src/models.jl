@@ -46,8 +46,12 @@ function ΛCDM(;
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
-        S0(τ), [description = "1st CMB TT source function for spherical Bessel function"]
-        S1(τ), [description = "2nd CMB TT source function for spherical Bessel function derivative"]
+        ST0(τ), [description = "Temperature source function weighted against spherical Bessel function"]
+        ST1(τ), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
+        ST0_SW(τ),
+        ST0_ISW(τ), ST1_ISW(τ),
+        ST0_Doppler(τ), ST1_Doppler(τ),
+        ST0_polarization(τ), ST1_polarization(τ), ST2_polarization(τ)
     end
     defs = Dict(
         C => 1//2,
@@ -77,10 +81,15 @@ function ΛCDM(;
         γ.κ̇ ~ b.rec.κ̇
         γ.θb ~ b.θ
 
-        S0 ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16) + exp(-b.rec.κ) * (g.Ψ̇ + g.Φ̇) + D(b.rec.v*b.u) / k |> expand_derivatives
-        S1 ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
-        #S0 ~ b.rec.v*(γ.δ/4+g.Φ) + exp(-b.rec.κ)*2*D(g.Φ) + D(b.rec.v*b.u)/k + b.rec.v*γ.Π/16 |> expand_derivatives # equivalent alternative, after integration by parts
-        #S1 ~ exp(-b.rec.κ)*k*(g.Ψ-g.Φ) + 3/(16*k)*D(b.rec.v*γ.Π) |> expand_derivatives # equivalent alternative, after integration by parts
+        ST0_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
+        ST0_ISW ~ exp(-b.rec.κ) * (g.Ψ̇ + g.Φ̇)
+        ST0_Doppler ~ D(b.rec.v*b.u) / k |> expand_derivatives
+        ST1_Doppler ~ b.rec.v*b.u
+        ST0_polarization ~ 3/(16*k^2) * D(D(b.rec.v*γ.Π)) |> expand_derivatives
+        ST1_polarization ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
+        ST2_polarization ~ 3/16 * b.rec.v*γ.Π
+        ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
+        ST1 ~ 0
     ] .|> O(ϵ^1)
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
