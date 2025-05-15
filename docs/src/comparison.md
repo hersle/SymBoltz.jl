@@ -396,9 +396,11 @@ function plot_compare_P_diff(par, val; relstep = 1e-2, kwargs...)
         out .= log.(P_class(k, merge(pars, Dict(par => val))))
         return out
     end
-    ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
-    ∂logP2_∂logθ = ForwardDiff.derivative(logval -> log.(P_symboltz(k, Dict(par => exp(logval)))), log(val))
-    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, "k", "∂(log(P))/∂(log($par))"; lgx = true, kwargs...)
+    Δt1 = @elapsed ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
+    println("Computed CLASS derivatives in $Δt1 seconds")
+    Δt2 = @elapsed ∂logP2_∂logθ = ForwardDiff.derivative(logval -> log.(P_symboltz(k, Dict(par => exp(logval)))), log(val))
+    println("Computed SymBoltz derivatives in $Δt2 seconds")
+    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, "k", "∂(log(P))/∂(log($(replace(string(par), "₊" => "."))))"; lgx = true, kwargs...)
 end
 
 #∂logP1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> log.(P_class(merge(pars, Dict(diffpars .=> θ)))[2]), θ, Val{:central}; relstep = 1e-4) # hide
@@ -429,7 +431,7 @@ function Dl_symboltz(modes, l, pars)
     return spectrum_cmb(modes, prob′, l; normalization = :Dl)
 end
 
-l = 10:10:2500 # CLASS default is lmax = 2500
+l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
 plot_compare(l, l, Dl1[1], Dl2[1], "l", "Dₗ(TT)"; tol = 7e-13)
@@ -445,9 +447,11 @@ plot_compare(l, l, Dl1[3], Dl2[3], "l", "Dₗ(EE)"; tol = 2e-14)
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
 θ = [pars[par] for par in diffpars]
 function plot_compare_Dl_diff(mode)
-    ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> only(Dl_class([mode], l, merge(pars, Dict(diffpars .=> θ)))), θ, Val{:central}; relstep = 1e-3)
-    ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> only(Dl_symboltz([mode], l, Dict(diffpars .=> θ))), θ)
-    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($par) ($mode)" for par in ["Ωc0", "Ωb0", "h"]])
+    Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> only(Dl_class([mode], l, merge(pars, Dict(diffpars .=> θ)))), θ, Val{:central}; relstep = 1e-3)
+    println("Computed CLASS derivatives in $Δt1 seconds")
+    Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> only(Dl_symboltz([mode], l, Dict(diffpars .=> θ))), θ)
+    println("Computed SymBoltz derivatives in $Δt2 seconds")
+    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) ($mode)" for par in diffpars])
 end
 plot_compare_Dl_diff(:TT)
 ```

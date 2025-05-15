@@ -67,21 +67,42 @@ end
 
     for x in 0.0:0.001:10.0 # near 0 is most sketchy
         # Test jₗ(x)
-        SymBoltz.sphericalbesseljfast!(jlfast, l, x) # unsafe implementation
-        SymBoltz.sphericalbesseljslow!(jlslow, l, x) # safe implementation
+        SymBoltz.jl!(jlfast, l, x) # "unsafe" implementation
+        SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
         @test jlfast ≈ jlslow
 
         # Test jₗ(x) / x²
-        SymBoltz.sphericalbesselj_over_x2!(jlfast, l, x) # unsafe implementation
+        SymBoltz.jl_x2!(jlfast, l, x) # unsafe implementation
         if x == 0.0
             jlslow[3] = 1/15 # l = 2
             jlslow[4:1000] .= 0.0 # l ≥ 3
         else
-            SymBoltz.sphericalbesseljslow!(jlslow, l, x) # safe implementation
+            SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
             jlslow ./= x^2
             @test jlfast[1:2] ≈ jlslow[1:2] # test l = 0 and 1 only for x > 0 (diverges for x = 0)
         end
         @test jlfast[3:end] ≈ jlslow[3:end] # l ≥ 2
+    end
+end
+
+@testset "Spherical Bessel function chain rule" begin
+    x = 0.0:0.1:10.0
+
+    # Test jl(l, x) chain rule
+    crazy(l, x) = sin(7*SymBoltz.jl(l, x^2)) # crazy composite function involving jl
+    for l in 1:500
+        dcrazy_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy(l, x), x)
+        dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
+        @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
+    end
+    crazy(l, x) = sin(7*SymBoltz.jl(l, x^2)) # crazy composite function involving jl
+
+    # Test (jl/x^2)(l, x) chain rule
+    crazy(l, x) = sin(7*SymBoltz.jl_x2(l, x^2)) # plot(x -> crazy(5, x)) looks very cool
+    for l in 2:500
+        dcrazy_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy(l, x), x)
+        dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
+        @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
     end
 end
 

@@ -4,6 +4,7 @@ using DataInterpolations
 using TwoFAST
 using MatterPower
 using ForwardDiff # TODO: get rid of; to convert to Float64 inside spectrum_cmb
+using ChainRulesCore, ForwardDiffChainRules
 
 """
     spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
@@ -134,32 +135,45 @@ Compute the standard deviation ``√(⟨δ²⟩)`` of the *linear* matter densit
 """
 stddev_matter(sol::CosmologySolution, R) = √(variance_matter(sol, R))
 
+# Out-of-place spherical Bessel function variants
+jl(l, x) = sphericalbesselj(l, x) # for l ≥ 0, from Bessels.jl
+jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analytical relation
+jl_x2(l, x) = x == 0 ? l == 2 ? 1/15 : 0.0 : jl(l, x) / x^2 # for l ≥ 2, jₗ(x)/x² ≃ xˡ⁻²/(2l+1)!! as x → 0
+jl_x2′(l, x) = x == 0 ? l == 3 ? 1/105 : 0.0 : jl′(l,x)/x^2 - 2*jl_x2(l,x)/x # for l ≥ 3; (jₗ(x)/x²)′ = jl′(x)/x² - 2jl(x)/x³ ≃ (l-2)/(2l+1)!! * x^(l-3) as x → 0
+
+# In-place spherical Bessel function variants
 # TODO: create SphericalBesselFunctionMachine-like struct, which can calculate value, derivative, ...
 # TODO: contribute back to Bessels.jl
-#sphericalbesseljslow(ls::AbstractVector, x) = sphericalbesselj.(ls, x)
-#sphericalbesseljfast(ls::AbstractRange, x) = (x == 0.0 ? 1.0 : √(π/(2*x))) * besselj(ls .+ 0.5, x)
-function sphericalbesseljfast!(out, ls::AbstractRange, x::Number)
-    besselj!(out, ls .+ 0.5, x)
-    if x == 0.0 && ls[begin] == 0
+# TODO: update with chain rules, reuse jl(x) vector for computing jl′(x) vector
+function jl!(out, l::AbstractRange, x::Number)
+    besselj!(out, l .+ 0.5, x)
+    if x == 0.0 && l[begin] == 0
         out[begin] = 1.0
     elseif x != 0.0
-        @. out *= √(π/(2*x))
+        out .*= √(π/(2*x))
     end
     return out
 end
-function sphericalbesseljslow!(out, ls::AbstractRange, x::Number)
-    out .= sphericalbesselj.(ls, x)
-end
-function sphericalbesseljprime(l, ls, Jls)
-    i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
-    return l/(2*l+1)*Jls[i-1] - (l+1)/(2*l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
-end
-function sphericalbesselj_over_x2!(out, ls::AbstractRange, x::Number)
-    x = max(x, 1e-20) # avoid division by zero
-    sphericalbesseljfast!(out, ls, x)
-    out ./= x .^2
+function jlsafe!(out, l::AbstractRange, x::Number)
+    out .= jl.(l, x)
     return out
 end
+function jl′(l, ls::AbstractRange, Jls)
+    i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
+    return l/(2l+1)*Jls[i-1] - (l+1)/(2l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
+end
+function jl_x2!(out, l::AbstractRange, x::Number)
+    x = max(x, 1e-20) # avoid division by zero
+    jl!(out, l, x)
+    out ./= x .^ 2
+    return out
+end
+
+# Overload chain rule for spherical Bessel function
+ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * Δx # (value, derivative)
+ChainRulesCore.frule((_, _, Δx), ::typeof(jl_x2), l, x) = jl_x2(l, x), jl_x2′(l, x) * Δx
+@ForwardDiff_frule jl(l::Integer, x::ForwardDiff.Dual) # define dispatch
+@ForwardDiff_frule jl_x2(l::Integer, x::ForwardDiff.Dual)
 
 function integrate(xs, ys; integrator = TrapezoidalRule())
     prob = SampledIntegralProblem(ys, xs)
@@ -173,51 +187,37 @@ end
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
-# TODO: take in symbolic expr?
 # TODO: implement chain rule using fundamental theorem of calculus, to make faster and remove need of differentiating Bessel functions? https://juliadiff.org/ChainRulesCore.jl/stable/rule_author/which_functions_need_rules.html
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
+# TODO: define and document symbolic dispatch!
 """
-    los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl0!::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
-Compute the line-of-sight-integrals ``∫dτ S(k,τ) jₗ(k(τ₀-τ)) = ∫dτ S₀(k,τ) jₗ(k(τ₀-τ)) + ∫dτ S₁(k,τ) jₗ′(k(τ₀-τ))`` over the source function values `S0s` and `S1s` against the spherical kind-1 Bessel functions `jₗ(x)` and their derivatives `jₗ′(x)` for the given `ks` and `ls`.
-The element `S0s[i,j]` holds the source function value ``S₀(ks[i], τs[j])`` (and similarly for `S1s`).
-An integral substitution `u(τ)` can be specified with `us` and `u′s`, so the integral can be performed as ``∫dτ f(τ) = ∫du f(τ(u)) / u′(τ)`` on an interval on which the integrand behaves well (e.g. to sample more points closer to the initial time).
+Compute the line-of-sight-integrals ``∫dτ S(k,τ) Rₗ(k(τ₀-τ))`` over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``) for the given `ks` and `ls`.
+The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 """
-function los_integrate(S0s::AbstractMatrix{T}, S1s::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl0!::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
-    @assert size(S0s) == (length(ks), length(τs)) # TODO: optimal structure? integration order? @simd?
-    verbose && println("LOS integration with $(length(ls)) ls x $(length(ks)) ks x $(length(τs)) τs")
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    @assert size(Ss) == (length(ks), length(τs)) # TODO: optimal structure? integration order? @simd?
+    minimum(ls) >= 1 || error("l must be 1 or higher")
+    verbose && println("Line-of-sight integration with $(length(ls)) ls x $(length(ks)) ks x $(length(τs)) τs")
 
-    # TODO: only do to total τ0 - τ? otherwise Dual errors can propagate if one is dual and the other isn't
-    τs = ForwardDiff.value.(τs) # convert from Duals to e.g. Float64s; it is the independent parameter and is only used as an integration range, so should not affect the final result # TODO: safe?
     χs = τs[end] .- τs
-
-    lmin, lmax = extrema(ls)
-    lmin >= 1 || error("l must be 1 or higher") # TODO: relax?
-    lmin, lmax = lmin - 1, lmax + 1 # calculation of l-th bessel function derivatives depend on l-1 and l+1
-    ls_all = lmin:1:lmax # range with step 1
-
     Is = zeros(T, (length(ks), length(ls)))
 
-    @tasks for ik in eachindex(ks)
+    @tasks for ik in eachindex(ks) # parallellize independent loop iterations
         @local begin # define task-local values (declared once for all loop iterations)
-            lmin = lmin
-            Jls_all = zeros(Float64, length(ls_all)) # local task workspace
             ∂I_∂τ = zeros(T, (length(ls), length(τs))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
         end
 
         k = ks[ik]
         for iτ in eachindex(τs)
             χ = χs[iτ]
-            S0 = S0s[ik,iτ]
-            S1 = S1s[ik,iτ] # TODO: don't need?
+            S = Ss[ik,iτ]
             kχ = k * χ
-            Rl0!(Jls_all, ls_all, kχ)
             for il in eachindex(ls)
                 # TODO: skip and set to zero if l ≳ kτ0?
                 l = ls[il]
-                Jl = Jls_all[1+l-lmin]
-                Jl′ = sphericalbesseljprime(l, ls_all, Jls_all) # TODO: only valid if Rl0 = jₗ
-                ∂I_∂τ[il,iτ] = S0 * Jl + S1 * Jl′
+                ∂I_∂τ[il,iτ] = S * Rl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers?
             end
         end
         for il in eachindex(ls)
@@ -237,9 +237,8 @@ Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    out = sol(ks, τs, [M.ST0, M.ST1]; ktransform)
-    S0s, S1s = out[:, :, 1], out[:, :, 2]
-    return los_integrate(S0s, S1s, ls, ks, τs, sphericalbesseljfast!; kwargs...)
+    Ss = sol(ks, τs, M.ST0; ktransform)
+    return los_integrate(Ss, ls, ks, τs, jl; kwargs...)
 end
 
 # TODO: make a function for calculating jl(x)/x^2 for use in polarization
@@ -250,9 +249,8 @@ Calculate photon E-mode polarization multipoles today by line-of-sight integrati
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    S0s = sol(ks, τs, 3/16*M.γ.Π*M.b.rec.v; ktransform) # TODO: apply integration by parts?
-    S1s = 0.0 .* S0s # == 0
-    return los_integrate(S0s, S1s, ls, ks, τs, sphericalbesselj_over_x2!; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    Ss = sol(ks, τs, M.ST2_polarization; ktransform) # TODO: apply integration by parts?
+    return los_integrate(Ss, ls, ks, τs, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -335,8 +333,8 @@ Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) 
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), kwargs...)
     kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
     sol = solve(prob; bgopts)
-    τ0 = getp(sol, prob.M.τ0)(sol) |> ForwardDiff.value
-    ks_coarse = kτ0s_coarse / τ0
+    τ0 = getp(sol, prob.M.τ0)(sol)
+    ks_coarse = kτ0s_coarse ./ τ0
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
     if Nlos != 0 # instead choose Nlos time points τ = τ(u) corresponding to uniformly spaced u
         τmin, τmax = extrema(τs)
@@ -346,7 +344,9 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     end
     #ptopts = merge(ptopts, (saveat = τs,)) # TODO: use, but would need to redo k integration
     sol = solve(prob, ks_coarse; ptopts)
-    ks_fine = kτ0s_fine / τ0
+    ks_fine = collect(kτ0s_fine ./ τ0)
+    ks_fine[begin] += 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
+    ks_fine[end] -= 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
     return spectrum_cmb(modes, sol, ls, ks_fine, τs; normalization, unit, integrator, kwargs...)
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))

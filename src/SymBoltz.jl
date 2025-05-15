@@ -46,7 +46,7 @@ export express_derivatives
 using PrecompileTools: @compile_workload
 @compile_workload begin
     using SymBoltz, Unitful, UnitfulAstro
-    M = ΛCDM()
+    M = ΛCDM(ν = nothing, h = nothing)
     propertynames(M) # speed up first TAB completion of e.g. M.<TAB>
     propertynames(M.g) # speed up first TAB completion of e.g. M.g.<TAB>
     pars = parameters_Planck18(M)
