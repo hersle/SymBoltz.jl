@@ -111,6 +111,7 @@ end
         Λ = cosmological_constant(g; adiabatic),
         K = nothing,
         G = general_relativity(g; acceleration),
+        I = harrison_zeldovich(g; name = :I),
         name = :RMΛ, kwargs...
     )
 
@@ -125,6 +126,7 @@ function RMΛ(;
     Λ = cosmological_constant(g; adiabatic),
     K = nothing,
     G = general_relativity(g; acceleration),
+    I = harrison_zeldovich(g; name = :I),
     name = :RMΛ, kwargs...
 )
     vars = @variables begin
@@ -150,7 +152,7 @@ function RMΛ(;
     )
     defs = merge(defs, Ω₀_defaults(G, species))
     connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name)
-    M = compose(connections, g, G, species...)
+    M = compose(connections, g, G, I, species...)
     return complete(M; flatten = false, split = false)
 end
 

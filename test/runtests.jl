@@ -212,10 +212,10 @@ end
 @testset "Consistent AD and FD derivatives of power spectra" begin
     k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
+    probgen = SymBoltz.parameter_updater(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
-        pars′ = Dict(diffpars .=> θ)
-        prob′ = remake(prob, pars′)
+        prob′ = probgen(θ)
         P = spectrum_matter(prob′, k)
         return log.(P / u"Mpc^3")
     end
@@ -240,14 +240,13 @@ end
     l = 25:25:1000
     function logDlTT(logθ)
         θ = exp.(logθ)
-        pars′ = Dict(diffpars .=> θ)
-        prob′ = remake(prob, pars′)
+        prob′ = probgen(θ)
         DlTT = spectrum_cmb(:TT, prob′, l; normalization = :Dl)
         return log.(DlTT)
     end
     ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
     ∂logDlTT_∂logθ_fd = FiniteDiff.finite_difference_jacobian(logDlTT, logθ, Val{:central}; relstep = 1e-3) # 1e-4 screws up at small l
-    @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 1e1)) # TODO: fix and decrease tolerance!!!
+    @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 1e0)) # TODO: fix and decrease tolerance!!!
 
     #= for debug plotting
     using CairoMakie
@@ -261,4 +260,27 @@ end
     end
     fig
     =#
+end
+
+@testset "Parameter updater and remake" begin
+    probgen = SymBoltz.parameter_updater(prob, [M.c.Ω₀, M.Λ.Ω₀])
+
+    Ωother = prob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀]
+    newprob = probgen([0.3, 1.0 - Ωother - 0.3])
+    @test newprob.bg.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
+    @test newprob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == 1.0
+
+    ks = 10 .^ range(0, 3, length=10) # faster than with u"Mpc" # TODO: investigate further: Unitful is very slow with autodiff?
+    sol = solve(newprob, ks)
+    @test all(map(SymBoltz.successful_retcode, sol.pts))
+
+    function Pk(Ωc0)
+        newprob = probgen([Ωc0, 1.0 - Ωother - Ωc0])
+        return spectrum_matter(newprob, ks)
+    end
+    isnonzero(x) = isfinite(x) && !iszero(x)
+    @test all(isnonzero.(Pk(0.3)))
+    @test all(isnonzero.(Pk(0.3)))
+    @test all(isnonzero.(ForwardDiff.derivative(Pk, 0.3)))
+    @test all(isnonzero.(ForwardDiff.derivative(Pk, 0.3))) # twice (successive calls failed with earlier bug)
 end

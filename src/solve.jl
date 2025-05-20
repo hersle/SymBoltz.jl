@@ -218,21 +218,41 @@ function remake(
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
-    # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake # hide
-    # TODO: perturbations, remove M, pars, etc. for efficiency?
+    # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
+    # TODO: remove M, pars, etc. for efficiency?
 
-    @unpack M, bg, pars, shoot, conditions, var2spl, pars_sync = prob
-    bgps = parameter_values(bg)
+    @unpack M, bg, pt, pars, shoot, conditions, var2spl, pars_sync = prob
+
     bgsetp! = setp(bg, idxs)
-    diffcache = DiffCache(copy(canonicalize(Tunable(), bgps)[1])) # TODO: separate bg/pt?
+    bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
+
+    if !isnothing(pt)
+        ptsetp! = setp(pt, idxs)
+        ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
+    end
 
     return p -> begin
-        buffer = get_tmp(diffcache, p) # get newly typed buffer
-        copyto!(buffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
-        bgps_new = SciMLStructures.replace(Tunable(), bgps, buffer) # get newly typed parameter object
-        bgsetp!(bgps_new, p) # set new parameters
-        bg_new = remake(bg; p = bgps_new, kwargs...) # create updated problem
-        return CosmologyProblem(M, bg_new, nothing, pars, shoot, conditions, var2spl, pars_sync) # TODO: update pars? or remove that field and read parameters from subproblems?
+        # Update background problem
+        bgps = parameter_values(bg)
+        bgbuffer = get_tmp(bgdiffcache, p) # get newly typed buffer
+        copyto!(bgbuffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
+        bgps = SciMLStructures.replace(Tunable(), bgps, bgbuffer) # get newly typed parameter object
+        bgsetp!(bgps, p) # set new parameters
+        bg_new = remake(bg; p = bgps, kwargs...) # create updated problem (don't overwrite old)
+
+        # Update perturbation problem
+        if isnothing(pt)
+            pt_new = pt
+        else
+            ptps = parameter_values(pt)
+            ptbuffer = get_tmp(ptdiffcache, p) # need another for perturbation parameters
+            copyto!(ptbuffer, canonicalize(Tunable(), ptps)[1])
+            ptps = SciMLStructures.replace(Tunable(), ptps, ptbuffer)
+            ptsetp!(ptps, p)
+            pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
+        end
+
+        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl, pars_sync) # TODO: update pars? or remove that field and read parameters from subproblems?
     end
 end
 
