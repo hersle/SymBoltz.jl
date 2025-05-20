@@ -193,7 +193,11 @@ end
 """
     los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
-Compute the line-of-sight-integrals ``∫dτ S(k,τ) Rₗ(k(τ₀-τ))`` over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``) for the given `ks` and `ls`.
+For the given `ls` and `ks`, compute the line-of-sight-integrals
+```math
+Iₗ(k) = ∫dτ S(k,τ) Rₗ(k(τ₀-τ))
+```
+over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``).
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 """
 function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
@@ -381,7 +385,11 @@ end
 """
     distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
 
-Compute luminosity distances at the independent variable values `ivs` relative to the (present) time `τ0`.
+Compute luminosity distances
+```math
+d_L = \\frac{r}{a} = \\chi \\, \\mathrm{sinc} (\\sqrt{K} (τ₀-τ)),
+```
+at the independent variable values `ivs` relative to the (present) time `τ0`.
 """
 function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
     M = sol.prob.M

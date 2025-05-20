@@ -1,14 +1,6 @@
 # Solving models
 
-Once a symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem that can be solved for some given parameters:
-
-```@docs
-CosmologyProblem
-parameters(prob::CosmologyProblem)
-remake(prob::CosmologyProblem, pars::Dict)
-solve(prob::CosmologyProblem, ks::AbstractArray)
-```
-
+Once a symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem that can be solved for some given parameters.
 For example:
 ```@example sol
 using SymBoltz, Unitful, UnitfulAstro
@@ -19,6 +11,13 @@ ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
 sol = solve(prob, ks)
 ```
 
+```@docs
+CosmologyProblem
+parameters(prob::CosmologyProblem)
+remake(prob::CosmologyProblem, pars::Dict)
+solve(prob::CosmologyProblem, ks::AbstractArray)
+```
+
 ## Accessing the solution
 
 The returned solution `sol` can be conveniently accessed to obtain any variable `y` of the model `M`:
@@ -27,7 +26,7 @@ The returned solution `sol` can be conveniently accessed to obtain any variable 
 - `sol(k, τ, y)` returns the *perturbation* variable(s) $y(k,τ)$ as a function of the wavenumber(s) $k$ and conformal time(s) $τ$. It also interpolates linearly between the logarithms of the wavenumbers passed to `solve`.
 
 Note that `y` can be any symbolic variables in the model `M`, and even expressions thereof.
-*Unknown* variables are part of the state vector integrated by the ODE solver are returned directly from its solution.
+*Unknown* variables are part of the state vector integrated by the ODE solver, and are returned directly from its solution.
 *Observed* variables or expressions are functions of the unknowns, and are automatically calculated from the equations that define them in the symbolic model.
 For example:
 

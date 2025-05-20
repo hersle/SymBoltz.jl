@@ -22,12 +22,12 @@ and more.
 
 ## Installation
 
-[Install](https://julialang.org/downloads/) and launch `julia` and follow one of these steps:
+[Install](https://julialang.org/downloads/) and launch `julia` and install SymBoltz.jl in one of these two ways:
 
 ### For usage
 
-```
-] add SymBoltz
+```julia
+using Pkg; Pkg.add("SymBoltz")
 ```
 
 This installs the latest release of SymBoltz for use *without* permission to modify internals.
@@ -37,8 +37,8 @@ The installation is tracked by Julia's package manager, and you can easily `] up
 
 ### For usage and development
 
-```
-] dev SymBoltz
+```julia
+using Pkg; Pkg.develop("SymBoltz")
 ```
 
 This clones the development repository of SymBoltz for use *with* permission to modify any parts of the code.
@@ -47,16 +47,15 @@ See [the package manager documentation](https://pkgdocs.julialang.org/v1/managin
 **This is the recommended method for contributing users.**
 
 !!! tip
-    For a smooth development workflow, it is strongly recommended to [install and load Revise.jl](https://timholy.github.io/Revise.jl/stable/) *before* Symboltz.jl:
+    For a smooth development workflow, it is strongly recommended to [install Revise.jl](https://timholy.github.io/Revise.jl/stable/) and load it *before* Symboltz.jl:
     ```julia
-    ] add Revise
-    ] dev SymBoltz
+    using Pkg; Pkg.add("Revise"); Pkg.dev("SymBoltz")
     using Revise, SymBoltz # Revise first!
     # 1) Modify SymBoltz.jl code
     # 2) Interactively try out new changes
     # 3) Rinse and repeat
     ```
-    Revise automatically tracks changes made to the source files and reloads them in the active Julia session, so Julia does not have to be restarted every time.
+    Revise automatically tracks changes made to the source files and reloads them in the active Julia session, so Julia does not have to be restarted after every change.
 
 ## Usage workflow
 

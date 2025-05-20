@@ -50,13 +50,7 @@ fig
 
 ## Predicting luminosity distances
 
-To predict luminosity distances
-```math
-d_L = \frac{r}{a} = \chi \, \mathrm{sinc} (\sqrt{k} \chi),
-\qquad \text{where} \qquad
-\chi = c \, (τ₀ - τ)
-```
-theoretically, we solve the w0waCDM model:
+To predict [luminosity distances](@ref "Luminosity distance") theoretically, we solve the w0waCDM model:
 ```@example fit
 using SymBoltz, ModelingToolkit
 g = SymBoltz.metric()

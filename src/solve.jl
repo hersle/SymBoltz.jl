@@ -29,11 +29,11 @@ struct CosmologyProblem
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
-    prob::CosmologyProblem
-    bg::Tbg
-    ks::Tks
-    pts::Tpts
-    h::Th
+    prob::CosmologyProblem # problem which is solved
+    bg::Tbg # background solution
+    ks::Tks # perturbation wavenumbers
+    pts::Tpts # perturbation solutions
+    h::Th # reduced Hubble parameter h = H/(100 km/s/Mpc)
 end
 
 algname(alg) = string(nameof(typeof(alg)))
@@ -371,7 +371,7 @@ Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
 """
-    express_derivatives(expr, sys::ODESystem)
+    express_derivatives(expr, prob::CosmologyProblem)
 
 Express derivatives in the symbolic expression `expr` in terms of non-differentiated quantities in the system `sys`.
 """
