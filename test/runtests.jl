@@ -204,6 +204,21 @@ end
     @test sol(τ0, M.b.rec.κ) == sol(ks, τ0, M.b.rec.κ) == 0.0
 end
 
+@testset "Equal parameters in background and perturbation solutions" begin
+    sol = solve(prob, [1.0, 10.0, 100.0])
+    pars = [ # choose lots of background parameters that should be equal in perturbations
+        M.τ0, M.g.h,
+        M.c.Ω₀,
+        M.b.Ω₀, M.b.rec.Yp, M.b.rec.fHe, M.b.rec.re1z, M.b.rec.re2z, M.b.rec.κ0,
+        M.γ.Ω₀, M.γ.T₀,
+        M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
+        M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
+        M.Λ.Ω₀,
+        M.I.As, M.I.kpivot, M.I.ns
+    ]
+    @test all(allequal([sol.bg.ps[par]; map(pt -> pt.ps[par], sol.pts)]) for par in pars)
+end
+
 @testset "Success checking" begin
     @test issuccess(solve(prob, 1.0))
     @test !issuccess(solve(prob, 0.0))

@@ -23,8 +23,6 @@ struct CosmologyProblem
     conditions::AbstractArray
 
     var2spl::Dict
-
-    pars_sync::AbstractVector # parameters that must be synchronized in background and perturbations
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
@@ -151,9 +149,6 @@ function CosmologyProblem(
             save_positions = (true, false), # don't duplicate final point
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
-        pars_sync = []
-        haveτ0 && push!(pars_sync, M.τ0) # TODO: specify more efficient numerical indices for bg and pt instead
-        haveκ0 && push!(pars_sync, M.b.rec.κ0) # TODO: specify more efficient numerical indices for bg and pt instead
 
         bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
     else
@@ -180,7 +175,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl, pars_sync)
+    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl)
 end
 
 """
@@ -208,14 +203,14 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl, prob.pars_sync)
+    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
     # TODO: remove M, etc. for efficiency?
 
-    @unpack M, bg, pt, pars, shoot, conditions, var2spl, pars_sync = prob
+    @unpack M, bg, pt, pars, shoot, conditions, var2spl = prob
 
     bgsetsym! = setsym(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
     bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
@@ -246,7 +241,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl, pars_sync)
+        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl)
     end
 end
 
@@ -303,9 +298,7 @@ function solve(
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
         ptprob0 = remake(prob.pt; tspan = ivspan)
-        for par in prob.pars_sync
-            ptprob0.ps[par] = bg.ps[par] # synchronize background and perturbation parameters (e.g. τ0 and κ0)
-        end
+        SciMLStructures.replace!(Tunable(), parameter_values(prob.pt), canonicalize(Tunable(), parameter_values(bg))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
         update_vars = Dict()
         is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
         for (var, spl) in prob.var2spl
