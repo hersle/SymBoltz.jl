@@ -23,6 +23,8 @@ struct CosmologyProblem
     conditions::AbstractArray
 
     var2spl::Dict
+    splset!::Any
+    kset!::Any
 end
 
 struct CosmologySolution{Tbg, Tks, Tpts, Th}
@@ -170,12 +172,16 @@ function CosmologyProblem(
         end
         vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
         pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, kwargs...)
+        splset! = ModelingToolkit.setsym_oop(pt, collect(values(var2spl)))
+        kset! = ModelingToolkit.setp(pt, k)
     else
         pt = nothing
         var2spl = Dict()
+        splset! = nothing
+        kset! = nothing
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl)
+    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl, splset!, kset!)
 end
 
 """
@@ -203,14 +209,14 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl)
+    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl, prob.splset!, prob.kset!)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
     # TODO: remove M, etc. for efficiency?
 
-    @unpack M, bg, pt, pars, shoot, conditions, var2spl = prob
+    @unpack bg, pt = prob
 
     bgsetsym! = setsym(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
     bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
@@ -241,7 +247,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl)
+        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.var2spl, prob.splset!, prob.kset!)
     end
 end
 
@@ -297,33 +303,19 @@ function solve(
         end
 
         # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-        ptprob0 = remake(prob.pt; tspan = ivspan)
-        SciMLStructures.replace!(Tunable(), parameter_values(prob.pt), canonicalize(Tunable(), parameter_values(bg))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
-        update_vars = Dict()
-        is_unknown = Set(nameof.(Symbolics.operation.(unknowns(prob.bg.f.sys)))) # set for more efficient lookup # TODO: process in CosmologyProblem
-        for (var, spl) in prob.var2spl
-            varname = nameof(operation(var))
-            if varname in is_unknown
-                dvar = nothing # compute derivative from ODE f
-            else
-                dvarname = Symbol(varname, Symbol("̇")) # add \dot # TODO: generalize to e.g. expand_derivatives(D(var))?
-                dvar = only(@variables($dvarname(τ)))
-            end
-            splval = spline(bg, var, dvar)
-            update_vars = merge(update_vars, Dict(spl => splval))
-            verbose && println("Splining $var with $(length(splval.t)) points")
-        end
-        update = ModelingToolkit.setsym_oop(ptprob0, collect(keys(update_vars)))
-        newu0, newp = update(ptprob0, collect(values(update_vars)))
+        ptprob0 = prob.pt
+        splvals = [spline(bg, var, nothing) for var in keys(prob.var2spl)] |> Vector{Any}
+        splvals = Vector{Any}(splvals) # TODO: why much faster after converting to Vector{Any}? use custom MTKParameter buffer type? https://github.com/SciML/ModelingToolkit.jl/pull/3585
+        newu0, newp = prob.splset!(ptprob0, splvals)
+        SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bg))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
         ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
 
-        kidx = ModelingToolkit.parameter_index(ptprob0, k)
-        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056)
+        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
         nmode, nmodes = Atomic{Int}(0), length(ks)
         ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
             ptprob = ptprob_tlv[]
-            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056
-            setindex!(p, ks[i], kidx)
+            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
+            prob.kset!(p, ks[i])
             return Setfield.@set ptprob.p = p
         end, output_func = (sol, i) -> begin
             if verbose
