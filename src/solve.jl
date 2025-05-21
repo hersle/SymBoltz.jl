@@ -94,7 +94,7 @@ end
 """
     CosmologyProblem(
         M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
+        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -106,7 +106,7 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, kwargs...
+    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(M, pars_full)
@@ -152,7 +152,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, kwargs...)
+        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, jac, kwargs...)
     else
         bg = nothing
     end
@@ -171,7 +171,7 @@ function CosmologyProblem(
             pt = debug_system(pt)
         end
         vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, kwargs...)
+        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, jac, kwargs...)
         splset! = ModelingToolkit.setsym_oop(pt, collect(values(var2spl)))
         kset! = ModelingToolkit.setp(pt, k)
     else
