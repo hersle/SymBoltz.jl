@@ -50,7 +50,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.cₛ² => 1.0
 ))
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-prob = CosmologyProblem(M, pars, Dict(M.X.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars)
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), M.X.w)
 p2 = plot(sol, ks, log10(M.g.a), M.X.δ)

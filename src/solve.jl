@@ -7,7 +7,7 @@ import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
-import SymbolicIndexingInterface: getsym, setp, parameter_values
+import SymbolicIndexingInterface: getsym, setsym, parameter_values
 
 background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
@@ -18,8 +18,7 @@ struct CosmologyProblem
     bg::ODEProblem
     pt::Union{ODEProblem, Nothing}
 
-    pars::Dict
-
+    pars::Base.KeySet
     shoot::Base.KeySet
     conditions::AbstractArray
 
@@ -56,8 +55,9 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     end
 
     printstyled(io, "\nParameters:"; bold = true)
-    for (par, val) in prob.pars
-        print(io, '\n', indent, "$par = $val", par in prob.shoot ? " (shooting guess)" : "")
+    for par in prob.pars
+        val = getsym(prob, par)(prob)
+        print(io, '\n', indent, "$par = $val", par in prob.shoot ? " (shooting)" : "")
     end
 
     !isempty(prob.conditions) && printstyled(io, "\nFinal conditions:"; bold = true) # TODO: initial vs final conditions
@@ -79,11 +79,6 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
         nmin, nmax = extrema(map(length, sol.pts))
         n = length(sol.pts)
         print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (interpolation in-between)")
-    end
-
-    printstyled(io, "\nParameters:"; bold = true)
-    for (par, val) in sol.prob.pars
-        print(io, '\n', indent, "$par = $val", par in sol.prob.shoot ? " (shooting solution)" : "")
     end
 end
 
@@ -185,7 +180,7 @@ function CosmologyProblem(
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, pars_full, shoot_pars, shoot_conditions, var2spl, pars_sync)
+    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl, pars_sync)
 end
 
 """
@@ -203,7 +198,6 @@ function remake(
     bg = true, pt = true, shoot = true,
     kwargs...
 )
-    pars_full = merge(prob.pars, pars) # save full dictionary for constructor
     vars, pars = split_vars_pars(prob.M, pars)
     vars = isempty(vars) ? missing : vars
     pars = isempty(pars) ? missing : pars
@@ -214,20 +208,20 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, pars_full, shoot_pars, shoot_conditions, prob.var2spl, prob.pars_sync)
+    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl, prob.pars_sync)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
-    # TODO: remove M, pars, etc. for efficiency?
+    # TODO: remove M, etc. for efficiency?
 
     @unpack M, bg, pt, pars, shoot, conditions, var2spl, pars_sync = prob
 
-    bgsetp! = setp(bg, idxs)
+    bgsetsym! = setsym(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
     bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
 
     if !isnothing(pt)
-        ptsetp! = setp(pt, idxs)
+        ptsetsym! = setsym(pt, idxs)
         ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
     end
 
@@ -237,7 +231,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
         bgbuffer = get_tmp(bgdiffcache, p) # get newly typed buffer
         copyto!(bgbuffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
         bgps = SciMLStructures.replace(Tunable(), bgps, bgbuffer) # get newly typed parameter object
-        bgsetp!(bgps, p) # set new parameters
+        bgsetsym!(bgps, p) # set new parameters
         bg_new = remake(bg; p = bgps, kwargs...) # create updated problem (don't overwrite old)
 
         # Update perturbation problem
@@ -248,11 +242,11 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             ptbuffer = get_tmp(ptdiffcache, p) # need another for perturbation parameters
             copyto!(ptbuffer, canonicalize(Tunable(), ptps)[1])
             ptps = SciMLStructures.replace(Tunable(), ptps, ptbuffer)
-            ptsetp!(ptps, p)
+            ptsetsym!(ptps, p)
             pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl, pars_sync) # TODO: update pars? or remove that field and read parameters from subproblems?
+        return CosmologyProblem(M, bg_new, pt_new, pars, shoot, conditions, var2spl, pars_sync)
     end
 end
 
@@ -280,7 +274,7 @@ function solve(
 )
     if !isempty(prob.shoot)
         length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
-        pars = Dict(par => prob.pars[par] for par in prob.shoot)
+        pars = Dict(par => getsym(prob, par)(prob) for par in prob.shoot)
         pars = shoot(prob, pars, prob.conditions; verbose, shootopts...)
         prob = remake(prob, pars)
     end
@@ -297,7 +291,7 @@ function solve(
 
     ivspan = extrema(bg.t)
 
-    h = prob.pars[prob.bg.f.sys.g.h] # TODO: remove symbolic getter
+    h = getsym(prob, prob.bg.f.sys.g.h)(prob) # TODO: remove symbolic getter
     if !isnothing(prob.pt) && !isempty(ks)
         ks = k_dimensionless.(ks, h)
         !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -458,13 +452,9 @@ function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
     end
 end
 
-function getp(prob::CosmologyProblem, p)
-    getp_bg = SymbolicIndexingInterface.getp(prob.bg, p)
-    return prob -> getp_bg(prob.bg)
-end
-function getp(sol::CosmologySolution, p)
-    getp_bg = SymbolicIndexingInterface.getp(sol.bg, p)
-    return sol -> getp_bg(sol.bg)
+function getsym(provider::Union{CosmologyProblem, CosmologySolution}, p)
+    getsym_bg = SymbolicIndexingInterface.getsym(provider.bg, p)
+    return provider -> getsym_bg(provider.bg)
 end
 
 function neighboring_modes_indices(sol::CosmologySolution, k)

@@ -337,7 +337,7 @@ Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) 
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), kwargs...)
     kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
     sol = solve(prob; bgopts)
-    τ0 = getp(sol, prob.M.τ0)(sol)
+    τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_coarse = kτ0s_coarse ./ τ0
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
     if Nlos != 0 # instead choose Nlos time points τ = τ(u) corresponding to uniformly spaced u
@@ -410,18 +410,18 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
     prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
     probgen = SymBoltz.parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
 
-    geta = getsym(prob.bg, M.g.a)
-    getτ = getsym(prob.bg, M.τ)
-    geth = getsym(prob.bg, M.g.h)
-    getΩk0 = getsym(prob.bg, M.K.Ω₀)
+    geta = getsym(prob, M.g.a)
+    getτ = getsym(prob, M.τ)
+    geth = getsym(prob, M.g.h)
+    getΩk0 = getsym(prob, M.K.Ω₀)
 
     return p -> begin
         prob = probgen(p)
         sol = solve(prob; bgopts, saveat = as, save_end = true)
-        a = geta(sol.bg)
-        τ = getτ(sol.bg)
-        h = geth(sol.bg)
-        Ωk0 = getΩk0(sol.bg)
+        a = geta(sol)
+        τ = getτ(sol)
+        h = geth(sol)
+        Ωk0 = getΩk0(sol)
         τ0 = τ[end] # time today
         χ = τ0 .- τ # TODO: use M.χ
         r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
