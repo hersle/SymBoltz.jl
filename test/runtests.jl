@@ -266,13 +266,15 @@ end
     #= for debug plotting
     using CairoMakie
     fig = Figure()
-    ax = Axis(fig[1, 1])
+    ax = Axis(fig[1, 1]; xlabel = "l")
     for i in eachindex(diffpars)
         color = Makie.wong_colors()[i]
         alpha = 0.6
-        lines!(ax, l, ∂logDlTT_∂logθ_ad[:, i]; color, alpha, linestyle = :solid)
-        lines!(ax, l, ∂logDlTT_∂logθ_fd[:, i]; color, alpha, linestyle = :dash)
+        label = replace("∂(log(Dₗ)) / ∂(log($(diffpars[i])))", "₊" => ".")
+        lines!(ax, l, ∂logDlTT_∂logθ_ad[:, i]; color, alpha, linestyle = :solid, label = "$label (AD)")
+        lines!(ax, l, ∂logDlTT_∂logθ_fd[:, i]; color, alpha, linestyle = :dash, label = "$label (FD)")
     end
+    axislegend(ax; backgroundcolor = :transparent)
     fig
     =#
 end

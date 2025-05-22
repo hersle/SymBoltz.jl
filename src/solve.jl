@@ -132,7 +132,7 @@ function CosmologyProblem(
             error("Don't know what to do when independent variable is $iv.")
         end
         parsymbols = Symbol.(parameters(bg))
-        haveτ0 = Symbol("τ0") in parsymbols
+        haveτ0 = Symbol(iv) == :τ && Symbol("τ0") in parsymbols
         haveκ0 = Symbol("b₊rec₊κ0") in parsymbols
         τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.τ0) : nothing
         _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b.rec._κ) : nothing

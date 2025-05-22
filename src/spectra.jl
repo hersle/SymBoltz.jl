@@ -3,8 +3,9 @@ using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using TwoFAST
 using MatterPower
-using ForwardDiff # TODO: get rid of; to convert to Float64 inside spectrum_cmb
-using ChainRulesCore, ForwardDiffChainRules
+using ForwardDiff
+using ForwardDiffChainRules
+import ChainRulesCore
 
 """
     spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
@@ -187,7 +188,6 @@ end
 # TODO: RombergEven() works with 513 or 1025 points (do Logging.disable_logging(Logging.Warn) first)
 # TODO: gaussian quadrature with weight function? https://juliamath.github.io/QuadGK.jl/stable/weighted-gauss/
 # line of sight integration
-# TODO: implement chain rule using fundamental theorem of calculus, to make faster and remove need of differentiating Bessel functions? https://juliadiff.org/ChainRulesCore.jl/stable/rule_author/which_functions_need_rules.html
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
@@ -253,7 +253,7 @@ Calculate photon E-mode polarization multipoles today by line-of-sight integrati
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    Ss = sol(ks, τs, M.ST2_polarization; ktransform) # TODO: apply integration by parts?
+    Ss = sol(ks, τs, M.ST2_polarization; ktransform)
     return los_integrate(Ss, ls, ks, τs, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
@@ -330,11 +330,11 @@ function spectrum_cmb(modes::AbstractVector, sol::CosmologySolution, ls::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), thread = true, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), kwargs...)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), thread = true, kwargs...)
     kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
     sol = solve(prob; bgopts)
     τ0 = getsym(sol, prob.M.τ0)(sol)
@@ -347,7 +347,7 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         τs = u⁻¹.(us)
     end
     #ptopts = merge(ptopts, (saveat = τs,)) # TODO: use, but would need to redo k integration
-    sol = solve(prob, ks_coarse; ptopts)
+    sol = solve(prob, ks_coarse; ptopts, thread)
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine[begin] += 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
     ks_fine[end] -= 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
@@ -423,7 +423,7 @@ function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs
         h = geth(sol)
         Ωk0 = getΩk0(sol)
         τ0 = τ[end] # time today
-        χ = τ0 .- τ # TODO: use M.χ
+        χ = τ0 .- τ
         r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
         H0 = SymBoltz.H100 * h
         return @. r / a * SymBoltz.c / H0 # luminosity distance in meters

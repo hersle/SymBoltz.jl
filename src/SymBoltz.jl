@@ -52,12 +52,10 @@ using PrecompileTools: @compile_workload
     pars = parameters_Planck18(M)
     prob = CosmologyProblem(M, pars)
     ks = 10 .^ range(-6, 1, length=5) / u"Mpc"
-    sol = solve(prob, ks; thread=false)
+    sol = solve(prob, ks; thread = false)
     Ps = spectrum_matter(sol, ks)
     ls = 1:3
-    ks = sol.ks
-    τs = sol.bg.t
-    Dls = spectrum_cmb(:TT, sol, ls, ks, τs; normalization = :Dl)
+    Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl, thread = false)
 end
 
 end

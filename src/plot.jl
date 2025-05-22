@@ -13,7 +13,7 @@ end
     xlabel --> (x isa AbstractArray ? "" : displayname(x))
     ylabel --> (y isa AbstractArray ? "" : displayname(y))
     line_z = get(plotattributes, :line_z, nothing)
-    if line_z isa Num # TODO: add to perturbations?
+    if line_z isa Num
         line_z := sol(τs, line_z)
         colorbar_title --> displayname(line_z)
     end
