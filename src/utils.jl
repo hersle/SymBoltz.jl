@@ -27,7 +27,8 @@ function identity(sys::ODESystem)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
+    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
 end
 
 function debugize(sys::ODESystem)
@@ -46,6 +47,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
+    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
 
     # extract requested orders
     eqs = taylor(eqs, ϵ, orders; kwargs...)
@@ -56,7 +58,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=sys.name, description=sys.description)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))

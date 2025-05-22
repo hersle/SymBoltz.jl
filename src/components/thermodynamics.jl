@@ -58,12 +58,14 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        fHe => Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
         _κ => 0.0
         κ0 => NaN
         re1z => 7.6711
         re2z => 3.5
         ΔT => 0.0 # i.e. Tb ~ Tγ at early times
+    ]
+    parameter_dependencies = [
+        fHe ~ Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
     ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
@@ -138,5 +140,5 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-    ], τ, vars, pars; defaults, description, kwargs...)
+    ], τ, vars, pars; defaults, parameter_dependencies, description, kwargs...)
 end

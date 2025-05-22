@@ -163,8 +163,8 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         Π̇(τ), [description = "Anisotropic stress perturbation derivative"]
         G(τ)[0:lmax], [description = "Polarization component"]
     end
-    defs = [
-        γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
+    pdeps = [
+        γ.Ω₀ ~ π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
     eqs1 = [
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
@@ -203,7 +203,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
     description = "Photon radiation"
-    return extend(γ, ODESystem(eqs1, τ, vars, []; initialization_eqs=ics1, defaults=defs, name, kwargs...); description)
+    return extend(γ, ODESystem(eqs1, τ, vars, []; initialization_eqs=ics1, parameter_dependencies = pdeps, name, kwargs...); description)
 end
 
 """
@@ -252,14 +252,13 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     pars = @parameters begin
-        m, [description = "Mass (in kg)"] # TODO: to eV/c^2?
+        m, [description = "Neutrino mass (in kg)"] # TODO: to eV/c^2?
         T₀, [description = "Temperature today (in K)"]
         x[1:nx], [description = "Dimensionless momentum bins"]
         W[1:nx], [description = "Gaussian momentum quadrature weights"]
         Ω₀, [description = "Reduced background density today"]
         y₀, [description = "Temperature-reduced mass today"]
         Iρ₀, [description = "Density integral today"]
-        E₀[1:nx], [description = "Dimensionless energies today"]
     end
     vars = @variables begin
         ρ(τ), [description = "Background density"]
@@ -326,16 +325,17 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     defs = [
         collect(x .=> _x);
         collect(W .=> _W);
+    ]
 
+    pdeps = [
         # compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
-        y₀ => m*c^2 / (kB*T₀)
-        collect(E₀ .=> .√(x.^2 .+ y₀^2));
-        Iρ₀ => ∫dx_x²_f₀(E₀)
-        Ω₀ => 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
+        y₀ ~ m*c^2 / (kB*T₀)
+        Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
+        Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
     ]
     description = "Massive neutrino"
-    pars = [m, T₀, x, W, Ω₀, y₀, T₀, Iρ₀, E₀...] # need every E₀ index
-    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, defaults=defs, name, description, kwargs...)
+    pars = [m, T₀, x, W, Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
+    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, defaults=defs, parameter_dependencies=pdeps, name, description, kwargs...)
 end
 
 """

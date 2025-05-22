@@ -377,7 +377,7 @@ function P_class(k, pars)
     return P
 end
 function P_symboltz(k, pars)
-    prob′ = remake(prob, pars)
+    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
     P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
     return P
 end
@@ -426,9 +426,9 @@ function Dl_class(modes, l, pars)
     Dl = [Dl[j][i] for j in eachindex(modes)]
     return Dl
 end
-function Dl_symboltz(modes, l, pars)
-    prob′ = remake(prob, pars)
-    return spectrum_cmb(modes, prob′, l; normalization = :Dl)
+function Dl_symboltz(modes, l, pars; kwargs...)
+    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
+    return spectrum_cmb(modes, prob′, l; normalization = :Dl, kwargs...)
 end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
@@ -442,14 +442,13 @@ plot_compare(l, l, Dl1[2], Dl2[2], "l", "Dₗ(TE)"; tol = 8e-14)
 ```@example class
 plot_compare(l, l, Dl1[3], Dl2[3], "l", "Dₗ(EE)"; tol = 2e-14)
 ```
-### Derivatives
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
 θ = [pars[par] for par in diffpars]
 function plot_compare_Dl_diff(mode)
     Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> only(Dl_class([mode], l, merge(pars, Dict(diffpars .=> θ)))), θ, Val{:central}; relstep = 1e-3)
     println("Computed CLASS derivatives in $Δt1 seconds")
-    Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> only(Dl_symboltz([mode], l, Dict(diffpars .=> θ))), θ)
+    Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(mode, l, Dict(diffpars .=> θ)), θ)
     println("Computed SymBoltz derivatives in $Δt2 seconds")
     plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) ($mode)" for par in diffpars])
 end

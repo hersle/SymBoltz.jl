@@ -279,11 +279,25 @@ end
     =#
 end
 
-@testset "Parameter updater and remake" begin
-    probgen = SymBoltz.parameter_updater(prob, [M.c.Ω₀, M.Λ.Ω₀])
+@testset "Parameter updater for dependent parameters" begin
+    prob0 = CosmologyProblem(M, merge(pars, Dict(M.γ.T₀ => NaN)))
+    Ω0total = M.γ.Ω₀ + M.ν.Ω₀ + M.c.Ω₀ + M.b.Ω₀ + M.h.Ω₀ + M.Λ.Ω₀
+    getter = SymBoltz.getsym(prob0, [M.γ.T₀, M.γ.Ω₀, Ω0total]) # TODO: define Ω0total in model?
+    @test all(isnan.(getter(prob0)))
 
-    Ωother = prob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀]
-    newprob = probgen([0.3, 1.0 - Ωother - 0.3])
+    probgen = SymBoltz.parameter_updater(prob0, M.γ.T₀)
+    prob1 = probgen(2.7)
+    vals = getter(prob1)
+    @test vals[1] == 2.7
+    @test isfinite(vals[2])
+    @test vals[3] == 1.0
+    @test issuccess(solve(prob, 1.0))
+end
+
+@testset "Parameter updater and remake" begin
+    probgen = SymBoltz.parameter_updater(prob, [M.c.Ω₀])
+
+    newprob = probgen([0.3])
     @test newprob.bg.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
     @test newprob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == 1.0
 
@@ -292,7 +306,7 @@ end
     @test all(map(SymBoltz.successful_retcode, sol.pts))
 
     function Pk(Ωc0)
-        newprob = probgen([Ωc0, 1.0 - Ωother - Ωc0])
+        newprob = probgen([Ωc0])
         return spectrum_matter(newprob, ks)
     end
     isnonzero(x) = isfinite(x) && !iszero(x)

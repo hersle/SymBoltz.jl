@@ -55,16 +55,19 @@ function ΛCDM(;
     end
     defs = Dict(
         C => 1//2,
-        g.Ψ => 20C / (15 + 4fν), # Φ found from solving initialization system
         τ0 => NaN
     )
-    have(ν) && have(γ) && merge!(defs, Dict(
-        ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
-        ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀
-    ))
-    have(h) && have(γ) && merge!(defs, Dict(
-        h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
-    ))
+    ics = [
+        g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
+    ]
+    pdeps = Ω₀_pdeps(G, species)
+    have(ν) && have(γ) && push!(pdeps,
+        ν.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
+        ν.Ω₀ ~ ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
+    )
+    have(h) && have(γ) && push!(pdeps,
+        h.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
+    )
     eqs0 = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
@@ -93,9 +96,8 @@ function ΛCDM(;
     ] .|> O(ϵ^1)
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
-    defs = merge(defs, Ω₀_defaults(G, species))
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name, description)
+    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, parameter_dependencies = pdeps, initialization_eqs = ics, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
@@ -150,8 +152,8 @@ function RMΛ(;
         g.Ψ => 20 // 15,
         τ0 => NaN
     )
-    defs = merge(defs, Ω₀_defaults(G, species))
-    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name)
+    pdeps = Ω₀_pdeps(G, species)
+    connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, parameter_dependencies = pdeps, name)
     M = compose(connections, g, G, I, species...)
     return complete(M; flatten = false, split = false)
 end
@@ -204,13 +206,10 @@ function w0waCDM(; name = :w0waCDM, Λanalytical = true, kwargs...)
     return ΛCDM(Λ = X; name, Λanalytical, kwargs...)
 end
 
-function Ω₀_defaults(G::ODESystem, species)
-    defs = Dict()
-    if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
-        s = species[end]
-        if !haskey(defs, s.Ω₀)
-            push!(defs, s.Ω₀ => 1 - sum(s′.Ω₀ for s′ in species[begin:end-1])) # TODO: do for all species, or do sum(s.Ω₀) ~ 1, when parameter initialization is workign
-        end
+function Ω₀_pdeps(G::ODESystem, species)
+    if all(map(s -> :Ω₀ in Symbol.(full_parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
+        return [species[end].Ω₀ ~ 1 - sum(s′.Ω₀ for s′ in species[begin:end-1])] # TODO: do for all species, or do sum(s.Ω₀) ~ 1, when parameter initialization is workign
+    else
+        return []
     end
-    return defs
 end

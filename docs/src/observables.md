@@ -100,7 +100,7 @@ SymBoltz.stddev_matter
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1])
+prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(prob, ks)
 
@@ -130,7 +130,6 @@ pars = Dict(
     M.r.T₀ => NaN,
     M.g.h => 0.7
 )
-pars[M.Λ.Ω₀] = 1 - pars[M.r.Ω₀] - pars[M.m.Ω₀] - pars[M.K.Ω₀]
 prob = CosmologyProblem(M, pars)
 sol = solve(prob)
 

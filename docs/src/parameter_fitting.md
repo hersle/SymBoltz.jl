@@ -59,7 +59,7 @@ X = SymBoltz.w0wa(g; analytical = true)
 M = RMΛ(K = K, Λ = X)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
 pars_fixed = Dict(M.τ => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
-pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.X.Ω₀, M.g.h, M.X.w0, M.X.wa]
+pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.g.h, M.X.w0, M.X.wa]
 
 dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
 μ(p) = 5 * log10.(dL(p)[begin:end-1] / (10*SymBoltz.pc)) # distance modulus
@@ -67,7 +67,7 @@ dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcm
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
 bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3)
-p0 = [9.3e-5, 0.3, 0.0, 0.7, 0.7, -1.0, 0.0] # fiducial parameters
+p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
 μs = μ(p0)
 mbs = μs .+ Mb
 lines!(ax1, data.zcmb, mbs; color = :black, label = "theory (ΛCDM)")
@@ -88,9 +88,8 @@ using Turing
     Ωk0 ~ Uniform(-1.0, +1.0)
     w0 ~ Uniform(-2.0, 0.0)
     wa ~ Uniform(-1.0, +1.0)
-    ΩX0 = 1 - Ωr0 - Ωm0 - Ωk0
 
-    p = [Ωr0, Ωm0, Ωk0, ΩX0, h, w0, wa]
+    p = [Ωr0, Ωm0, Ωk0, h, w0, wa]
     μs_pred = μ_pred(p)
     if isempty(μs_pred)
         Turing.@addlogprob! -Inf
