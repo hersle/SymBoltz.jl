@@ -40,7 +40,7 @@ X = SymBoltz.w0wa(g; analytical = true)
 M = RMΛ(K = K, Λ = X)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
 pars_fixed = Dict(M.τ =&gt; 0.0, M.r.T₀ =&gt; NaN, M.X.cₛ² =&gt; NaN)
-pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.X.Ω₀, M.g.h, M.X.w0, M.X.wa]
+pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.g.h, M.X.w0, M.X.wa]
 
 dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
 μ(p) = 5 * log10.(dL(p)[begin:end-1] / (10*SymBoltz.pc)) # distance modulus
@@ -48,12 +48,12 @@ dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcm
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
 bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3)
-p0 = [9.3e-5, 0.3, 0.0, 0.7, 0.7, -1.0, 0.0] # fiducial parameters
+p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
 μs = μ(p0)
 mbs = μs .+ Mb
 lines!(ax1, data.zcmb, mbs; color = :black, label = &quot;theory (ΛCDM)&quot;)
 axislegend(ax1, position = :rb)
-fig</code></pre><img src="19944098.png" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we define a probabilistic model in <a href="https://turinglang.org/">Turing.jl</a>:</p><pre><code class="language-julia hljs">using Turing
+fig</code></pre><img src="731c41f9.png" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we define a probabilistic model in <a href="https://turinglang.org/">Turing.jl</a>:</p><pre><code class="language-julia hljs">using Turing
 
 @model function supernova(μ_pred, mbs, C; Mb = Mb, Ωr0 = 9.3e-5)
     # Parameter priors
@@ -62,9 +62,8 @@ fig</code></pre><img src="19944098.png" alt="Example block output"/><h2 id="Baye
     Ωk0 ~ Uniform(-1.0, +1.0)
     w0 ~ Uniform(-2.0, 0.0)
     wa ~ Uniform(-1.0, +1.0)
-    ΩX0 = 1 - Ωr0 - Ωm0 - Ωk0
 
-    p = [Ωr0, Ωm0, Ωk0, ΩX0, h, w0, wa]
+    p = [Ωr0, Ωm0, Ωk0, h, w0, wa]
     μs_pred = μ_pred(p)
     if isempty(μs_pred)
         Turing.@addlogprob! -Inf
@@ -92,7 +91,7 @@ end
 sn_w0waCDM = supernova(μ, data.mb, C);
 sn_ΛCDM = fix(sn_w0waCDM, w0 = -1.0, wa = 0.0);</code></pre><p>We can now sample from the model to obtain a MCMC chain for the ΛCDM model:</p><pre><code class="language-julia hljs">chain = sample(sn_ΛCDM, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, Ωk0 = 0.0))
 import Plots, StatsPlots # don&#39;t collide with Makie
-Plots.plot(chain)</code></pre><img src="aa957584.svg" alt="Example block output"/><p>Finally, we can visualize the high-dimensional chain with a corner plot using PairPlots.jl:</p><pre><code class="language-julia hljs">using PairPlots
+Plots.plot(chain)</code></pre><img src="de1b6f82.svg" alt="Example block output"/><p>Finally, we can visualize the high-dimensional chain with a corner plot using PairPlots.jl:</p><pre><code class="language-julia hljs">using PairPlots
 layout = (
     PairPlots.Scatter(),
     PairPlots.Contourf(sigmas = 1:2),
@@ -101,21 +100,21 @@ layout = (
     PairPlots.MarginQuantileText(color = :black, font = :regular),
     PairPlots.MarginQuantileLines(),
 )
-pp = pairplot(chain =&gt; layout)</code></pre><img src="d41081c2.png" alt="Example block output"/><p>We can easily repeat this for another model:</p><pre><code class="language-julia hljs">sn_w0CDM_flat = fix(sn_w0waCDM, Ωk0 = 0.0, wa = 0.0);
+pp = pairplot(chain =&gt; layout)</code></pre><img src="5ef2b868.png" alt="Example block output"/><p>We can easily repeat this for another model:</p><pre><code class="language-julia hljs">sn_w0CDM_flat = fix(sn_w0waCDM, Ωk0 = 0.0, wa = 0.0);
 chain = sample(sn_w0CDM_flat, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, w0 = -1.0))
-pp = pairplot(chain =&gt; layout)</code></pre><img src="005f8299.png" alt="Example block output"/><h2 id="Forecasting"><a class="docs-heading-anchor" href="#Forecasting">Forecasting</a><a id="Forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Forecasting" title="Permalink"></a></h2><p>Planning future cosmological surveys involves forecasting the precision of the constraints they are believed to place on parameters. Here we show how one can perform forecasting by combining SymBoltz.jl with Turing.jl.</p><p>To start, create another probabilistic supernova model, but instead of observed luminosity distances, we now use simulated luminosity distances in a fiducial cosmology:</p><pre><code class="language-julia hljs">sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C));
+pp = pairplot(chain =&gt; layout)</code></pre><img src="e11024e2.png" alt="Example block output"/><h2 id="Forecasting"><a class="docs-heading-anchor" href="#Forecasting">Forecasting</a><a id="Forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Forecasting" title="Permalink"></a></h2><p>Planning future cosmological surveys involves forecasting the precision of the constraints they are believed to place on parameters. Here we show how one can perform forecasting by combining SymBoltz.jl with Turing.jl.</p><p>To start, create another probabilistic supernova model, but instead of observed luminosity distances, we now use simulated luminosity distances in a fiducial cosmology:</p><pre><code class="language-julia hljs">sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C));
 sn_fc_w0CDM_flat = fix(sn_fc_w0waCDM, Ωk0 = 0.0, wa = 0.0);</code></pre><h3 id="MCMC-driven-forecasting"><a class="docs-heading-anchor" href="#MCMC-driven-forecasting">MCMC-driven forecasting</a><a id="MCMC-driven-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-driven-forecasting" title="Permalink"></a></h3><p>A general assumption-free, but expensive method to perform forecasting is to explore the likelihood using MCMC (as before, only against simulated data):</p><pre><code class="language-julia hljs">chain_fc = sample(sn_fc_w0CDM_flat, NUTS(), 1000)
-Plots.plot(chain_fc)</code></pre><img src="010780a1.svg" alt="Example block output"/><pre><code class="language-julia hljs">pars0 = Dict(pars_varying .=&gt; p0)
+Plots.plot(chain_fc)</code></pre><img src="ac5062b7.svg" alt="Example block output"/><pre><code class="language-julia hljs">pars0 = Dict(pars_varying .=&gt; p0)
 truth = PairPlots.Truth((h = pars0[M.g.h], Ωm0 = pars0[M.m.Ω₀], w0 = pars0[M.X.w0]))
-pp_fc = pairplot(chain_fc =&gt; layout, truth)</code></pre><img src="e9f39aa6.png" alt="Example block output"/><h3 id="Fisher-forecasting"><a class="docs-heading-anchor" href="#Fisher-forecasting">Fisher forecasting</a><a id="Fisher-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Fisher-forecasting" title="Permalink"></a></h3><p>A less general, but cheaper method to perform forecasting is use a second-order approximation of the likelihood around the mean of the probability distribution (i.e. maximum of the likelihood). This technique is called Fisher forecasting, and requires calculation of the <strong>Fisher (information) matrix</strong></p><p class="math-container">\[Fᵢⱼ = -\left⟨\frac{∂^2 \log P(θ)}{∂θᵢ \, ∂θⱼ}\right⟩.\]</p><p>This effectively measures how quickly the likelihood falls from the maximum in different directions in parameter space. Under certain assumptions, the Fisher matrix is the inverse of the covariance matrix <span>$C = F⁻¹$</span>.</p><p>First, we ask Turing to <a href="https://turinglang.org/docs/usage/mode-estimation/">estimate the maximum likelihood mode</a> of the probabilistic model:</p><pre><code class="language-julia hljs">maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = [0.5, 0.5, -1.0]) # TODO: or MAP?</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ModeResult with maximized lp of 101.16
-[0.7000323913774188, 0.2999713455515726, -0.999996693848789]</code></pre><p>As expected, the maximum likelihood corresponds to our chosen fiducial parameters. Nevertheless, the returned mode estimate object offers convenience methods that greatly simplifies our following calculations. Next, we calculate the Fisher matrix from the maximum likelihood, and invert it to get the covariance matrix:</p><pre><code class="language-julia hljs">using StatsBase
+pp_fc = pairplot(chain_fc =&gt; layout, truth)</code></pre><img src="51307c09.png" alt="Example block output"/><h3 id="Fisher-forecasting"><a class="docs-heading-anchor" href="#Fisher-forecasting">Fisher forecasting</a><a id="Fisher-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Fisher-forecasting" title="Permalink"></a></h3><p>A less general, but cheaper method to perform forecasting is use a second-order approximation of the likelihood around the mean of the probability distribution (i.e. maximum of the likelihood). This technique is called Fisher forecasting, and requires calculation of the <strong>Fisher (information) matrix</strong></p><p class="math-container">\[Fᵢⱼ = -\left⟨\frac{∂^2 \log P(θ)}{∂θᵢ \, ∂θⱼ}\right⟩.\]</p><p>This effectively measures how quickly the likelihood falls from the maximum in different directions in parameter space. Under certain assumptions, the Fisher matrix is the inverse of the covariance matrix <span>$C = F⁻¹$</span>.</p><p>First, we ask Turing to <a href="https://turinglang.org/docs/usage/mode-estimation/">estimate the maximum likelihood mode</a> of the probabilistic model:</p><pre><code class="language-julia hljs">maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = [0.5, 0.5, -1.0]) # TODO: or MAP?</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ModeResult with maximized lp of 101.16
+[0.6999998423647303, 0.2999992658899991, -0.999996716513404]</code></pre><p>As expected, the maximum likelihood corresponds to our chosen fiducial parameters. Nevertheless, the returned mode estimate object offers convenience methods that greatly simplifies our following calculations. Next, we calculate the Fisher matrix from the maximum likelihood, and invert it to get the covariance matrix:</p><pre><code class="language-julia hljs">using StatsBase
 F_fc = informationmatrix(maxl_fc)
 C_fc = inv(F_fc)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Named Matrix{Float64}
 A ╲ B │            h           Ωm0            w0
 ──────┼─────────────────────────────────────────
-h     │   1.60356e-5   0.000141452  -0.000493161
-Ωm0   │  0.000141452    0.00351738   -0.00921379
-w0    │ -0.000493161   -0.00921379     0.0259936</code></pre><p>Finally, we <a href="https://cookierobotics.com/007/">derive 68% (1σ) and 95% (2σ) confidence ellipses from the covariance matrix</a> and draw them onto our corner plot:</p><pre><code class="language-julia hljs">function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd = 1, N = 33)
+h     │   1.60344e-5   0.000141453  -0.000493181
+Ωm0   │  0.000141453    0.00351769   -0.00921492
+w0    │ -0.000493181   -0.00921492     0.0259976</code></pre><p>Finally, we <a href="https://cookierobotics.com/007/">derive 68% (1σ) and 95% (2σ) confidence ellipses from the covariance matrix</a> and draw them onto our corner plot:</p><pre><code class="language-julia hljs">function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd = 1, N = 33)
     σᵢ², σⱼ², σᵢⱼ = C[i,i], C[j,j], C[i,j]
     θ = (atan(2σᵢⱼ, σᵢ²-σⱼ²)) / 2
     a = √((σᵢ²+σⱼ²)/2 + √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2))
@@ -142,4 +141,4 @@ for i in eachindex(IndexCartesian(), C_fc)
     end
 end
 
-pp_fc</code></pre><img src="6b95e3ce.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Extending models</a><a class="docs-footer-nextpage" href="../components/">Components »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Thursday 22 May 2025 12:39">Thursday 22 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+pp_fc</code></pre><img src="1faf932c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Extending models</a><a class="docs-footer-nextpage" href="../components/">Components »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Friday 23 May 2025 11:51">Friday 23 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
