@@ -40,7 +40,7 @@ export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyProblem, CosmologySolution
 export solve, shoot, remake, issuccess
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid
 export express_derivatives
 
 using PrecompileTools: @compile_workload

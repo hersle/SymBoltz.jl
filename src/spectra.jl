@@ -200,7 +200,7 @@ Iₗ(k) = ∫dτ S(k,τ) Rₗ(k(τ₀-τ))
 over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``).
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     @assert size(Ss) == (length(ks), length(τs)) # TODO: optimal structure? integration order? @simd?
     minimum(ls) >= 1 || error("l must be 1 or higher")
     verbose && println("Line-of-sight integration with $(length(ls)) ls x $(length(ks)) ks x $(length(τs)) τs")
@@ -399,6 +399,28 @@ function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[s
     H0 = H100 * sol[M.g.h]
     a = sol(ivs, M.g.a)
     return @. r / a * SymBoltz.c / H0 # to meters
+end
+
+# TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
+# TODO: source_grid(prob::CosmologyProblem seemed type-stable?
+# TODO: return getter for (ks, τs)
+function source_grid(sol::CosmologySolution, getS, ks_coarse, ks_fine, τs; ktransform = identity)
+    # Evaluate integrated perturbations on coarse grid
+    Ss_coarse = zeros(eltype(sol), length(ks_coarse), length(τs))
+    @tasks for ik in eachindex(ks_coarse)
+        Ss_coarse[ik, :] .= getS(sol.pts[ik]) # TODO: type infer getS?
+    end
+
+    # Interpolate to finer grid
+    Ss_fine = zeros(eltype(sol), length(ks_fine), length(τs))
+    xs_coarse = ktransform.(ks_coarse)
+    xs_fine = ktransform.(ks_fine)
+    @tasks for iτ in eachindex(τs)
+        interp = LinearInterpolation(view(Ss_coarse, :, iτ), xs_coarse)
+        Ss_fine[:, iτ] .= interp.(xs_fine)
+    end
+
+    return Ss_fine
 end
 
 # TODO: test @inferred
