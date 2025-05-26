@@ -326,13 +326,14 @@ end
 
     ls = 20:20:500
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
-    ks_coarse, ks_fine = kτ0s_coarse ./ τ0, kτ0s_fine ./ τ0
+    ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
+    ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
     τs = range(0.0, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST0)
     sol = solve(prob, ks_coarse; ptopts = (reltol = 1e-8, saveat = τs,))
     Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
-    Ss = @inferred source_grid(sol, Sgetter, sol.ks, ks_fine, τs)
+    Ss = @inferred source_grid(sol, Sgetter, sol.ks, ks_fine, τs) # TODO: could save allocation time with out-of-place version
     Θ0s = @inferred los_integrate(Ss, ls, ks_fine, τs) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], pars[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)

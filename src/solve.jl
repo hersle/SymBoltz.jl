@@ -12,11 +12,11 @@ import SymbolicIndexingInterface: getsym, setsym, parameter_values
 background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
 
-struct CosmologyProblem
+struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     M::ODESystem
 
-    bg::ODEProblem
-    pt::Union{ODEProblem, Nothing}
+    bg::Tbg
+    pt::Tpt
 
     pars::Base.KeySet
     shoot::Base.KeySet
@@ -27,7 +27,7 @@ struct CosmologyProblem
     kset!::Any
 end
 
-struct CosmologySolution{Tbg, Tks, Tpts, Th}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: AbstractVector, Th <: Number}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
@@ -323,7 +323,7 @@ function solve(
                 progress = Int(round(nmode[] / nmodes * 100))
                 print("\rSolved perturbation modes $(nmode[])/$(nmodes) = $(round(progress)) %")
             end
-            return sol, false
+            return sol, false # TODO: save only necessary output quantities!!! will give e.g. EnsembleSolution{Vector{Float64}} instead of EnsembleSolution{ODESolution{...}}
         end)
         ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
         if !haskey(ptopts, :alg)
@@ -335,7 +335,7 @@ function solve(
         ptsols = nothing
     end
 
-    return CosmologySolution{typeof(bg), typeof(ks), typeof(ptsols), typeof(h)}(prob, bg, ks, ptsols, h)
+    return CosmologySolution(prob, bg, ks, ptsols, h)
 end
 function solve(prob::CosmologyProblem; kwargs...)
     return solve(prob, []; kwargs...)
