@@ -201,33 +201,26 @@ over the source function values `Ss` against the radial functions `Rl` (e.g. the
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 """
 function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
-    @assert size(Ss) == (length(ks), length(τs)) # TODO: optimal structure? integration order? @simd?
-    minimum(ls) >= 1 || error("l must be 1 or higher")
-    verbose && println("Line-of-sight integration with $(length(ls)) ls x $(length(ks)) ks x $(length(τs)) τs")
-
+    # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
+    @assert size(Ss) == (length(τs), length(ks))
     χs = τs[end] .- τs
     Is = zeros(T, (length(ks), length(ls)))
 
-    @tasks for ik in eachindex(ks) # parallellize independent loop iterations
+    # TODO: skip and set Rl to zero if l ≳ kτ0 or another cutoff?
+    @tasks for il in eachindex(ls) # parallellize independent loop iterations
         @local begin # define task-local values (declared once for all loop iterations)
-            ∂I_∂τ = zeros(T, (length(ls), length(τs))) # TODO: best to do array of arrays without using @view, or to use matrix + @view?
+            ∂I_∂τ = zeros(T, length(τs))
         end
-
-        k = ks[ik]
-        for iτ in eachindex(τs)
-            χ = χs[iτ]
-            S = Ss[ik,iτ]
-            kχ = k * χ
-            for il in eachindex(ls)
-                # TODO: skip and set to zero if l ≳ kτ0?
-                l = ls[il]
-                ∂I_∂τ[il,iτ] = S * Rl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers?
+        l = ls[il]
+        for ik in eachindex(ks)
+            k = ks[ik]
+            for iτ in eachindex(τs)
+                S = Ss[iτ,ik]
+                χ = χs[iτ]
+                kχ = k * χ
+                ∂I_∂τ[iτ] = S * Rl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
             end
-        end
-        for il in eachindex(ls)
-            # TODO: skip and set to zero if l ≳ kτ0?
-            integrand = @view ∂I_∂τ[il,:]
-            Is[ik,il] = integrate(τs, integrand; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
+            Is[ik,il] = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
         end
     end
 
@@ -241,7 +234,8 @@ Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    Ss = sol(ks, τs, M.ST0; ktransform)
+    Sgetter = getsym(sol.prob.pt, M.ST0)
+    Ss = source_grid(sol, Sgetter, sol.ks, ks, τs; ktransform)
     return los_integrate(Ss, ls, ks, τs, jl; kwargs...)
 end
 
@@ -253,7 +247,8 @@ Calculate photon E-mode polarization multipoles today by line-of-sight integrati
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
     M = sol.prob.M
-    Ss = sol(ks, τs, M.ST2_polarization; ktransform)
+    Sgetter = getsym(sol.prob.pt, M.ST2_polarization)
+    Ss = source_grid(sol, Sgetter, sol.ks, ks, τs; ktransform)
     return los_integrate(Ss, ls, ks, τs, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
@@ -276,9 +271,11 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
     ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
 
     @tasks for il in eachindex(ls)
-        # TODO: skip kτ0 ≲ l
+        # TODO: skip kτ0 ≲ l?
         @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
-        @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlAs[:,il] * ΘlBs[:,il]
+        ΘlA = @view ΘlAs[:, il]
+        ΘlB = @view ΘlBs[:, il]
+        @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlA * ΘlB
         Cls[il] = integrate(ks_with0, dCl_dks_with0; integrator) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
@@ -345,8 +342,9 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         umin, umax = u(τmin), u(τmax)
         us = range(umin, umax, length = Nlos)
         τs = u⁻¹.(us)
+        τs[end] = τ0
     end
-    #ptopts = merge(ptopts, (saveat = τs,)) # TODO: use, but would need to redo k integration
+    ptopts = merge(ptopts, (saveat = τs,))
     sol = solve(prob, ks_coarse; ptopts, thread)
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine[begin] += 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
@@ -406,18 +404,18 @@ end
 # TODO: return getter for (ks, τs)
 function source_grid(sol::CosmologySolution, getS, ks_coarse, ks_fine, τs; ktransform = identity)
     # Evaluate integrated perturbations on coarse grid
-    Ss_coarse = zeros(eltype(sol), length(ks_coarse), length(τs))
+    Ss_coarse = zeros(eltype(sol), length(τs), length(ks_coarse))
     @tasks for ik in eachindex(ks_coarse)
-        Ss_coarse[ik, :] .= getS(sol.pts[ik]) # TODO: type infer getS?
+        Ss_coarse[:, ik] .= getS(sol.pts[ik]) # TODO: type infer getS?
     end
 
     # Interpolate to finer grid
-    Ss_fine = zeros(eltype(sol), length(ks_fine), length(τs))
+    Ss_fine = zeros(eltype(sol), length(τs), length(ks_fine))
     xs_coarse = ktransform.(ks_coarse)
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in eachindex(τs)
-        interp = LinearInterpolation(view(Ss_coarse, :, iτ), xs_coarse)
-        Ss_fine[:, iτ] .= interp.(xs_fine)
+        interp = LinearInterpolation(@view(Ss_coarse[iτ, :]), xs_coarse)
+        Ss_fine[iτ, :] .= interp.(xs_fine)
     end
 
     return Ss_fine
