@@ -23,11 +23,9 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     conditions::AbstractArray
 
     var2spl::Dict
-    splset!::Any
-    kset!::Any
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: AbstractVector, Th <: Number}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}, Th <: Number}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
@@ -54,7 +52,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
         print(io, ", ", length(prob.var2spl), " splines")
     end
 
-    printstyled(io, "\nParameters:"; bold = true)
+    printstyled(io, "\nParameters & initial conditions:"; bold = true)
     for par in prob.pars
         val = getsym(prob, par)(prob)
         print(io, '\n', indent, "$par = $val", par in prob.shoot ? " (shooting)" : "")
@@ -172,16 +170,12 @@ function CosmologyProblem(
         end
         vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
         pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, jac, kwargs...)
-        splset! = ModelingToolkit.setsym_oop(pt, collect(values(var2spl)))
-        kset! = ModelingToolkit.setp(pt, k)
     else
         pt = nothing
         var2spl = Dict()
-        splset! = nothing
-        kset! = nothing
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl, splset!, kset!)
+    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl)
 end
 
 """
@@ -209,7 +203,7 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl, prob.splset!, prob.kset!)
+    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
@@ -247,17 +241,17 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.var2spl, prob.splset!, prob.kset!)
+        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.var2spl)
     end
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     function solve(
-        prob::CosmologyProblem, ks::AbstractArray = [];
+        prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
         bgopts = (alg = Rodas4P(), reltol = 1e-8,),
         ptopts = (alg = KenCarp4(), reltol = 1e-8,),
-        shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
+        shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
 
@@ -267,81 +261,128 @@ and `shootopts` to the shooting method nonlinear `solve()`.
 If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
-    prob::CosmologyProblem, ks::AbstractArray;
+    prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
     bgopts = (alg = Rodas4P(), reltol = 1e-8,),
     ptopts = (alg = KenCarp4(), reltol = 1e-8,),
-    shootopts = (alg = NewtonRaphson(), reltol = 1e-3, pt = false),
+    shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
-        length(prob.shoot) == length(prob.conditions) || error("Different number of shooting parameters and conditions")
-        pars = Dict(par => getsym(prob, par)(prob) for par in prob.shoot)
-        pars = shoot(prob, pars, prob.conditions; verbose, shootopts...)
-        prob = remake(prob, pars)
-    end
-
-    if !isnothing(prob.bg)
-        bgprob = prob.bg
-        if !haskey(bgopts, :alg)
-            bgopts = merge(bgopts, (alg = Rodas4P(),)) # default if unspecified
-        end
-        bg = solve(bgprob; verbose, bgopts..., kwargs...)
+        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; verbose, shootopts, bgopts..., kwargs...)
     else
-        bg = nothing
+        bgsol = solvebg(prob.bg; bgopts..., kwargs...)
     end
 
-    ivspan = extrema(bg.t)
-
-    h = getsym(prob, prob.bg.f.sys.g.h)(prob) # TODO: remove symbolic getter
-    if !isnothing(prob.pt) && !isempty(ks)
+    h = getsym(bgsol, :h)(bgsol) # TODO: remove symbolic getter
+    if isnothing(ks) || isempty(ks)
+        ks = nothing
+        ptsol = nothing
+    else
         ks = k_dimensionless.(ks, h)
-        !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
-
-        if Threads.nthreads() == 1 && thread
-            @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
-            thread = false
-        end
-
-        # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-        ptprob0 = prob.pt
-        splvals = [spline(bg, var, nothing) for var in keys(prob.var2spl)] |> Vector{Any}
-        splvals = Vector{Any}(splvals) # TODO: why much faster after converting to Vector{Any}? use custom MTKParameter buffer type? https://github.com/SciML/ModelingToolkit.jl/pull/3585
-        newu0, newp = prob.splset!(ptprob0, splvals)
-        SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bg))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
-        ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
-
-        ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
-        nmode, nmodes = Atomic{Int}(0), length(ks)
-        ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
-            ptprob = ptprob_tlv[]
-            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
-            prob.kset!(p, ks[i])
-            return Setfield.@set ptprob.p = p
-        end, output_func = (sol, i) -> begin
-            if verbose
-                atomic_add!(nmode, 1)
-                progress = Int(round(nmode[] / nmodes * 100))
-                print("\rSolved perturbation modes $(nmode[])/$(nmodes) = $(round(progress)) %")
-            end
-            return sol, false # TODO: save only necessary output quantities!!! will give e.g. EnsembleSolution{Vector{Float64}} instead of EnsembleSolution{ODESolution{...}}
-        end)
-        ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
-        if !haskey(ptopts, :alg)
-            ptopts = merge(ptopts, (alg = KenCarp4(),)) # default if unspecified
-        end
-        ptsols = solve(ptprobs; ensemblealg, trajectories = length(ks), verbose, ptopts..., kwargs...) # TODO: test GPU parallellization
-        verbose && println() # end line in output_func
-    else
-        ptsols = nothing
+        ptsol = solvept(prob.pt, bgsol, ks, prob.var2spl; thread, verbose, ptopts..., kwargs...)
     end
 
-    return CosmologySolution(prob, bg, ks, ptsols, h)
-end
-function solve(prob::CosmologyProblem; kwargs...)
-    return solve(prob, []; kwargs...)
+    return CosmologySolution(prob, bgsol, ks, ptsol, h)
 end
 function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
+end
+
+"""
+    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
+
+Solve the background cosmology problem `bgprob`.
+"""
+function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
+    return solve(bgprob, alg; verbose, reltol, kwargs...)
+end
+# TODO: more generic shooting method that can do anything (e.g. S8)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-8, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+    length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
+
+    setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
+    getfuns = getsym(bgprob, map(eq -> eq.rhs - eq.lhs, conditions)) # efficient getter
+
+    function f(vals, oldbgprob)
+        #println("vals = $vals")
+
+        # slow but "safe"
+        #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
+        #newbgprob = remake(oldbgprob; u0, p)
+
+        # fast but "unsafe"
+        newu0, newp = setvars(oldbgprob, vals)
+        newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
+
+        bgsol = solvebg(newbgprob; kwargs..., save_everystep = false, save_start = false, save_end = true)
+        return only(getfuns(bgsol)) # get final values
+    end
+
+    guess = map(var -> getsym(bgprob, var)(bgprob), vars)
+    prob = NonlinearProblem(f, guess, bgprob)
+    sol = solve(prob; show_trace = Val(verbose), shootopts...)
+
+    u0, p = setvars(bgprob, sol.u)
+    bgprob = remake(bgprob; u0, p, build_initializeprob)
+    return solvebg(bgprob; kwargs...)
+end
+
+# TODO: use ensemblesolution output func to save e.g. necessary source functions for optimized code paths
+"""
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, thread = true, verbose = false, kwargs...)
+
+Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
+A background solution `bgsol` must be passed (see `solvebg`), and a dictionary `var2spl` that maps background variables to spline parameters in the perturbation problem.
+If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
+The return value is an `EnsembleSolution` over all `ks`.
+"""
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, thread = true, verbose = false, kwargs...)
+    ivspan = (bgsol.t[begin], bgsol.t[end])
+
+    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
+
+    if Threads.nthreads() == 1 && thread
+        @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+        thread = false
+    end
+
+    splset! = ModelingToolkit.setsym_oop(ptprob, collect(values(var2spl)))
+    kset! = ModelingToolkit.setp(ptprob, k)
+
+    # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
+    ptprob0 = ptprob
+    splvals = [spline(bgsol, var, nothing) for var in keys(var2spl)] |> Vector{Any}
+    splvals = Vector{Any}(splvals) # TODO: why much faster after converting to Vector{Any}? use custom MTKParameter buffer type? https://github.com/SciML/ModelingToolkit.jl/pull/3585
+    newu0, newp = splset!(ptprob0, splvals)
+    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
+    ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
+
+    ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
+    nmode, nmodes = Atomic{Int}(0), length(ks)
+    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
+        ptprob = ptprob_tlv[]
+        p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
+        kset!(p, ks[i])
+        return Setfield.@set ptprob.p = p
+    end, output_func = (sol, i) -> begin
+        if verbose
+            atomic_add!(nmode, 1)
+            progress = Int(round(nmode[] / nmodes * 100))
+            print("\rSolved perturbation modes $(nmode[])/$(nmodes) = $(round(progress)) %")
+        end
+        return sol, false # TODO: save only necessary output quantities!!! will give e.g. EnsembleSolution{Vector{Float64}} instead of EnsembleSolution{ODESolution{...}}
+    end)
+    ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
+    ptsols = solve(ptprobs, alg; ensemblealg, trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
+    verbose && println() # end line in output_func
+    return ptsols
+end
+
+function time_today(prob::CosmologyProblem)
+    getτ0 = SymBoltz.getsym(prob.bg, :τ0)
+    bgprob = prob.bg
+    bgsol = solvebg(bgprob; save_everystep = false, save_start = false, save_end = true)
+    return getτ0(bgsol)
 end
 
 """
@@ -458,8 +499,10 @@ end
 Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 
 function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::AbstractArray, is::AbstractArray; smart = true, ktransform = log)
+    if isnothing(sol.ks) || isempty(sol.ks)
+        throw(error("No perturbations solved for. Pass ks to solve()."))
+    end
     ks = k_dimensionless.(ks, sol.h)
-    isempty(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
@@ -576,34 +619,6 @@ function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwar
     spl = spline(ts, ṫs, xs)
     ts = spl(vals)
     return ts
-end
-
-# TODO: more generic version that can do anything (e.g. S8)
-# TODO: add dispatch with pars::AbstractArray that uses values in prob for initial guess
-"""
-    function shoot(
-        prob::CosmologyProblem, pars::Dict, conditions::AbstractArray;
-        alg = TrustRegion(), bg = true, pt = false, verbose = false, kwargs...
-    )
-
-Solve `prob` repeatedly to determine the values in `pars` (with initial guesses) so that the `conditions` are satisfied at the final time.
-"""
-function shoot(
-    prob::CosmologyProblem, pars::Dict, conditions::AbstractArray;
-    alg = TrustRegion(), bg = true, pt = false, verbose = false, kwargs...
-)
-    funcs = [ModelingToolkit.wrap(eq.lhs - eq.rhs) for eq in conditions] # expressions that should be 0 # TODO: shouldn't have to wrap
-
-    function f(vals, _)
-        newprob = remake(prob, Dict(keys(pars) .=> vals); bg, pt, shoot = false)
-        sol = solve(newprob)
-        return sol[funcs, :][:, end] # evaluate all expressions at final time (e.g. today)
-    end
-
-    nguess = collect(values(pars))
-    nprob = NonlinearProblem(f, nguess)
-    nsol = solve(nprob, alg; show_trace = Val(verbose), kwargs...)
-    return Dict(keys(pars) .=> nsol.u)
 end
 
 """

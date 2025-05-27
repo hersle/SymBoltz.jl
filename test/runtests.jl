@@ -316,6 +316,15 @@ end
     @test all(isnonzero.(ForwardDiff.derivative(Pk, 0.3))) # twice (successive calls failed with earlier bug)
 end
 
+@testset "Dedicated background/perturbation solvers" begin
+    bgsol = @inferred solvebg(prob.bg)
+    @test bgsol isa SymBoltz.ODESolution
+
+    ks = 1.0:1.0:10.0
+    ptsol = solvept(prob.pt, bgsol, ks, prob.var2spl) # TODO: pass custom output_func for e.g. source function # TODO: @inferred
+    @test ptsol isa SymBoltz.EnsembleSolution
+end
+
 # TODO: test for spectrum_cmb etc.
 # TODO: define closure based on this?
 @testset "Type stability" begin

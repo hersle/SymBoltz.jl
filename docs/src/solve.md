@@ -55,19 +55,17 @@ p3 = plot(sol, ks[1:3], log10(M.g.a), M.g.Φ / M.g.Ψ) # exclude last k, where �
 plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
 ```
 
-## Shooting method parametrization
+More examples are shown on the [models page](@ref "Models").
 
-It is common to parametrize some models not by initial conditions or constant parameters, but by values of variables at some (non-initial) time, like today.
-This is exactly like the boundary conditions of a boundary value problem.
-SymBoltz.jl supports such parametrizations with the shooting method:
+## Solve background and perturbations directly
 
+For lower-level control, you can solve the background and perturbations separately:
 ```@docs
-shoot
+solvebg
+solvept
 ```
 
-Example usage is shown on the [models page](@ref "Models").
-
-## Choice of solver
+## Choice of ODE solver
 
 In principle, models can be solved with any [DifferentialEquations.jl ODE solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/).
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
