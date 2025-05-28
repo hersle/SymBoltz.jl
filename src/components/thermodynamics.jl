@@ -16,6 +16,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         κ(τ), [description = "Optical depth normalized to 0 today"]
         _κ(τ), [description = "Optical depth normalized to 0 initially"]
         κ̇(τ), [description = "Optical depth derivative"]
+        I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
         v̇(τ), [description = "Visibility function derivative"]
 
@@ -137,6 +138,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
         κ̇ ~ D(_κ) # optical depth derivative
         κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
+        I ~ exp(-κ)
 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)

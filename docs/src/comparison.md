@@ -278,7 +278,7 @@ plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 1e4)
 ### Optical depth exponential
 ```@example class
 expmκ1 = reverse(sol1["th"]["exp(-kappa)"])
-expmκ2 = sol2[exp(-M.b.rec.κ)]
+expmκ2 = sol2[M.b.rec.I]
 plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-3)
 ```
 ### Visibility function
