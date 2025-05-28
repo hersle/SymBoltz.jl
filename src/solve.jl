@@ -329,14 +329,14 @@ end
 
 # TODO: use ensemblesolution output func to save e.g. necessary source functions for optimized code paths
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
 A background solution `bgsol` must be passed (see `solvebg`), and a dictionary `var2spl` that maps background variables to spline parameters in the perturbation problem.
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is an `EnsembleSolution` over all `ks`.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
     ivspan = (bgsol.t[begin], bgsol.t[end])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -359,19 +359,14 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
 
     ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
     nmode, nmodes = Atomic{Int}(0), length(ks)
-    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = (_, i, _) -> begin
-        ptprob = ptprob_tlv[]
-        p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
-        kset!(p, ks[i])
-        return Setfield.@set ptprob.p = p
-    end, output_func = (sol, i) -> begin
-        if verbose
-            atomic_add!(nmode, 1)
-            progress = Int(round(nmode[] / nmodes * 100))
-            print("\rSolved perturbation modes $(nmode[])/$(nmodes) = $(round(progress)) %")
-        end
-        return sol, false # TODO: save only necessary output quantities!!! will give e.g. EnsembleSolution{Vector{Float64}} instead of EnsembleSolution{ODESolution{...}}
-    end)
+    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0,
+        prob_func = (_, i, _) -> begin
+            ptprob = ptprob_tlv[]
+            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
+            kset!(p, ks[i])
+            return Setfield.@set ptprob.p = p
+        end, output_func
+    )
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
     ptsols = solve(ptprobs, alg; ensemblealg, trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
     verbose && println() # end line in output_func

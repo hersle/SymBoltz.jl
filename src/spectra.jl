@@ -226,6 +226,13 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVe
 
     return Is
 end
+function los_integrate(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, S, Rl::Function = jl; ktransform = identity, kwargs...) # TODO: Ss
+    Ss = [S]
+    Ss = source_grid(sol, Ss, τs)
+    Ss = source_grid(Ss, sol.ks, ks; ktransform)
+    Ss = @view Ss[:, :, 1]
+    return los_integrate(Ss, ls, ks, τs, Rl; kwargs...)
+end
 
 """
     los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
@@ -233,26 +240,20 @@ end
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
-    M = sol.prob.M
-    Sgetter = getsym(sol.prob.pt, M.ST0)
-    Ss = source_grid(sol, Sgetter, sol.ks, ks, τs; ktransform)
-    return los_integrate(Ss, ls, ks, τs, jl; kwargs...)
+    return los_integrate(sol, ls, ks, τs, sol.prob.M.ST0, jl)
 end
 
-# TODO: make a function for calculating jl(x)/x^2 for use in polarization
 """
     los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
-    M = sol.prob.M
-    Sgetter = getsym(sol.prob.pt, M.ST2_polarization)
-    Ss = source_grid(sol, Sgetter, sol.ks, ks, τs; ktransform)
-    return los_integrate(Ss, ls, ks, τs, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    return los_integrate(sol, ls, ks, τs, sol.prob.M.ST2_polarization, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
+# TODO: better name?
 raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl)
 
@@ -289,47 +290,10 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; normalization = :Cl, unit = nothing, integrator = TrapezoidalRule(), kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), thread = true, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
-"""
-function spectrum_cmb(modes::AbstractVector, sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; normalization = :Cl, unit = nothing, integrator = TrapezoidalRule(), kwargs...)
-    ΘlTs = 'T' in join(modes) ? los_temperature(sol, ls, ks, τs; integrator, kwargs...) : nothing
-    ΘlPs = 'E' in join(modes) ? los_polarization(sol, ls, ks, τs; integrator, kwargs...) : nothing
-    P0s = spectrum_primordial(ks, sol) # more accurate
-    #P0s = sol(ks, sol[τ][begin], sol.M.I.P) # less accurate (requires smaller Δk_S, e.g. Δk_S = 1.0 instead of 10.0)
-
-    if isnothing(unit)
-        factor = 1 # keep dimensionless
-    elseif dimension(unit) == dimension(u"K")
-        factor = uconvert(unit, sol[sol.prob.M.γ.T₀] * u"K") # convert to a temperature unit
-    else
-        error("Requested unit $unit is not a temperature unit")
-    end
-
-    spectra = [] # Cls or Dls
-    for mode in modes
-        if mode == :TT
-            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks; integrator, normalization)
-        elseif mode == :EE
-            spectrum = spectrum_cmb(ΘlPs, ΘlPs, P0s, ls, ks; integrator, normalization)
-        elseif mode == :TE
-            spectrum = spectrum_cmb(ΘlTs, ΘlPs, P0s, ls, ks; integrator, normalization)
-        else
-            error("Unknown CMB power spectrum mode $mode")
-        end
-        spectrum *= factor^2 # possibly make dimensionful
-        push!(spectra, spectrum)
-    end
-
-    return spectra
-end
-
-"""
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), thread = true, kwargs...)
-
-Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological problem `prob`.
 """
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-8), ptopts = (alg = KenCarp4(), reltol = 1e-8), thread = true, kwargs...)
     kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
@@ -344,12 +308,49 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         τs = u⁻¹.(us)
         τs[end] = τ0
     end
-    ptopts = merge(ptopts, (saveat = τs,))
-    sol = solve(prob, ks_coarse; ptopts, thread)
+
+    # Integrate perturbations to calculate source function on coarse k-grid
+    iT = 'T' in join(modes) ? 1 : 0
+    iE = 'E' in join(modes) ? iT + 1 : 0
+    Ss = Num[]
+    iT > 0 && push!(Ss, prob.M.ST0)
+    iE > 0 && push!(Ss, prob.M.ST2_polarization)
+    Ss_coarse = source_grid(prob, Ss, ks_coarse, τs) # TODO: pass kτ0 and x
+
+    # Interpolate source function to finer k-grid
     ks_fine = collect(kτ0s_fine ./ τ0)
-    ks_fine[begin] += 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
-    ks_fine[end] -= 1e-10 # ensure ks_fine is within ks_coarse # TODO: ideally avoid
-    return spectrum_cmb(modes, sol, ls, ks_fine, τs; normalization, unit, integrator, kwargs...)
+    ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # TODO: ideally avoid
+    Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
+
+    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[:, :, iT]), ls, ks_fine, τs, jl; integrator, kwargs...) : nothing
+    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[:, :, iE]), ls, ks_fine, τs, jl_x2; integrator, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+
+    P0s = spectrum_primordial(ks_fine, sol) # more accurate
+
+    if isnothing(unit)
+        factor = 1.0 # keep dimensionless
+    elseif dimension(unit) == dimension(u"K")
+        factor = uconvert(unit, sol[sol.prob.M.γ.T₀] * u"K") # convert to a temperature unit
+    else
+        error("Requested unit $unit is not a temperature unit")
+    end
+
+    spectra = [] # Cls or Dls # TODO: make multidim array
+    for mode in modes
+        if mode == :TT
+            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
+        elseif mode == :EE
+            spectrum = spectrum_cmb(ΘlEs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
+        elseif mode == :TE
+            spectrum = spectrum_cmb(ΘlTs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
+        else
+            error("Unknown CMB power spectrum mode $mode")
+        end
+        spectrum *= factor^2 # possibly make dimensionful
+        push!(spectra, spectrum)
+    end
+
+    return spectra
 end
 spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
 
@@ -402,23 +403,49 @@ end
 # TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
 # TODO: source_grid(prob::CosmologyProblem seemed type-stable?
 # TODO: return getter for (ks, τs)
-function source_grid(sol::CosmologySolution, getS, ks_coarse, ks_fine, τs; ktransform = identity)
+function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
     # Evaluate integrated perturbations on coarse grid
-    Ss_coarse = zeros(eltype(sol), length(τs), length(ks_coarse))
-    @tasks for ik in eachindex(ks_coarse)
-        Ss_coarse[:, ik] .= getS(sol.pts[ik]) # TODO: type infer getS?
+    ks = sol.ks
+    getSs = map(S -> getsym(sol.prob.pt, S), Ss)
+    Ss = zeros(eltype(sol), length(τs), length(ks), length(Ss))
+    @tasks for ik in eachindex(ks)
+        for iS in eachindex(getSs)
+            Ss[:, ik, :] .= getSs[iS](sol.pts[ik]) # TODO: type infer getS?
+        end
     end
+    return Ss
+end
 
-    # Interpolate to finer grid
-    Ss_fine = zeros(eltype(sol), length(τs), length(ks_fine))
-    xs_coarse = ktransform.(ks_coarse)
+function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
+    size_coarse = size(Ss_coarse)
+    size_fine = (size_coarse[1], length(ks_fine), size_coarse[3])
+    Nτ, _, Ns = size(Ss_coarse)
+
+    Ss_fine = zeros(eltype(Ss_coarse), size_fine)
+    xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
     xs_fine = ktransform.(ks_fine)
-    @tasks for iτ in eachindex(τs)
-        interp = LinearInterpolation(@view(Ss_coarse[iτ, :]), xs_coarse)
-        Ss_fine[iτ, :] .= interp.(xs_fine)
+    @tasks for iτ in 1:Nτ
+        for iS in 1:Ns
+            interp = LinearInterpolation(@view(Ss_coarse[iτ, :, iS]), xs_coarse)
+            Ss_fine[iτ, :, iS] .= interp.(xs_fine)
+        end
     end
-
     return Ss_fine
+end
+
+# TODO: take in kτ0s and xs
+function source_grid(prob::CosmologyProblem, S::AbstractArray, ks, τs)
+    bgsol = solvebg(prob.bg)
+    getSs = map(s -> getsym(prob.pt, s), S)
+    Ss = zeros(eltype(bgsol), length(τs), length(ks), length(S))
+    function output_func(sol, ik)
+        for iS in eachindex(getSs)
+            Ss[:, ik, iS] .= getSs[iS](sol)
+        end
+        return nothing, false
+    end
+    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs)
+    return Ss
 end
 
 # TODO: test @inferred
