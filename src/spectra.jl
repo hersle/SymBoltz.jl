@@ -204,12 +204,12 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVe
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss) == (length(τs), length(ks))
     χs = τs[end] .- τs
-    Is = zeros(T, (length(ks), length(ls)))
+    Is = similar(Ss, length(ks), length(ls))
 
     # TODO: skip and set Rl to zero if l ≳ kτ0 or another cutoff?
     @tasks for il in eachindex(ls) # parallellize independent loop iterations
         @local begin # define task-local values (declared once for all loop iterations)
-            ∂I_∂τ = zeros(T, length(τs))
+            ∂I_∂τ = similar(Ss, length(τs))
         end
         l = ls[il]
         for ik in eachindex(ks)
@@ -273,7 +273,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 
     @tasks for il in eachindex(ls)
         # TODO: skip kτ0 ≲ l?
-        @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace
+        @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace (must zero first element)
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
         @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlA * ΘlB
@@ -407,7 +407,7 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
     # Evaluate integrated perturbations on coarse grid
     ks = sol.ks
     getSs = map(S -> getsym(sol.prob.pt, S), Ss)
-    Ss = zeros(eltype(sol), length(τs), length(ks), length(Ss))
+    Ss = similar(sol.bg, length(τs), length(ks), length(Ss))
     @tasks for ik in eachindex(ks)
         for iS in eachindex(getSs)
             Ss[:, ik, :] .= getSs[iS](sol.pts[ik]) # TODO: type infer getS?
@@ -421,7 +421,7 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
     size_fine = (size_coarse[1], length(ks_fine), size_coarse[3])
     Nτ, _, Ns = size(Ss_coarse)
 
-    Ss_fine = zeros(eltype(Ss_coarse), size_fine)
+    Ss_fine = similar(Ss_coarse, size_fine)
     xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
@@ -437,7 +437,7 @@ end
 function source_grid(prob::CosmologyProblem, S::AbstractArray, ks, τs)
     bgsol = solvebg(prob.bg)
     getSs = map(s -> getsym(prob.pt, s), S)
-    Ss = zeros(eltype(bgsol), length(τs), length(ks), length(S))
+    Ss = similar(bgsol, length(τs), length(ks), length(S))
     function output_func(sol, ik)
         for iS in eachindex(getSs)
             Ss[:, ik, iS] .= getSs[iS](sol)

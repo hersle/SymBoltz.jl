@@ -509,9 +509,9 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
     is, deriv = get_is_deriv(sol.prob, is)
 
     # Pre-allocate intermediate and output arrays
-    v = zeros(eltype(sol), (length(is), length(ts)))
-    v1 = zeros(eltype(sol), (length(is), length(ts)))
-    v2 = zeros(eltype(sol), (length(is), length(ts)))
+    v = similar(sol.bg, length(is), length(ts))
+    v1 = similar(sol.bg, length(is), length(ts))
+    v2 = similar(sol.bg, length(is), length(ts))
 
     i1_prev, i2_prev = -1, -1 # cache previous looked up solution and reuse it, if possible
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
@@ -548,7 +548,7 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
     return out
 end
 function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray; kwargs...)
-    out = zeros(eltype(sol), length(ks), length(ts), length(is))
+    out = similar(sol.bg, length(ks), length(ts), length(is))
     return sol(out, ks, ts, is; kwargs...)
 end
 (sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray; kwargs...) = sol([k], ts, is; kwargs...)[1, :, :]
