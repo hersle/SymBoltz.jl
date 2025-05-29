@@ -14,5 +14,5 @@ function harrison_zeldovich(g; kwargs...)
         ns => NaN
     ]
     description = "Harrison-Zel'dovich inflation"
-    return ODESystem(eqs, τ; defaults, description, kwargs...)
+    return System(eqs, τ; defaults, description, kwargs...)
 end

@@ -24,7 +24,7 @@ function metric(; name = :g, kwargs...)
         a => 1e-8 # default initial scale factor # TODO: move elsewhere?
     )
     description = "Spacetime FLRW metric in Newtonian gauge"
-    return ODESystem([
+    return System([
         z ~ 1/a - 1
         ż ~ D(z)
         ℰ ~ D(a) / a # ℰ = ℋ/ℋ0 = ℋ/H₀

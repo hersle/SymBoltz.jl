@@ -29,7 +29,7 @@ function spectrum_primordial(k, sol::CosmologySolution)
     M = sol.prob.M
     return spectrum_primordial(k, sol[M.g.h], sol[M.I.As], sol[M.I.ns])
 end
-function spectrum_primordial(k, M::ODESystem, pars::Dict)
+function spectrum_primordial(k, M::System, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
 end
 
@@ -449,7 +449,7 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, ks, τs)
 end
 
 # TODO: test @inferred
-function distance_luminosity_function(M::ODESystem, pars_fixed, pars_varying, zs; bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3))
+function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3))
     isequal(independent_variable(M), M.g.a) || error("Independent variable must be $(M.g.a)")
 
     pars = merge(pars_fixed, Dict(pars_varying .=> NaN))

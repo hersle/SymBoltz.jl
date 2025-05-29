@@ -6,20 +6,20 @@ using QuadGK
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
-function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
-    subs = [transform(f, sub; fullname = (ModelingToolkit.iscomplete(sys) ? "" : fullname * "₊") * string(sub.name)) for sub in sys.systems]
+function transform(f::Function, sys::System; fullname=string(nameof(sys)))
+    subs = [transform(f, sub; fullname = (ModelingToolkit.iscomplete(sys) ? "" : fullname * "₊") * string(nameof(sub))) for sub in ModelingToolkit.get_systems(sys)]
     sys = f(sys, fullname)
     return compose(sys, subs)
 end
 
-function replace(sys::ODESystem, old_new_subsys::Pair{ODESystem, ODESystem})
+function replace(sys::System, old_new_subsys::Pair{System, System})
     old_subsys, new_subsys = old_new_subsys # unpack
     fullname_target = ModelingToolkit.get_name(old_subsys) |> string
     return transform((sys, fullname) -> (fullname == fullname_target ? new_subsys : identity(sys)), sys)
 end
 
 # for testing: transform(identity, sys) should do no harm to a system
-function identity(sys::ODESystem)
+function identity(sys::System)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
@@ -27,11 +27,10 @@ function identity(sys::ODESystem)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=ModelingToolkit.description(sys))
 end
 
-function debugize(sys::ODESystem)
+function debugize(sys::System)
     return transform((s, _) -> length(s.systems) == 0 ? debug_system(s) : identity(s), sys)
 end
 
@@ -39,7 +38,7 @@ O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
-function taylor(sys::ODESystem, ϵ, orders; kwargs...)
+function taylor(sys::System, ϵ, orders; kwargs...)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
@@ -47,7 +46,6 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
 
     # extract requested orders
     eqs = taylor(eqs, ϵ, orders; kwargs...)
@@ -58,7 +56,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=ModelingToolkit.description(sys))
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
@@ -137,7 +135,7 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: generate_jacobian fails on systems returned from this function
-function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
+function structural_simplify_spline(sys::System, vars; maxorder = 2)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
@@ -149,7 +147,7 @@ function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
     var2spl = Dict(var => spline(var) for var in vars)
 
     # Replace variable equations in system by spline evaluations
-    function spline(sys::ODESystem)
+    function spline(sys::System)
         # TODO: initialization_eqs? guesses?
         iv = ModelingToolkit.get_iv(sys)
         eqs = ModelingToolkit.get_eqs(sys) # will be modified in-place

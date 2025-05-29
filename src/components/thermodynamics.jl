@@ -65,9 +65,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         re2z => 3.5
         ΔT => 0.0 # i.e. Tb ~ Tγ at early times
     ]
-    parameter_dependencies = [
-        fHe ~ Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
-    ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
     # reionization utility functions
@@ -75,7 +72,10 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
     smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
 
-    return ODESystem([
+    return System([
+        # parameter equations
+        fHe ~ Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
+
         nH ~ (1-Yp) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
@@ -142,5 +142,5 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-    ], τ, vars, pars; defaults, parameter_dependencies, description, kwargs...)
+    ], τ, vars, pars; defaults, description, kwargs...)
 end

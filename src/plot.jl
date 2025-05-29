@@ -60,9 +60,9 @@ end
     end
 end
 
-# plot ODESystems as a hierarchical tree
+# plot Systems as a hierarchical tree
 using GraphRecipes
-@recipe function plot(::Type{T}, sys::T) where {T <: ODESystem}
+@recipe function plot(::Type{T}, sys::T) where {T <: System}
     nodeshape --> :rect
     nodesize --> 0.12
     fontsize --> 15

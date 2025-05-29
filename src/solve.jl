@@ -13,7 +13,7 @@ background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
 
 struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
-    M::ODESystem
+    M::System
 
     bg::Tbg
     pt::Tpt
@@ -81,7 +81,7 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
 end
 
 # Split parameters into DifferentialEquations' u0 and p convention
-function split_vars_pars(M::ODESystem, x::Dict)
+function split_vars_pars(M::System, x::Dict)
     pars = intersect(keys(x), parameters(M)) .|> ModelingToolkit.wrap # separate parameters from initial conditions # TODO: remove wrap
     vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     pars = Dict(par => x[par] for par in pars) # like p
@@ -91,7 +91,7 @@ end
 
 """
     CosmologyProblem(
-        M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
+        M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
     )
 
@@ -103,7 +103,7 @@ If `spline` is a `Bool`, it decides whether all background unknowns in the pertu
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 """
 function CosmologyProblem(
-    M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
+    M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
 )
     pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
@@ -341,9 +341,6 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    if OrdinaryDiffEq.isimplicit(alg) && any(contains("openblas"), getfield.(BLAS.get_config().loaded_libs, :libname))
-        @warn "You are using the implicit ODE solver $(algname(alg)) with Julia's default OpenBLAS backend.\nIf your platform supports it, you may see a performance improvement by switching to an alternative linear algebra backend.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra."
-    end
     if thread && Threads.nthreads() == 1
         thread = false
         @warn "Multi-threading over perturbation modes was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
@@ -652,5 +649,5 @@ function parameters(sol::CosmologySolution; kwargs...)
 end
 
 # Fix model/solution under broadcasted calls
-Base.broadcastable(sys::ODESystem) = Ref(sys)
+Base.broadcastable(sys::System) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)
