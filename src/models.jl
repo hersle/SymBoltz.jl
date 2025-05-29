@@ -59,7 +59,7 @@ function ΛCDM(;
     )
     ics = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
-    ]
+    ] .|> O(ϵ^1)
     pdeps = Ω₀_pdeps(G, species)
     have(ν) && have(γ) && push!(pdeps,
         ν.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
