@@ -77,4 +77,4 @@ For the [standard ΛCDM model](@ref "Standard ΛCDM"), some good solvers are:
 - `Kvaerno5`: Behaves similar to `KenCarp4`. Slightly more accurate. Slightly slower.
 - `TRBDF2`: Very fast. Decent accuracy. Handles severe stiffness.
 
-See also the [solver benchmarks](@ref "Benchmarks").
+See also the [solver benchmarks](@ref "Performance and benchmarks").

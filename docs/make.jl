@@ -8,6 +8,9 @@ set_default(starred = true) # equation numbering looks bad
 using Base.Threads
 println("Julia is running with $(nthreads()) threads")
 
+using LinearAlgebra: BLAS
+BLAS.set_num_threads(1)
+
 makedocs(
     sitename = "SymBoltz",
     pages = [
