@@ -42,7 +42,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
     ] .|> O(ϵ^1)
     guesses = [ρ => 0.1, D(a) => +1]
     description = "General relativity gravity"
-    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs = ics0, guesses, name, description, kwargs...)
+    return System([eqs0; eqs1], τ, vars, pars; initialization_eqs = ics0, guesses, name, description, kwargs...)
 end
 
 # TODO: potential
@@ -105,5 +105,5 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     ] .|> O(ϵ^1)
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
-    return ODESystem([eqs0; eqs1], τ, vars, pars; name, description, initialization_eqs = [ics0; ics1], guesses, kwargs...) # TODO: don't pass vars and pars
+    return System([eqs0; eqs1], τ, vars, pars; name, description, initialization_eqs = [ics0; ics1], guesses, kwargs...) # TODO: don't pass vars and pars
 end

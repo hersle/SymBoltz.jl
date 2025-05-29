@@ -80,7 +80,7 @@ initialization_eqs = [
 
 # 5. Pack into an ODE system called "X"
 description = "w₀wₐ (CPL) dynamical dark energy"
-@named X = ODESystem(eqs, τ, vars, pars; initialization_eqs, description)
+@named X = System(eqs, τ, vars, pars; initialization_eqs, description)
 ```
 
 Note that the w₀wₐ component only knows about itself (and the metric),

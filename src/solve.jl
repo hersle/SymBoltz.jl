@@ -14,7 +14,7 @@ background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
 perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
 
 struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
-    M::ODESystem
+    M::System
 
     bg::Tbg
     pt::Tpt
@@ -82,7 +82,7 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
 end
 
 # Split parameters into DifferentialEquations' u0 and p convention
-function split_vars_pars(M::ODESystem, x::Dict)
+function split_vars_pars(M::System, x::Dict)
     pars = intersect(keys(x), parameters(M)) .|> ModelingToolkit.wrap # separate parameters from initial conditions # TODO: remove wrap
     vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
     pars = Dict(par => x[par] for par in pars) # like p
@@ -92,8 +92,8 @@ end
 
 """
     CosmologyProblem(
-        M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+        M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
+        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -104,17 +104,16 @@ If `spline` is a `Bool`, it decides whether all background unknowns in the pertu
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 """
 function CosmologyProblem(
-    M::ODESystem, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+    M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
+    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs... # TODO: restore jac = true, not working with massive neutrinos?
 )
-    pars_full = merge(pars, shoot_pars) # save full dictionary for constructor
-    vars, pars = split_vars_pars(M, pars_full)
+    pars = merge(pars, shoot_pars) # save full dictionary for constructor
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
 
     if bg
         bg = background(M)
-        bg = structural_simplify(bg)
+        bg = mtkcompile(bg)
         if debug
             bg = debug_system(bg)
         end
@@ -151,7 +150,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else
         bg = nothing
     end
@@ -165,18 +164,18 @@ function CosmologyProblem(
             # then spline should already be a vector of variables, so leave it unmodified
         end
         pt = perturbations(M)
-        pt, var2spl = structural_simplify_spline(pt, spline)
+        pt, var2spl = mtkcompile_spline(pt, spline)
         if debug
             pt = debug_system(pt)
         end
-        vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        parsk = remove_initial_conditions!(parsk, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
+        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else
         pt = nothing
         var2spl = Dict()
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars_full), shoot_pars, shoot_conditions, var2spl)
+    return CosmologyProblem(M, bg, pt, keys(pars), shoot_pars, shoot_conditions, var2spl)
 end
 
 """
@@ -674,5 +673,5 @@ function parameters(sol::CosmologySolution; kwargs...)
 end
 
 # Fix model/solution under broadcasted calls
-Base.broadcastable(sys::ODESystem) = Ref(sys)
+Base.broadcastable(sys::System) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)

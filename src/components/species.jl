@@ -44,7 +44,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ] .|> O(ϵ^1)
     !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return ODESystem([eqs0; eqs1], τ, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
+    return System([eqs0; eqs1], τ, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
 end
 
 """
@@ -72,7 +72,7 @@ function radiation(g; name = :r, kwargs...)
     end
     eqs = [T ~ T₀ / g.a] .|> O(ϵ^0)
     description = "Radiation"
-    return extend(r, ODESystem(eqs, τ, vars, pars; name); description)
+    return extend(r, System(eqs, τ, vars, pars; name); description)
 end
 
 """
@@ -90,7 +90,7 @@ function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     end
     eqs = [δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1)
     description = "Cosmological constant"
-    return extend(Λ, ODESystem(eqs, τ, vars, []; name); description) # manually set perturbations to zero
+    return extend(Λ, System(eqs, τ, vars, []; name); description) # manually set perturbations to zero
 end
 
 """
@@ -138,7 +138,7 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ] .|> SymBoltz.O(ϵ^1)
     description = "w₀wₐ (CPL) dark energy"
-    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
+    return System([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
 end
 
 """
@@ -166,7 +166,8 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         G0(τ), [description = "Polarization component 0"]
         G(τ)[1:lmax], [description = "Polarization component"]
     end
-    pdeps = [
+    eqs0 = [
+        # Parameter equations
         γ.Ω₀ ~ π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
     eqs1 = [
@@ -208,7 +209,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
     end
     description = "Photon radiation"
-    return extend(γ, ODESystem(eqs1, τ, vars, []; initialization_eqs=ics1, parameter_dependencies = pdeps, name, kwargs...); description)
+    return extend(γ, System([eqs0; eqs1], τ, vars, []; initialization_eqs=ics1, name, kwargs...); description)
 end
 
 """
@@ -247,7 +248,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         [F[l] ~ +l//(2*l+1) * k/g.ℰ * F[l-1] for l in 3:lmax]...
     ] .|> O(ϵ^1)
     description = "Massless neutrinos"
-    return extend(ν, ODESystem(eqs1, τ, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
+    return extend(ν, System(eqs1, τ, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
 end
 
 # TODO: use vector equations and simplify loops
@@ -261,8 +262,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         m, [description = "Neutrino mass (in kg)"]
         m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
         T₀, [description = "Temperature today (in K)"]
-        x[1:nx], [description = "Dimensionless momentum bins"]
-        W[1:nx], [description = "Gaussian momentum quadrature weights"]
+        #x[1:nx], [description = "Dimensionless momentum bins"] # not working with MTKv10 # TODO: reintroduce?
+        #W[1:nx], [description = "Gaussian momentum quadrature weights"] # not working with MTKv10 # TODO: reintroduce?
         Ω₀, [description = "Reduced background density today"]
         y₀, [description = "Temperature-reduced mass today"]
         Iρ₀, [description = "Density integral today"]
@@ -292,7 +293,22 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
 
+    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
+    x, W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
+    #= # not working with MTKv10 # TODO: reintroduce _x and _W?
+    defs = [
+        collect(x .=> _x);
+        collect(W .=> _W);
+    ]
+    =#
+
     eqs0 = [
+        # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
+        m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
+        y₀ ~ m*c^2 / (kB*T₀)
+        Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
+        Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
+
         T ~ T₀ / g.a
         y ~ y₀ * g.a
         In ~ ∫dx_x²_f₀(1)
@@ -328,23 +344,9 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         ] .|> O(ϵ^1))
     end
 
-    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
-    _x, _W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
-    defs = [
-        collect(x .=> _x);
-        collect(W .=> _W);
-    ]
-
-    pdeps = [
-        # compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
-        m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
-        y₀ ~ m*c^2 / (kB*T₀)
-        Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
-        Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
-    ]
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, x, W, Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
-    return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, defaults=defs, parameter_dependencies=pdeps, name, description, kwargs...)
+    pars = [m, m_eV, T₀, #=x, W,=# Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
+    return System([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, #=defaults=defs,=# name, description, kwargs...)
 end
 
 """
@@ -356,7 +358,7 @@ function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
     eqs = [c.cₛ² ~ 0] .|> O(ϵ^1)
     description = "Cold dark matter"
-    c = extend(c, ODESystem(eqs, τ, [], []; name); description)
+    c = extend(c, System(eqs, τ, [], []; name); description)
     return c
 end
 
@@ -379,11 +381,11 @@ function baryons(g; recombination = true, reionization = true, name = :b, kwargs
             cₛ²(τ), [description = "Speed of sound squared"]
         end
         eqs = [κ ~ 0, κ̇ ~ 0, cₛ² ~ 0] .|> O(ϵ^0)
-        @named rec = ODESystem(eqs, τ, vars, [])
+        @named rec = System(eqs, τ, vars, [])
     end
     eqs = [b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1)
     description = "Baryonic matter"
-    b = extend(b, ODESystem(eqs, τ, [], []; name); description)
+    b = extend(b, System(eqs, τ, [], []; name); description)
     b = compose(b, rec)
     return b
 end
@@ -429,7 +431,7 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         cₛ² ~ 0
     ] .|> O(ϵ^1)
     description = "Quintessence dark energy"
-    return ODESystem([eqs0; eqs1], τ; name, description, kwargs...)
+    return System([eqs0; eqs1], τ; name, description, kwargs...)
 end
 function quintessence(g, v; name = :Q, kwargs...)
     @variables begin
@@ -470,5 +472,5 @@ function curvature(g; name = :K, kwargs...)
         cₛ² ~ 0
         σ ~ 0
     ]
-    return ODESystem(eqs, τ, vars, pars; name, description, kwargs...)
+    return System(eqs, τ, vars, pars; name, description, kwargs...)
 end

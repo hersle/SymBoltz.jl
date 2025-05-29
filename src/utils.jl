@@ -7,20 +7,20 @@ using ModelingToolkit: get_description, get_systems
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
-function transform(f::Function, sys::ODESystem; fullname=nameof(sys))
+function transform(f::Function, sys::System; fullname=nameof(sys))
     subs = [transform(f, sub; fullname = ModelingToolkit.iscomplete(sys) ? Symbol() : Symbol(fullname, :₊, nameof(sub))) for sub in get_systems(sys)]
     sys = f(sys, fullname)
     return compose(sys, subs)
 end
 
-function replace(sys::ODESystem, old_new_subsys::Pair{ODESystem, ODESystem})
+function replace(sys::System, old_new_subsys::Pair{System, System})
     old_subsys, new_subsys = old_new_subsys # unpack
     fullname_target = ModelingToolkit.get_name(old_subsys) |> string
     return transform((sys, fullname) -> (fullname == fullname_target ? new_subsys : identity(sys)), sys)
 end
 
 # for testing: transform(identity, sys) should do no harm to a system
-function identity(sys::ODESystem)
+function identity(sys::System)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
@@ -28,11 +28,10 @@ function identity(sys::ODESystem)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=nameof(sys), description=get_description(sys))
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
 
-function debugize(sys::ODESystem)
+function debugize(sys::System)
     return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
@@ -40,7 +39,7 @@ O(x, ϵⁿ) = x * ϵⁿ
 O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
 O(ϵⁿ) = x -> O(x, ϵⁿ)
 
-function taylor(sys::ODESystem, ϵ, orders; kwargs...)
+function taylor(sys::System, ϵ, orders; kwargs...)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
@@ -48,7 +47,6 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     pars = ModelingToolkit.get_ps(sys)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    pdeps = ModelingToolkit.get_parameter_dependencies(sys)
 
     # extract requested orders
     eqs = taylor(eqs, ϵ, orders; kwargs...)
@@ -59,7 +57,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=nameof(sys), description=get_description(sys))
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
@@ -140,7 +138,7 @@ end
 
 # TODO: generate_jacobian fails on systems returned from this function
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
-function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
+function mtkcompile_spline(sys::System, vars; maxorder = 2)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
@@ -152,7 +150,7 @@ function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
     var2spl = Dict(var => spline(var) for var in vars)
 
     # Replace variable equations in system by spline evaluations
-    function spline(sys::ODESystem)
+    function spline(sys::System)
         # TODO: initialization_eqs? guesses?
         iv = ModelingToolkit.get_iv(sys)
         eqs = ModelingToolkit.get_eqs(sys) # will be modified in-place
@@ -167,7 +165,7 @@ function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ value(spl, iv)) # add observed equation (at the top, for safety, since observed equations are already topsorted in structural_simplify; alternatively consider calling ModelingToolkit.topsort_equations)
+            insert!(obs, 1, var ~ value(spl, iv)) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
 
             # Find and replace any observed derivative expressions with spline derivative evaluations
             for order in 1:maxorder
@@ -198,7 +196,7 @@ function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
         return sys
     end
 
-    sys = structural_simplify(sys; additional_passes = [spline])
+    sys = mtkcompile(sys; additional_passes = [spline])
 
     return sys, var2spl
 end
