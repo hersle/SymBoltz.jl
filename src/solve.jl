@@ -1,5 +1,5 @@
 import Base: nameof
-import LinearAlgebra: issuccess
+import LinearAlgebra: issuccess, BLAS
 import CommonSolve: solve
 import SciMLBase: remake, successful_retcode
 import PreallocationTools: DiffCache, get_tmp
@@ -150,7 +150,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, jac, kwargs...)
+        bg = ODEProblem(bg, vars, ivspan, parsk; fully_determined, callback, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else
         bg = nothing
     end
@@ -169,7 +169,7 @@ function CosmologyProblem(
             pt = debug_system(pt)
         end
         vars = remove_initial_conditions!(vars, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, jac, kwargs...)
+        pt = ODEProblem(pt, vars, ivspan, parsk; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else
         pt = nothing
         var2spl = Dict()
@@ -341,9 +341,15 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
-    if Threads.nthreads() == 1 && thread
-        @warn "Multi-threading was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+    if OrdinaryDiffEq.isimplicit(alg) && any(contains("openblas"), getfield.(BLAS.get_config().loaded_libs, :libname))
+        @warn "You are using the implicit ODE solver $(algname(alg)) with Julia's default OpenBLAS backend.\nIf your platform supports it, you may see a performance improvement by switching to an alternative linear algebra backend.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra."
+    end
+    if thread && Threads.nthreads() == 1
         thread = false
+        @warn "Multi-threading over perturbation modes was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+    end
+    if thread && BLAS.get_num_threads() > 1
+        @warn "Multi-threading over perturbation modes was requested, but BLAS is running with $(BLAS.get_num_threads()) threads.\nIt is recommended to restrict BLAS to one thread with `using LinearAlgebra: BLAS; BLAS.set_num_threads(1)`.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra."
     end
 
     splset! = ModelingToolkit.setsym_oop(ptprob, collect(values(var2spl)))
