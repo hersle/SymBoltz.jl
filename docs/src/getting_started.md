@@ -46,6 +46,15 @@ ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 prob = CosmologyProblem(M, pars)
 ```
 Finally, we can simply solve the problem:
+
+!!! tip
+    Use the optimal BLAS library for your platform to get maximum performance, such as [MKL](https://github.com/JuliaLinearAlgebra/MKL.jl) for Intel processors.
+    See the [performance page](@ref "Performance and benchmarks") for more information.
+    For example:
+    ```julia
+    using MKL
+    ```
+
 ```@example getting_started
 sol = solve(prob, ks) # or just solve(prob) to solve only the background
 ```

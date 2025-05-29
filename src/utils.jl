@@ -136,6 +136,7 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
     end
 end
 
+# TODO: generate_jacobian fails on systems returned from this function
 function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
     vars = ModelingToolkit.unwrap.(vars)
 
