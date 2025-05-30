@@ -359,3 +359,14 @@ end
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], pars[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end
+
+@testset "Solve failure warnings" begin
+    Ωc0 = prob.bg.ps[M.c.Ω₀]
+    prob.bg.ps[M.c.Ω₀] = NaN # bad
+    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
+    prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
+    bgsol = @test_nowarn solvebg(prob.bg)
+
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.var2spl; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.var2spl; thread = false)
+end
