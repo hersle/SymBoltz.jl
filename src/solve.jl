@@ -289,13 +289,29 @@ function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
 end
 
+function warn_on_failed_solution(sol::ODESolution, name = "ODE"; verbose = false)
+    msg = "$name solution failed with return code $(sol.retcode)."
+    if verbose
+        t, u = sol.t[end], sol.u[end]
+        msg *= " Final time and values:"
+        msg *= "\n$(ModelingToolkit.get_iv(sol.prob.f.sys)) = $t"
+        for (i, var) in enumerate(unknowns(sol.prob.f.sys))
+            msg *= "\n$var = $(u[i])"
+        end
+    end
+    msg *= "\nCheck the parameters and precision settings!"
+    @warn msg
+end
+
 """
     solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
 function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
-    return solve(bgprob, alg; verbose, reltol, kwargs...)
+    bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
+    !successful_retcode(bgsol) && warn_on_failed_solution(bgsol, "Background"; verbose)
+    return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
 function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-8, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
@@ -361,15 +377,21 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
     ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
 
+    function output_func_warn(sol, i)
+        !successful_retcode(sol) && warn_on_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
+        return output_func(sol, i)
+    end
+
     ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
     nmode, nmodes = Atomic{Int}(0), length(ks)
+
     ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0,
         prob_func = (_, i, _) -> begin
             ptprob = ptprob_tlv[]
             p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
             kset!(p, ks[i])
             return Setfield.@set ptprob.p = p
-        end, output_func
+        end, output_func = output_func_warn
     )
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
     ptsols = solve(ptprobs, alg; ensemblealg, trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
