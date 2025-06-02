@@ -1,4 +1,4 @@
-# Fitting parameters and forecasting
+# Fitting parameters
 
 This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data, and how to forecast parameter constraints from a covariance matrix that describes uncertainties and correlations of (unknown) observed data.
 

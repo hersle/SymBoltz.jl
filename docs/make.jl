@@ -19,7 +19,8 @@ makedocs(
             "getting_started.md",
             "automatic_differentiation.md",
             "extended_models.md",
-            "parameter_fitting.md"
+            "parameter_fitting.md",
+            "forecasting.md"
         ],
         "Building models" => [
             "components.md",
