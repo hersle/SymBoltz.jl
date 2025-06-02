@@ -252,7 +252,8 @@ Create a particle species for massive neutrinos in the spacetime with metric `g`
 """
 function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     pars = @parameters begin
-        m, [description = "Neutrino mass (in kg)"] # TODO: to eV/c^2?
+        m, [description = "Neutrino mass (in kg)"]
+        m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
         T₀, [description = "Temperature today (in K)"]
         x[1:nx], [description = "Dimensionless momentum bins"]
         W[1:nx], [description = "Gaussian momentum quadrature weights"]
@@ -286,7 +287,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
 
     eqs0 = [
         T ~ T₀ / g.a
-        y ~ m*c^2 / (kB*T)
+        y ~ y₀ * g.a
         In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
         IP ~ ∫dx_x²_f₀(x.^2 ./ E)
@@ -329,12 +330,13 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
 
     pdeps = [
         # compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
+        m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
         y₀ ~ m*c^2 / (kB*T₀)
         Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
         Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
     ]
     description = "Massive neutrino"
-    pars = [m, T₀, x, W, Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
+    pars = [m, m_eV, T₀, x, W, Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
     return ODESystem([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, defaults=defs, parameter_dependencies=pdeps, name, description, kwargs...)
 end
 

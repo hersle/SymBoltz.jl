@@ -38,7 +38,7 @@ pars = Dict(
     M.ν.Neff => 3.0,
     M.g.h => 0.7,
     M.b.rec.Yp => 0.25,
-    M.h.m => 0.06 * SymBoltz.eV / SymBoltz.c^2,
+    M.h.m_eV => 0.06,
     M.I.As => 2e-9,
     M.I.ns => 0.95
 )

@@ -15,7 +15,7 @@ To do so, let us write a small wrapper function that calculates the power spectr
 ```@example ad
 using SymBoltz
 M = ΛCDM(K = nothing)
-pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m, M.I.As, M.I.ns]
+pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m_eV, M.I.As, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 probgen = SymBoltz.parameter_updater(prob0, pars)
@@ -24,7 +24,7 @@ P(k, θ) = spectrum_matter(probgen(θ), k; verbose = true, ptopts = (reltol = 1e
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
-θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06*SymBoltz.eV/SymBoltz.c^2, 2e-9, 0.95]
+θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06, 2e-9, 0.95]
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 Ps = P(ks, θ)
 ```
