@@ -250,8 +250,8 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = Rodas4P(), reltol = 1e-8,),
-        ptopts = (alg = KenCarp4(), reltol = 1e-8,),
+        bgopts = (alg = Rodas4P(), reltol = 1e-8, maxiters = 10000),
+        ptopts = (alg = KenCarp4(), reltol = 1e-8, maxiters = 10000),
         shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
@@ -263,15 +263,15 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = Rodas4P(), reltol = 1e-8,),
-    ptopts = (alg = KenCarp4(), reltol = 1e-8,),
+    bgopts = (alg = Rodas4P(), reltol = 1e-8, maxiters = 10000),
+    ptopts = (alg = KenCarp4(), reltol = 1e-8, maxiters = 10000),
     shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
-        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; verbose, shootopts, bgopts..., kwargs...)
+        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; shootopts, verbose, bgopts..., kwargs...)
     else
-        bgsol = solvebg(prob.bg; bgopts..., kwargs...)
+        bgsol = solvebg(prob.bg; verbose, bgopts..., kwargs...)
     end
 
     h = getsym(bgsol, :h)(bgsol) # TODO: remove symbolic getter
@@ -304,17 +304,17 @@ function warn_on_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, maxiters = 10000, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
-function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
-    bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, maxiters = 10000, verbose = false, kwargs...)
+    bgsol = solve(bgprob, alg; verbose, reltol, maxiters, kwargs...)
     !successful_retcode(bgsol) && warn_on_failed_solution(bgsol, "Background"; verbose)
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-8, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-8, maxiters = 10000, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
@@ -331,7 +331,7 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol =
         newu0, newp = setvars(oldbgprob, vals)
         newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
 
-        bgsol = solvebg(newbgprob; kwargs..., save_everystep = false, save_start = false, save_end = true)
+        bgsol = solvebg(newbgprob; alg, reltol, maxiters, kwargs..., save_everystep = false, save_start = false, save_end = true)
         return only(getfuns(bgsol)) # get final values
     end
 
@@ -341,19 +341,19 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol =
 
     u0, p = setvars(bgprob, sol.u)
     bgprob = remake(bgprob; u0, p, build_initializeprob)
-    return solvebg(bgprob; kwargs...)
+    return solvebg(bgprob; alg, reltol, maxiters, kwargs...)
 end
 
 # TODO: use ensemblesolution output func to save e.g. necessary source functions for optimized code paths
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, maxiters = 10000, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
 A background solution `bgsol` must be passed (see `solvebg`), and a dictionary `var2spl` that maps background variables to spline parameters in the perturbation problem.
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is an `EnsembleSolution` over all `ks`.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, maxiters = 10000, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
     ivspan = (bgsol.t[begin], bgsol.t[end])
 
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
@@ -394,7 +394,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
         end, output_func = output_func_warn
     )
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
-    ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
+    ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, maxiters, kwargs...) # TODO: test GPU parallellization
     verbose && println() # end line in output_func
     return ptsols
 end

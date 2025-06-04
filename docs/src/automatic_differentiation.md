@@ -48,7 +48,7 @@ We can plot them all at once:
 plot(
     log10.(ks/u"1/Mpc"), dlgP_dlgθs;
     xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "As" "ns" "ΩΛ0"]
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "As" "ns"]
 )
 ```
 
