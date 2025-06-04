@@ -15,6 +15,21 @@ print(sprint(InteractiveUtils.versioninfo)) # show computer information
 nothing # hide
 ```
 
+## Parallelize perturbations
+
+By default, SymBoltz parallelizes integration of different perturbation modes $k$ with multithreading.
+This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent.
+It leads to a performance improvement depending on the number of threads available, but [can be turned off](@ref "Solving models"), for example if your application permits parallelization at a higher level:
+```@example bench
+using Base.Threads
+for thread in [true, false]
+    label = thread ? "$(nthreads()) threads" : "1 thread"
+    benchmarks["thread"][label] = @benchmarkable $solve($prob, $ks; thread = $thread)
+end
+results = run(benchmarks["thread"]; verbose = true)
+plot(results; size = (800, 400))
+```
+
 ## Linear algebra backend
 
 By default, SymBoltz uses implicit ODE solvers to integrate approximation-free stiff equations.

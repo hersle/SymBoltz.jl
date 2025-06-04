@@ -394,7 +394,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
         end, output_func = output_func_warn
     )
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
-    ptsols = solve(ptprobs, alg; ensemblealg, trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
+    ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
     verbose && println() # end line in output_func
     return ptsols
 end
