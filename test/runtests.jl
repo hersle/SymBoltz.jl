@@ -216,6 +216,7 @@ end
         M.Λ.Ω₀,
         M.I.As, M.I.kpivot, M.I.ns
     ]
+    @test allequal([extrema(sol.bg.t); map(pt -> extrema(pt.t), sol.pts)])
     @test all(allequal([sol.bg.ps[par]; map(pt -> pt.ps[par], sol.pts)]) for par in pars)
 end
 
@@ -369,4 +370,17 @@ end
 
     @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.var2spl; thread = false)
     @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.var2spl; thread = false)
+end
+
+@testset "Background differentiation test" begin
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.Yp, M.I.As, M.I.ns]
+    probgen = SymBoltz.parameter_updater(prob, diffpars)
+    getτ0 = SymBoltz.getsym(prob, M.τ0)
+    τ0(θ) = getτ0(solve(probgen(θ)))
+    θ0 = [pars[par] for par in diffpars]
+    dτ0_ad = ForwardDiff.gradient(τ0, θ0)
+    dτ0_fd = FiniteDiff.finite_difference_gradient(τ0, θ0)
+    @test all(isapprox.(dτ0_ad, dτ0_fd; atol = 1e-2))
+    @test all(isapprox.(dτ0_ad[end-2:end], 0.0; atol = 1e-10))
+    @test all(isapprox.(dτ0_fd[end-2:end], 0.0; atol = 1e-3))
 end
