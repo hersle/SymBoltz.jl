@@ -90,6 +90,7 @@ function spline(sol::ODESolution, var, dvar = nothing)
     return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
 end
 
+# TODO: takes up a lot of time in solvept; refactor so all splines are computed simultaneously for the same ODE time t
 value(s::AbstractInterpolation, t) = s(t)
 derivative(s::AbstractInterpolation, t, order=1) = DataInterpolations.derivative(s, t, order)
 @register_symbolic value(s::AbstractInterpolation, t)

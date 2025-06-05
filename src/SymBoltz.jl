@@ -4,7 +4,7 @@ module SymBoltz
 import ModelingToolkit: unknowns, observed, parameters, equations, initialization_equations, defaults, hierarchy
 export unknowns, observed, parameters, equations, initialization_equations, defaults, hierarchy
 
-using ModelingToolkit
+using ModelingToolkit # TODO: reexport
 using OrdinaryDiffEq
 using NonlinearSolve
 using OhMyThreads
