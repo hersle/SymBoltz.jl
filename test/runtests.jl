@@ -134,11 +134,11 @@ end
     sol = solve(prob, ks)
 
     # Check that Fₗ(0) ∝ kˡ
-    Fls = sol(ks, 0.0, collect(M.γ.F))
-    @test all(Fls[1,:] ./ Fls[2,:] .≈ map(l -> (ks[1]/ks[2])^l, 0:length(M.γ.F)-1))
+    Fls = sol(ks, 0.0, [M.γ.F0; collect(M.γ.F)])
+    @test all(Fls[1,:] ./ Fls[2,:] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[2]-1))
 
     # Check initial ratio of metric potentials
-    sol(ks, 0.0, M.g.Φ / M.g.Ψ) .≈ sol(0.0, (1+2/5*M.fν))
+    @test all(isapprox.(sol(ks, 0.0, M.g.Φ / M.g.Ψ), sol(0.0, (1+2/5*M.fν)); atol = 1e-5))
 end
 
 @testset "Automatic background/thermodynamics splining" begin

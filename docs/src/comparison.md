@@ -358,7 +358,7 @@ plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 1e-0)
 ### Polarization
 ```@example class
 P1 = map(n -> sol1["pt"]["pol$(n)_g"], 0:2)
-P2 = map(n -> sol2[1, M.γ.G[n]], 0:2)
+P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
 plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 1e-1)
 ```
 

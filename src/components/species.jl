@@ -152,8 +152,10 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables begin
-        F(τ)[0:lmax], [description = "Distribution function multipoles"]
-        Θ(τ)[0:lmax], [description = "Temperature perturbation multipoles"]
+        F0(τ), [description = "Distribution function monopole"]
+        F(τ)[1:lmax], [description = "Distribution function multipoles"]
+        Θ0(τ), [description = "Temperature perturbation monopole"]
+        Θ(τ)[1:lmax], [description = "Temperature perturbation multipoles"]
         δ(τ), [description = "Overdensity"]
         θ(τ), [description = "Velocity divergence"]
         σ(τ), [description = "Shears tress"]
@@ -161,40 +163,43 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         θb(τ), [description = "Baryon velocity divergence"]
         Π(τ), [description = "Anisotropic stress perturbation"]
         Π̇(τ), [description = "Anisotropic stress perturbation derivative"]
-        G(τ)[0:lmax], [description = "Polarization component"]
+        G0(τ), [description = "Polarization component 0"]
+        G(τ)[1:lmax], [description = "Polarization component"]
     end
     pdeps = [
         γ.Ω₀ ~ π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
     ]
     eqs1 = [
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
-        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
-        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*κ̇*F[2] - 1//10*κ̇*(G[0]+G[2])
+        D(F0) ~ -k*F[1] + 4*D(g.Φ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
+        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*κ̇*F[2] - 1//10*κ̇*(G0+G[2])
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇*F[l] for l in 3:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
-        δ ~ F[0]
+        δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
-        Π ~ F[2] + G[0] + G[2]
+        Π ~ F[2] + G0 + G[2]
         Π̇ ~ D(Π)
         γ.cₛ² ~ 1//3
-        [Θ[l] ~ F[l]/4 for l in 0:lmax]...
+        Θ0 ~ F0/4
+        [Θ[l] ~ F[l]/4 for l in 1:lmax]...
     ] .|> O(ϵ^1)
     ics1 = [
-        F[0] ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
+        F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k/g.ℰ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
         [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
     ] .|> O(ϵ^1)
     if polarization
         append!(eqs1, [
-            D(G[0]) ~ k * (-G[1]) + κ̇ * (G[0] - Π/2)
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - Π/10*δkron(l,2)) for l in 1:lmax-1]...
+            D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Π/2)
+            D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
+            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + κ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            G[0] ~ 5//16 * F[2],
+            G0 ~ 5//16 * F[2],
             G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
             [G[l] ~ -l//(2*l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
@@ -216,7 +221,8 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     ν = radiation(g; name, description, kwargs...) |> background |> complete
 
     vars = @variables begin
-        F(τ)[0:lmax+1], [description = "Distribution function multipoles"]
+        F0(τ), [description = "Distribution function monopole"]
+        F(τ)[1:lmax+1], [description = "Distribution function multipoles"]
         δ(τ), [description = "Overdensity"]
         θ(τ), [description = "Velocity divergence"]
         σ(τ), [description = "Shear stress"]
@@ -225,11 +231,11 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         Neff, [description = "Effective number of neutrino species"] # TODO: massless vs. massive?
     end
     eqs1 = [
-        D(F[0]) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F[0]-2*F[2]+4*g.Ψ)
+        D(F0) ~ -k*F[1] + 4*D(g.Φ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # τ ≈ 1/ℰ
-        δ ~ F[0]
+        δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         ν.cₛ² ~ 1//3
@@ -274,7 +280,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         θ(τ), [description = "Velocity divergence"]
         u(τ), [description = "Velocity"]
         E(τ)[1:nx], [description = "Dimensionless energies"]
-        ψ(τ)[1:nx,0:lmax+1], [description = "Distribution function multipoles"]
+        ψ0(τ)[1:nx], [description = "Distribution function monopole"]
+        ψ(τ)[1:nx,1:lmax+1], [description = "Distribution function multipoles"]
         In(τ), [description = "Number density integral"]
         Iρ(τ), [description = "Density integral"]
         IP(τ), [description = "Pressure integral"]
@@ -297,24 +304,24 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         Ω ~ 8*Num(π)/3 * ρ
     ] .|> O(ϵ^0)
     eqs1 = [
-        Iδρ ~ ∫dx_x²_f₀(E .* ψ[:,0])
+        Iδρ ~ ∫dx_x²_f₀(E .* ψ0)
         δ ~ Iδρ / Iρ
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
-        cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,0]) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
+        cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
     ] .|> O(ϵ^1)
     ics1 = []
     for i in 1:nx
         push!(eqs0, O(ϵ^0)(E[i] ~ √(x[i]^2 + y^2)))
         append!(eqs1, [
-            D(ψ[i,0]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
-            D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ[i,0] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
+            D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
+            D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
             ψ[i,lmax+1] ~ (2*lmax+1) * E[i]/x[i] * ψ[i,lmax] * g.ℰ/k - ψ[i,lmax-1]
         ] .|> O(ϵ^1))
         append!(ics1, [
-            ψ[i,0] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
+            ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
             ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k/g.ℰ*g.Ψ) * dlnf₀_dlnx(x[i])
             ψ[i,2] ~ -1//2 * (1//15*(k/g.ℰ)^2*g.Ψ) * dlnf₀_dlnx(x[i])
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
