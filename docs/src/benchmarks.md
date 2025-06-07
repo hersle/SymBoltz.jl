@@ -65,7 +65,7 @@ bgalgs = [
     Rodas5P()
 ]
 for alg in bgalgs
-    bgopts = (alg = alg, reltol = 1e-8)
+    bgopts = (alg = alg, reltol = 1e-9)
     benchmarks["bgsolver"][nameof(typeof(alg))] = @benchmarkable $solve($prob; bgopts = $bgopts)
 end
 results = run(benchmarks["bgsolver"]; verbose = true)
@@ -108,7 +108,7 @@ for prob in probs
     for autodiff in (true, false)
         name = isnothing(prob.bg.f.jac) ? "Numerical" : "Symbolic"
         name *= (autodiff ? " (auto. diff.)" : " (fin. diff.)")
-        bgopts = (alg = SymBoltz.Rodas4P(autodiff = autodiff), reltol = 1e-8)
+        bgopts = (alg = SymBoltz.Rodas4P(autodiff = autodiff), reltol = 1e-9)
         ptopts = (alg = SymBoltz.KenCarp4(autodiff = autodiff), reltol = 1e-8)
         benchmarks["jacobian"][name] = @benchmarkable $solve($prob, $ks; bgopts = $bgopts, ptopts = $ptopts)
     end

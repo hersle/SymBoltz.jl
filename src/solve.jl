@@ -250,7 +250,7 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = Rodas4P(), reltol = 1e-8),
+        bgopts = (alg = Rodas4P(), reltol = 1e-9),
         ptopts = (alg = KenCarp4(), reltol = 1e-8),
         shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
@@ -263,7 +263,7 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = Rodas4P(), reltol = 1e-8),
+    bgopts = (alg = Rodas4P(), reltol = 1e-9),
     ptopts = (alg = KenCarp4(), reltol = 1e-8),
     shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
@@ -304,17 +304,17 @@ function warn_on_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
-function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-8, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, verbose = false, kwargs...)
     bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
     !successful_retcode(bgsol) && warn_on_failed_solution(bgsol, "Background"; verbose)
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-8, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-9, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter

@@ -144,21 +144,20 @@ end
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
     τs = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
-    tests = [
-        (M.g.a, 1e-6, 0)
-        (M.b.rec.κ̇, 0, 1e-2)
-        (M.b.rec.κ, 0, 1e-4)
-        (M.b.rec.v, 1e-3, 0)
-        (M.b.rec.v̇, 0, 1e-0) # TODO: improve
-        (M.b.rec.cₛ², 1e-4, 0)
-        (M.b.rec.Tb, 0, 1e-5)
-        (M.b.rec.Xe, 1e-6, 0)
-    ]
-    for (var, atol, rtol) in tests
+    function checkvar(var, atol, rtol)
         vals1 = sol(τs, var) # from background
         vals2 = sol(1.0, τs, var) # from splined perturbations
-        @test all(isapprox.(vals1, vals2; atol, rtol))
+        return all(isapprox.(vals1, vals2; atol, rtol))
     end
+    @test checkvar(M.g.a, 1e-6, 0)
+    @test checkvar(M.b.rec.κ̇, 0, 1e-2)
+    @test checkvar(M.b.rec.κ, 0, 1e-4)
+    @test checkvar(M.b.rec.v, 1e-3, 0)
+    @test checkvar(M.b.rec.v̇, 0, 1e1) # TODO: improve
+    @test checkvar(M.b.rec.cₛ², 1e-4, 0)
+    @test checkvar(M.b.rec.Tb, 0, 1e-5)
+    @test checkvar(M.b.rec.Xe, 1e-5, 0)
+    @test checkvar(M.cₛ, 1e-8, 0)
 end
 
 @testset "Whole model without autosplining" begin

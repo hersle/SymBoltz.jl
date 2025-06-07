@@ -46,6 +46,8 @@ function ΛCDM(;
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
+        cₛ(τ), [description = "Baryon-photon sound speed"]
+        rₛ(τ), [description = "Baryon-photon sound horizon (BAO scale)"]
         ST0(τ), [description = "Temperature source function weighted against spherical Bessel function"]
         ST1(τ), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
         ST0_SW(τ),
@@ -55,6 +57,7 @@ function ΛCDM(;
     end
     defs = Dict(
         C => 1//2,
+        rₛ => 0.0, # TODO: add nonzero starting value
         τ0 => NaN
     )
     ics = [
@@ -75,6 +78,8 @@ function ΛCDM(;
         b.rec.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
         χ ~ τ0 - τ
+        cₛ ~ 1 / √(3(1+3//4*b.ρ/γ.ρ))# TODO: move into a meaningful component
+        D(rₛ) ~ cₛ # TODO: compute by integration afterwards instead?
     ] .|> O(ϵ^0)
     eqs1 = [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation

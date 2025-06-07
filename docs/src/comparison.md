@@ -235,7 +235,7 @@ nothing # hide
 a1 = (1 ./ (sol1["bg"]["z"] .+ 1))
 a2 = sol2[M.g.a]
 χ1 = sol1["bg"]["conf.time[Mpc]"][end].-sol1["bg"]["conf.time[Mpc]"]
-χ2 = sol2[M.χ] / (h * SymBoltz.k0)
+χ2 = sol2[M.χ] / (h*SymBoltz.k0)
 plot_compare(a1, a2, χ1, χ2, "a", "χ"; tol = 1e-2)
 ```
 ### Hubble function
@@ -257,6 +257,12 @@ wh2 = sol2[M.h.w]
 wX1 = sol1["bg"]["(.)w_fld"]
 wX2 = sol2[M.X.w]
 plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 1e-3)
+```
+### Photon-baryon sound horizon
+```@example class
+rs1 = sol1["bg"]["comov.snd.hrz."]
+rs2 = sol2[M.rₛ] ./ (h*SymBoltz.k0)
+plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 1e-2)
 ```
 ### Luminosity distance
 ```@example class

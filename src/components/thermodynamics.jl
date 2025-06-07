@@ -26,7 +26,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         DTγ(τ), [description = "Photon temperature derivative"]
         DTb(τ), [description = "Baryon temperature derivative"]
         βb(τ), [description = "inverse temperature (coldness)"]
-        cₛ²(τ), [description = "Speed of sound squared"]
+        cₛ²(τ), [description = "Thermal speed of sound squared"]
 
         ρb(τ), [description = "Baryon density"]
         μ(τ), [description = "Mean molecular weight"]
