@@ -383,16 +383,18 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     end
 
     ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
-    nmode, nmodes = Atomic{Int}(0), length(ks)
 
-    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0,
-        prob_func = (_, i, _) -> begin
-            ptprob = ptprob_tlv[]
-            p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
-            kset!(p, ks[i])
-            return Setfield.@set ptprob.p = p
-        end, output_func = output_func_warn
-    )
+    prob_func = (ptprob, i, repeat) -> begin
+        #ptprob = ptprob_tlv[]
+        p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        #p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
+        kset!(p, ks[i])
+        ptprob = remake(ptprob; u0 = newu0, p = p, build_initializeprob = true) # solve for u0 # TODO: separate function?
+        ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        #println("Parameter type: ", typeof(ptprob.p))
+        return ptprob
+    end
+    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob0, prob_func = prob_func, output_func = output_func_warn)
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
     ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, kwargs...) # TODO: test GPU parallellization
     verbose && println() # end line in output_func
