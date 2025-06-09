@@ -11,6 +11,8 @@ prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-1, 4, length = 100)
 benchmarks = BenchmarkGroup()
 
+using Dates
+println("Current time: ", now())
 print(sprint(InteractiveUtils.versioninfo)) # show computer information
 nothing # hide
 ```

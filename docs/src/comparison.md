@@ -383,7 +383,7 @@ function P_class(k, pars)
     return P
 end
 function P_symboltz(k, pars)
-    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
+    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
     P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
     return P
 end
@@ -458,7 +458,7 @@ function plot_compare_Dl_diff(mode)
     println("Computed SymBoltz derivatives in $Δt2 seconds")
     plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) ($mode)" for par in diffpars])
 end
-plot_compare_Dl_diff(:TT)
+plot_compare_Dl_diff(:TT) # TODO: merge TT, TE and EE in one diff call
 ```
 ```@example class
 plot_compare_Dl_diff(:TE)

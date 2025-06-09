@@ -203,6 +203,7 @@ The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss) == (length(τs), length(ks))
+    τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     χs = τs[end] .- τs
     Is = similar(Ss, length(ks), length(ls))
 
@@ -306,6 +307,7 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         umin, umax = u(τmin), u(τmax)
         us = range(umin, umax, length = Nlos)
         τs = u⁻¹.(us)
+        τs[begin] = 0.0
         τs[end] = τ0
     end
 
