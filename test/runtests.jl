@@ -349,7 +349,7 @@ end
     τs = range(0.0, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST0)
-    sol = solve(prob, ks_coarse; ptopts = (reltol = 1e-8, saveat = τs,))
+    sol = solve(prob, ks_coarse; ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8, saveat = τs,))
     Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
     Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
     @test Ss == source_grid(prob, [M.ST0], ks_coarse, τs)

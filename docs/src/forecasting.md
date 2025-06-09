@@ -29,7 +29,7 @@ Next, create a function for computing $Cₗ$ of the CMB TT power spectrum:
 ```@example forecast
 # TODO: ω0 better than Ω0? # hide
 probgen = SymBoltz.parameter_updater(prob0, pars_varying)
-function Cl(l, θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8))
+function Cl(l, θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8))
     println("θ = $θ")
     prob = probgen(θ)
     return spectrum_cmb(:TT, prob, ls; bgopts, ptopts)
