@@ -281,7 +281,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         u(τ), [description = "Velocity"]
         E(τ)[1:nx], [description = "Dimensionless energies"]
         ψ0(τ)[1:nx], [description = "Distribution function monopole"]
-        ψ(τ)[1:nx,1:lmax+1], [description = "Distribution function multipoles"]
+        ψ(τ)[1:nx,1:lmax], [description = "Distribution function multipoles"]
         In(τ), [description = "Number density integral"]
         Iρ(τ), [description = "Density integral"]
         IP(τ), [description = "Pressure integral"]
@@ -317,8 +317,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         append!(eqs1, [
             D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
             D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
-            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1)*ψ[i,l+1]) for l in 2:lmax]...
-            ψ[i,lmax+1] ~ (2*lmax+1) * E[i]/x[i] * ψ[i,lmax] * g.ℰ/k - ψ[i,lmax-1]
+            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for l in 2:lmax-1]...
+            D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] * g.ℰ/k - ψ[i,lmax-1])) # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
         ] .|> O(ϵ^1))
         append!(ics1, [
             ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
