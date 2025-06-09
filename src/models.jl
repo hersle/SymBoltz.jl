@@ -159,7 +159,8 @@ function RMΛ(;
     )
     pdeps = Ω₀_pdeps(G, species)
     connections = ODESystem([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, parameter_dependencies = pdeps, name)
-    M = compose(connections, g, G, I, species...)
+    components = filter(!isnothing, [g; G; species; I])
+    M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
 end
 
