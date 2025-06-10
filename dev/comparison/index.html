@@ -243,7 +243,7 @@ Chose ndf15 as generic_evolver
  Other Content                    Omega = 0.684664        , omega = 0.310658
  TOTAL                            Omega = 1               , omega = 0.453737
  --------------------------------------------------------------------
-Ran CLASS in 21.42751915 seconds in directory /tmp/jl_qJWojR
+Ran CLASS in 22.186380684 seconds in directory /tmp/jl_ExbJjD
 Read _background.dat with 40000x22 numbers
 Read _thermodynamics.dat with 28333x12 numbers
 Read _perturbations_k0_s.dat with 970515x24 numbers
@@ -346,7 +346,7 @@ plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 1e-1) # sm
     Dl = [sol[&quot;Cl&quot;][string(mode)] for mode in modes]
     i = findall(l′ -&gt; l′ in l, lout)
     Dl = [Dl[j][i] for j in eachindex(modes)]
-    return Dl
+    return stack(Dl)
 end
 function Dl_symboltz(modes, l, pars; kwargs...)
     prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
@@ -356,13 +356,17 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[1], Dl2[1], &quot;l&quot;, &quot;Dₗ(TT)&quot;; tol = 7e-13)</code></pre><img src="f25ae15b.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[2], Dl2[2], &quot;l&quot;, &quot;Dₗ(TE)&quot;; tol = 8e-14)</code></pre><img src="1d741f98.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[3], Dl2[3], &quot;l&quot;, &quot;Dₗ(EE)&quot;; tol = 2e-14)</code></pre><img src="44bcbab1.png" alt="Example block output"/><pre><code class="language-julia hljs">diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], &quot;l&quot;, &quot;Dₗ(TT)&quot;; tol = 7e-13)</code></pre><img src="f25ae15b.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], &quot;l&quot;, &quot;Dₗ(TE)&quot;; tol = 8e-14)</code></pre><img src="1d741f98.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], &quot;l&quot;, &quot;Dₗ(EE)&quot;; tol = 2e-14)</code></pre><img src="44bcbab1.png" alt="Example block output"/><pre><code class="language-julia hljs">diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
 θ = [pars[par] for par in diffpars]
-function plot_compare_Dl_diff(mode)
-    Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; only(Dl_class([mode], l, merge(pars, Dict(diffpars .=&gt; θ)))), θ, Val{:central}; relstep = 1e-3)
-    println(&quot;Computed CLASS derivatives in $Δt1 seconds&quot;)
-    Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -&gt; Dl_symboltz(mode, l, Dict(diffpars .=&gt; θ)), θ)
-    println(&quot;Computed SymBoltz derivatives in $Δt2 seconds&quot;)
-    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) ($mode)&quot; for par in diffpars])
-end
-plot_compare_Dl_diff(:TT) # TODO: merge TT, TE and EE in one diff call</code></pre><img src="c46b1242.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:TE)</code></pre><img src="c2a214e0.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_Dl_diff(:EE)</code></pre><img src="e26e620a.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Performance and benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 10 June 2025 13:55">Tuesday 10 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+modes = [:TT, :TE, :EE]
+
+Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; Dl_class(modes, l, merge(pars, Dict(diffpars .=&gt; θ))), θ, Val{:central}; relstep = 1e-3)
+println(&quot;Computed CLASS derivatives in $Δt1 seconds&quot;)
+Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -&gt; Dl_symboltz(modes, l, Dict(diffpars .=&gt; θ)), θ)
+println(&quot;Computed SymBoltz derivatives in $Δt2 seconds&quot;)
+
+# returned matrices have size (length(l)*length(modes), length(diffpars)); reshape to (length(l), length(modes), length(diffpars))
+∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
+∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
+
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (TT)&quot; for par in diffpars]; tol = 1e-10)</code></pre><img src="c46b1242.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (TE)&quot; for par in diffpars]; tol = 1e-11)</code></pre><img src="c2a214e0.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (EE)&quot; for par in diffpars]; tol = 1e-12)</code></pre><img src="e26e620a.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Performance and benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 10 June 2025 17:13">Tuesday 10 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
