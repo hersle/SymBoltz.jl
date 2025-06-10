@@ -95,14 +95,13 @@ end
         dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
         @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
     end
-    crazy(l, x) = sin(7*SymBoltz.jl(l, x^2)) # crazy composite function involving jl
 
     # Test (jl/x^2)(l, x) chain rule
-    crazy(l, x) = sin(7*SymBoltz.jl_x2(l, x^2)) # plot(x -> crazy(5, x)) looks very cool
+    crazy_x2(l, x) = sin(7*SymBoltz.jl_x2(l, x^2)) # plot(x -> crazy_x2(5, x)) looks very cool
     for l in 2:500
-        dcrazy_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy(l, x), x)
-        dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
-        @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
+        dcrazy_x2_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy_x2(l, x), x)
+        dcrazy_x2_ad(l, x) = ForwardDiff.derivative(x -> crazy_x2(l, x), x)
+        @test all(isapprox.(dcrazy_x2_ad.(l, x), dcrazy_x2_fd.(l, x); atol = 1e-6))
     end
 end
 

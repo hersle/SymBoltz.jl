@@ -2,12 +2,13 @@ import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSplin
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
+using ModelingToolkit: get_description, get_systems
 
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
-function transform(f::Function, sys::ODESystem; fullname=string(sys.name))
-    subs = [transform(f, sub; fullname = (ModelingToolkit.iscomplete(sys) ? "" : fullname * "₊") * string(sub.name)) for sub in sys.systems]
+function transform(f::Function, sys::ODESystem; fullname=nameof(sys))
+    subs = [transform(f, sub; fullname = ModelingToolkit.iscomplete(sys) ? Symbol() : Symbol(fullname, :₊, nameof(sub))) for sub in get_systems(sys)]
     sys = f(sys, fullname)
     return compose(sys, subs)
 end
@@ -28,11 +29,11 @@ function identity(sys::ODESystem)
     defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
     pdeps = ModelingToolkit.get_parameter_dependencies(sys)
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=nameof(sys), description=get_description(sys))
 end
 
 function debugize(sys::ODESystem)
-    return transform((s, _) -> length(s.systems) == 0 ? debug_system(s) : identity(s), sys)
+    return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
 O(x, ϵⁿ) = x * ϵⁿ
@@ -58,7 +59,7 @@ function taylor(sys::ODESystem, ϵ, orders; kwargs...)
     eqs = filter(eq -> !(eq in trivial_eqs), eqs)
     ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
 
-    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=sys.name, description=sys.description)
+    return ODESystem(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, parameter_dependencies=pdeps, name=nameof(sys), description=get_description(sys))
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
@@ -138,6 +139,7 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: generate_jacobian fails on systems returned from this function
+# TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
 function structural_simplify_spline(sys::ODESystem, vars; maxorder = 2)
     vars = ModelingToolkit.unwrap.(vars)
 

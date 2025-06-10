@@ -553,11 +553,11 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
             v1 .= v2 # just set to v2 when incrementing i1 by 1
             i1_prev = i2_prev
         elseif i1 != i1_prev || !smart
-            v1 .= sol.pts[i1](ts, deriv; idxs=is)[:, :] # TODO: make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+            v1 .= sol.pts[i1](ts, deriv; idxs=is) # https://docs.sciml.ai/DiffEqDocs/latest/basics/solution/ # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
             i1_prev = i1
         end
         if i2 != i2_prev || !smart
-            v2 .= sol.pts[i2](ts, deriv; idxs=is)[:, :] # TODO: getu or similar for speed? possible while preserving interpolation?
+            v2 .= sol.pts[i2](ts, deriv; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
             i2_prev = i2
         end
         v .= v1
