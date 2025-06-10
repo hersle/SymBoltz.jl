@@ -430,7 +430,7 @@ function Dl_class(modes, l, pars)
     Dl = [sol["Cl"][string(mode)] for mode in modes]
     i = findall(l′ -> l′ in l, lout)
     Dl = [Dl[j][i] for j in eachindex(modes)]
-    return Dl
+    return stack(Dl)
 end
 function Dl_symboltz(modes, l, pars; kwargs...)
     prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
@@ -440,30 +440,34 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[1], Dl2[1], "l", "Dₗ(TT)"; tol = 7e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 7e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[2], Dl2[2], "l", "Dₗ(TE)"; tol = 8e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 8e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[3], Dl2[3], "l", "Dₗ(EE)"; tol = 2e-14)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 2e-14)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
 θ = [pars[par] for par in diffpars]
-function plot_compare_Dl_diff(mode)
-    Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> only(Dl_class([mode], l, merge(pars, Dict(diffpars .=> θ)))), θ, Val{:central}; relstep = 1e-3)
-    println("Computed CLASS derivatives in $Δt1 seconds")
-    Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(mode, l, Dict(diffpars .=> θ)), θ)
-    println("Computed SymBoltz derivatives in $Δt2 seconds")
-    plot_compare(l, l, eachcol(∂Dl1_∂θ), eachcol(∂Dl2_∂θ), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) ($mode)" for par in diffpars])
-end
-plot_compare_Dl_diff(:TT) # TODO: merge TT, TE and EE in one diff call
+modes = [:TT, :TE, :EE]
+
+Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> Dl_class(modes, l, merge(pars, Dict(diffpars .=> θ))), θ, Val{:central}; relstep = 1e-3)
+println("Computed CLASS derivatives in $Δt1 seconds")
+Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(modes, l, Dict(diffpars .=> θ)), θ)
+println("Computed SymBoltz derivatives in $Δt2 seconds")
+
+# returned matrices have size (length(l)*length(modes), length(diffpars)); reshape to (length(l), length(modes), length(diffpars))
+∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
+∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
+
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 1e-10)
 ```
 ```@example class
-plot_compare_Dl_diff(:TE)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 1e-11)
 ```
 ```@example class
-plot_compare_Dl_diff(:EE)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 1e-12)
 ```
 

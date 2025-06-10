@@ -84,7 +84,7 @@ We can also calculate the matter power spectrum:
 Ps = spectrum_matter(sol, ks)
 plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
 ```
-Similarly, we can calculate the angular CMB power spectrum:
+Similarly, we can calculate the angular CMB (TT) power spectrum:
 ```@example getting_started
 ls = 10:10:1000
 Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl, unit = u"μK")

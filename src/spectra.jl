@@ -337,8 +337,8 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         error("Requested unit $unit is not a temperature unit")
     end
 
-    spectra = [] # Cls or Dls # TODO: make multidim array
-    for mode in modes
+    spectra = zeros(eltype(Ss_fine[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
+    for (i, mode) in enumerate(modes)
         if mode == :TT
             spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
         elseif mode == :EE
@@ -349,12 +349,12 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
             error("Unknown CMB power spectrum mode $mode")
         end
         spectrum *= factor^2 # possibly make dimensionful
-        push!(spectra, spectrum)
+        spectra[:, i] .= spectrum
     end
 
     return spectra
 end
-spectrum_cmb(mode::Symbol, args...; kwargs...) = only(spectrum_cmb([mode], args...; kwargs...))
+spectrum_cmb(mode::Symbol, args...; kwargs...) = spectrum_cmb([mode], args...; kwargs...)[:, begin]
 
 function cmb_kτ0s(lmin, lmax; Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*lmin, kτ0max = 3*lmax)
     kτ0s_fine = range(kτ0min, kτ0max, step=Δkτ0) # use integer multiple so endpoints are the same
