@@ -7,7 +7,7 @@ First, create a base ΛCDM cosmological model and problem:
 ```@example forecast
 # inspiration: e.g. https://github.com/xzackli/fishchips-public/blob/master/notebooks/Introduction%20to%20Fisher%20Forecasting.ipynb # hide
 # TODO: start by getting equal ad/fd results with these, then include more parameters # hide
-using SymBoltz, Plots
+using SymBoltz, Plots, DataInterpolations
 M = ΛCDM(K = nothing) # flat
 pars = Dict(
     M.g.h => 0.70,
@@ -25,14 +25,20 @@ pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.rec.Yp] # parameters to be vari
 prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varying to NaN
 ```
 
-Next, create a function for computing $Cₗ$ of the CMB TT power spectrum:
+Next, create a function for computing $Cₗ$ of the CMB TT power spectrum.
+Since $Cₗ$ is an expensive but smooth function of $l$, we make one function for it exactly on a coarse grid of $l$ and another for interpolating it to a finer grid:
 ```@example forecast
 # TODO: ω0 better than Ω0? # hide
 probgen = SymBoltz.parameter_updater(prob0, pars_varying)
 function Cl(l, θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8))
     println("θ = $θ")
     prob = probgen(θ)
-    return spectrum_cmb(:TT, prob, ls; bgopts, ptopts)
+    return spectrum_cmb(:TT, prob, l; bgopts, ptopts)
+end
+function Cl(l_coarse, l_fine, θ; interpolator = QuadraticSpline, kwargs...)
+    Cl_coarse = Cl(l_coarse, θ; kwargs...)
+    Cl_fine = interpolator(Cl_coarse, l_coarse)(l_fine)
+    return Cl_fine
 end
 ```
 We can now compute $Cₗ$ and the cosmic variance uncertainties
@@ -41,11 +47,12 @@ We can now compute $Cₗ$ and the cosmic variance uncertainties
 ```
 and plot them with error bars:
 ```@example forecast
-ls = 25:25:1000
+ls_coarse = 40:20:1000 # every 20th l
+ls = 40:1:1000 # every l
 θ0 = [pars[par] for par in pars_varying]
-Cls = Cl(ls, θ0)
+Cls = Cl(ls_coarse, ls, θ0)
 σs = @. √(2/(2ls+1)) * Cls # cosmic variance
-plot(ls, Cls.*ls.*(ls.+1)/2π; yerror = σs.*ls.*(ls.+1)/2π, xlabel = "l", ylabel = "l(l+1)Cₗ/2π", label = nothing)
+plot(ls, Cls.*ls.*(ls.+1)/2π; ribbon = σs.*ls.*(ls.+1)/2π, xlabel = "l", ylabel = "l(l+1)Cₗ/2π", label = "Dₗ ± ΔDₗ")
 ```
 The likelihood (logarithm) function (given model parameters $θ$ and measured $̄\bar{C}ₗ$) is
 ```math
@@ -59,8 +66,8 @@ Notice that the Fisher matrix is independent of the measured $C̄ₗ$, and depen
 We can compute the derivatives using automatic differentiation, and compare them to those found with finite differences:
 ```@example forecast
 using ForwardDiff, FiniteDiff
-dCl_dθ_ad = ForwardDiff.jacobian(θ -> Cl(ls, θ), θ0)
-dCl_dθ_fd = FiniteDiff.finite_difference_jacobian(θ -> Cl(ls, θ), θ0, Val{:central}; relstep = 5e-3) # TODO: 4e-2 is good for m_eV
+dCl_dθ_ad = ForwardDiff.jacobian(θ -> Cl(ls_coarse, ls, θ), θ0)
+dCl_dθ_fd = FiniteDiff.finite_difference_jacobian(θ -> Cl(ls_coarse, ls, θ), θ0, Val{:central}; relstep = 5e-3) # TODO: 4e-2 is good for m_eV
 
 θnames = replace.(string.(pars_varying), "₊" => ".")
 color = permutedims(eachindex(θnames))
