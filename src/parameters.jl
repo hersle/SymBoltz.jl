@@ -11,7 +11,7 @@ function parameters_Planck18(M::System)
     have(M, :ν) && push!(params, M.ν.Neff => 2.99)
     have(M, :h) && push!(params, M.h.m_eV => 0.06)
     have(M, :I) && merge!(params, Dict(
-        M.I.As => 2.099e-9,
+        M.I.ln_As1e10 => log(2.099e-9*1e10),
         M.I.ns => 0.965
     ))
     return params

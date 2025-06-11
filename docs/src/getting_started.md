@@ -39,7 +39,7 @@ pars = Dict(
     M.g.h => 0.7,
     M.b.rec.Yp => 0.25,
     M.h.m_eV => 0.06,
-    M.I.As => 2e-9,
+    M.I.ln_As1e10 => 3.0,
     M.I.ns => 0.95
 )
 ks = 10 .^ range(-5, 1, length=500) / u"Mpc"

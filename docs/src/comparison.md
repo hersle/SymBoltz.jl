@@ -81,7 +81,8 @@ function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = S
         "l_max_ncdm" => lmax,
 
         # primordial power spectrum
-        "A_s" => pars[M.I.As],
+
+        "ln_A_s_1e10" => pars[M.I.ln_As1e10],
         "n_s" => pars[M.I.ns],
 
         # w0wa dark energy

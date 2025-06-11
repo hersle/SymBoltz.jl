@@ -355,7 +355,7 @@ end
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Ss = @view Ss[:, :, 1]
     Θ0s = @inferred los_integrate(Ss[begin:end,:], ls, ks_fine, τs[begin:end]) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
-    P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], pars[M.I.As])
+    P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end
 
@@ -371,7 +371,7 @@ end
 end
 
 @testset "Background differentiation test" begin
-    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.Yp, M.I.As, M.I.ns]
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.Yp, M.I.ln_As1e10, M.I.ns]
     probgen = SymBoltz.parameter_updater(prob, diffpars)
     getτ0 = SymBoltz.getsym(prob, M.τ0)
     τ0(θ) = getτ0(solve(probgen(θ)))
