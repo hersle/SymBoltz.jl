@@ -20,13 +20,13 @@ ks = [1e-3, 1e-2, 1e-1, 1e0] / u&quot;Mpc&quot;
 sol = solve(prob, ks)
 p1 = Plots.plot(sol, M.χ, M.g.a)
 p2 = Plots.plot(sol, ks, log10(M.g.a), [M.g.Φ, M.g.Ψ])
-Plots.plot(p1, p2; layout = (2, 1), size = (600, 600))</code></pre><img src="1ebaf3e9.svg" alt="Example block output"/><p>Plot the evolution of <span>$Φ(k,τ)$</span> over conformal time <span>$τ$</span>:</p><pre><code class="language-julia hljs">ks = 10 .^ range(-3, 0, length=100) / u&quot;Mpc&quot;
+Plots.plot(p1, p2; layout = (2, 1), size = (600, 600))</code></pre><img src="03053b8a.svg" alt="Example block output"/><p>Plot the evolution of <span>$Φ(k,τ)$</span> over conformal time <span>$τ$</span>:</p><pre><code class="language-julia hljs">ks = 10 .^ range(-3, 0, length=100) / u&quot;Mpc&quot;
 sol = solve(prob, ks)
 τs = [0.0, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0]
 pal = Plots.palette([:black, :orange], length(τs))
 color = permutedims([pal[i] for i in eachindex(τs)])
 labels = permutedims(map(τ -&gt; &quot;τ/H₀⁻¹ = $τ&quot;, τs))
-Plots.plot(log10.(ks*u&quot;Mpc&quot;), sol(ks, τs, M.g.Φ); xlabel = &quot;k/Mpc⁻¹&quot;, ylabel = &quot;Φ(k,τ)&quot;, color, labels)</code></pre><img src="43cb7adb.svg" alt="Example block output"/><p>Visualize the CMB source function <span>$S₀(k,τ)$</span> in a 3D plot:</p><pre><code class="language-julia hljs">using CairoMakie
+Plots.plot(log10.(ks*u&quot;Mpc&quot;), sol(ks, τs, M.g.Φ); xlabel = &quot;k/Mpc⁻¹&quot;, ylabel = &quot;Φ(k,τ)&quot;, color, labels)</code></pre><img src="ee9eb710.svg" alt="Example block output"/><p>Visualize the CMB source function <span>$S₀(k,τ)$</span> in a 3D plot:</p><pre><code class="language-julia hljs">using CairoMakie
 τs = range(0.05, 0.08; length=50)
 ks = range(0.0, 0.3, length=100) / u&quot;Mpc&quot;
 sol = solve(prob, ks)
@@ -40,10 +40,10 @@ ax = Axis3(fig[1,1], azimuth = π/4, xlabel = &quot;k/Mpc⁻¹&quot;, ylabel = &
 cmax = min(-minimum(filter(!isnan, zs)), maximum(filter(!isnan, zs))) # saturate both ends of color scale
 surface!(ax, xs, ys, zs; alpha = 0.9, colormap = :seismic, colorrange = (-cmax, +cmax))
 
-fig</code></pre><img src="57498862.png" alt="Example block output"/><h2 id="Interactive-visualization"><a class="docs-heading-anchor" href="#Interactive-visualization">Interactive visualization</a><a id="Interactive-visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Interactive-visualization" title="Permalink"></a></h2><p>The excellent <a href="https://docs.makie.org/stable/">Makie plotting library</a> can be used to interactively visualize results:</p><pre><code class="language-julia hljs">using GLMakie</code></pre><p>We can now build a simple interactive interface that updates a plotted function when the user drags parameter value sliders:</p><pre><code class="language-julia hljs"># TODO: move into SymBoltz plotting recipes once MakieCore supports @lift etc.
-function plot_interactive(prob::CosmologyProblem, xvar, yvar, obspars...)
+fig</code></pre><img src="91896b51.png" alt="Example block output"/><h2 id="Interactive-visualization"><a class="docs-heading-anchor" href="#Interactive-visualization">Interactive visualization</a><a id="Interactive-visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Interactive-visualization" title="Permalink"></a></h2><p>The excellent <a href="https://docs.makie.org/stable/">Makie plotting library</a> can be used to interactively visualize results:</p><pre><code class="language-julia hljs">using GLMakie</code></pre><p>We can now build a simple interactive interface that updates a plotted function when the user drags parameter value sliders:</p><pre><code class="language-julia hljs"># TODO: move into SymBoltz plotting recipes once MakieCore supports @lift etc.
+function plot_interactive(prob::CosmologyProblem, xfunc::Function, yfunc::Function, obspars...; xlabel = &quot;&quot;, ylabel = &quot;&quot;)
     fig = Figure(size = (800, 800), fontsize = 18)
-    ax = Axis(fig[1, 1], xlabel = SymBoltz.displayname(xvar), ylabel = SymBoltz.displayname(yvar))
+    ax = Axis(fig[1, 1]; xlabel, ylabel)
     sg = SliderGrid(fig[2, 1], ((label = SymBoltz.displayname(par), range = range, startvalue = prob.bg.ps[par]) for (par, range) in obspars)...)
 
     obs = Observable([pars[par] for (par, _) in obspars]) # observable array for all parameters
@@ -62,11 +62,21 @@ function plot_interactive(prob::CosmologyProblem, xvar, yvar, obspars...)
         connect!(obss[i], sg.sliders[i].value)
     end
 
-    # TODO: place time points according to ODE solver&#39;s adaptive stepping
-    var_timeseries(sol, var; length = 2048) = sol(range(0.0, sol[M.τ0]; length), var)
-    lines!(ax, lift(sol -&gt; var_timeseries(sol, xvar), sol), lift(sol -&gt; var_timeseries(sol, yvar), sol))
+    lines!(ax, @lift(xfunc($sol)), @lift(yfunc($sol)))
 
     return fig
+end
+
+function plot_interactive(prob::CosmologyProblem, xvar::SymBoltz.Num, yvar::SymBoltz.Num, obspars...; N = 2000)
+    function τs(sol)
+        τ = sol.bg.t
+        τcum(n) = τ[Int(floor(n))] + (τ[min(Int(floor(n))+1,length(τ))] - τ[Int(floor(n))]) * (n - floor(n)) # &lt;3
+        τ = τcum.(range(1, length(τ), length = N))
+        return τ
+    end
+    xfunc(sol) = sol(τs(sol), xvar)
+    yfunc(sol) = sol(τs(sol), yvar)
+    return plot_interactive(prob, xfunc, yfunc, obspars...; xlabel = SymBoltz.displayname(xvar), ylabel = SymBoltz.displayname(yvar))
 end
 
 fig = plot_interactive(prob, log10(M.g.a), M.b.rec.Xe,
@@ -77,4 +87,4 @@ fig = plot_interactive(prob, log10(M.g.a), M.b.rec.Xe,
     M.h.m_eV =&gt; 0.01:0.01:0.15,
     M.b.rec.Yp =&gt; 0.20:0.01:0.30,
     M.ν.Neff =&gt; 2.90:0.01:3.10
-)</code></pre><img src="2e3aae59.png" alt="Example block output"/><div class="admonition is-info" id="Info-bd5d289d76c9e880"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-bd5d289d76c9e880" title="Permalink"></a></header><div class="admonition-body"><p>Here the plot is static due to limitations in the documentation building system. It will be interactive when you execute the code locally.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../solve/">« Solving models</a><a class="docs-footer-nextpage" href="../observables/">Observable quantities »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Thursday 12 June 2025 21:42">Thursday 12 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="62e53229.png" alt="Example block output"/><div class="admonition is-info" id="Info-52d2f34c48b24c11"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-52d2f34c48b24c11" title="Permalink"></a></header><div class="admonition-body"><p>Here the plot is static due to limitations in the documentation building system. It is interactive when you execute the code locally.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../solve/">« Solving models</a><a class="docs-footer-nextpage" href="../observables/">Observable quantities »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Friday 13 June 2025 12:07">Friday 13 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
