@@ -5,7 +5,7 @@ function harrison_zeldovich(g; kwargs...)
         ns, [description = "Spectral index"]
         kpivot, [description = "Pivot scale wavenumber"]
     end
-    @variables P(τ)
+    @variables P(τ, k)
     eqs = [
         As ~ exp(ln_As1e10) / 1e10
         P ~ 2*Num(π)^2 / k^3 * As * (k/kpivot)^(ns-1)

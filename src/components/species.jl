@@ -17,34 +17,33 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         ρ(τ), [description = "Background density"]
         P(τ), [description = "Background pressure"]
         Ω(τ), [description = "Reduced background density"]
-        δ(τ), [description = "Overdensity"]
-        θ(τ), [description = "Velocity divergence"]
-        θinteraction(τ), [description = "Velocity divergence interaction"]
-        σ(τ), [description = "Shear stress"]
-        cₛ²(τ), [description = "Speed of sound squared"]
-        u(τ), [description = "Velocity"]
-        u̇(τ), [description = "Velocity derivative"]
+        δ(τ, k), [description = "Overdensity"]
+        θ(τ, k), [description = "Velocity divergence"]
+        θinteraction(τ, k), [description = "Velocity divergence interaction"]
+        σ(τ, k), [description = "Shear stress"]
+        cₛ²(τ, k), [description = "Speed of sound squared"]
+        u(τ, k), [description = "Velocity"]
+        u̇(τ, k), [description = "Velocity derivative"]
     end
-    eqs0 = [
+    eqs = [
         w ~ _w
         P ~ w * ρ
         analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
-    ] .|> O(ϵ^0)
-    eqs1 = [
+
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
-        D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
+        D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv # TODO: θinteraction mult by ℋ?
         u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
-    ] .|> O(ϵ^1)
-    adiabatic && push!(eqs1, O(ϵ^1)(cₛ² ~ w))
-    ics1 = [
+    ]
+    adiabatic && push!(eqs, cₛ² ~ w)
+    ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
-    ] .|> O(ϵ^1)
-    !θinteract && push!(eqs1, (θinteraction ~ 0) |> O(ϵ^1))
-    return System([eqs0; eqs1], τ, vars, [pars; k]; initialization_eqs=ics1, name, kwargs...)
+    ]
+    !θinteract && push!(eqs, (θinteraction ~ 0))
+    return System(eqs, τ, vars, [pars; k]; initialization_eqs=ics, name, kwargs...)
 end
 
 """
@@ -70,7 +69,7 @@ function radiation(g; name = :r, kwargs...)
     vars = @variables begin
         T(τ), [description = "Temperature"] # TODO: define in constant_eos? https://physics.stackexchange.com/questions/650508/whats-the-relation-between-temperature-and-scale-factor-for-arbitrary-eos-1
     end
-    eqs = [T ~ T₀ / g.a] .|> O(ϵ^0)
+    eqs = [T ~ T₀ / g.a]
     description = "Radiation"
     return extend(r, System(eqs, τ, vars, pars; name); description)
 end
@@ -84,11 +83,12 @@ function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
     Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> background |> complete # discard ill-defined perturbations
     vars = @variables begin
-        δ(τ), [description = "Overdensity"]
-        θ(τ), [description = "Velocity divergence"]
-        σ(τ), [description = "Shear stress"]
+        cₛ²(τ, k), [description = "Speed of sound squared"]
+        δ(τ, k), [description = "Overdensity"]
+        θ(τ, k), [description = "Velocity divergence"]
+        σ(τ, k), [description = "Shear stress"]
     end
-    eqs = [δ ~ 0, θ ~ 0, σ ~ 0, Λ.cₛ² ~ -1] .|> O(ϵ^1)
+    eqs = [δ ~ 0, θ ~ 0, σ ~ 0, cₛ² ~ -1]
     description = "Cosmological constant"
     return extend(Λ, System(eqs, τ, vars, []; name); description) # manually set perturbations to zero
 end
@@ -110,35 +110,35 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         w(τ), [description = "Equation of state"]
         ẇ(τ), [description = "Equation of state derivative"]
         cₐ²(τ), [description = "Adiabatic speed of sound squared"]
-        δ(τ), [description = "Overdensity"]
-        θ(τ), [description = "Velocity divergence"]
-        σ(τ), [description = "Shear stress"]
+        δ(τ, k), [description = "Overdensity"]
+        θ(τ, k), [description = "Velocity divergence"]
+        σ(τ, k), [description = "Shear stress"]
     end
     # TODO: generate equations with a generic species_eos function
-    eqs0 = [
+    eqs = [
         w ~ w0 + wa * (1 - g.a)
         ẇ ~ D(w)
         P ~ w * ρ
-    ] .|> SymBoltz.O(ϵ^0) # O(ϵ⁰) multiplies all equations by 1 (no effect, but see step 5)
+    ]
     if analytical
         append!(pars, @parameters Ω₀)
-        push!(eqs0, ρ ~ 3/(8*Num(π))*Ω₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
+        push!(eqs, ρ ~ 3/(8*Num(π))*Ω₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
     else
-        push!(eqs0, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
+        push!(eqs, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
     end
-    eqs1 = [
+    append!(eqs, [
         # Following https://arxiv.org/pdf/1002.1311 section II
         cₐ² ~ w - ẇ/(3*g.ℰ*(1+w))
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ - 9*(g.ℰ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
         D(θ) ~ -g.ℰ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
         σ ~ 0
-    ] .|> SymBoltz.O(ϵ^1)
-    ics1 = [
+    ])
+    ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
-    ] .|> SymBoltz.O(ϵ^1)
+    ]
     description = "w₀wₐ (CPL) dark energy"
-    return System([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
 end
 
 """
@@ -152,28 +152,28 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables begin
-        F0(τ), [description = "Distribution function monopole"]
-        F(τ)[1:lmax], [description = "Distribution function multipoles"]
-        Θ0(τ), [description = "Temperature perturbation monopole"]
-        Θ(τ)[1:lmax], [description = "Temperature perturbation multipoles"]
-        δ(τ), [description = "Overdensity"]
-        θ(τ), [description = "Velocity divergence"]
-        σ(τ), [description = "Shears tress"]
+        cₛ²(τ, k), [description = "Speed of sound squared"]
+        F0(τ, k), [description = "Distribution function monopole"]
+        F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
+        Θ0(τ, k), [description = "Temperature perturbation monopole"]
+        Θ(τ, k)[1:lmax], [description = "Temperature perturbation multipoles"]
+        δ(τ, k), [description = "Overdensity"]
+        θ(τ, k), [description = "Velocity divergence"]
+        σ(τ, k), [description = "Shears tress"]
         κ̇(τ), [description = "Optical depth derivative"]
-        θb(τ), [description = "Baryon velocity divergence"]
-        Π(τ), [description = "Anisotropic stress perturbation"]
-        Π̇(τ), [description = "Anisotropic stress perturbation derivative"]
-        G0(τ), [description = "Polarization component 0"]
-        G(τ)[1:lmax], [description = "Polarization component"]
+        θb(τ, k), [description = "Baryon velocity divergence"]
+        Π(τ, k), [description = "Anisotropic stress perturbation"]
+        Π̇(τ, k), [description = "Anisotropic stress perturbation derivative"]
+        G0(τ, k), [description = "Polarization component 0"]
+        G(τ, k)[1:lmax], [description = "Polarization component"]
     end
-    eqs0 = [
+    eqs = [
         # Parameter equations
         γ.Ω₀ ~ π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
-    ]
-    eqs1 = [
+
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ) # D(θ) ~ -κ̇ (θb-θγ)
         [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
         δ ~ F0
@@ -181,34 +181,34 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         σ ~ F[2]/2
         Π ~ F[2] + G0 + G[2]
         Π̇ ~ D(Π)
-        γ.cₛ² ~ 1//3
+        cₛ² ~ 1//3
         Θ0 ~ F0/4
         [Θ[l] ~ F[l]/4 for l in 1:lmax]...
-    ] .|> O(ϵ^1)
-    ics1 = [
+    ]
+    ics = [
         F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k/g.ℰ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
         [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
-    ] .|> O(ϵ^1)
+    ]
     if polarization
-        append!(eqs1, [
+        append!(eqs, [
             D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Π/2)
             D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
             [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + κ̇ * G[lmax]
-        ] .|> O(ϵ^1))
-        append!(ics1, [
+        ])
+        append!(ics, [
             G0 ~ 5//16 * F[2],
             G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
-            [G[l] ~ -l/(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
-        ] .|> O(ϵ^1))
+            [G[l] ~ -l//(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
+        ])
     else
-        append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
+        append!(eqs, [collect(G .~ 0)...]) # pin to zero
     end
     description = "Photon radiation"
-    return extend(γ, System([eqs0; eqs1], τ, vars, []; initialization_eqs=ics1, name, kwargs...); description)
+    return extend(γ, System(eqs, τ, vars, []; initialization_eqs=ics, name, kwargs...); description)
 end
 
 """
@@ -221,16 +221,17 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     ν = radiation(g; name, description, kwargs...) |> background |> complete
 
     vars = @variables begin
-        F0(τ), [description = "Distribution function monopole"]
-        F(τ)[1:lmax+1], [description = "Distribution function multipoles"]
-        δ(τ), [description = "Overdensity"]
-        θ(τ), [description = "Velocity divergence"]
-        σ(τ), [description = "Shear stress"]
+        cₛ²(τ, k), [description = "Speed of sound squared"] # TODO: avoid redefining after generic eos function
+        F0(τ, k), [description = "Distribution function monopole"]
+        F(τ, k)[1:lmax+1], [description = "Distribution function multipoles"]
+        δ(τ, k), [description = "Overdensity"]
+        θ(τ, k), [description = "Velocity divergence"]
+        σ(τ, k), [description = "Shear stress"]
     end
     pars = @parameters begin
         Neff, [description = "Effective number of neutrino species"] # TODO: massless vs. massive?
     end
-    eqs1 = [
+    eqs = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
@@ -238,16 +239,16 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
-        ν.cₛ² ~ 1//3
-    ] .|> O(ϵ^1)
-    ics1 = [
+        cₛ² ~ 1//3
+    ]
+    ics = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ
         σ ~ 1//15 * (k/g.ℰ)^2 * g.Ψ
         [F[l] ~ +l//(2*l+1) * k/g.ℰ * F[l-1] for l in 3:lmax]...
-    ] .|> O(ϵ^1)
+    ]
     description = "Massless neutrinos"
-    return extend(ν, System(eqs1, τ, vars, pars; initialization_eqs=ics1, name, kwargs...); description)
+    return extend(ν, System(eqs, τ, vars, pars; initialization_eqs=ics, name, kwargs...); description)
 end
 
 # TODO: use vector equations and simplify loops
@@ -274,18 +275,18 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         T(τ), [description = "Temperature"]
         y(τ), [description = "Temperature-deuced mass"]
         w(τ), [description = "Equation of state"]
-        cₛ²(τ), [description = "Speed of sound squared"]
-        δ(τ), [description = "Overdensity"]
-        σ(τ), [description = "Shear stress"]
-        θ(τ), [description = "Velocity divergence"]
-        u(τ), [description = "Velocity"]
+        cₛ²(τ, k), [description = "Speed of sound squared"]
+        δ(τ, k), [description = "Overdensity"]
+        σ(τ, k), [description = "Shear stress"]
+        θ(τ, k), [description = "Velocity divergence"]
+        u(τ, k), [description = "Velocity"]
         E(τ)[1:nx], [description = "Dimensionless energies"]
-        ψ0(τ)[1:nx], [description = "Distribution function monopole"]
-        ψ(τ)[1:nx,1:lmax], [description = "Distribution function multipoles"]
+        ψ0(τ, k)[1:nx], [description = "Distribution function monopole"]
+        ψ(τ, k)[1:nx,1:lmax], [description = "Distribution function multipoles"]
         In(τ), [description = "Number density integral"]
         Iρ(τ), [description = "Density integral"]
         IP(τ), [description = "Pressure integral"]
-        Iδρ(τ), [description = "Overdensity integral"]
+        Iδρ(τ, k), [description = "Overdensity integral"]
     end
 
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
@@ -301,7 +302,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     ]
     =#
 
-    eqs0 = [
+    eqs = [
         # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
         m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
         y₀ ~ m*c^2 / (kB*T₀)
@@ -317,35 +318,34 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         P ~ 2/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
         Ω ~ 8*Num(π)/3 * ρ
-    ] .|> O(ϵ^0)
-    eqs1 = [
+
         Iδρ ~ ∫dx_x²_f₀(E .* ψ0)
         δ ~ Iδρ / Iρ
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
         cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
-    ] .|> O(ϵ^1)
-    ics1 = []
+    ]
+    ics = []
     for i in 1:nx
-        push!(eqs0, O(ϵ^0)(E[i] ~ √(x[i]^2 + y^2)))
-        append!(eqs1, [
+        push!(eqs, E[i] ~ √(x[i]^2 + y^2))
+        append!(eqs, [
             D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
             D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for l in 2:lmax-1]...
             D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] * g.ℰ/k - ψ[i,lmax-1])) # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
-        ] .|> O(ϵ^1))
-        append!(ics1, [
+        ])
+        append!(ics, [
             ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
             ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k/g.ℰ*g.Ψ) * dlnf₀_dlnx(x[i])
             ψ[i,2] ~ -1//2 * (1//15*(k/g.ℰ)^2*g.Ψ) * dlnf₀_dlnx(x[i])
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
-        ] .|> O(ϵ^1))
+        ])
     end
 
     description = "Massive neutrino"
     pars = [m, m_eV, T₀, #=x, W,=# Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
-    return System([eqs0; eqs1], τ, vars, pars; initialization_eqs=ics1, #=defaults=defs,=# name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs=ics, #=defaults=defs,=# name, description, kwargs...)
 end
 
 """
@@ -355,9 +355,12 @@ Create a particle species for cold dark matter in the spacetime with metric `g`.
 """
 function cold_dark_matter(g; name = :c, kwargs...)
     c = matter(g; name, kwargs...) |> complete
-    eqs = [c.cₛ² ~ 0] .|> O(ϵ^1)
+    vars = @variables begin
+        cₛ²(τ, k), [description = "Speed of sound squared"]
+    end
+    eqs = [cₛ² ~ 0]
     description = "Cold dark matter"
-    c = extend(c, System(eqs, τ, [], []; name); description)
+    c = extend(c, System(eqs, τ, vars, []; name); description)
     return c
 end
 
@@ -371,6 +374,7 @@ function baryons(g; recombination = true, reionization = true, name = :b, kwargs
     b = matter(g; θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: simply dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g; reionization)
+        eqs = Equation[]
     else
         vars = @variables begin
             κ(τ), [description = "Optical depth"]
@@ -379,10 +383,10 @@ function baryons(g; recombination = true, reionization = true, name = :b, kwargs
             Tγ(τ), [description = "Photon temperature"]
             cₛ²(τ), [description = "Speed of sound squared"]
         end
-        eqs = [κ ~ 0, κ̇ ~ 0, cₛ² ~ 0] .|> O(ϵ^0)
+        eqs = [κ ~ 0, κ̇ ~ 0, cₛ² ~ 0]
         @named rec = System(eqs, τ, vars, [])
     end
-    eqs = [b.cₛ² ~ rec.cₛ²] .|> O(ϵ^1)
+    push!(eqs, b.cₛ² ~ rec.cₛ²)
     description = "Baryonic matter"
     b = extend(b, System(eqs, τ, [], []; name); description)
     b = compose(b, rec)
@@ -400,8 +404,8 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         ρ(τ), [description = "Effective background density"]
         P(τ), [description = "Effective background pressure"]
         w(τ), [description = "Equation of state"]
-        δ(τ), [description = "Overdensity"]
-        σ(τ), [description = "Shear stress"]
+        δ(τ, k), [description = "Overdensity"]
+        σ(τ, k), [description = "Shear stress"]
         V(τ), [description = "Potential of scalar field"]
         V′(τ), [description = "Potential derivative wrt. scalar field"]
         V′′(τ), [description = "Potential 2nd derivative wrt. scalar field"]
@@ -409,9 +413,9 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         m²(τ), [description = "Effective mass"]
         ϵs(τ), [description = "1st slow roll parameter"]
         ηs(τ), [description = "2nd slow roll parameter"]
-        cₛ²(τ), [description = "Speed of sound squared"]
+        cₛ²(τ, k), [description = "Speed of sound squared"]
     end
-    eqs0 = [
+    eqs = [
         V ~ v
         V′ ~ v′
         V′′ ~ v′′
@@ -423,14 +427,13 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         m² ~ V′′
         ϵs ~ (V′/V)^2 / (16*Num(π))
         ηs ~ (V′′/V) / (8*Num(π))
-    ] .|> O(ϵ^0)
-    eqs1 = [ # TODO: perturbations
+
         δ ~ 0
         σ ~ 0
         cₛ² ~ 0
-    ] .|> O(ϵ^1)
+    ]
     description = "Quintessence dark energy"
-    return System([eqs0; eqs1], τ; name, description, kwargs...)
+    return System(eqs, τ; name, description, kwargs...)
 end
 function quintessence(g, v; name = :Q, kwargs...)
     @variables begin
@@ -454,10 +457,10 @@ function curvature(g; name = :K, kwargs...)
         ρ(τ), [description = "Effective background density"]
         P(τ), [description = "Effective background pressure"]
         w(τ), [description = "Effective equation of state"]
-        δ(τ),
-        θ(τ),
+        δ(τ, k),
+        θ(τ, k),
         cₛ²(τ),
-        σ(τ)
+        σ(τ, k)
     end
     pars = @parameters begin
         Ω₀, [description = "Effective reduced background density today"] # dimless K is physical K*c²/H₀²

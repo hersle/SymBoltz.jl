@@ -57,7 +57,9 @@ g = SymBoltz.metric()
 K = SymBoltz.curvature(g)
 X = SymBoltz.w0wa(g; analytical = true)
 M = RMΛ(K = K, Λ = X)
+M = complete(SymBoltz.background(M); flatten = false)
 M = change_independent_variable(M, M.g.a; add_old_diff = true)
+# TODO: avoid complete and fix change_independent_variable to handle multivariate variables # hide
 pars_fixed = Dict(M.τ => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
 pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.g.h, M.X.w0, M.X.wa]
 

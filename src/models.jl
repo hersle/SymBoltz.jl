@@ -48,12 +48,12 @@ function ΛCDM(;
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         cₛ(τ), [description = "Baryon-photon sound speed"]
         rₛ(τ), [description = "Baryon-photon sound horizon (BAO scale)"]
-        ST0(τ), [description = "Temperature source function weighted against spherical Bessel function"]
-        ST1(τ), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
-        ST0_SW(τ),
-        ST0_ISW(τ), ST1_ISW(τ),
-        ST0_Doppler(τ), ST1_Doppler(τ),
-        ST0_polarization(τ), ST1_polarization(τ), ST2_polarization(τ)
+        ST0(τ, k), [description = "Temperature source function weighted against spherical Bessel function"]
+        ST1(τ, k), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
+        ST0_SW(τ, k),
+        ST0_ISW(τ, k), ST1_ISW(τ, k),
+        ST0_Doppler(τ, k), ST1_Doppler(τ, k),
+        ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k)
     end
     defs = Dict(
         C => 1//2,
@@ -62,16 +62,16 @@ function ΛCDM(;
     )
     ics = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
-    ] .|> O(ϵ^1)
-    eqs0 = Ω₀_eqs(G, species)
-    have(ν) && have(γ) && push!(eqs0,
+    ]
+    eqs = Ω₀_eqs(G, species)
+    have(ν) && have(γ) && push!(eqs,
         ν.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
         ν.Ω₀ ~ ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
     )
-    have(h) && have(γ) && push!(eqs0,
+    have(h) && have(γ) && push!(eqs,
         h.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
     )
-    append!(eqs0, [
+    append!(eqs, [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
@@ -80,8 +80,8 @@ function ΛCDM(;
         χ ~ τ0 - τ
         cₛ ~ 1 / √(3(1+3//4*b.ρ/γ.ρ))# TODO: move into a meaningful component
         D(rₛ) ~ cₛ # TODO: compute by integration afterwards instead?
-    ] .|> O(ϵ^0))
-    eqs1 = [
+    ])
+    append!(eqs, [
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species) # TODO: factor 2/3 or 3/2? See e.g. https://arxiv.org/pdf/astro-ph/9506072 bottom of page 10? Check all models.
@@ -98,11 +98,11 @@ function ΛCDM(;
         ST2_polarization ~ 3/16 * b.rec.v*γ.Π
         ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
         ST1 ~ 0
-    ] .|> O(ϵ^1)
+    ])
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = System([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, name, description)
+    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
@@ -143,22 +143,21 @@ function RMΛ(;
         τ0, [description = "Conformal time today"]
     end
     species = filter(have, [r, m, K, Λ])
-    eqs0 = [
+    eqs = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         χ ~ τ0 - τ
-    ] .|> O(ϵ^0)
-    eqs1 = [
+
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
-    ] .|> O(ϵ^1)
+    ]
     defs = Dict(
         g.Ψ => 20 // 15,
         τ0 => NaN
     )
-    append!(eqs0, Ω₀_eqs(G, species)) # parameter equations
-    connections = System([eqs0; eqs1], τ, vars, [pars; k]; defaults = defs, name)
+    append!(eqs, Ω₀_eqs(G, species)) # parameter equations
+    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, name)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
