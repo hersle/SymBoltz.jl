@@ -214,7 +214,7 @@ end
         M.Λ.Ω₀,
         M.I.As, M.I.kpivot, M.I.ns
     ]
-    @test allequal([extrema(sol.bg.t); map(pt -> extrema(pt.t), sol.pts)])
+    @test allequal([extrema(sol.bg.t); map(pt -> extrema(pt.t), sol.pts)]) # background and perturbation should have equal timespans
     @test all(allequal([sol.bg.ps[par]; map(pt -> pt.ps[par], sol.pts)]) for par in pars)
 end
 

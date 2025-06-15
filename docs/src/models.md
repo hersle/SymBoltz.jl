@@ -27,7 +27,8 @@ SymBoltz.ΛCDM
 ```@example ΛCDM
 using SymBoltz, Plots, Unitful, UnitfulAstro
 M = ΛCDM()
-prob = CosmologyProblem(M, parameters_Planck18(M))
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)

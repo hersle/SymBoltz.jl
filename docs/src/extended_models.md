@@ -50,32 +50,32 @@ following [Bertschinger and Ma (equation 30)](https://arxiv.org/pdf/astro-ph/950
 Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:
 ```@example ext
 using ModelingToolkit # load to create custom components
-using SymBoltz: τ, D, k, ϵ # load conformal time, derivative, perturbation wavenumber and perturbation book-keeper variables
+using SymBoltz: τ, D, k # load conformal time, derivative and perturbation wavenumber
 g = M1.g # reuse metric of original model
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
 pars = @parameters w₀ wₐ cₛ² Ω₀
 
 # 2. Create variables
-vars = @variables ρ(τ) P(τ) w(τ) δ(τ) θ(τ) σ(τ)
+vars = @variables ρ(τ) P(τ) w(τ) δ(τ, k) θ(τ, k) σ(τ, k)
 
 # 3. Specify equations (~ means equality in ModelingToolkit)
 eqs = [
-    # Background equations (of order O(ϵ⁰)
+    # Background equations
     w ~ w₀ + wₐ * (1 - g.a) # equation of state
     ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w₀+wₐ)) # D(ρ) ~ -3 * g.ℰ * ρ * (1 + w) # energy density (ρ₀ => 3/(8*Num(π)) * exp(+3*wₐ) * Ω₀)
     P ~ w * ρ # pressure
 
-    # Perturbation equations (mulitiplied by ϵ to mark them as order O(ϵ¹))
-    D(δ) * ϵ ~ (-(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ) * ϵ # energy overdensity
-    D(θ) * ϵ ~ (-g.ℰ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ) * ϵ # momentum
-    σ * ϵ ~ 0 # shear stress
+    # Perturbation equations
+    D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℰ * (cₛ² - w) * δ # energy overdensity
+    D(θ) ~ -g.ℰ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
+    σ ~ 0 # shear stress
 ]
 
 # 4. Specify initial conditions (for perturbations)
 initialization_eqs = [
-    δ * ϵ ~ -3/2 * (1+w) * g.Ψ * ϵ
-    θ * ϵ ~ 1/2 * (k^2/g.ℰ) * g.Ψ * ϵ
+    δ ~ -3/2 * (1+w) * g.Ψ
+    θ ~ 1/2 * (k^2/g.ℰ) * g.Ψ
 ]
 
 # 5. Pack into an ODE system called "X"

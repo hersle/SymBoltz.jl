@@ -21,7 +21,6 @@ using Setfield
 @independent_variables τ [description = "Conformal time"] # conformal time in units of 1/H₀
 D = Differential(τ)
 k = only(GlobalScope.(@parameters k [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
-ϵ = only(GlobalScope.(@parameters ϵ = 1 [description = "Perturbation expansion parameter"])) # perturbative expansion parameter
 
 include("utils.jl")
 include("constants.jl")

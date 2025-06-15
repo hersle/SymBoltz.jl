@@ -10,8 +10,8 @@ import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
 
-background(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:0; fold = false), sys)
-perturbations(sys) = transform((sys, _) -> taylor(sys, ϵ, 0:1; fold = false), sys)
+background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
+perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
 struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     M::System
@@ -480,6 +480,7 @@ function get_is_deriv(prob::CosmologyProblem, is)
     return is, deriv
 end
 
+# TODO: match variable convention (i.e. δ(τ, k))
 function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
     #tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time $(minimum(ts)) is before initial time $tmin")

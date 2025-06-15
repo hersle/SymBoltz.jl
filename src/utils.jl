@@ -35,11 +35,25 @@ function debugize(sys::System)
     return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
-O(x, ϵⁿ) = x * ϵⁿ
-O(eq::Equation, ϵⁿ) = O(eq.lhs, ϵⁿ) ~ O(eq.rhs, ϵⁿ)
-O(ϵⁿ) = x -> O(x, ϵⁿ)
+function isbackground(expr)
+    vars = ModelingToolkit.vars(expr; op = Nothing) # don't collect Differential(τ)(f(τ, k))
+    for var in vars
+        if iscall(var)
+            if operation(var) === getindex
+                var = arguments(var)[1] # e.g. F(τ, k)[1] to F(τ, k)
+            end
+            for arg in arguments(var)
+                isequal(arg, k) && return false # function of k, e.g. f(τ, k)?
+            end
+        end
+    end
+    return true
+end
+function isperturbation(expr)
+    return true # function of k⁰ or k¹? always yes
+end
 
-function taylor(sys::System, ϵ, orders; kwargs...)
+function filter_system(f::Function, sys::System)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
@@ -49,15 +63,12 @@ function taylor(sys::System, ϵ, orders; kwargs...)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
-    eqs = taylor(eqs, ϵ, orders; kwargs...)
-    ieqs = taylor(ieqs, ϵ, orders; kwargs...)
-
-    # remove resulting trivial equations
-    trivial_eqs = [0 ~ 0, 0 ~ -0.0]
-    eqs = filter(eq -> !(eq in trivial_eqs), eqs)
-    ieqs = filter(eq -> !(eq in trivial_eqs), ieqs)
+    eqs = filter(f, eqs)
+    ieqs = filter(f, ieqs)
+    vars = filter(f, vars)
 
     return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
+
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
