@@ -71,6 +71,77 @@ function filter_system(f::Function, sys::System)
 
 end
 
+function _stripk(expr; fold = false)
+    # remove k from the arguments of every symbolic variable
+    for var1 in ModelingToolkit.vars(expr; op = Nothing)
+        if iscall(var1) && length(arguments(var1)) >= 2 && isequal(arguments(var1)[2], k)
+            # if var1 is a function of k, e.g. F(τ, k), then remove k from the arguments
+            var1 = unwrap(var1)
+            name = nameof(operation(var1))
+            args = filter(arg -> !isequal(arg, k), arguments(var1)) # remove k from arguments
+            var2, = @variables $name(args...)
+            if Symbolics.hasmetadata(var1, ModelingToolkit.SymScope)
+                # if var1 is a scoped variable, e.g. F(τ, k) with scope τ, then we need to preserve the scope
+                scope = Symbolics.getmetadata(var1, ModelingToolkit.SymScope)
+                var2 = Symbolics.setmetadata(var2, ModelingToolkit.SymScope, scope)
+            end
+            expr = substitute(expr, var1 => var2; fold)
+        elseif iscall(var1) && operation(var1) === getindex
+            # if var1 is an array symbolic, e.g. F(τ, k)[1:6], then we need special treatment to get F(τ)[1:6]:
+            var1 = arguments(var1)[1] # Extract the base variable, e.g., F(τ, k)
+            name = nameof(operation(var1))
+            args = filter(arg -> !isequal(arg, k), arguments(var1)) # Remove k from arguments
+            var2, = @variables $name(args...)
+            expr = substitute(expr, var1 => var2; fold)
+        end
+        # if var1 is a non-indexed array symbolic, e.g. (F(τ, k))[1:6], we need special handling:
+        #=
+        if iscall(var1) && operation(var1) === getindex && length(arguments(var1)) >= 2
+            base_var = arguments(var1)[1] # Extract the base variable, e.g., F(τ, k)
+            name = nameof(operation(base_var))
+            args = filter(arg -> !isequal(arg, k), arguments(base_var)) # Remove k from arguments
+            transformed_var, = @variables $name(args...)
+            expr = substitute(expr, var1 => transformed_var[arguments(var1)[2:end]]; fold)
+        end
+        =#
+    end
+    return expr
+end
+# TODO: requires special treatment for arrays, e.g. F(τ, k)[1:6] -> F(τ)[1:6]
+function _stripk(var::Symbolics.Arr)
+    var1 = unwrap(var)
+    name = nameof(operation(var1))
+    args = filter(arg -> !isequal(arg, k), arguments(var1)) # Remove k from arguments
+    T = Array{eltype(ModelingToolkit.symtype(var1)), ndims(var)}
+    var2 = unwrap(only(@variables $name(args...)::T)) # e.g. https://github.com/SciML/ModelingToolkit.jl/blob/f807dbca554369bb140c175a48c5cf33323fd9a9/src/systems/analysis_points.jl#L424-L427
+    var2 = Symbolics.setmetadata(var2, Symbolics.ArrayShapeCtx, Symbolics.shape(var1))
+    return Symbolics.Arr(var2)
+end
+
+function _stripk(sys::System)
+    # remove k from all variables and equations
+    iv = ModelingToolkit.get_iv(sys)
+    eqs = ModelingToolkit.get_eqs(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    vars = ModelingToolkit.get_unknowns(sys)
+    pars = ModelingToolkit.get_ps(sys)
+    defs = ModelingToolkit.get_defaults(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+
+    eqs = _stripk.(eqs)
+    ieqs = _stripk.(ieqs)
+    vars = _stripk.(vars)
+    defs = [_stripk(def) => _stripk(val) for (def, val) in defs]
+    guesses = [_stripk(guess) => _stripk(val) for (guess, val) in guesses]
+
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
+end
+
+function stripk(sys::System)
+    return transform((sys, _) -> _stripk(sys), sys)
+end
+
+
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
 have(s) = !isnothing(s) # shorthand for checking if we have a given species
 

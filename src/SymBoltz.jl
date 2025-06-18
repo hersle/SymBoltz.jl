@@ -42,6 +42,7 @@ export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid
 export express_derivatives
 
+#=
 using PrecompileTools: @compile_workload
 @compile_workload begin
     using SymBoltz, Unitful, UnitfulAstro
@@ -56,5 +57,6 @@ using PrecompileTools: @compile_workload
     ls = 1:3
     Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl, thread = false)
 end
+=#
 
 end

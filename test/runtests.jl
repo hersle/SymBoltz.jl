@@ -382,3 +382,39 @@ end
     @test all(isapprox.(dτ0_ad[end-2:end], 0.0; atol = 1e-10))
     @test all(isapprox.(dτ0_fd[end-2:end], 0.0; atol = 1e-2))
 end
+
+#@testset "Strip k" begin
+    τ, k = M.τ, M.k
+    D = Differential(τ)
+
+    a1 = M.g.a
+    a2, = @variables a(τ)
+    @test isequal(SymBoltz._stripk(a1), a2)
+
+    Φ1 = M.g.Φ
+    Φ2, = @variables Φ(τ)
+    @test isequal(SymBoltz._stripk(Φ1), Φ2)
+
+    F1, = @variables F(τ, k)[1:6]
+    F2, = @variables F(τ)[1:6]
+    @test isequal(Symbol(SymBoltz._stripk(F1)), Symbol(F2))
+    @test isequal(Symbol(SymBoltz._stripk(F1[1])), Symbol(F2[1]))
+
+    ex1 = a1 + Φ1 + D(a1) + D(Φ1)
+    ex2 = a2 + Φ2 + D(a2) + D(Φ2)
+    @test isequal(SymBoltz._stripk(ex1), ex2)
+
+    M1 = M
+    M2 = SymBoltz.stripk(M1)
+    str1 = String(sort(collect(replace(string(equations(M1.G)), "(τ, k)" => "(τ)"))))
+    str2 = String(sort(collect(string(equations(M2.G)))))
+    @test str1 == str2 # ???
+
+    @test isequal(M2.g.a, a2)
+    @test isequal(M2.g.Φ, Φ2)
+
+    # TODO: fix M1.γ.F vs M2.γ.F
+    M1.γ.F
+    M2.γ.F
+    # TODO: fix for array M2.g.F
+#end
