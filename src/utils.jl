@@ -7,6 +7,8 @@ using ModelingToolkit: get_description, get_systems
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
+δkron(i, j) = i == j ? 1 : 0 # Kronecker delta
+
 function transform(f::Function, sys::System; fullname=nameof(sys))
     subs = [transform(f, sub; fullname = ModelingToolkit.iscomplete(sys) ? Symbol() : Symbol(fullname, :₊, nameof(sub))) for sub in get_systems(sys)]
     sys = f(sys, fullname)

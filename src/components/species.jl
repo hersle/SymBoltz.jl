@@ -174,8 +174,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ)
-        D(F[2]) ~ k/5*(2*F[1] - 3*F[3]) + 9//10*κ̇*F[2] - 1//10*κ̇*(G0+G[2])
-        [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇*F[l] for l in 3:lmax-1]...
+        [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
         δ ~ F0
         θ ~ 3*k*F[1]/4
@@ -196,14 +195,14 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         append!(eqs1, [
             D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Π/2)
             D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
-            [D(G[l]) ~ k/(2*l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - Π/10*δkron(l,2)) for l in 2:lmax-1]...
+            [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + κ̇ * G[lmax]
         ] .|> O(ϵ^1))
         append!(ics1, [
             G0 ~ 5//16 * F[2],
             G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
-            [G[l] ~ -l//(2*l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
+            [G[l] ~ -l/(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
         ] .|> O(ϵ^1))
     else
         append!(eqs1, [collect(G .~ 0)...] .|> O(ϵ^1)) # pin to zero
