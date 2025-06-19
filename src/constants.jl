@@ -42,8 +42,7 @@ mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
 λ_He_2p_1s_tri = 59.1411e-9; f_He_2p_1s_tri = c/λ_He_2p_1s_tri; E_He_2p_1s_tri = h*f_He_2p_1s_tri
 λ_He_2s_1s_tri = 62.5563e-9; f_He_2s_1s_tri = c/λ_He_2s_1s_tri; E_He_2s_1s_tri = h*f_He_2s_1s_tri
                                                                 E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
-
-δkron(i, j) = (i == j ? 1 : 0)
+δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
 
 function k_dimensionless(k::Number, h)
     if unit(k) == NoUnits

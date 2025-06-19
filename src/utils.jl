@@ -75,7 +75,7 @@ function spline(y, ẏ, x)
     dx = diff(x)
     all(diff(x) .< 0) && return spline(reverse(y), reverse(ẏ), reverse(x)) # reverse if monotonically decreasing
     all(diff(x) .> 0) || error("x is not monotonically increasing")
-    return CubicHermiteSpline(ẏ, y, x)
+    return CubicHermiteSpline(ẏ, y, x) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
 function spline(sol::ODESolution, var, dvar = nothing)
