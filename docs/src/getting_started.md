@@ -65,18 +65,18 @@ You are now free to [do whatever you want with the solution object](@ref "Solvin
 For example, to get the time points used by the solver and corresponding values of the scale factor $a(τ)$:
 ```@example getting_started
 τs = sol[M.τ]
-as = sol(τs, M.g.a)
+as = sol(M.g.a, τs)
 ```
 Similarly, to get $\Phi(k,τ)$ for the 500 wavenumbers we solved for at the same times:
 ```@example getting_started
-Φs = sol(ks, τs, M.g.Φ)
+Φs = sol(M.g.Φ, τs, ks)
 ```
 
 You could plot this with `using Plots; plot(log10.(as), transpose(Φs))`, but this is more convenient with the included plot recipe:
 ```@example getting_started
 using Plots
 ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-plot(sol, ks_plot, log10(M.g.a), M.g.Φ) # lg(a) vs. Φ for 4 wavenumbers
+plot(sol, log10(M.g.a), M.g.Φ, ks_plot) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the matter power spectrum:
@@ -100,7 +100,7 @@ plot!(p[3], sol, log10(M.g.a), log10(M.g.E))
 plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.rec.Xe])
 plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
 plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.κ)))
-plot!(p[7], sol, ks_plot, log10(M.g.a), [M.g.Φ, M.g.Ψ])
-plot!(p[8], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), klabel = false)
-plot!(p[9], sol, ks_plot, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), klabel = false)
+plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks_plot)
+plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), ks_plot; klabel = false)
+plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), ks_plot; klabel = false)
 ```

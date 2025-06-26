@@ -19,7 +19,7 @@ import Plots
 ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = Plots.plot(sol, M.χ, M.g.a)
-p2 = Plots.plot(sol, ks, log10(M.g.a), [M.g.Φ, M.g.Ψ])
+p2 = Plots.plot(sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks)
 Plots.plot(p1, p2; layout = (2, 1), size = (600, 600))
 ```
 
@@ -31,7 +31,7 @@ sol = solve(prob, ks)
 pal = Plots.palette([:black, :orange], length(τs))
 color = permutedims([pal[i] for i in eachindex(τs)])
 labels = permutedims(map(τ -> "τ/H₀⁻¹ = $τ", τs))
-Plots.plot(log10.(ks*u"Mpc"), sol(ks, τs, M.g.Φ); xlabel = "k/Mpc⁻¹", ylabel = "Φ(k,τ)", color, labels)
+Plots.plot(log10.(ks*u"Mpc"), permutedims(sol(M.g.Φ, τs, ks)); xlabel = "k/Mpc⁻¹", ylabel = "Φ(τ,k)", color, labels)
 ```
 
 Visualize the CMB source function $S₀(k,τ)$ in a 3D plot:
@@ -41,12 +41,12 @@ using CairoMakie
 ks = range(0.0, 0.3, length=100) / u"Mpc"
 sol = solve(prob, ks)
 
-xs = ks*u"Mpc"
-ys = τs
-zs = sol(ks, τs, M.ST0)
+xs = τs
+ys = ks*u"Mpc"
+zs = sol(M.ST0, τs, ks)
 
 fig = Figure()
-ax = Axis3(fig[1,1], azimuth = π/4, xlabel = "k/Mpc⁻¹", ylabel = "τ/H₀⁻¹", zlabel = "S₀(k,τ)")
+ax = Axis3(fig[1,1], azimuth = π/4, xlabel = "k/Mpc⁻¹", ylabel = "τ/H₀⁻¹", zlabel = "S₀(τ,k)")
 cmax = min(-minimum(filter(!isnan, zs)), maximum(filter(!isnan, zs))) # saturate both ends of color scale
 surface!(ax, xs, ys, zs; alpha = 0.9, colormap = :seismic, colorrange = (-cmax, +cmax))
 
@@ -101,8 +101,8 @@ function plot_interactive(prob::CosmologyProblem, xvar::SymBoltz.Num, yvar::SymB
         prob = probgen(θ)
         sol = solve(prob)
         τ = τs(sol)
-        xs = sol(τ, xvar)
-        ys = sol(τ, yvar)
+        xs = sol(xvar, τ)
+        ys = sol(yvar, τ)
         return collect(zip(xs, ys)) # [(x1, y1), (x2, y2), ...]
     end
     return plot_interactive(prob, xyfunc, obspars...; xlabel = SymBoltz.displayname(xvar), ylabel = SymBoltz.displayname(yvar), kwargs...)

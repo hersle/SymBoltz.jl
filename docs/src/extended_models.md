@@ -50,8 +50,8 @@ following [Bertschinger and Ma (equation 30)](https://arxiv.org/pdf/astro-ph/950
 Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:
 ```@example ext
 using ModelingToolkit # load to create custom components
-using SymBoltz: τ, D, k # load conformal time, derivative and perturbation wavenumber
-g = M1.g # reuse metric of original model
+g, τ, k = M1.g, M1.τ, M1.k # reuse metric of original model
+D = Differential(τ)
 
 # 1. Create parameters (will resurface as tunable numbers in the full model)
 pars = @parameters w₀ wₐ cₛ² Ω₀
@@ -123,10 +123,10 @@ sol2 = solve(prob2, ks)
 Let us compare ``H(τ)`` and ``Ψ(k,τ)`` at equal scale factors ``a(τ)``:
 ```@example ext
 lgas = range(-3, 0, length=500) # log10(a)
-H1s = sol1(log10(M1.g.a) => lgas, M1.g.H)
-H2s = sol2(log10(M2.g.a) => lgas, M2.g.H)
-Ψ1s = sol1(ks, log10(M1.g.a) => lgas, M1.g.Ψ)
-Ψ2s = sol2(ks, log10(M2.g.a) => lgas, M2.g.Ψ)
+H1s = sol1(M1.g.H, log10(M1.g.a) => lgas)
+H2s = sol2(M2.g.H, log10(M2.g.a) => lgas)
+Ψ1s = sol1(M1.g.Ψ, log10(M1.g.a) => lgas, ks)
+Ψ2s = sol2(M2.g.Ψ, log10(M2.g.a) => lgas, ks)
 
 using Plots
 plot(lgas, H2s ./ H1s; xlabel = "lg(a)", label = "H₂ / H₁")

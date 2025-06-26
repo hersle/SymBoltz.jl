@@ -481,16 +481,16 @@ function get_is_deriv(prob::CosmologyProblem, is)
 end
 
 # TODO: match variable convention (i.e. δ(τ, k))
-function (sol::CosmologySolution)(ts::AbstractArray, is::AbstractArray)
+function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray)
     #tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time $(minimum(ts)) is before initial time $tmin")
     #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time $(maximum(ts)) is after final time $tmax")
     is, deriv = get_is_deriv(sol.prob, is)
-    return permutedims(sol.bg(ts, deriv; idxs=is)[:, :])
+    return sol.bg(ts, deriv; idxs=is)[:, :]
 end
-(sol::CosmologySolution)(ts::AbstractArray, i::Num) = sol(ts, [i])[:, 1]
-(sol::CosmologySolution)(t::Number, is::AbstractArray) = sol([t], is)[1, :]
-(sol::CosmologySolution)(t::Number, i::Num) = sol([t], [i])[1, 1]
+(sol::CosmologySolution)(i::Num, ts::AbstractArray) = sol([i], ts)[1, :]
+(sol::CosmologySolution)(is::AbstractArray, t::Number) = sol(is, [t])[:, 1]
+(sol::CosmologySolution)(i::Num, t::Number) = sol([i], [t])[1, 1]
 
 # similar to https://github.com/SciML/SciMLBase.jl/blob/c568c0eb554ba78440a83792f058073c286a55d3/src/solutions/ode_solutions.jl#L277
 function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
@@ -521,7 +521,7 @@ end
 
 Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 
-function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::AbstractArray, is::AbstractArray; smart = true, ktransform = log)
+function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
     if isnothing(sol.ks) || isempty(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
     end
@@ -569,34 +569,34 @@ function (sol::CosmologySolution)(out::AbstractArray, ks::AbstractArray, ts::Abs
             @. v += (v2 - v1) * w # add to v1 from above
         end
         for ii in eachindex(is)
-            out[ik, :, ii] .= v[ii, :]
+            out[ii, :, ik] .= v[ii, :]
         end
     end
 
     return out
 end
-function (sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, is::AbstractArray; kwargs...)
-    out = similar(sol.bg, length(ks), length(ts), length(is))
-    return sol(out, ks, ts, is; kwargs...)
+function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
+    out = similar(sol.bg, length(is), length(ts), length(ks))
+    return sol(out, is, ts, ks; kwargs...)
 end
-(sol::CosmologySolution)(k::Number, ts::AbstractArray, is::AbstractArray; kwargs...) = sol([k], ts, is; kwargs...)[1, :, :]
-(sol::CosmologySolution)(ks::AbstractArray, t::Number, is::AbstractArray; kwargs...) = sol(ks, [t], is; kwargs...)[:, 1, :]
-(sol::CosmologySolution)(ks::AbstractArray, ts::AbstractArray, i::Num; kwargs...) = sol(ks, ts, [i]; kwargs...)[:, :, 1]
-(sol::CosmologySolution)(k::Number, t::Number, is::AbstractArray; kwargs...) = sol([k], [t], is; kwargs...)[1, 1, :]
-(sol::CosmologySolution)(k::Number, ts::AbstractArray, i::Num; kwargs...) = sol([k], ts, [i]; kwargs...)[1, :, 1]
-(sol::CosmologySolution)(ks::AbstractArray, t::Number, i::Num; kwargs...) = sol(ks, [t], [i]; kwargs...)[:, 1, 1]
-(sol::CosmologySolution)(k::Number, t::Number, i::Num; kwargs...) = sol([k], [t], [i]; kwargs...)[1, 1, 1]
+(sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, k::Number; kwargs...) = sol(is, ts, [k]; kwargs...)[:, :, 1]
+(sol::CosmologySolution)(is::AbstractArray, t::Number, ks::AbstractArray; kwargs...) = sol(is, [t], ks; kwargs...)[:, 1, :]
+(sol::CosmologySolution)(i::Num, ts::AbstractArray, ks::AbstractArray; kwargs...) = sol([i], ts, ks; kwargs...)[1, :, :]
+(sol::CosmologySolution)(is::AbstractArray, t::Number, k::Number; kwargs...) = sol(is, [t], [k]; kwargs...)[:, 1, 1]
+(sol::CosmologySolution)(i::Num, ts::AbstractArray, k::Number; kwargs...) = sol([i], ts, [k]; kwargs...)[1, :, 1]
+(sol::CosmologySolution)(i::Num, t::Number, ks::AbstractArray; kwargs...) = sol([i], [t], ks; kwargs...)[1, 1, :]
+(sol::CosmologySolution)(i::Num, t::Number, k::Number; kwargs...) = sol([i], [t], [k]; kwargs...)[1, 1, 1]
 
-function (sol::CosmologySolution)(tmap::Pair, is)
+function (sol::CosmologySolution)(is, tmap::Pair)
     tvar, ts = tmap
     ts = timeseries(sol, tvar, ts)
-    return sol(ts, is)
+    return sol(is, ts)
 end
 
-function (sol::CosmologySolution)(ks, tmap::Pair, is)
+function (sol::CosmologySolution)(is, tmap::Pair, ks)
     tvar, ts = tmap
     ts = timeseries(sol, tvar, ts)
-    return sol(ks, ts, is)
+    return sol(is, ts, ks)
 end
 
 function timeseries(sol::CosmologySolution; kwargs...)
@@ -636,8 +636,8 @@ Find the times when some variable `var` equals some values `vals` with a Hermite
 """
 function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwargs...)
     ts = timeseries(sol; kwargs...)
-    xs = sol(ts, var)
-    ẋs = sol(ts, dvar) # dx/dt
+    xs = sol(var, ts)
+    ẋs = sol(dvar, ts) # dx/dt
     ṫs = 1 ./ ẋs # dt/dx
     spl = spline(ts, ṫs, xs)
     ts = spl(vals)

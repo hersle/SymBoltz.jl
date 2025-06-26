@@ -7,21 +7,28 @@ function displayname(var)
 end
 
 @recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
+    if !(y isa AbstractArray)
+        y = [y]
+    end
     τs = timeseries(sol; Nextra)
-    xs = sol(τs, x)
-    ys = sol(τs, y)
+    xs = sol(x, τs)
+    ys = sol(y, τs)
     xlabel --> (x isa AbstractArray ? "" : displayname(x))
     ylabel --> (y isa AbstractArray ? "" : displayname(y))
     line_z = get(plotattributes, :line_z, nothing)
     if line_z isa Num
-        line_z := sol(τs, line_z)
+        line_z := sol(line_z, τs)
         colorbar_title --> displayname(line_z)
     end
     label --> displayname.(y')
-    return xs, ys
+    return xs, permutedims(ys)
 end
 
-@recipe function plot(sol::CosmologySolution, k, x, y; Nextra = 0, klabel = true)
+@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, klabel = true)
+    if !(y isa AbstractArray)
+        y = [y]
+    end
+
     xlabel --> (x isa AbstractArray ? "" : displayname(x))
     ylabel --> (y isa AbstractArray ? "" : displayname(y))
 
@@ -30,8 +37,8 @@ end
         for ik in eachindex(k)
             τs = timeseries(sol, k[ik]; Nextra)
             color = ik
-            xs = sol(k[ik], τs, x)
-            ys = sol(k[ik], τs, y[iv])
+            xs = sol(x, τs, k[ik])
+            ys = sol(y[iv], τs, k[ik])
             @series begin
                 linestyle --> linestyle
                 color --> color

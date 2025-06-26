@@ -14,7 +14,7 @@ prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
-p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
+p2 = plot(sol, log10(M.g.a), M.g.Φ, ks)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
@@ -32,7 +32,7 @@ prob = CosmologyProblem(M, pars)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
-p2 = plot(sol, ks, log10(M.g.a), M.g.Φ)
+p2 = plot(sol, log10(M.g.a), M.g.Φ, ks)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
@@ -54,7 +54,7 @@ ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 prob = CosmologyProblem(M, pars)
 sol = solve(prob, ks)
 p1 = plot(sol, log10(M.g.a), M.X.w)
-p2 = plot(sol, ks, log10(M.g.a), M.X.δ)
+p2 = plot(sol, log10(M.g.a), M.X.δ, ks)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
@@ -73,8 +73,8 @@ ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
 pars = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
 prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℰ ~ 1, M.G.G ~ 1])
 sol = solve(prob, ks; verbose = true)
-p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims=(0.8, 1.2))
-p2 = plot(sol, ks, log10(M.g.a), M.G.δϕ)
+p1 = plot(sol, log10(M.g.a), [M.g.ℰ, M.G.G], ylims = (0.8, 1.2))
+p2 = plot(sol, log10(M.g.a), M.G.δϕ, ks)
 plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```
 
@@ -89,7 +89,7 @@ prob = CosmologyProblem(M, pars, Dict(M.G.ϕ => 0.8, M.Λ.Ω₀ => 0.8), [M.g.�
 k = 1e-0 / u"Mpc"
 sol = solve(prob, k; verbose = true)
 p1 = plot(sol, log10(M.g.a), M.G.G)
-p2 = plot(sol, k, log10(M.g.a), M.G.δϕ)
+p2 = plot(sol, log10(M.g.a), M.G.δϕ, k)
 plot(p1, p2, layout = (2, 1))
 ```
 

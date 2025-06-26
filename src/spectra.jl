@@ -73,7 +73,7 @@ function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species =
     =#
 
     P0 = spectrum_primordial(k, sol)
-    P = P0 .* sol(k, τ, Δ^2) # Baumann (4.4.172)
+    P = P0 .* sol(Δ^2, τ, k) # Baumann (4.4.172)
 
     return P
 end
@@ -191,7 +191,7 @@ end
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
@@ -200,9 +200,9 @@ Iₗ(k) = ∫dτ S(k,τ) Rₗ(k(τ₀-τ))
 over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``).
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
-    @assert size(Ss) == (length(τs), length(ks))
+    @assert size(Ss) == (length(τs), length(ks)) "size(Ss) = $(size(Ss)) ≠ $((length(τs), length(ks)))"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     χs = τs[end] .- τs
     Is = similar(Ss, length(ks), length(ls))
@@ -227,30 +227,30 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, ks::AbstractVe
 
     return Is
 end
-function los_integrate(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector, S, Rl::Function = jl; ktransform = identity, kwargs...) # TODO: Ss
+function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, S, Rl::Function = jl; ktransform = identity, kwargs...) # TODO: Ss
     Ss = [S]
     Ss = source_grid(sol, Ss, τs)
     Ss = source_grid(Ss, sol.ks, ks; ktransform)
-    Ss = @view Ss[:, :, 1]
-    return los_integrate(Ss, ls, ks, τs, Rl; kwargs...)
+    Ss = @view Ss[1, :, :]
+    return los_integrate(Ss, ls, τs, ks, Rl; kwargs...)
 end
 
 """
-    los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
+    los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
 
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
-function los_temperature(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, ks, τs, sol.prob.M.ST0, jl)
+function los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
+    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST0, jl)
 end
 
 """
-    los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
+    los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
 
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
-function los_polarization(sol::CosmologySolution, ls::AbstractVector, ks::AbstractVector, τs::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, ks, τs, sol.prob.M.ST2_polarization, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+function los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
+    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -317,15 +317,15 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
     iE > 0 && push!(Ss, prob.M.ST2_polarization)
-    Ss_coarse = source_grid(prob, Ss, ks_coarse, τs; bgopts, ptopts) # TODO: pass kτ0 and x # TODO: pass bgsol
+    Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts) # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # TODO: ideally avoid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
 
-    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[:, :, iT]), ls, ks_fine, τs, jl; integrator, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[:, :, iE]), ls, ks_fine, τs, jl_x2; integrator, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, kwargs...) : nothing
+    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
@@ -394,11 +394,11 @@ at the independent variable values `ivs` relative to the (present) time `τ0`.
 """
 function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
     M = sol.prob.M
-    χ = sol(ivs, M.χ)
+    χ = sol(M.χ, ivs)
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
     r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
     H0 = H100 * sol[M.g.h]
-    a = sol(ivs, M.g.a)
+    a = sol(M.g.a, ivs)
     return @. r / a * SymBoltz.c / H0 # to meters
 end
 
@@ -409,10 +409,10 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
     # Evaluate integrated perturbations on coarse grid
     ks = sol.ks
     getSs = map(S -> getsym(sol.prob.pt, S), Ss)
-    Ss = similar(sol.bg, length(τs), length(ks), length(Ss))
+    Ss = similar(sol.bg, length(Ss), length(τs), length(ks))
     @tasks for ik in eachindex(ks)
         for iS in eachindex(getSs)
-            Ss[:, ik, :] .= getSs[iS](sol.pts[ik]) # TODO: type infer getS?
+            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik])) # TODO: type infer getS?
         end
     end
     return Ss
@@ -420,30 +420,30 @@ end
 
 function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
     size_coarse = size(Ss_coarse)
-    size_fine = (size_coarse[1], length(ks_fine), size_coarse[3])
-    Nτ, _, Ns = size(Ss_coarse)
+    size_fine = (size_coarse[1], size_coarse[2], length(ks_fine))
+    Ns, Nτ, _ = size(Ss_coarse)
 
     Ss_fine = similar(Ss_coarse, size_fine)
     xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
         for iS in 1:Ns
-            interp = LinearInterpolation(@view(Ss_coarse[iτ, :, iS]), xs_coarse)
-            Ss_fine[iτ, :, iS] .= interp.(xs_fine)
+            interp = LinearInterpolation(@view(Ss_coarse[iS, iτ, :]), xs_coarse)
+            Ss_fine[iS, iτ, :] .= interp.(xs_fine)
         end
     end
     return Ss_fine
 end
 
 # TODO: take in kτ0s and xs
-function source_grid(prob::CosmologyProblem, S::AbstractArray, ks, τs; bgopts = (), ptopts = ())
+function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = ())
     bgsol = solvebg(prob.bg; bgopts...)
     getSs = map(s -> getsym(prob.pt, s), S)
-    Ss = similar(bgsol, length(τs), length(ks), length(S))
+    Ss = similar(bgsol, length(S), length(τs), length(ks))
     extrema(τs) == extrema(bgsol.t) || error("input τs and computed background solution have different timespans") # TODO: don't rely on
     function output_func(sol, ik)
         for iS in eachindex(getSs)
-            Ss[:, ik, iS] .= getSs[iS](sol)
+            Ss[iS, :, ik] .= getSs[iS](sol)
         end
         return nothing, false
     end

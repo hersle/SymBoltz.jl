@@ -5,32 +5,32 @@ pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 
 @testset "Solution accessing" begin
-    ks = [1e2, 1e3]
-    τs = [1.0, 2.0, 3.0]
     is = [M.g.a, M.g.a, M.g.a, M.g.a]
-    nk, nt, ni = length(ks), length(τs), length(is)
+    τs = [1.0, 2.0, 3.0]
+    ks = [1e2, 1e3]
+    ni, nt, nk = length(is), length(τs), length(ks)
 
     # Size of solution output should match input arguments in order
     sol = solve(prob)
-    @test size(sol(τs[1], is[1])) == () # background
-    @test size(sol(τs[1], is)) == (ni,)
-    @test size(sol(τs, is[1])) == (nt,)
-    @test size(sol(τs, is)) == (nt, ni)
+    @test size(sol(is[1], τs[1], )) == () # background
+    @test size(sol(is, τs[1])) == (ni,)
+    @test size(sol(is[1], τs)) == (nt,)
+    @test size(sol(is, τs)) == (ni, nt)
     @test_throws "No perturbations" sol(ks, τs, is)
     #@test_throws "below minimum solved time" sol(sol[M.τ][begin]-1, is)
     #@test_throws "above maximum solved time" sol(sol[M.τ][end]+1, is)
 
     sol = solve(prob, ks)
-    @test size(sol(ks[1], τs[1], is[1])) == () # perturbations
-    @test size(sol(ks[1], τs[1], is)) == (ni,)
-    @test size(sol(ks[1], τs, is[1])) == (nt,)
-    @test size(sol(ks[1], τs, is)) == (nt, ni)
-    @test size(sol(ks, τs[1], is[1])) == (nk,)
-    @test size(sol(ks, τs[1], is)) == (nk, ni)
-    @test size(sol(ks, τs, is[1])) == (nk, nt)
-    @test size(sol(ks, τs, is)) == (nk, nt, ni)
-    @test_throws "below minimum solved wavenumber" sol(ks[begin]-1, τs, is)
-    @test_throws "above maximum solved wavenumber" sol(ks[end]+1, τs, is)
+    @test size(sol(is[1], τs[1], ks[1])) == () # perturbations
+    @test size(sol(is, τs[1], ks[1])) == (ni,)
+    @test size(sol(is[1], τs, ks[1])) == (nt,)
+    @test size(sol(is, τs, ks[1])) == (ni, nt)
+    @test size(sol(is[1], τs[1], ks)) == (nk,)
+    @test size(sol(is, τs[1], ks)) == (ni, nk)
+    @test size(sol(is[1], τs, ks)) == (nt, nk)
+    @test size(sol(is, τs, ks)) == (ni, nt, nk)
+    @test_throws "below minimum solved wavenumber" sol(is, τs, ks[begin]-1)
+    @test_throws "above maximum solved wavenumber" sol(is, τs, ks[end]+1)
     #@test_throws "below minimum solved time" sol(ks[1], sol[M.τ][begin]-1, is)
     #@test_throws "above maximum solved time" sol(ks[1], sol[M.τ][end]+1, is)
 
@@ -42,13 +42,13 @@ end
     sol = solve(prob, ks)
     D = Differential(M.τ)
     τ0 = sol[M.τ0]
-    @test isapprox(sol(τ0, D(M.g.a)), 1.0; atol = 1e-4)
-    @test isapprox(sol(τ0, D(M.g.z)), -1.0; atol = 1e-4)
-    @test_throws "Could not express derivative" sol(τ0, D(D(M.g.z)))
-    sol(ks, τ0, D(M.g.Φ))
-    @test isapprox(sol(ks, τ0, D(M.g.Φ)), sol(ks, τ0, D(M.g.Ψ)); atol = 1e-5)
-    @test_throws "Could not express derivative" sol(ks, τ0, D(D(M.g.Φ)))
-    @test_throws "Could not express derivative" sol(ks, τ0, D(D(M.g.Ψ)))
+    @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
+    @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
+    @test_throws "Could not express derivative" sol(D(D(M.g.z)), τ0)
+    sol(D(M.g.Φ), τ0, ks)
+    @test isapprox(sol(D(M.g.Φ), τ0, ks), sol(D(M.g.Ψ), τ0, ks); atol = 1e-5)
+    @test_throws "Could not express derivative" sol(D(D(M.g.Φ)), τ0, ks)
+    @test_throws "Could not express derivative" sol(D(D(M.g.Ψ)), τ0, ks)
 end
 
 @testset "Solution interpolation" begin
@@ -57,7 +57,7 @@ end
     ks = range(extrema(ks)..., length=500)
     τs = range(extrema(sol.bg.t)..., length=500)
     is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
-    @test sol(ks, τs, is; smart = true) == sol(ks, τs, is; smart = false)
+    @test sol(is, τs, ks; smart = true) == sol(is, τs, ks; smart = false)
 end
 
 @testset "Spherical Bessel function" begin
@@ -114,8 +114,8 @@ end
 @testset "Timeseries" begin
     sol = solve(prob)
     τs = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
-    zs = sol(τs, M.g.z)
-    as = sol(τs, M.g.a)
+    zs = sol(M.g.z, τs)
+    as = sol(M.g.a, τs)
     @test τs[end-1] != τs[end] # ensure callback does not duplicate last point
     @test isapprox(as[end], 1.0; atol = 1e-12) && as[end] >= 1.0 # a(τ₀) ≈ 1.0, but not less, so root finding algorithms on time series work with different signs today
     @test isapprox(zs[end], 0.0; atol = 1e-12) && zs[end] <= 0.0 # z(τ₀) ≈ 0.0, but not more, so root finding algorithms on time series work with different signs today
@@ -133,19 +133,19 @@ end
     sol = solve(prob, ks)
 
     # Check that Fₗ(0) ∝ kˡ
-    Fls = sol(ks, 0.0, [M.γ.F0; collect(M.γ.F)])
-    @test all(Fls[1,:] ./ Fls[2,:] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[2]-1))
+    Fls = sol([M.γ.F0; collect(M.γ.F)], 0.0, ks)
+    @test all(Fls[:,1] ./ Fls[:,2] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))
 
     # Check initial ratio of metric potentials
-    @test all(isapprox.(sol(ks, 0.0, M.g.Φ / M.g.Ψ), sol(0.0, (1+2/5*M.fν)); atol = 1e-5))
+    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, 0.0, ks), sol((1+2/5*M.fν), 0.0); atol = 1e-5))
 end
 
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
     τs = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
     function checkvar(var, atol, rtol)
-        vals1 = sol(τs, var) # from background
-        vals2 = sol(1.0, τs, var) # from splined perturbations
+        vals1 = sol(var, τs) # from background
+        vals2 = sol(var, τs, 1.0) # from splined perturbations
         return all(isapprox.(vals1, vals2; atol, rtol))
     end
     @test checkvar(M.g.a, 1e-6, 0)
@@ -197,9 +197,9 @@ end
     prob = CosmologyProblem(M, pars) # recreate since solution usually modifies problem parameters
     sol = solve(prob, ks)
     τ0 = sol[M.τ0]
-    @test sol(τ0, M.g.a) ≈ sol(ks, τ0, M.g.a) ≈ 1.0
-    @test sol(τ0, M.χ) == sol(ks, τ0, M.χ) == 0.0
-    @test sol(τ0, M.b.rec.κ) == sol(ks, τ0, M.b.rec.κ) == 0.0
+    @test sol(M.g.a, τ0) ≈ sol(M.g.a, τ0, ks) ≈ 1.0
+    @test sol(M.χ, τ0) == sol(M.χ, τ0, ks) == 0.0
+    @test sol(M.b.rec.κ, τ0) == sol(M.b.rec.κ, τ0, ks) == 0.0
 end
 
 @testset "Equal parameters in background and perturbation solutions" begin
@@ -351,10 +351,10 @@ end
     sol = solve(prob, ks_coarse; ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8, saveat = τs,))
     Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
     Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
-    @test Ss == source_grid(prob, [M.ST0], ks_coarse, τs)
+    @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
-    Ss = @view Ss[:, :, 1]
-    Θ0s = @inferred los_integrate(Ss[begin:end,:], ls, ks_fine, τs[begin:end]) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
+    Ss = @view Ss[1, :, :]
+    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end
