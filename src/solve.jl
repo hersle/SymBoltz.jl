@@ -288,7 +288,7 @@ function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
 end
 
-function warn_on_failed_solution(sol::ODESolution, name = "ODE"; verbose = false)
+function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false)
     msg = "$name solution failed with return code $(sol.retcode)."
     if verbose
         t, u = sol.t[end], sol.u[end]
@@ -299,7 +299,7 @@ function warn_on_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
         end
     end
     msg *= "\nCheck the parameters and precision settings!"
-    @warn msg
+    return msg
 end
 
 """
@@ -309,7 +309,9 @@ Solve the background cosmology problem `bgprob`.
 """
 function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
     bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
-    !successful_retcode(bgsol) && warn_on_failed_solution(bgsol, "Background"; verbose)
+    if !successful_retcode(bgsol)
+        @warn warning_failed_solution(bgsol, "Background"; verbose) maxlog=1
+    end
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
@@ -359,10 +361,10 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
 
     if thread && Threads.nthreads() == 1
         thread = false
-        @warn "Multi-threading over perturbation modes was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it."
+        @warn "Multi-threading over perturbation modes was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it." maxlog=1
     end
     if thread && BLAS.get_num_threads() > 1
-        @warn "Multi-threading over perturbation modes was requested, but BLAS is running with $(BLAS.get_num_threads()) threads.\nIt is recommended to restrict BLAS to one thread with `using LinearAlgebra: BLAS; BLAS.set_num_threads(1)`.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra."
+        @warn "Multi-threading over perturbation modes was requested, but BLAS is running with $(BLAS.get_num_threads()) threads.\nIt is recommended to restrict BLAS to one thread with `using LinearAlgebra: BLAS; BLAS.set_num_threads(1)`.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra." maxlog=1
     end
 
     splset! = ModelingToolkit.setsym_oop(ptprob, collect(values(var2spl)))
@@ -377,7 +379,9 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     ptprob0 = remake(ptprob0; tspan = ivspan, u0 = newu0, p = newp)
 
     function output_func_warn(sol, i)
-        !successful_retcode(sol) && warn_on_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
+        if !successful_retcode(sol)
+            @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose) maxlog=1
+        end
         return output_func(sol, i)
     end
 

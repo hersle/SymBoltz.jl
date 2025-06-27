@@ -4,6 +4,18 @@ M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 
+# Must come first because warnings are only given once
+@testset "Solve failure warnings" begin
+    Ωc0 = prob.bg.ps[M.c.Ω₀]
+    prob.bg.ps[M.c.Ω₀] = NaN # bad
+    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
+    prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
+    bgsol = @test_nowarn solvebg(prob.bg)
+
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.var2spl; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.var2spl; thread = false)
+end
+
 @testset "Solution accessing" begin
     is = [M.g.a, M.g.a, M.g.a, M.g.a]
     τs = [1.0, 2.0, 3.0]
@@ -357,17 +369,6 @@ end
     Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
-end
-
-@testset "Solve failure warnings" begin
-    Ωc0 = prob.bg.ps[M.c.Ω₀]
-    prob.bg.ps[M.c.Ω₀] = NaN # bad
-    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
-    prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
-    bgsol = @test_nowarn solvebg(prob.bg)
-
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.var2spl; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.var2spl; thread = false)
 end
 
 @testset "Background differentiation test" begin
