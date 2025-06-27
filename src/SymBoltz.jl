@@ -1,10 +1,8 @@
 module SymBoltz
 
-# re-export commonly used ModelingToolkit functions
-import ModelingToolkit: unknowns, observed, parameters, equations, initialization_equations, defaults, hierarchy
-export unknowns, observed, parameters, equations, initialization_equations, defaults, hierarchy
-
-using ModelingToolkit # TODO: reexport
+using Reexport
+import ModelingToolkit: parameters, unknowns # explicitly imported because they are extended
+@reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
 using OrdinaryDiffEq
 using NonlinearSolve
 using OhMyThreads

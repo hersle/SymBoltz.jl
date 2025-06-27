@@ -8,7 +8,7 @@ w(τ) = \frac{P(τ)}{ρ(τ)} = w_0 + w_a (1 - a(τ)),
 turning the ΛCDM model into the w₀wₐCDM model,
 as suggested by [Chevallier, Polarski (2000)](https://arxiv.org/abs/gr-qc/0009008) and [Linder (2002)](https://arxiv.org/abs/astro-ph/0208512).
 
-SymBoltz represents each component of the Einstein-Boltzmann equations as a [`ModelingToolkit.ODESystem`](https://docs.sciml.ai/ModelingToolkit/stable/systems/ODESystem/#ModelingToolkit.ODESystem).
+SymBoltz represents each component of the Einstein-Boltzmann equations as a [`System`](https://docs.sciml.ai/ModelingToolkit/stable/API/System/).
 These are effectively incomplete "chunks" of logically related parameters, variables, equations and initial conditions
 that are composed together into a complete cosmological model.
 A cosmological model can be modified by adding or replacing components.
@@ -49,7 +49,6 @@ following [Bertschinger and Ma (equation 30)](https://arxiv.org/pdf/astro-ph/950
 
 Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:
 ```@example ext
-using ModelingToolkit # load to create custom components
 g, τ, k = M1.g, M1.τ, M1.k # reuse metric of original model
 D = Differential(τ)
 

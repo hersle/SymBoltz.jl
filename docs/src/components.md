@@ -2,7 +2,7 @@
 
 ```@setup components
 # For every component, display collapsible equations as in https://discourse.julialang.org/t/documenter-jl-and-collapsible-markdown/50898/2
-using SymBoltz, ModelingToolkit
+using SymBoltz
 ```
 
 ## Spacetimes

@@ -52,7 +52,7 @@ fig
 
 To predict [luminosity distances](@ref "Luminosity distance") theoretically, we solve the w0waCDM model:
 ```@example fit
-using SymBoltz, ModelingToolkit
+using SymBoltz
 g = SymBoltz.metric()
 K = SymBoltz.curvature(g)
 X = SymBoltz.w0wa(g; analytical = true)

@@ -8,7 +8,6 @@ This page compares results from SymBoltz and the fantastic Einstein-Boltzmann so
 ```
 ```@example class
 using SymBoltz
-using ModelingToolkit
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro

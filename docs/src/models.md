@@ -66,7 +66,7 @@ SymBoltz.BDΛCDM
 
 Solve background such that `E = G = 1` today, and plot scalar field and Hubble function:
 ```@example BDΛCDM
-using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
+using SymBoltz, Unitful, UnitfulAstro, Plots
 M = BDΛCDM()
 D = Differential(M.τ)
 ks = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
@@ -81,7 +81,7 @@ plot(p1, p2, layout = (2, 1), size = (600, 600))
 ## Brans-Dicke RMΛ
 
 ```@example BDRMΛ
-using SymBoltz, ModelingToolkit, Unitful, UnitfulAstro, Plots
+using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.BDRMΛ()
 D = Differential(M.τ)
 pars = Dict(M.r.Ω₀ => 5e-5, M.m.Ω₀ => 0.3, M.g.h => 1.0, M.r.T₀ => 0.0, M.G.ω => 10.0, D(M.G.ϕ) => 0.0) # unspecified: M.Λ.Ω₀, M.G.ϕ
@@ -100,7 +100,7 @@ SymBoltz.QCDM
 ```
 
 ```@example QCDM
-using SymBoltz, ModelingToolkit, Plots
+using SymBoltz, Plots
 @parameters V0 N
 V = ϕ -> V0 * ϕ^N
 M = QCDM(V, I = nothing)
