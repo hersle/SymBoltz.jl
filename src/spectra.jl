@@ -317,7 +317,7 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
     iE > 0 && push!(Ss, prob.M.ST2_polarization)
-    Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts) # TODO: pass kτ0 and x # TODO: pass bgsol
+    Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts, thread) # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     ks_fine = collect(kτ0s_fine ./ τ0)
@@ -436,7 +436,7 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
 end
 
 # TODO: take in kτ0s and xs
-function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = ())
+function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true)
     bgsol = solvebg(prob.bg; bgopts...)
     getSs = map(s -> getsym(prob.pt, s), S)
     Ss = similar(bgsol, length(S), length(τs), length(ks))
@@ -447,7 +447,7 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
         end
         return nothing, false
     end
-    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs, ptopts...)
+    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs, ptopts..., thread)
     return Ss
 end
 
