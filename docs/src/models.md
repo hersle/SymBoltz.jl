@@ -1,4 +1,4 @@
-# Models
+# Cosmologies (full models)
 
 ## Free radiation, matter and cosmological constant (RMΛ)
 
