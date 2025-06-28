@@ -1,4 +1,4 @@
-using RecipesBase
+import RecipesBase
 
 function displayname(var)
     name = string(var)
@@ -6,7 +6,7 @@ function displayname(var)
     return name
 end
 
-@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
+RecipesBase.@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
     if !(y isa AbstractArray)
         y = [y]
     end
@@ -24,7 +24,7 @@ end
     return xs, permutedims(ys)
 end
 
-@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, klabel = true)
+RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, klabel = true)
     if !(y isa AbstractArray)
         y = [y]
     end
@@ -39,7 +39,7 @@ end
             color = ik
             xs = sol(x, τs, k[ik])
             ys = sol(y[iv], τs, k[ik])
-            @series begin
+            RecipesBase.@series begin
                 linestyle --> linestyle
                 color --> color
                 label := ""
@@ -48,7 +48,7 @@ end
 
             # label wavenumber with dummy plot
             if iv == 1 && klabel
-                @series begin
+                RecipesBase.@series begin
                     linestyle := :solid
                     color := color
                     label := "k = $(k[ik])"
@@ -58,7 +58,7 @@ end
         end
 
         # label variable with dummy plot
-        @series begin
+        RecipesBase.@series begin
             linestyle := linestyle
             color := :black
             label := displayname(y[iv])
@@ -67,9 +67,22 @@ end
     end
 end
 
+# TODO: Makie recipes (currently don't work well because of compatibility constraints; e.g. PairPlots requires Makie )
+#=
+import MakieCore
+MakieCore.@recipe CosmologyPlot begin
+    downcolor = :red
+    upcolor = :green
+end
+function MakieCore.plot!(cp::CosmologyPlot{<:Tuple{AbstractVector{<:Real}, AbstractVector{<:Real}}})
+    lines!(cp, [0.0, 1.0], [0.0, 1.0])
+    return cp
+end
+=#
+
 # plot Systems as a hierarchical tree
-using GraphRecipes
-@recipe function plot(::Type{T}, sys::T) where {T <: System}
+import GraphRecipes
+GraphRecipes.@recipe function plot(::Type{T}, sys::T) where {T <: System}
     nodeshape --> :rect
     nodesize --> 0.12
     fontsize --> 15
