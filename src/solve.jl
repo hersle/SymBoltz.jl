@@ -9,6 +9,7 @@ import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
+import NumericalIntegration: cumul_integrate
 
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
@@ -426,8 +427,13 @@ function issuccess(sol::CosmologySolution)
     return successful_retcode(sol.bg) && (isnothing(sol.pts) || all(successful_retcode(pt) for pt in sol.pts))
 end
 
-cumulative_integral(sol::CosmologySolution, x, y) = cumul_integrate(sol[x], sol[y])
-cumulative_integral(sol::CosmologySolution, y) = cumulative_integral(sol, sol.prob.M.τ, y)
+function integrate(xs, ys; integrator = TrapezoidalRule())
+    prob = SampledIntegralProblem(ys, xs)
+    sol = solve(prob, integrator)
+    return sol.u
+end
+integrate_cumulative(sol::CosmologySolution, x, y) = cumul_integrate(sol[x], sol[y])
+integrate_cumulative(sol::CosmologySolution, y) = integrate_cumulative(sol, sol.prob.M.τ, y)
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}

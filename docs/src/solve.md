@@ -9,7 +9,7 @@ nothing # hide
 
 ## Creating the problem
 
-Once the symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem:
+Once the symbolic [cosmological model](@ref "Cosmologies (full models)") `M` has been constructed, it can be turned into a numerical problem:
 For example:
 ```@example sol
 pars = SymBoltz.parameters_Planck18(M)
@@ -85,7 +85,7 @@ p3 = plot(sol, log10(M.g.a), M.g.Φ / M.g.Ψ, ks[1:3]) # exclude last k, where �
 plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
 ```
 
-More examples are shown on the [models page](@ref "Models").
+More examples are shown on the [models page](@ref "Cosmologies (full models)").
 
 ## Solve background and perturbations directly
 

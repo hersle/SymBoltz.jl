@@ -48,7 +48,7 @@ Colorbar(fig[2, 2], hm)
 fig
 ```
 
-## Predicting luminosity distances
+## Predicting distances
 
 To predict [luminosity distances](@ref "Luminosity distance") theoretically, we solve the w0waCDM model:
 ```@example fit
