@@ -139,6 +139,23 @@ dLs = SymBoltz.distance_luminosity(sol, τs) / SymBoltz.Gpc
 plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```
 
+## Sound horizon (BAO scale)
+
+```@docs
+sound_horizon
+```
+
+```@example
+using SymBoltz, Plots
+M = SymBoltz.ΛCDM()
+pars = SymBoltz.parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+sol = solve(prob)
+τs = sol[M.τ]
+rs = sound_horizon(sol)
+plot(τs, rs; xlabel = "τ / H₀⁻¹", ylabel = "rₛ / (c/H₀)")
+```
+
 ## Line-of-sight integration
 
 ```@docs

@@ -168,7 +168,6 @@ end
     @test checkvar(M.b.rec.cₛ², 1e-4, 0)
     @test checkvar(M.b.rec.Tb, 0, 1e-5)
     @test checkvar(M.b.rec.Xe, 1e-5, 0)
-    @test checkvar(M.cₛ, 1e-8, 0)
 end
 
 @testset "Whole model without autosplining" begin

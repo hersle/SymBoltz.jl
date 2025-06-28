@@ -426,6 +426,9 @@ function issuccess(sol::CosmologySolution)
     return successful_retcode(sol.bg) && (isnothing(sol.pts) || all(successful_retcode(pt) for pt in sol.pts))
 end
 
+cumulative_integral(sol::CosmologySolution, x, y) = cumul_integrate(sol[x], sol[y])
+cumulative_integral(sol::CosmologySolution, y) = cumulative_integral(sol, sol.prob.M.τ, y)
+
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)

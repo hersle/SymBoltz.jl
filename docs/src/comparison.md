@@ -261,7 +261,7 @@ plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 
 ### Photon-baryon sound horizon
 ```@example class
 rs1 = sol1["bg"]["comov.snd.hrz."]
-rs2 = sol2[M.rₛ] ./ (h*SymBoltz.k0)
+rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
 plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 1e-2)
 ```
 ### Luminosity distance

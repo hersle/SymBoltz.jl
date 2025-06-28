@@ -1,4 +1,5 @@
 using Integrals
+using NumericalIntegration
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using TwoFAST
@@ -478,4 +479,18 @@ function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; b
         H0 = SymBoltz.H100 * h
         return @. r / a * SymBoltz.c / H0 # luminosity distance in meters
     end
+end
+
+raw"""
+    sound_horizon(sol::CosmologySolution)
+
+Cumulatively integrate the sound horizon
+```math
+    rₛ(τ) = ∫_0^τ dτ cₛ = ∫_0^τ \frac{dτ}{√(3(1+3ρ_b/4ρ_γ))}
+```
+to the time steps of the solution `sol`.
+"""
+function sound_horizon(sol::CosmologySolution)
+    M = sol.prob.M
+    return cumulative_integral(sol, 1 / √(3(1+3/4*M.b.ρ/M.γ.ρ))) # TODO: nonzero initial value?
 end
