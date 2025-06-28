@@ -1,20 +1,50 @@
 # Solving models
 
-Once a symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem that can be solved for some given parameters.
+First create a symbolic cosmological model:
+```@example sol
+using SymBoltz
+M = SymBoltz.ΛCDM()
+nothing # hide
+```
+
+## Creating the problem
+
+Once the symbolic [cosmological model](@ref "Models") `M` has been constructed, it can be turned into a numerical problem:
 For example:
 ```@example sol
-using SymBoltz, Unitful, UnitfulAstro
-M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
+```
+
+```@docs
+CosmologyProblem
+```
+
+## Updating the parameters
+
+Constructing a `CosmologyProblem` is an **expensive** operation that compiles all the symbolics down to numerics.
+It is not necessary to repeat this just to update parameter values.
+To do so, use the function `parameter_updater` that returns a function that quickly creates new problems with updated parameter values:
+
+```@example sol
+probmaker = SymBoltz.parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
+prob = probmaker([0.70, 0.27]) # create updated problem
+```
+
+```@docs
+parameter_updater
+```
+
+## Solving the problem
+
+The (updated) problem can now be solved for some wavenumbers:
+```@example sol
+using Unitful, UnitfulAstro
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
 sol = solve(prob, ks)
 ```
 
 ```@docs
-CosmologyProblem
-parameters(prob::CosmologyProblem)
-remake(prob::CosmologyProblem, pars::Dict)
 solve(prob::CosmologyProblem, ks::AbstractArray)
 ```
 

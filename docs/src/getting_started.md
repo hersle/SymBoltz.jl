@@ -47,17 +47,22 @@ prob = CosmologyProblem(M, pars)
 ```
 Finally, we can simply solve the problem:
 
+```@example getting_started
+sol = solve(prob, ks) # or just solve(prob) to solve only the background
+```
+
+!!! warning
+    Constructing the `CosmologyProblem` is an expensive operation!
+    It compiles symbolics to numerics, and should not be used to update parameter values.
+    To just update parameter values, use the [parameter updater](@ref "Updating the parameters") function.
+
 !!! tip
-    Use the optimal BLAS library for your platform to get maximum performance, such as [MKL](https://github.com/JuliaLinearAlgebra/MKL.jl) for Intel processors.
+    For maximum performance, use the optimal BLAS backend for your platform, such as [MKL](https://github.com/JuliaLinearAlgebra/MKL.jl) for Intel processors.
     See the [performance page](@ref "Performance and benchmarks") for more information.
     For example:
     ```julia
     using MKL
     ```
-
-```@example getting_started
-sol = solve(prob, ks) # or just solve(prob) to solve only the background
-```
 
 ## 3. Use the solution
 

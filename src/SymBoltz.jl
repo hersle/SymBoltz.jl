@@ -35,7 +35,7 @@ include("plot.jl")
 
 export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyProblem, CosmologySolution
-export solve, solvebg, solvept, remake, issuccess
+export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid
 export express_derivatives

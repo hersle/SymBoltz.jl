@@ -206,6 +206,12 @@ function remake(
     return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.var2spl)
 end
 
+"""
+    parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+
+Create and return a function that updates the symbolic parameters `idxs` of the cosmological problem `prob`.
+The returned function is called with numerical values (in the same order as `idxs`) and returns a new problem with the updated parameters.
+"""
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
     # TODO: remove M, etc. for efficiency?
