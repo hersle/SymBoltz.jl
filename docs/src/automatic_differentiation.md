@@ -18,7 +18,7 @@ M = ΛCDM(K = nothing)
 pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
-probgen = SymBoltz.parameter_updater(prob0, pars)
+probgen = parameter_updater(prob0, pars)
 P(k, θ) = spectrum_matter(probgen(θ), k; verbose = true, ptopts = (reltol = 1e-3,))
 ```
 It is now easy to evaluate the power spectrum:

@@ -27,7 +27,7 @@ It is not necessary to repeat this just to update parameter values.
 To do so, use the function `parameter_updater` that returns a function that quickly creates new problems with updated parameter values:
 
 ```@example sol
-probmaker = SymBoltz.parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
+probmaker = parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
 prob = probmaker([0.70, 0.27]) # create updated problem
 ```
 

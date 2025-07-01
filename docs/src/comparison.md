@@ -345,7 +345,7 @@ function P_class(k, pars)
     return P
 end
 function P_symboltz(k, pars)
-    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
+    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
     P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
     return P
 end
@@ -395,7 +395,7 @@ function Dl_class(modes, l, pars)
     return stack(Dl)
 end
 function Dl_symboltz(modes, l, pars; kwargs...)
-    prob′ = SymBoltz.parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
+    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
     return spectrum_cmb(modes, prob′, l; normalization = :Dl, kwargs...)
 end
 

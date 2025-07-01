@@ -96,7 +96,7 @@ function plot_interactive(prob::CosmologyProblem, xvar::SymBoltz.Num, yvar::SymB
         τcum(n) = τ[Int(floor(n))] + (τ[min(Int(floor(n))+1,length(τ))] - τ[Int(floor(n))]) * (n - floor(n)) # <3
         return τcum.(range(1, length(τ), length = N))
     end
-    probgen = SymBoltz.parameter_updater(prob, [par for (par, _) in obspars])
+    probgen = parameter_updater(prob, [par for (par, _) in obspars])
     function xyfunc(θ)
         prob = probgen(θ)
         sol = solve(prob)
@@ -133,7 +133,7 @@ obspars = [
     M.I.ln_As1e10 => 2.0:0.1:4.0
     M.I.ns => 0.90:0.01:1.10
 ]
-probgen = SymBoltz.parameter_updater(prob, [par for (par, _) in obspars])
+probgen = parameter_updater(prob, [par for (par, _) in obspars])
 function xyfunc(θ)
     prob = probgen(θ)
     lgks = unique([-4:0.5:-3; -3:0.2:-2; -2:0.05:0]) # as few points as possible
