@@ -8,6 +8,7 @@ This page compares results from SymBoltz and the fantastic Einstein-Boltzmann so
 ```
 ```@example class
 using SymBoltz
+using CLASS
 using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
@@ -23,25 +24,8 @@ pars = merge(parameters_Planck18(M), Dict(
 h = pars[M.g.h] # needed later
 prob = CosmologyProblem(M, pars)
 
-function run_class(in::Dict{String, Any}, exec, inpath, outpath)
-    merge!(in, Dict(
-        "root" => outpath,
-        "overwrite_root" => "yes",
-    ))
-    in = sort(collect(in), by = keyval -> keyval[1]) # sort by key
-    in = prod(["$key = $val\n" for (key, val) in in]) # make string with "key = val" lines
-    mkpath(dirname(inpath)) # create directories up to input file, if needed
-    write(inpath, in) # write input string to file
-
-    mkpath(dirname(outpath)) # create directories up to output file, if needed
-    return run(`$exec $inpath`) # run
-end
-
-function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = Set(["bg", "th", "pt", "P", "Cl"]))
-    isnothing(k) && filter!(s -> s != "pt", out)
-    inpath = joinpath(dir, "input.ini")
-    outpath = joinpath(dir, "output", "")
-    in = Dict(
+function solve_class(pars, k = nothing)
+    prob = CLASSProblem(
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
         "background_verbose" => 2,
@@ -80,7 +64,6 @@ function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = S
         "l_max_ncdm" => lmax,
 
         # primordial power spectrum
-
         "ln_A_s_1e10" => pars[M.I.ln_As1e10],
         "n_s" => pars[M.I.ns],
 
@@ -106,28 +89,7 @@ function solve_class(pars, k = nothing; exec="class", dir = mktempdir(), out = S
         #"l_max_scalars" => 1500,
         #"temperature_contributions" => "pol",
     )
-
-    secs = @elapsed run_class(in, exec, inpath, outpath)
-    println("Ran CLASS in $secs seconds in directory $dir")
-    output = Dict()
-    for (name, filename, skipstart, target_length) in [("bg", "_background.dat", 3, typemax(Int)), ("th", "_thermodynamics.dat", 10, typemax(Int)), ("pt", "_perturbations_k0_s.dat", 1, typemax(Int)), ("P", "_pk.dat", 3, typemax(Int)), ("Cl", "_cl.dat", 6, typemax(Int))]
-        name ∉ out && continue
-        file = joinpath(outpath, filename)
-        data, head = readdlm(file, skipstart=skipstart, header=true)
-        head = split(join(head, ""), ":")
-        for (n, h) in enumerate(head[begin:end-1])
-            head[n] = h[begin:end-length(string(n))]
-        end
-        head = string.(head[2:end]) # remove #
-        data = data[:,begin:length(head)] # remove extra empty data rows because of CLASS' messed up names
-        data = Matrix{Float64}(data)
-        println("Read ", filename, " with ", join(size(data), "x"), " numbers")
-        output[name] = Dict(head[i] => data[:,i] for i in eachindex(head))
-        for key in keys(output[name])
-            output[name][key] = SymBoltz.reduce_array!(output[name][key], target_length)
-        end
-    end
-    return output
+    return solve(prob)
 end
 
 k = 1e1 / u"Mpc" # 1/Mpc
@@ -232,41 +194,41 @@ nothing # hide
 
 ### Conformal time
 ```@example class
-a1 = (1 ./ (sol1["bg"]["z"] .+ 1))
+a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
-χ1 = sol1["bg"]["conf.time[Mpc]"][end].-sol1["bg"]["conf.time[Mpc]"]
+χ1 = sol1["background"][:,"conf. time [Mpc]"][end].-sol1["background"][:,"conf. time [Mpc]"]
 χ2 = sol2[M.χ] / (h*SymBoltz.k0)
 plot_compare(a1, a2, χ1, χ2, "a", "χ"; tol = 1e-2)
 ```
 ### Hubble function
 ```@example class
-E1 = sol1["bg"]["H[1/Mpc]"]./sol1["bg"]["H[1/Mpc]"][end]
+E1 = sol1["background"][:,"H [1/Mpc]"]./sol1["background"][end,"H [1/Mpc]"]
 E2 = sol2[M.g.E]
 plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 1e9)
 ```
 ### Energy densities
 ```@example class
-ρ1 = map(s -> sol1["bg"]["(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
+ρ1 = map(s -> sol1["background"][:,"(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
 ρ2 = map(s -> sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
 plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 1e16)
 ```
 ### Equations of state
 ```@example class
-wh1 = sol1["bg"]["(.)p_ncdm[0]"] ./ sol1["bg"]["(.)rho_ncdm[0]"]
+wh1 = sol1["background"][:,"(.)p_ncdm[0]"] ./ sol1["background"][:,"(.)rho_ncdm[0]"]
 wh2 = sol2[M.h.w]
-wX1 = sol1["bg"]["(.)w_fld"]
+wX1 = sol1["background"][:,"(.)w_fld"]
 wX2 = sol2[M.X.w]
 plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 1e-3)
 ```
 ### Photon-baryon sound horizon
 ```@example class
-rs1 = sol1["bg"]["comov.snd.hrz."]
+rs1 = sol1["background"][:,"comov.snd.hrz."]
 rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
 plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 0.02)
 ```
 ### Luminosity distance
 ```@example class
-dL1 = sol1["bg"]["lum.dist."]
+dL1 = sol1["background"][:,"lum. dist."]
 dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
 plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true)
 ```
@@ -275,48 +237,48 @@ plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true)
 
 ### Optical depth derivative
 ```@example class
-a1 = reverse(sol1["th"]["scalefactora"])
+a1 = reverse(sol1["thermodynamics"][:,"scale factor a"])
 a2 = sol2[M.g.a]
-dκ1 = reverse(sol1["th"]["kappa'[Mpc^-1]"])
+dκ1 = reverse(sol1["thermodynamics"][:,"kappa' [Mpc^-1]"])
 dκ2 = -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)
 plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 1e4)
 ```
 ### Optical depth exponential
 ```@example class
-expmκ1 = reverse(sol1["th"]["exp(-kappa)"])
+expmκ1 = reverse(sol1["thermodynamics"][:,"exp(-kappa)"])
 expmκ2 = sol2[M.b.rec.I]
 plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-3)
 ```
 ### Visibility function
 ```@example class
-v1 = reverse(sol1["th"]["g[Mpc^-1]"])
+v1 = reverse(sol1["thermodynamics"][:,"g [Mpc^-1]"])
 v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
 plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-4)
 ```
 ### Free electron fraction
 ```@example class
-Xe1 = reverse(sol1["th"]["x_e"])
+Xe1 = reverse(sol1["thermodynamics"][:,"x_e"])
 Xe2 = sol2[M.b.rec.Xe]
 plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 1e-3)
 ```
 ### Baryon temperature
 ```@example class
-Tb1 = reverse(sol1["th"]["Tb[K]"])
+Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.rec.Tb]
-dTb1 = reverse(sol1["th"]["dTb[K]"])
+dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
 dTb2 = sol2[M.b.rec.DTb] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
 plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 1e1)
 ```
 ### Baryon equation of state
 ```@example class
 # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
-wb1 = reverse(sol1["th"]["w_b"])
+wb1 = reverse(sol1["thermodynamics"][:,"w_b"])
 wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]
 plot_compare(a1, a2, wb1, wb2, "a", "wb"; lgx=true, lgy=true, tol = 1e-9)
 ```
 ### Baryon sound speed
 ```@example class
-csb²1 = reverse(sol1["th"]["c_b^2"])
+csb²1 = reverse(sol1["thermodynamics"][:,"c_b^2"])
 csb²2 = sol2[M.b.rec.cₛ²]
 plot_compare(a1, a2, csb²1, csb²2, "a", "csb²"; lgx=true, lgy=true, tol = 1e-8)
 ```
@@ -325,45 +287,45 @@ plot_compare(a1, a2, csb²1, csb²2, "a", "csb²"; lgx=true, lgy=true, tol = 1e-
 
 ### Metric potentials
 ```@example class
-a1 = sol1["pt"]["a"]
+a1 = sol1["perturbations_k0_s"][:,"a"]
 a2 = sol2[1, M.g.a]
-Φ1, Ψ1 = sol1["pt"]["phi"], sol1["pt"]["psi"]
+Φ1, Ψ1 = sol1["perturbations_k0_s"][:,"phi"], sol1["perturbations_k0_s"][:,"psi"]
 Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
 plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 1e-1)
 ```
 ### Energy overdensities
 ```@example class
-δ1 = map(s -> sol1["pt"]["delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
+δ1 = map(s -> sol1["perturbations_k0_s"][:,"delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 δ2 = map(s -> sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
 plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
 ```
 ### Momenta
 ```@example class
-θ1 = map(s -> sol1["pt"]["theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
+θ1 = map(s -> sol1["perturbations_k0_s"][:,"theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
 plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true)
 ```
 ### Dark energy overdensity
 ```@example class
-δρX1 = sol1["pt"]["delta_rho_fld"]
+δρX1 = sol1["perturbations_k0_s"][:,"delta_rho_fld"]
 δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
 plot_compare(a1, a2, δρX1, δρX2, "a", "δρX"; lgx=true, lgy=true, tol = 1e-4)
 ```
 ### Dark energy momentum
 ```@example class
-pX1 = sol1["pt"]["rho_plus_p_theta_fld"]
+pX1 = sol1["perturbations_k0_s"][:,"rho_plus_p_theta_fld"]
 pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
 plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 1e-4)
 ```
 ### Shear stresses
 ```@example class
-σ1 = [sol1["pt"]["shear_g"], sol1["pt"]["shear_ur"]]
+σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
 plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 1e-0)
 ```
 ### Polarization
 ```@example class
-P1 = map(n -> sol1["pt"]["pol$(n)_g"], 0:2)
+P1 = map(n -> sol1["perturbations_k0_s"][:,"pol$(n)_g"], 0:2)
 P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
 plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 1e-1)
 ```
@@ -371,10 +333,10 @@ plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 1e-1)
 ## Matter power spectrum
 ```@example class
 function P_class(pars)
-    sol = solve_class(pars; out = ["P"])
+    sol = solve_class(pars)
     h = pars[M.g.h]
-    k = sol["P"]["k(h/Mpc)"] * h
-    P = sol["P"]["P(Mpc/h)^3"] / h^3
+    k = sol["pk"][:,"k (h/Mpc)"] * h
+    P = sol["pk"][:,"P (Mpc/h)^3"] / h^3
     return k, P
 end
 function P_class(k, pars)
@@ -425,9 +387,9 @@ plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 1e-1) # smaller re
 ## CMB power spectrum
 ```@example class
 function Dl_class(modes, l, pars)
-    sol = solve_class(pars; out = ["Cl"])
-    lout = sol["Cl"]["l"]
-    Dl = [sol["Cl"][string(mode)] for mode in modes]
+    sol = solve_class(pars)
+    lout = sol["cl"][:,"l"]
+    Dl = [sol["cl"][:,string(mode)] for mode in modes]
     i = findall(l′ -> l′ in l, lout)
     Dl = [Dl[j][i] for j in eachindex(modes)]
     return stack(Dl)
