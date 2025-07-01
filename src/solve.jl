@@ -227,7 +227,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
         ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
     end
 
-    return p -> begin
+    function updater(p)
         # Update background problem
         bgps = parameter_values(bg)
         bgbuffer = get_tmp(bgdiffcache, p) # get newly typed buffer
@@ -250,6 +250,12 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
 
         return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.var2spl)
     end
+    function updater(p::Dict)
+        p = [p[var] for var in idxs]
+        return updater(p)
+    end
+
+    return updater
 end
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
