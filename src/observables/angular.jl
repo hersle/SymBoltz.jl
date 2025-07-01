@@ -218,7 +218,25 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
 
     return spectra
 end
-spectrum_cmb(mode::Symbol, args...; kwargs...) = spectrum_cmb([mode], args...; kwargs...)[:, begin]
+
+"""
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector, ls_interpolate_from::AbstractVector; kwargs...)
+
+Same, but compute the spectrum properly only for `ls_interpolate_from` and then interpolate the results to all `ls`.
+"""
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector, ls_interpolate_from::AbstractVector; kwargs...)
+    extrema(ls) == extrema(ls_interpolate_from) || error("ls and ls_interpolate_from have different extrema $(extrema(ls)) != $(ls_interpolate_from)")
+    spectra_coarse = spectrum_cmb(modes, prob, ls_interpolate_from; kwargs...)
+    spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
+    for imode in eachindex(modes)
+        spectra_fine[:,imode] = QuadraticSpline(spectra_coarse[:,imode], ls_interpolate_from)(ls)
+    end
+    return spectra_fine
+end
+
+function spectrum_cmb(mode::Symbol, args...; kwargs...)
+    return spectrum_cmb([mode], args...; kwargs...)[:, begin]
+end
 
 function cmb_kτ0s(lmin, lmax; Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*lmin, kτ0max = 3*lmax)
     kτ0s_fine = range(kτ0min, kτ0max, step=Δkτ0) # use integer multiple so endpoints are the same
