@@ -46,7 +46,7 @@ These can conflict. For best multi-threading performance [it is recommended to r
 linsolves = [
     SymBoltz.LUFactorization()
     SymBoltz.RFLUFactorization()
-    SymBoltz.MKLLUFactorization()
+    #SymBoltz.MKLLUFactorization() # fails/hangs/segfaults # TODO: restore
     SymBoltz.KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)
 ]
 for linsolve in linsolves
