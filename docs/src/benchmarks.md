@@ -82,6 +82,7 @@ plot(results; size = (800, 400))
 # TODO: use BenchmarkTools.BenchmarkGroup # hide
 ptalgs = [
     TRBDF2()
+    #Rosenbrock23() # disabled; causes MaxIters with default tolerances
     KenCarp4()
     KenCarp47()
     Kvaerno5()
@@ -90,6 +91,7 @@ ptalgs = [
     Rodas4()
     Rodas4P()
     QNDF()
+    FBDF()
 ]
 for alg in ptalgs
     ptopts = (alg = alg, reltol = 1e-5)
