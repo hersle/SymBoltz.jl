@@ -114,7 +114,7 @@ obspars = [
     M.b.Ω₀ => 0.02:0.01:0.10,
     M.γ.T₀ => 2.50:0.01:3.00,
     M.h.m_eV => 0.01:0.01:0.15,
-    M.b.rec.Yp => 0.20:0.01:0.30,
+    M.b.rec.YHe => 0.20:0.01:0.30,
     M.ν.Neff => 2.90:0.01:3.10
 ]
 fig = plot_interactive(prob, log10(M.g.a), M.b.rec.Xe, obspars...)

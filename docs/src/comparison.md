@@ -46,7 +46,7 @@ function solve_class(pars, k = nothing)
 
         # baryons
         "Omega_b" => pars[M.b.Ω₀],
-        "YHe" => pars[M.b.rec.Yp],
+        "YHe" => pars[M.b.rec.YHe],
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => 1,
         "recfast_Heswitch" => 6,

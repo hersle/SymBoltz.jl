@@ -218,7 +218,7 @@ end
     pars = [ # choose lots of background parameters that should be equal in perturbations
         M.τ0, M.g.h,
         M.c.Ω₀,
-        M.b.Ω₀, M.b.rec.Yp, M.b.rec.fHe, M.b.rec.re1z, M.b.rec.re2z, M.b.rec.κ0,
+        M.b.Ω₀, M.b.rec.YHe, M.b.rec.fHe, M.b.rec.re1z, M.b.rec.re2z, M.b.rec.κ0,
         M.γ.Ω₀, M.γ.T₀,
         M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
         M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
@@ -371,7 +371,7 @@ end
 end
 
 @testset "Background differentiation test" begin
-    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.Yp, M.I.ln_As1e10, M.I.ns]
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = SymBoltz.parameter_updater(prob, diffpars)
     getτ0 = SymBoltz.getsym(prob, M.τ0)
     τ0(θ) = getτ0(solve(probgen(θ)))

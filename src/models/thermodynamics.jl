@@ -3,7 +3,7 @@
 function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     ϵ = 1e-9 # small number to avoid divisions by zero (smaller => more accurate; higher => more stable?)
     pars = @parameters begin
-        Yp, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
+        YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
         fHe, [description = "Primordial He-to-H nucleon ratio n(He)/n(H)"] # TODO: correct?
         re1z, [description = "1st reionization redshift"]
         re2z, [description = "2nd reionization redshift"]
@@ -75,9 +75,9 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
     return System([
         # parameter equations
-        fHe ~ Yp / (mHe/mH*(1-Yp)) # fHe = nHe/nH # TODO: factor mHe/mH?
+        fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH # TODO: factor mHe/mH?
 
-        nH ~ (1-Yp) * ρb/mH # 1/m³
+        nH ~ (1-YHe) * ρb/mH # 1/m³
         nHe ~ fHe * nH # 1/m³
 
         DTb ~ -2*Tb*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
@@ -86,7 +86,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         Tb ~ ΔT + Tγ
         βb ~ 1 / (kB*Tb)
         λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        μ ~ mH / ((1 + (mH/mHe-1)*Yp + Xe*(1-Yp)))
+        μ ~ mH / ((1 + (mH/mHe-1)*YHe + Xe*(1-YHe)))
         cₛ² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
 
         # H⁺ + e⁻ recombination

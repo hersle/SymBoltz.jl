@@ -15,7 +15,7 @@ To do so, let us write a small wrapper function that calculates the power spectr
 ```@example ad
 using SymBoltz
 M = ΛCDM(K = nothing)
-pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.Yp, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
+pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 probgen = parameter_updater(prob0, pars)
@@ -48,7 +48,7 @@ We can plot them all at once:
 plot(
     log10.(ks/u"1/Mpc"), dlgP_dlgθs;
     xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "ln(10¹⁰As)" "ns"]
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 ```
 
@@ -72,7 +72,7 @@ p1 = plot(
 p2 = plot(
    log10.(ks/u"1/Mpc"), dlgP_dlgθs;
    xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
-   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "Yp" "mh" "ln(10¹⁰As)" "ns"]
+   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 plot(p1, p2, layout=(2, 1), size = (600, 600))
 ```
