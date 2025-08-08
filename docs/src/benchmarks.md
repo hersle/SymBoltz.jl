@@ -138,3 +138,31 @@ plot(results; size = (800, 400))
 nothing # hide
 ```
 
+## Precision-work diagrams
+
+### Background
+
+```@example bench
+# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
+using DiffEqDevTools
+
+bgsol = solve(prob.bg, Rodas4P(); abstol = 1e-12, reltol = 1e-12) # reference solution
+
+abstols = 1 ./ 10 .^ (5:9)
+reltols = 1 ./ 10 .^ (5:9)
+setups = [Dict(:alg => alg) for alg in bgalgs]
+wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
+plot(wp)
+```
+
+### Perturbations
+
+```@example bench
+k = 1e2
+ptprob = SymBoltz.setuppt(prob.pt, bgsol, prob.var2spl)(k)
+ptsol = solve(ptprob, QNDF(); reltol = 1e-12, abstol = 1e-12) # reference solution
+
+setups = [Dict(:alg => alg) for alg in ptalgs]
+wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2)
+plot(wp)
+```
