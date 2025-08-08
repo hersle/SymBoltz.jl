@@ -6,7 +6,7 @@
 ```@example bench
 using MKL, SymBoltz, OrdinaryDiffEq, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, InteractiveUtils
 M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
-pars = SymBoltz.parameters_Planck18(M) # TODO: faster if i set ΩΛ0 explicitly?
+pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-1, 4, length = 100)
 benchmarks = BenchmarkGroup()
@@ -65,6 +65,8 @@ bgalgs = [
     Rodas5()
     Rodas4P()
     Rodas5P()
+    #FBDF() # does not work with lower tolerances
+    #QNDF()
 ]
 for alg in bgalgs
     bgopts = (alg = alg, reltol = 1e-9)
@@ -138,3 +140,41 @@ plot(results; size = (800, 400))
 nothing # hide
 ```
 
+## Background precision-work diagram
+
+```@example bench
+# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
+using DiffEqDevTools
+
+refalg = Rodas4P()
+bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+
+abstols = 1 ./ 10 .^ (5:9)
+reltols = 1 ./ 10 .^ (5:9)
+setups = [Dict(:alg => alg) for alg in bgalgs]
+wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
+plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
+```
+
+## Perturbations precision-work diagram
+
+```@example bench
+ks = [1e0, 1e1, 1e2, 1e3]
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.var2spl)
+
+refalg = Rodas4P()
+setups = [Dict(:alg => alg) for alg in ptalgs]
+wps = []
+for (i, k) in enumerate(ks)
+    ptprob = ptprobgen(ptprob0, k)
+    ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use Rodas4P which is also used in CLASS comparison)
+    wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2)
+    push!(wps, wp)
+end
+p = plot(layout = (length(ks), 1), size = (800, 500*length(ks)))
+for (i, k) in enumerate(ks)
+    wp = wps[i]
+    plot!(p[i,1], wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
+end
+p
+```
