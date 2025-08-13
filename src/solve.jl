@@ -288,14 +288,14 @@ function bgalg(prob::ODEProblem; stiff = true)
         linsolve = RFLUFactorization(throwerror = true)
     end
     if stiff
-        return Rodas4P(; linsolve)
+        return Rodas5P(; linsolve)
     else
         return Tsit5(; linsolve)
     end
 end
 bgalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.bg; kwargs...)
 
-function ptalg(prob::ODEProblem; accuracy = 1)
+function ptalg(prob::ODEProblem; accuracy = 2)
     if issparse(prob)
         linsolve = KLUFactorization()
     else
@@ -307,7 +307,7 @@ function ptalg(prob::ODEProblem; accuracy = 1)
     elseif accuracy == 1
         return KenCarp4(; linsolve, nlsolve)
     else
-        return Rodas5P(; linsolve)
+        return Rodas5P(; linsolve) # does not do nonlinear solve
     end
 end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
@@ -326,8 +326,8 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-        ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+        bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
+        ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
         shootopts = (alg = shootalg(prob), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
@@ -339,8 +339,8 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-    ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+    bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
+    ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
@@ -379,11 +379,11 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
-function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
     bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
@@ -398,7 +398,7 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol 
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
@@ -447,13 +447,13 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution)
 end
 
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the background solution `bgsol` (see `solvebg`).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -482,7 +482,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg 
     return ptsols
 end
 """
-    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
+    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
 
 Solve the perturbation problem `ptprob` and return the solution.
 Its wavenumber and background spline must already be initialized, for example with `setuppt`.
@@ -499,7 +499,7 @@ ptprob = ptprobgen(ptprob0, k)
 ptsol = solvept(ptprob)
 ```
 """
-function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
+function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
     return solve(ptprob, alg; reltol, abstol, kwargs...)
 end
 
