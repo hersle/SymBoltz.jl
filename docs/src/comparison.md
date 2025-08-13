@@ -99,7 +99,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),))
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas5P(),))
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)

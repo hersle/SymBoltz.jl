@@ -278,14 +278,14 @@ function bgalg(prob::ODEProblem; stiff = true)
         linsolve = RFLUFactorization(throwerror = true)
     end
     if stiff
-        return Rodas4P(; linsolve)
+        return Rodas5P(; linsolve)
     else
         return Tsit5(; linsolve)
     end
 end
 bgalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.bg; kwargs...)
 
-function ptalg(prob::ODEProblem; accuracy = 1)
+function ptalg(prob::ODEProblem; accuracy = 2)
     if issparse(prob)
         linsolve = KLUFactorization()
     else
@@ -297,7 +297,7 @@ function ptalg(prob::ODEProblem; accuracy = 1)
     elseif accuracy == 1
         return KenCarp4(; linsolve, nlsolve)
     else
-        return Rodas5P(; linsolve, nlsolve)
+        return Rodas5P(; linsolve) # does not do nonlinear solve
     end
 end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
@@ -310,7 +310,7 @@ shootalg(args...) = NewtonRaphson()
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
         bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-        ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+        ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
         shootopts = (alg = shootalg(prob), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
@@ -323,7 +323,7 @@ If `threads`, integration over independent perturbation modes are parallellized.
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
     bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-    ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+    ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
@@ -429,13 +429,13 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution)
 end
 
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the background solution `bgsol` (see `solvebg`).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
@@ -463,7 +463,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg 
     return ptsols
 end
 """
-    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
+    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
 
 Solve the perturbation problem `ptprob` and return the solution.
 Its wavenumber and background spline must already be initialized, for example with `setuppt`.
@@ -480,7 +480,7 @@ ptprob = ptprobgen(ptprob0, k)
 ptsol = solvept(ptprob)
 ```
 """
-function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
+function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
     return solve(ptprob, alg; reltol, abstol, kwargs...)
 end
 
