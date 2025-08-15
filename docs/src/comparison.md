@@ -247,13 +247,13 @@ plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 1e4)
 ```@example class
 expmκ1 = reverse(sol1["thermodynamics"][:,"exp(-kappa)"])
 expmκ2 = sol2[M.b.rec.I]
-plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-3)
+plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-4)
 ```
 ### Visibility function
 ```@example class
 v1 = reverse(sol1["thermodynamics"][:,"g [Mpc^-1]"])
 v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
-plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-4)
+plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-5)
 ```
 ### Free electron fraction
 ```@example class
