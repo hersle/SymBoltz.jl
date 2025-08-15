@@ -42,7 +42,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         nHe(τ), [description = "Total Helium number density"]
         XHe⁺(τ), [description = "Singly ionized Helium fraction"] # He <-> He⁺
         XHe⁺⁺(τ), [description = "Doubly ionized Helium fraction"] # He⁺ <-> He⁺⁺
-        αHe(τ), βHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), γ2Ps(τ), CHe(τ) # K(...)⁻¹ = 1 / K(...)
+        αHe(τ), βHe(τ), τHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), γ2Ps(τ), CHe(τ) # K(...)⁻¹ = 1 / K(...)
         RHe⁺(τ), αHe3(τ), βHe3(τ), τHe3(τ), pHe3(τ), CHe3(τ), γ2Pt(τ), DXHe⁺_singlet(τ), DXHe⁺_triplet(τ) # He triplet correction variables
     end
 
@@ -103,7 +103,8 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         αHe ~ αHe_fit(Tb)
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
-        KHe1⁻¹ ~ -exp(-3*A2Ps*nHe*(1-XHe⁺+ϵ)/KHe0⁻¹) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
+        τHe ~ 3*A2Ps*nHe*(1-XHe⁺+ϵ) / KHe0⁻¹
+        KHe1⁻¹ ~ -exp(-τHe) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
         γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+ϵ)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
         KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
