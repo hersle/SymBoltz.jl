@@ -382,3 +382,18 @@ end
     @test all(isapprox.(dτ0_ad[end-2:end], 0.0; atol = 1e-10))
     @test all(isapprox.(dτ0_fd[end-2:end], 0.0; atol = 1e-2))
 end
+
+# TODO: why does this fail with ν = nothing??
+@testset "RECFAST flags" begin
+    for Heflag in [0, 1, 2, 3, 6]
+        M = ΛCDM(h = nothing, K = nothing; Heflag)
+        pars = parameters_Planck18(M)
+        prob = CosmologyProblem(M, pars)
+        #bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-10, abstol = 1e-10)
+        sol = solve(prob)
+        println(Heflag, ": ", issuccess(sol))
+        #@test all(sol[M.b.rec.XH⁺] .≤ 1.0)
+        #@test all(sol[M.b.rec.XHe⁺] .≤ 1.0)
+        #@test all(sol[M.b.rec.XHe⁺⁺/M.b.rec.fHe] .≤ 1.0)
+    end
+end

@@ -23,6 +23,8 @@ Create a ΛCDM model.
 function ΛCDM(;
     lmax = 6,
     recombination = true,
+    Hflag = 1,
+    Heflag = 6,
     reionization = true,
     acceleration = false,
     g = metric(),
@@ -31,7 +33,7 @@ function ΛCDM(;
     ν = massless_neutrinos(g; lmax),
     h = massive_neutrinos(g; lmax),
     c = cold_dark_matter(g; name = :c),
-    b = baryons(g; recombination, reionization, name = :b),
+    b = baryons(g; recombination, reionization, Hflag, Heflag, name = :b),
     K = nothing,
     Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),

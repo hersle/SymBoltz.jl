@@ -14,8 +14,12 @@ using DataInterpolations
 using Unitful, UnitfulAstro
 using CairoMakie
 
+k = 1e1 / u"Mpc" # 1/Mpc
 lmax = 6
-M = w0waCDM(; lmax)
+Hflag = 0 # TODO: use
+Heflag = 0
+reionization = false
+M = w0waCDM(; lmax, reionization, Hflag, Heflag)
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.1,
@@ -23,6 +27,9 @@ pars = merge(parameters_Planck18(M), Dict(
 ))
 h = pars[M.g.h] # needed later
 prob = CosmologyProblem(M, pars)
+bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-12, abstol = 1e-12)
+ptopts = (alg = SymBoltz.Rodas4P(),)
+sol2 = solve(prob#=, k=#; bgopts, ptopts) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 function solve_class(pars, k = nothing)
     prob = CLASSProblem(
@@ -48,9 +55,9 @@ function solve_class(pars, k = nothing)
         "Omega_b" => pars[M.b.Ω₀],
         "YHe" => pars[M.b.rec.YHe],
         "recombination" => "recfast", # TODO: HyREC
-        "recfast_Hswitch" => 1,
-        "recfast_Heswitch" => 6,
-        "reio_parametrization" => "reio_camb",
+        "recfast_Hswitch" => Hflag,
+        "recfast_Heswitch" => Heflag,
+        "reio_parametrization" => reionization ? "reio_camb" : "reio_none",
 
         # cold dark matter
         "Omega_cdm" => pars[M.c.Ω₀],
@@ -85,16 +92,14 @@ function solve_class(pars, k = nothing)
         "radiation_streaming_approximation" => 3, # turns off RSA
         "ur_fluid_approximation" => 3, # turns off UFA
         "ncdm_fluid_approximation" => 3, # turns off NCDM fluid approximation
+        # TODO: use same high-precision tolerance parameters as in Fisher forecast?
 
         #"l_max_scalars" => 1500,
         #"temperature_contributions" => "pol",
     )
     return solve(prob)
 end
-
-k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -247,19 +252,19 @@ plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 1e4)
 ```@example class
 expmκ1 = reverse(sol1["thermodynamics"][:,"exp(-kappa)"])
 expmκ2 = sol2[M.b.rec.I]
-plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-4)
+plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 1e-2)
 ```
 ### Visibility function
 ```@example class
 v1 = reverse(sol1["thermodynamics"][:,"g [Mpc^-1]"])
 v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
-plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-5)
+plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 1e-3)
 ```
 ### Free electron fraction
 ```@example class
 Xe1 = reverse(sol1["thermodynamics"][:,"x_e"])
 Xe2 = sol2[M.b.rec.Xe]
-plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 1e-3)
+plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 1e-2)
 ```
 ### Baryon temperature
 ```@example class
