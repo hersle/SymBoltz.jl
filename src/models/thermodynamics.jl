@@ -51,6 +51,30 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     ΛHe = 51.3 # s⁻¹
     A2Ps = 1.798287e9
     A2Pt = 177.58e0
+    me = PhysicalConstants.CODATA2018.m_e / u"kg"
+    mH = elements[:H].atomic_mass / u"kg" |> NoUnits
+    mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
+
+    # Hydrogen transitions
+    λ_H_∞_1s   =  91.17534e-9; f_H_∞_1s  = c/λ_H_∞_1s;  E_H_∞_1s  = h*f_H_∞_1s # ∞ - 1s
+    λ_H_2s_1s  = 121.56700e-9; f_H_2s_1s = c/λ_H_2s_1s; E_H_2s_1s = h*f_H_2s_1s # 2s - 1s
+                                                        E_H_∞_2s  = E_H_∞_1s - E_H_2s_1s # E_∞ - E_2s
+
+    # Helium singlet transitions
+    λ_He_∞_1s  =  50.42590e-9; f_He_∞_1s  = c/λ_He_∞_1s;  E_He_∞_1s  = h*f_He_∞_1s
+    λ_He_2s_1s =  60.14045e-9; f_He_2s_1s = c/λ_He_2s_1s; E_He_2s_1s = h*f_He_2s_1s
+    λ_He_2p_1s =  58.43344e-9; f_He_2p_1s = c/λ_He_2p_1s; E_He_2p_1s = h*f_He_2p_1s
+                                                          E_He_2p_2s = E_He_2p_1s - E_He_2s_1s
+                                                          E_He_∞_2s  = E_He_∞_1s - E_He_2s_1s
+                                                          E_He⁺_∞_1s = 54.4178 * eV
+
+    # Helium triplet transitions # TODO: rename s,t to singlet,triplet?
+    λ_He_∞_2s_tri = 260.0463e-9; f_He_∞_2s_tri = c/λ_He_∞_2s_tri; E_He_∞_2s_tri = h*f_He_∞_2s_tri # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV)
+
+    λ_He_2p_1s_tri = 59.1411e-9; f_He_2p_1s_tri = c/λ_He_2p_1s_tri; E_He_2p_1s_tri = h*f_He_2p_1s_tri
+    λ_He_2s_1s_tri = 62.5563e-9; f_He_2s_1s_tri = c/λ_He_2s_1s_tri; E_He_2s_1s_tri = h*f_He_2s_1s_tri
+                                                                    E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
+
     αH_fit(T; F=1.14-0.015, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor 1.14-0.015 here is equivalent to the way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
