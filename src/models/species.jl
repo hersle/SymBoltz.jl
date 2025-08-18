@@ -354,15 +354,15 @@ function cold_dark_matter(g; name = :c, kwargs...)
 end
 
 """
-    baryons(g; recombination = true, reionization = true, Hswitch = 1, name = :b, kwargs...)
+    baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
 
 Create a particle species for baryons in the spacetime with metric `g`.
 """
-function baryons(g; recombination = true, reionization = true, Hswitch = 1, name = :b, kwargs...)
+function baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
     description = "Baryons"
     b = matter(g; adiabatic = false, θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: simply dont add recombination system when recombination = false
-        @named rec = thermodynamics_recombination_recfast(g; reionization, Hswitch)
+        @named rec = thermodynamics_recombination_recfast(g; reionization, Hswitch, Heswitch)
         eqs = Equation[]
     else
         vars = @variables begin

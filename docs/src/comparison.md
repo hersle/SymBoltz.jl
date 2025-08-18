@@ -17,7 +17,8 @@ using CairoMakie
 lmax = 6
 reionization = true
 Hswitch = 1
-M = w0waCDM(; lmax, reionization, Hswitch)
+Heswitch = 6
+M = w0waCDM(; lmax, reionization, Hswitch, Heswitch)
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.1,
@@ -51,7 +52,7 @@ function solve_class(pars, k = nothing)
         "YHe" => pars[M.b.rec.YHe],
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => Hswitch,
-        "recfast_Heswitch" => 6,
+        "recfast_Heswitch" => Heswitch,
         "reio_parametrization" => reionization ? "reio_camb" : "reio_none",
 
         # cold dark matter

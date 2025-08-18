@@ -1,6 +1,6 @@
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
-function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, kwargs...)
+function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
     ϵ = 1e-9 # small number to avoid divisions by zero (smaller => more accurate; higher => more stable?)
     pars = @parameters begin
         YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
@@ -40,8 +40,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         nHe(τ), [description = "Total Helium number density"]
         XHe⁺(τ), [description = "Singly ionized Helium fraction"] # He <-> He⁺
         XHe⁺⁺(τ), [description = "Doubly ionized Helium fraction"] # He⁺ <-> He⁺⁺
-        αHe(τ), βHe(τ), τHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), γ2Ps(τ), CHe(τ) # K(...)⁻¹ = 1 / K(...)
-        RHe⁺(τ), αHe3(τ), βHe3(τ), τHe3(τ), pHe3(τ), CHe3(τ), γ2Pt(τ), DXHe⁺_singlet(τ), DXHe⁺_triplet(τ) # He triplet correction variables
+        αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), CHe(τ), DXHe⁺_singlet(τ), DXHe⁺_triplet(τ) # K(...)⁻¹ = 1 / K(...)
     end
 
     # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
@@ -123,25 +122,11 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         # He⁺ + e⁻ singlet recombination
         αHe ~ αHe_fit(Tb)
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
-        KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
-        τHe ~ 3*A2Ps*nHe*(1-XHe⁺+ϵ) / KHe0⁻¹
-        KHe1⁻¹ ~ -exp(-τHe) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
-        γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+ϵ)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
-        KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
+        KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3
         CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
               (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
         DXHe⁺_singlet ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
-
-        # He⁺ + e⁻ triplet recombination
-        αHe3 ~ αHe3_fit(Tb)
-        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*E_He_∞_2s_tri)
-        τHe3 ~ A2Pt*nHe*(1-XHe⁺+ϵ)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
-        pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)) / (f_He_2p_1s_tri)^2
-        CHe3 ~ (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
-               (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-        DXHe⁺_triplet ~ -g.a/(H100*g.h) * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
 
         # He⁺ + e⁻ total recombination
         D(XHe⁺) ~ DXHe⁺_singlet + DXHe⁺_triplet
@@ -162,6 +147,35 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
     ]
+
+    if Heswitch == 0 # no corrections
+        append!(eqs, [
+            DXHe⁺_triplet ~ 0
+            KHe1⁻¹ ~ 0
+            KHe2⁻¹ ~ 0
+        ])
+    elseif Heswitch == 6 # all corrections
+        append!(vars, @variables γ2Ps(τ) αHe3(τ) βHe3(τ) τHe3(τ) pHe3(τ) CHe3(τ) γ2Pt(τ))
+        append!(eqs, [
+            τHe ~ 3*A2Ps*nHe*(1-XHe⁺+ϵ) / KHe0⁻¹
+            KHe1⁻¹ ~ -exp(-τHe) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
+
+            γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+ϵ)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
+            KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
+
+            # He⁺ + e⁻ triplet recombination
+            αHe3 ~ αHe3_fit(Tb)
+            βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*E_He_∞_2s_tri)
+            τHe3 ~ A2Pt*nHe*(1-XHe⁺+ϵ)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
+            pHe3 ~ (1 - exp(-τHe3)) / τHe3
+            γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)) / (f_He_2p_1s_tri)^2
+            CHe3 ~ (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
+                   (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
+            DXHe⁺_triplet ~ -g.a/(H100*g.h) * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+        ])
+    else
+        error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support 1-5?
+    end
 
     if reionization
         pars_reionization = @parameters begin
