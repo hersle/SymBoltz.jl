@@ -50,7 +50,7 @@ using PrecompileTools: @compile_workload
     propertynames(M.g) # speed up first TAB completion of e.g. M.g.<TAB>
     pars = parameters_Planck18(M)
     prob = CosmologyProblem(M, pars)
-    ks = 10 .^ range(-6, 1, length=5) / u"Mpc"
+    ks = 10 .^ range(-6, 0, length=5) / u"Mpc"
     sol = solve(prob, ks; thread = false)
     Ps = spectrum_matter(sol, ks)
     ls = 1:3

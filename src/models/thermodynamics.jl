@@ -2,6 +2,7 @@
 # TODO: make e⁻ and γ species
 function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
     ϵ = 1e-9 # small number to avoid divisions by zero (smaller => more accurate; higher => more stable?)
+    Xlimit = 0.99 # approximate C ≈ 1 for X > Xlimit to avoid numerical instabilities in CHe and CH equations
     pars = @parameters begin
         YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
         fHe, [description = "Primordial He-to-H nucleon ratio n(He)/n(H)"] # TODO: correct?
@@ -95,6 +96,8 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
     ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
+    smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0; smoothifelse(x, v1, v2, k→∞) → ifelse(x < 0, v1, v2)
+
     eqs = [
         # parameter equations
         fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH # TODO: factor mHe/mH?
@@ -115,8 +118,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ KHfitfactor/8π * λ_H_2s_1s^3 / g.H # KHfitfactor ≈ 1; see above
-        CH ~ (1 + KH*ΛH*nH*(1-XH⁺+ϵ)) /
-             (1 + KH*(ΛH+βH)*nH*(1-XH⁺+ϵ))
+        CH ~ smoothifelse(XH⁺ - Xlimit, (1 + KH*ΛH*nH*(1-XH⁺+0ϵ)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺+0ϵ)), 1; k = 1e3) # TODO: FH in denominator, see CLASS
         D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
@@ -124,8 +126,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
         KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
         KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3
-        CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
-              (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
+        CHe ~ smoothifelse(XHe⁺ - Xlimit, (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺+0ϵ)) / (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺+0ϵ)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
         DXHe⁺_singlet ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
 
         # He⁺ + e⁻ total recombination
@@ -190,7 +191,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         # reionization utility functions
         y(z) = (1+z)^(3/2)
         Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
-        smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
         append!(eqs, [
             re1Xe ~ smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) # 1st reionization: H⁺ and He⁺ simultaneously
             re2Xe ~ smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) # 2nd reionization: He⁺⁺
