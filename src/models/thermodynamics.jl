@@ -5,8 +5,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     pars = @parameters begin
         YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
         fHe, [description = "Primordial He-to-H nucleon ratio n(He)/n(H)"] # TODO: correct?
-        re1z, [description = "1st reionization redshift"]
-        re2z, [description = "2nd reionization redshift"]
         κ0, [description = "Optical depth today"] # to make the real κ = 0 today
     end
     vars = @variables begin
@@ -86,18 +84,11 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         _κ => 0.0
         κ0 => NaN
-        re1z => 7.6711
-        re2z => 3.5
         ΔT => 0.0 # i.e. Tb ~ Tγ at early times
     ]
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
-    # reionization utility functions
-    y(z) = (1+z)^(3/2)
-    Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
-    smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
-
-    return System([
+    eqs = [
         # parameter equations
         fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH # TODO: factor mHe/mH?
 
@@ -153,10 +144,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
 
-        # reionization
-        re1Xe ~ reionization ? smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) : 0 # 1st reionization: H⁺ and He⁺ simultaneously
-        re2Xe ~ reionization ? smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) : 0 # 2nd reionization: He⁺⁺
-
         # electrons
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
@@ -168,5 +155,29 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-    ], τ, vars, pars; defaults, description, kwargs...)
+    ]
+
+    if reionization
+        pars_reionization = @parameters begin
+            re1z, [description = "1st reionization redshift"]
+            re2z, [description = "2nd reionization redshift"]
+        end
+        append!(defaults, [
+            re1z => 7.6711
+            re2z => 3.5
+        ])
+        append!(pars, pars_reionization)
+        # reionization utility functions
+        y(z) = (1+z)^(3/2)
+        Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
+        smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+        append!(eqs, [
+            re1Xe ~ smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) # 1st reionization: H⁺ and He⁺ simultaneously
+            re2Xe ~ smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) # 2nd reionization: He⁺⁺
+        ])
+    else
+        append!(eqs, [re1Xe ~ 0, re2Xe ~ 0])
+    end
+
+    return System(eqs, τ, vars, pars; defaults, description, kwargs...)
 end

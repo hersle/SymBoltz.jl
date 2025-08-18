@@ -15,7 +15,8 @@ using Unitful, UnitfulAstro
 using CairoMakie
 
 lmax = 6
-M = w0waCDM(; lmax)
+reionization = true
+M = w0waCDM(; lmax, reionization)
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.1,
@@ -50,7 +51,7 @@ function solve_class(pars, k = nothing)
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => 1,
         "recfast_Heswitch" => 6,
-        "reio_parametrization" => "reio_camb",
+        "reio_parametrization" => reionization ? "reio_camb" : "reio_none",
 
         # cold dark matter
         "Omega_cdm" => pars[M.c.Ω₀],
