@@ -1,6 +1,6 @@
 # TODO: make BaryonSystem or something, then merge into a background_baryon component?
 # TODO: make e⁻ and γ species
-function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
+function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, kwargs...)
     ϵ = 1e-9 # small number to avoid divisions by zero (smaller => more accurate; higher => more stable?)
     pars = @parameters begin
         YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
@@ -35,7 +35,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
 
         XH⁺(τ), [description = "Hydrogen ionization factor"] # H <-> H⁺
         nH(τ), [description = "Total Hydrogen number density"]
-        αH(τ), βH(τ), KH(τ), KH0(τ), KH1(τ), CH(τ)
+        αH(τ), βH(τ), KH(τ), CH(τ)
 
         nHe(τ), [description = "Total Helium number density"]
         XHe⁺(τ), [description = "Singly ionized Helium fraction"] # He <-> He⁺
@@ -72,13 +72,21 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
     λ_He_2p_1s_tri = 59.1411e-9; f_He_2p_1s_tri = c/λ_He_2p_1s_tri; E_He_2p_1s_tri = h*f_He_2p_1s_tri
     λ_He_2s_1s_tri = 62.5563e-9; f_He_2s_1s_tri = c/λ_He_2s_1s_tri; E_He_2s_1s_tri = h*f_He_2s_1s_tri
                                                                     E_He_2p_2s_tri = E_He_2p_1s_tri - E_He_2s_1s_tri
+    if Hswitch == 0
+        FH = 1.14 # fudge factor that emulates more accurate and expensive multi-level calculation (https://arxiv.org/pdf/astro-ph/9909275)
+        KHfitfactor = 1
+    elseif Hswitch == 1
+        FH = 1.125 # fudged fudge factor in RECFAST 1.5.2 to match new He physics in https://arxiv.org/abs/1110.0247
+        KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
+        KHfitfactor = 1 + KHfitfactorfunc(g.a, -0.14, 7.28, 0.18) + KHfitfactorfunc(g.a, 0.079, 6.73, 0.33)
+    else
+        error("Supported H switches are 0 and 1. Got $Hswitch.")
+    end
 
-    αH_fit(T; F=1.14-0.015, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor 1.14-0.015 here is equivalent to the way RECFAST does it)
+    αH_fit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
     αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
     αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
     αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
-    KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
-    KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
@@ -107,9 +115,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
         # H⁺ + e⁻ recombination
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH0 ~ λ_H_2s_1s^3 / (8π*g.H)
-        KH1 ~ KH0 * KH_KH0_fit(g.a)
-        KH ~ KH0 + KH1
+        KH ~ KHfitfactor/8π * λ_H_2s_1s^3 / g.H # KHfitfactor ≈ 1; see above
         CH ~ (1 + KH*ΛH*nH*(1-XH⁺+ϵ)) /
              (1 + KH*(ΛH+βH)*nH*(1-XH⁺+ϵ))
         D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)

@@ -16,7 +16,8 @@ using CairoMakie
 
 lmax = 6
 reionization = true
-M = w0waCDM(; lmax, reionization)
+Hswitch = 1
+M = w0waCDM(; lmax, reionization, Hswitch)
 pars = merge(parameters_Planck18(M), Dict(
     M.X.w0 => -0.9,
     M.X.wa => 0.1,
@@ -49,7 +50,7 @@ function solve_class(pars, k = nothing)
         "Omega_b" => pars[M.b.Ω₀],
         "YHe" => pars[M.b.rec.YHe],
         "recombination" => "recfast", # TODO: HyREC
-        "recfast_Hswitch" => 1,
+        "recfast_Hswitch" => Hswitch,
         "recfast_Heswitch" => 6,
         "reio_parametrization" => reionization ? "reio_camb" : "reio_none",
 
