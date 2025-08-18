@@ -382,3 +382,52 @@ end
     @test all(isapprox.(dτ0_ad[end-2:end], 0.0; atol = 1e-10))
     @test all(isapprox.(dτ0_fd[end-2:end], 0.0; atol = 1e-2))
 end
+
+@testset "Stability of different RECFAST models" begin
+    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    M3 = ΛCDM(K = nothing; reionization = false)
+    for M in [M1, M2, M3]
+        prob = CosmologyProblem(M, pars)
+        sol = solve(prob)
+        @test issuccess(sol)
+        @test all(sol[M.b.rec.XH⁺] .≤ 1 + 1e-5)
+        @test all(sol[M.b.rec.XHe⁺] .≤ 1 + 1e-5)
+        @test all(sol[M.b.rec.XHe⁺⁺/M.b.rec.fHe] .≤ 1 + 1e-5)
+    end
+end
+
+using QuasiMonteCarlo
+function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs...)
+    prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
+    pars = collect(keys(vary))
+    probgen = parameter_updater(prob0, pars)
+    lo = [bound[1] for bound in values(vary)] # lower corner of parameter space
+    hi = [bound[2] for bound in values(vary)] # uppper corner of parameter space
+    samples = QuasiMonteCarlo.sample(nsamples, lo, hi, LatinHypercubeSample())
+    nsuccess = 0
+    verbose && println("Varying ", keys(vary))
+    for sample in eachcol(samples)
+        prob = probgen(sample)
+        sol = solve(prob, ks; verbose, kwargs...)
+        if issuccess(sol)
+            nsuccess += 1
+        end
+        verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
+    end
+    return nsuccess / nsamples
+end
+vary = Dict(par => (0.5val, 1.5val) for (par, val) in pars) # ± 50% around fiducial values
+ks = [1e0, 1e1, 1e2, 1e3]
+@testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
+    @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
+
+    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    @test stability(M1, ks, vary, 100; verbose = true) == 1.0
+
+    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    @test stability(M2, ks, vary, 100; verbose = true) == 1.0
+
+    M3 = ΛCDM(K = nothing; reionization = false)
+    @test stability(M3, ks, vary, 100; verbose = true) == 1.0
+end
