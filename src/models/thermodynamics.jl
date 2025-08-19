@@ -118,7 +118,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         αH ~ αH_fit(Tb)
         βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
         KH ~ KHfitfactor/8π * λ_H_2s_1s^3 / g.H # KHfitfactor ≈ 1; see above
-        CH ~ smoothifelse(XH⁺ - Xlimit, (1 + KH*ΛH*nH*(1-XH⁺+0ϵ)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺+0ϵ)), 1; k = 1e3) # TODO: FH in denominator, see CLASS
+        CH ~ smoothifelse(XH⁺ - Xlimit, (1 + KH*ΛH*nH*(1-XH⁺+0ϵ)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺+0ϵ)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
         D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
