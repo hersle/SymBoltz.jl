@@ -70,15 +70,25 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
     print(io, "Cosmology solution for model ")
     printstyled(io, nameof(sol.prob.bg.f.sys), '\n'; bold = true)
 
+    retcode_color(retcode) = successful_retcode(retcode) ? :green : :red
     printstyled(io, "Stages:"; bold = true)
     if !isnothing(sol.bg)
-        print(io, '\n', indent, "Background: solved with $(algname(sol.bg.alg)), $(length(sol.bg)) points")
+        retcode = sol.bg.retcode
+        print(io, '\n', indent, "Background: return code ")
+        printstyled(io, retcode; color = retcode_color(retcode))
+        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg)) points")
     end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
         nmin, nmax = extrema(map(length, sol.pts))
         n = length(sol.pts)
-        print(io, '\n', indent, "Perturbations: solved with $(algname(sol.pts[1].alg)), $nmin-$nmax points, x$n k ∈ [$kmin, $kmax] H₀/c (interpolation in-between)")
+        retcodes = unique(map(ptsol -> ptsol.retcode, sol.pts))
+        print(io, '\n', indent, "Perturbations: return codes ")
+        for (i, retcode) in enumerate(retcodes)
+            printstyled(io, retcode; color = retcode_color(retcode))
+            i < length(retcodes) && print(io, ", ")
+        end
+        print(io, "; solved with $(algname(sol.pts[1].alg)); $nmin-$nmax points; x$n k ∈ [$kmin, $kmax] H₀/c (interpolation in-between)")
     end
 end
 
