@@ -179,16 +179,21 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support 1-5?
     end
 
+    # CAMB-like tanh(...) reionization
     if reionization
         append!(pars, @parameters begin
             re1z = 7.6711, [description = "1st reionization redshift"]
             re2z = 3.5, [description = "2nd reionization redshift"]
+            Δre1z = 0.5, [description = "1st reionization redshift width"]
+            Δre2z = 0.5, [description = "2nd reionization redshift width"]
+            re1n = 3/2, [description = "1st reionization exponent"]
+            re2n = 1, [description = "2nd reionization exponent"]
         end)
-        y(z) = (1+z)^(3/2) # utility functions
-        Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
+        y(z, n) = (1+z)^n
+        Δy(z, Δz, n) = n*(1+z)^(n-1) * Δz
         append!(eqs, [
-            re1Xe ~ smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) # 1st reionization: H⁺ and He⁺ simultaneously
-            re2Xe ~ smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) # 2nd reionization: He⁺⁺
+            re1Xe ~ smoothifelse(y(re1z, re1n)-y(g.z, re1n), 0, 1+fHe; k=1/Δy(re1z, Δre1z, re1n)) # 1st reionization: H⁺ and He⁺ simultaneously
+            re2Xe ~ smoothifelse(y(re2z, re2n)-y(g.z, re2n), 0, 0+fHe; k=1/Δy(re2z, Δre2z, re2n)) # 2nd reionization: He⁺⁺
         ])
     else
         append!(eqs, [re1Xe ~ 0, re2Xe ~ 0])
