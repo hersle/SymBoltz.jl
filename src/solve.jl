@@ -179,6 +179,7 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
+        # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else

@@ -276,7 +276,7 @@ plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy
 ```@example class
 # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
 wb1 = reverse(sol1["thermodynamics"][:,"w_b"])
-wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/(M.b.rec.μ*SymBoltz.c^2)]
+wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/M.b.rec.μc²]
 plot_compare(a1, a2, wb1, wb2, "a", "wb"; lgx=true, lgy=true, tol = 3e-10)
 ```
 ### Baryon sound speed
