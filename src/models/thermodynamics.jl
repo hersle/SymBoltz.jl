@@ -50,9 +50,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         XHe⁺(τ), [description = "Singly ionized He fraction"]
         XHe⁺⁺(τ), [description = "Doubly ionized He fraction"]
         αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ) # invK = 1 / K
-
-        re1Xe(τ), [description = "1st reionization free electron fraction contribution"]
-        re2Xe(τ), [description = "2nd reionization free electron fraction contribution"]
     end
 
     ΛH = 8.2245809 # s⁻¹
@@ -82,7 +79,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
 
     αHfit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
     αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
-    smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0; smoothifelse(x, v1, v2, k→∞) → ifelse(x < 0, v1, v2)
 
     eqs = [
         # parameter equations
@@ -121,10 +117,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         # He⁺⁺ + e⁻ recombination
         RHe⁺ ~ 1 * exp(-βb*EHe⁺∞1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
-
-        # electrons
-        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
-        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
 
         D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
         κ̇ ~ D(_κ) # optical depth derivative
@@ -176,29 +168,59 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
             DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-βb*EHet2s1s))
         ])
     else
-        error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support 1-5?
+        error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support more granular switches 1-5?
     end
 
-    # CAMB-like tanh(...) reionization
     if reionization
-        append!(pars, @parameters begin
-            re1z = 7.6711, [description = "1st reionization redshift"]
-            re2z = 3.5, [description = "2nd reionization redshift"]
-            Δre1z = 0.5, [description = "1st reionization redshift width"]
-            Δre2z = 0.5, [description = "2nd reionization redshift width"]
-            re1n = 3/2, [description = "1st reionization exponent"]
-            re2n = 1, [description = "2nd reionization exponent"]
-        end)
-        y(z, n) = (1+z)^n
-        Δy(z, Δz, n) = n*(1+z)^(n-1) * Δz
-        append!(eqs, [
-            re1Xe ~ smoothifelse(y(re1z, re1n)-y(g.z, re1n), 0, 1+fHe; k=1/Δy(re1z, Δre1z, re1n)) # 1st reionization: H⁺ and He⁺ simultaneously
-            re2Xe ~ smoothifelse(y(re2z, re2n)-y(g.z, re2n), 0, 0+fHe; k=1/Δy(re2z, Δre2z, re2n)) # 2nd reionization: He⁺⁺
+        @named rei1 = reionization_tanh(g)
+        @named rei2 = reionization_tanh(g)
+        append!(defaults, [
+            rei1.z => 7.6711, rei1.Δz => 0.5, rei1.n => 3/2,
+            rei2.z => 3.5, rei2.Δz => 0.5, rei2.n => 1,
         ])
+        append!(eqs, [
+            rei1.Xemax ~ 1 + fHe
+            rei2.Xemax ~ fHe
+        ])
+        reis = [rei1, rei2]
     else
-        append!(eqs, [re1Xe ~ 0, re2Xe ~ 0])
+        reis = []
     end
+
+    append!(eqs, [
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + sum(rei.Xe for rei in reis; init = 0) # total free electron fraction # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
+        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
+    ])
 
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
-    return System(eqs, τ, vars, pars; defaults, description, kwargs...)
+    rec = System(eqs, τ, vars, pars; defaults, description, kwargs...)
+    rec = compose(rec, reis)
+    return rec
+end
+
+"""
+    reionization_tanh(g; kwargs...)
+
+Reionization physics with a free electron function that is activated around a given redshift `z` by a tanh function.
+Equivalent to the reionization model in CAMB.
+
+References
+==========
+- https://cosmologist.info/notes/CAMB.pdf#section*.10
+"""
+function reionization_tanh(g; kwargs...)
+    pars = @parameters begin
+        z, [description = "reionization redshift"]
+        Δz, [description = "reionization redshift width"]
+        n, [description = "reionization exponent"]
+        Xemax, [description = "fully ionized contribution to the free electron fraction"]
+    end
+    vars = @variables begin
+        Xe(τ), [description = "free electron fraction contribution"]
+    end
+    eqs = [
+        Xe ~ smoothifelse((1+z)^n - (1+g.z)^n, 0, Xemax; k = 1/(n*(1+z)^(n-1)*Δz))
+    ]
+    description = "Reionization with tanh-like (activation function) contribution to the free electron fraction"
+    return System(eqs, τ, vars, pars; description, kwargs...)
 end
