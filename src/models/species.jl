@@ -1,5 +1,5 @@
 """
-    species_constant_eos(g, w, cₛ² = w, ẇ = 0, _σ = 0; θinteract = false, kwargs...)
+    species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
 
 Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
 """
@@ -17,11 +17,11 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         ρ(τ), [description = "Background density"]
         P(τ), [description = "Background pressure"]
         Ω(τ), [description = "Reduced background density"]
+        cₛ²(τ), [description = "Speed of sound squared"]
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
         θinteraction(τ, k), [description = "Velocity divergence interaction"]
         σ(τ, k), [description = "Shear stress"]
-        cₛ²(τ, k), [description = "Speed of sound squared"]
         u(τ, k), [description = "Velocity"]
         u̇(τ, k), [description = "Velocity derivative"]
     end
@@ -81,14 +81,13 @@ Create a particle species for the cosmological constant (with equation of state 
 """
 function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
     description = "Cosmological constant"
-    Λ = species_constant_eos(g, -1; name, analytical, description, kwargs...) |> background |> complete # discard ill-defined perturbations
+    Λ = species_constant_eos(g, -1; name, analytical, adiabatic = true, description, kwargs...) |> background |> complete # discard ill-defined perturbations
     vars = @variables begin
-        cₛ²(τ, k), [description = "Speed of sound squared"]
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
         σ(τ, k), [description = "Shear stress"]
     end
-    eqs = [δ ~ 0, θ ~ 0, σ ~ 0, cₛ² ~ -1]
+    eqs = [δ ~ 0, θ ~ 0, σ ~ 0]
     description = "Cosmological constant"
     return extend(Λ, System(eqs, τ, vars, []; name); description) # manually set perturbations to zero
 end
@@ -149,10 +148,9 @@ Create a particle species for photons in the spacetime with metric `g`.
 function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     description = "Photons"
-    γ = radiation(g; name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
+    γ = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables begin
-        cₛ²(τ, k), [description = "Speed of sound squared"]
         F0(τ, k), [description = "Distribution function monopole"]
         F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
         Θ0(τ, k), [description = "Temperature perturbation monopole"]
@@ -181,7 +179,6 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         σ ~ F[2]/2
         Π ~ F[2] + G0 + G[2]
         Π̇ ~ D(Π)
-        cₛ² ~ 1//3
         Θ0 ~ F0/4
         [Θ[l] ~ F[l]/4 for l in 1:lmax]...
     ]
@@ -218,10 +215,9 @@ Create a particle species for massless neutrinos in the spacetime with metric `g
 """
 function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     description = "Massless neutrinos"
-    ν = radiation(g; name, description, kwargs...) |> background |> complete
+    ν = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete
 
     vars = @variables begin
-        cₛ²(τ, k), [description = "Speed of sound squared"] # TODO: avoid redefining after generic eos function
         F0(τ, k), [description = "Distribution function monopole"]
         F(τ, k)[1:lmax+1], [description = "Distribution function multipoles"]
         δ(τ, k), [description = "Overdensity"]
@@ -239,7 +235,6 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
-        cₛ² ~ 1//3
     ]
     ics = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
@@ -354,14 +349,8 @@ end
 Create a particle species for cold dark matter in the spacetime with metric `g`.
 """
 function cold_dark_matter(g; name = :c, kwargs...)
-    c = matter(g; name, kwargs...) |> complete
-    vars = @variables begin
-        cₛ²(τ, k), [description = "Speed of sound squared"]
-    end
-    eqs = [cₛ² ~ 0]
     description = "Cold dark matter"
-    c = extend(c, System(eqs, τ, vars, []; name); description)
-    return c
+    return matter(g; adiabatic = true, name, description, kwargs...)
 end
 
 """
@@ -371,7 +360,7 @@ Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination = true, reionization = true, name = :b, kwargs...)
     description = "Baryons"
-    b = matter(g; θinteract=true, name, description, kwargs...) |> complete
+    b = matter(g; adiabatic = false, θinteract=true, name, description, kwargs...) |> complete
     if recombination # TODO: simply dont add recombination system when recombination = false
         @named rec = thermodynamics_recombination_recfast(g; reionization)
         eqs = Equation[]
@@ -413,7 +402,7 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         m²(τ), [description = "Effective mass"]
         ϵs(τ), [description = "1st slow roll parameter"]
         ηs(τ), [description = "2nd slow roll parameter"]
-        cₛ²(τ, k), [description = "Speed of sound squared"]
+        cₛ²(τ), [description = "Speed of sound squared"]
     end
     eqs = [
         V ~ v
