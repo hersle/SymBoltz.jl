@@ -19,6 +19,10 @@ const H100 = 100 * km/Mpc
 const k0 = H100 * Mpc / c # h/Mpc
 const eV = 1u"eV/J" |> NoUnits
 
+const me = PhysicalConstants.CODATA2018.m_e / u"kg"
+const mH = elements[:H].atomic_mass / u"kg" |> NoUnits
+const mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
+
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
 
 function k_dimensionless(k::Number, h)

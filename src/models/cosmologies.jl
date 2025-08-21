@@ -75,8 +75,7 @@ function ΛCDM(;
     append!(eqs, [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
-        b.rec.ρb ~ b.ρ * (H100*g.h)^2/GN # kg/m³ (convert from H₀=1 units to SI units)
-        b.rec.Tγ ~ γ.T
+        b.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
         χ ~ τ0 - τ
     ])
@@ -84,17 +83,17 @@ function ΛCDM(;
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species) # TODO: factor 2/3 or 3/2? See e.g. https://arxiv.org/pdf/astro-ph/9506072 bottom of page 10? Check all models.
-        b.θinteraction ~ -b.rec.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
-        γ.κ̇ ~ b.rec.κ̇
+        b.θinteraction ~ -b.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
+        γ.κ̇ ~ b.κ̇
         γ.θb ~ b.θ
 
-        ST0_SW ~ b.rec.v * (γ.δ/4 + g.Ψ + γ.Π/16)
-        ST0_ISW ~ exp(-b.rec.κ) * (g.Ψ̇ + g.Φ̇)
-        ST0_Doppler ~ D(b.rec.v*b.u) / k |> expand_derivatives
-        ST1_Doppler ~ b.rec.v*b.u
-        ST0_polarization ~ 3/(16*k^2) * D(D(b.rec.v*γ.Π)) |> expand_derivatives
-        ST1_polarization ~ 3/(16*k) * D(b.rec.v*γ.Π) |> expand_derivatives
-        ST2_polarization ~ 3/16 * b.rec.v*γ.Π
+        ST0_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
+        ST0_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
+        ST0_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
+        ST1_Doppler ~ b.v*b.u
+        ST0_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
+        ST1_polarization ~ 3/(16*k) * D(b.v*γ.Π) |> expand_derivatives
+        ST2_polarization ~ 3/16 * b.v*γ.Π
         ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
         ST1 ~ 0
     ])

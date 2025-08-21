@@ -37,7 +37,7 @@ pars = Dict(
     M.b.Ω₀ => 0.05,
     M.ν.Neff => 3.0,
     M.g.h => 0.7,
-    M.b.rec.YHe => 0.25,
+    M.b.YHe => 0.25,
     M.h.m_eV => 0.06,
     M.I.ln_As1e10 => 3.0,
     M.I.ns => 0.95
@@ -102,9 +102,9 @@ p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legend
 plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
 plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
 plot!(p[3], sol, log10(M.g.a), log10(M.g.E))
-plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.rec.Xe])
-plot!(p[5], sol, log10(M.g.a), log10.([M.b.rec.Tγ, M.b.rec.Tb] ./ M.γ.T₀))
-plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.rec.κ)))
+plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.Xe])
+plot!(p[5], sol, log10(M.g.a), log10.([M.γ.T, M.b.T] ./ M.γ.T₀))
+plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.κ)))
 plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks_plot)
 plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), ks_plot; klabel = false)
 plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), ks_plot; klabel = false)

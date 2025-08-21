@@ -1,5 +1,5 @@
 """
-    thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
+    recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
 
 Recombination physics for Hydrogen and Helium (including fudge factors) based on RECFAST 1.5.2.
 
@@ -11,36 +11,18 @@ References
 - https://arxiv.org/abs/astro-ph/9912182).
 - https://arxiv.org/abs/1110.0247
 """
-function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
+function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
     pars = @parameters begin
-        YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
-        fHe, [description = "Primordial He/H nucleon ratio n(He)/n(H)"]
-        κ0 = NaN, [description = "Optical depth today (set retrospectively)"] # to make the real κ = 0 today
         XlimC = 0.99, [description = "Set CHe = CH = 1 for larger XH⁺ and XHe⁺ to avoid instabilities"]
         FH, [description = "Hydrogen fudge factor"] # to emulate more accurate and expensive multi-level calculation (https://arxiv.org/pdf/astro-ph/9909275)
     end
     vars = @variables begin
-        Xe(τ), [description = "Total free electron fraction"]
-        ne(τ), [description = "Free electron number density"]
+        Xe(τ), [description = "Free electron fraction contribution"]
+        ne(τ), [description = "Total free electron number density"]
         λe(τ), [description = "Electron de-Broglie wavelength"]
 
-        κ(τ), [description = "Optical depth normalized to 0 today"]
-        _κ(τ), [description = "Optical depth normalized to 0 initially"]
-        κ̇(τ), [description = "Optical depth derivative"]
-        I(τ), [description = "Optical depth exponential exp(-κ)"]
-        v(τ), [description = "Visibility function"]
-        v̇(τ), [description = "Visibility function derivative"]
-
-        Tγ(τ), [description = "Photon temperature"]
-        Tb(τ), [description = "Baryon temperature"]
-        ΔT(τ) = 0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times
-        DTγ(τ), [description = "Photon temperature derivative"]
-        DTb(τ), [description = "Baryon temperature derivative"]
-        βb(τ), [description = "Baryon inverse temperature (coldness)"]
-        cₛ²(τ), [description = "Thermal speed of sound squared"]
-
-        ρb(τ), [description = "Baryon mass density"]
-        μc²(τ), [description = "Mean molecular weight multiplied by speed of light squared"]
+        T(τ), [description = "Temperature"]
+        β(τ), [description = "Inverse temperature (coldness)"]
 
         XH⁺(τ), [description = "H ionization fraction n(H⁺)/nH"]
         nH(τ), [description = "Total H number density"]
@@ -54,9 +36,6 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
 
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
-    me = PhysicalConstants.CODATA2018.m_e / u"kg"
-    mH = elements[:H].atomic_mass / u"kg" |> NoUnits
-    mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
 
     # Hydrogen singlet transitions
     λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)
@@ -74,57 +53,38 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        _κ => 0.0
     ]
 
     αHfit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
     αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
 
     eqs = [
-        # parameter equations
-        fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH
-
-        nH ~ (1-YHe) * ρb/mH # 1/m³
-        nHe ~ fHe * nH # 1/m³
-
-        DTb ~ -2*Tb*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
-        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
-        D(ΔT) ~ DTb - DTγ # solve ODE for D(Tb-Tγ), since solving it for D(Tb) instead is extremely sensitive to Tb-Tγ≈0 at early times
-        Tb ~ ΔT + Tγ
-        βb ~ 1 / (kB*Tb)
-        λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        μc² ~ mH*c^2 / ((1 + (mH/mHe-1)*YHe + Xe*(1-YHe)))
-        cₛ² ~ kB/μc² * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        β ~ 1 / (kB*T)
+        λe ~ h / √(2π*me/β) # e⁻ de-Broglie wavelength
 
         # H⁺ + e⁻ recombination
-        αH ~ αHfit(Tb)
-        βH ~ αH / λe^3 * exp(-βb*EH∞2s)
+        αH ~ αHfit(T)
+        βH ~ αH / λe^3 * exp(-β*EH∞2s)
         KH ~ KHfitfactor/8π * λH2s1s^3 / g.H # KHfitfactor ≈ 1; see above
         CH ~ smoothifelse(XH⁺ - XlimC, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
-        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*EH2s1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
+        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
-        αHe ~ αHefit(Tb; q=10^(-16.744), p=0.711)
-        βHe ~ 4 * αHe / λe^3 * exp(-βb*EHe∞2s)
+        αHe ~ αHefit(T; q=10^(-16.744), p=0.711)
+        βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
         KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2) # corrections are additive in inverse KHe
         invKHe0 ~ 8π*g.H / λHe2p1s^3
-        CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-βb*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-βb*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
-        DXHe⁺ ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*EHe2s1s))
+        CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
+        DXHe⁺ ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
         # He⁺ + e⁻ total recombination
         D(XHe⁺) ~ DXHe⁺ + DXHet⁺ # singlet + triplet
 
         # He⁺⁺ + e⁻ recombination
-        RHe⁺ ~ 1 * exp(-βb*EHe⁺∞1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
+        RHe⁺ ~ 1 * exp(-β*EHe⁺∞1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
 
-        D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
-        κ̇ ~ D(_κ) # optical depth derivative
-        κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
-        I ~ exp(-κ)
-
-        v ~ D(exp(-κ)) |> expand_derivatives # visibility function
-        v̇ ~ D(v)
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
     ]
 
     if Hswitch == 0
@@ -148,7 +108,7 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
         EHet2p2s = EHet2p1s - EHet2s1s
         A2ps = 1.798287e9 # A 2p singlet
         A2pt = 177.58e0 # A 2p triplet
-        γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
+        γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
         append!(vars, @variables γ2ps(τ) αHet(τ) βHet(τ) τHet(τ) pHet(τ) CHet(τ) CHetnum(τ) γ2pt(τ))
         append!(eqs, [
             τHe ~ 3*A2ps*nHe*(1-XHe⁺+ϵ) / invKHe0
@@ -158,44 +118,20 @@ function thermodynamics_recombination_recfast(g; reionization = true, Hswitch = 
             invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction)
 
             # He⁺ + e⁻ triplet recombination
-            αHet ~ αHefit(Tb; q=10^(-16.306), p=0.761)
-            βHet ~ 4/3 * αHet / λe^3 * exp(-βb*EHet∞2s)
+            αHet ~ αHefit(T; q=10^(-16.306), p=0.761)
+            βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
             τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*g.H)
             pHet ~ (1 - exp(-τHet)) / τHet
             γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
-            CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-βb*EHet2p2s) # numerator of CHet
+            CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet
             CHet ~ (ϵ + CHetnum) / (ϵ + CHetnum + βHet) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-            DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-βb*EHet2s1s))
+            DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
         ])
     else
         error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support more granular switches 1-5?
     end
-
-    if reionization
-        @named rei1 = reionization_tanh(g)
-        @named rei2 = reionization_tanh(g)
-        append!(defaults, [
-            rei1.z => 7.6711, rei1.Δz => 0.5, rei1.n => 3/2,
-            rei2.z => 3.5, rei2.Δz => 0.5, rei2.n => 1,
-        ])
-        append!(eqs, [
-            rei1.Xemax ~ 1 + fHe
-            rei2.Xemax ~ fHe
-        ])
-        reis = [rei1, rei2]
-    else
-        reis = []
-    end
-
-    append!(eqs, [
-        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + sum(rei.Xe for rei in reis; init = 0) # total free electron fraction # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
-        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
-    ])
-
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
-    rec = System(eqs, τ, vars, pars; defaults, description, kwargs...)
-    rec = compose(rec, reis)
-    return rec
+    return System(eqs, τ, vars, pars; defaults, description, kwargs...)
 end
 
 """

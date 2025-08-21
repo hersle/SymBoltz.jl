@@ -15,13 +15,13 @@ pars = Dict(
     M.b.Ω₀ => 0.05,
     M.γ.T₀ => 2.7,
     M.ν.Neff => 3.0,
-    M.b.rec.YHe => 0.25,
+    M.b.YHe => 0.25,
     M.h.m_eV => 0.06,
     M.I.ln_As1e10 => 3.0,
     M.I.ns => 0.96
 )
 # TODO: more parameters, try one-by-one: Neff is a bit iffy # hide
-pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.rec.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
+pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
 prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varying to NaN
 ```
 

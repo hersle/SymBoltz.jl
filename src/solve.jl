@@ -142,10 +142,10 @@ function CosmologyProblem(
         end
         parsymbols = Symbol.(parameters(bg))
         haveτ0 = Symbol(iv) == :τ && Symbol("τ0") in parsymbols
-        haveκ0 = Symbol("b₊rec₊κ0") in parsymbols
+        haveκ0 = Symbol("b₊κ0") in parsymbols
         τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.τ0) : nothing
-        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b.rec._κ) : nothing
-        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.κ0) : nothing
+        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b._κ) : nothing
+        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.κ0) : nothing
         function affect!(integrator)
             if haveτ0
                 integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv

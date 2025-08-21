@@ -49,7 +49,7 @@ function solve_class(pars, k = nothing)
 
         # baryons
         "Omega_b" => pars[M.b.Ω₀],
-        "YHe" => pars[M.b.rec.YHe],
+        "YHe" => pars[M.b.YHe],
         "recombination" => "recfast", # TODO: HyREC
         "recfast_Hswitch" => Hswitch,
         "recfast_Heswitch" => Heswitch,
@@ -243,46 +243,46 @@ plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 1e6)
 a1 = reverse(sol1["thermodynamics"][:,"scale factor a"])
 a2 = sol2[M.g.a]
 dκ1 = reverse(sol1["thermodynamics"][:,"kappa' [Mpc^-1]"])
-dκ2 = -sol2[M.b.rec.κ̇] * (h*SymBoltz.k0)
+dκ2 = -sol2[M.b.κ̇] * (h*SymBoltz.k0)
 plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 2e3)
 ```
 ### Optical depth exponential
 ```@example class
 expmκ1 = reverse(sol1["thermodynamics"][:,"exp(-kappa)"])
-expmκ2 = sol2[M.b.rec.I]
+expmκ2 = sol2[M.b.I]
 plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 4e-5)
 ```
 ### Visibility function
 ```@example class
 v1 = reverse(sol1["thermodynamics"][:,"g [Mpc^-1]"])
-v2 = sol2[M.b.rec.v] * (h*SymBoltz.k0)
+v2 = sol2[M.b.v] * (h*SymBoltz.k0)
 plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 2e-6)
 ```
 ### Free electron fraction
 ```@example class
 Xe1 = reverse(sol1["thermodynamics"][:,"x_e"])
-Xe2 = sol2[M.b.rec.Xe]
+Xe2 = sol2[M.b.Xe]
 plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 5e-4)
 ```
 ### Baryon temperature
 ```@example class
 Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
-Tb2 = sol2[M.b.rec.Tb]
+Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
-dTb2 = sol2[M.b.rec.DTb] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
+dTb2 = sol2[M.b.DT] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
 plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
 ```
 ### Baryon equation of state
 ```@example class
 # baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
 wb1 = reverse(sol1["thermodynamics"][:,"w_b"])
-wb2 = sol2[SymBoltz.kB*M.b.rec.Tb/M.b.rec.μc²]
+wb2 = sol2[SymBoltz.kB*M.b.T/M.b.μc²]
 plot_compare(a1, a2, wb1, wb2, "a", "wb"; lgx=true, lgy=true, tol = 3e-10)
 ```
 ### Baryon sound speed
 ```@example class
 csb²1 = reverse(sol1["thermodynamics"][:,"c_b^2"])
-csb²2 = sol2[M.b.rec.cₛ²]
+csb²2 = sol2[M.b.cₛ²]
 plot_compare(a1, a2, csb²1, csb²2, "a", "csb²"; lgx=true, lgy=true, tol = 4e-10)
 ```
 
