@@ -66,7 +66,7 @@ For example:
 ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
 as = sol(M.g.a, τs) # scale factors
 Ωms = sol((M.b.ρ + M.c.ρ) / M.G.ρ, τs) # matter-to-total density ratios
-κs = sol(M.b.rec.κ, τs) # optical depths
+κs = sol(M.b.κ, τs) # optical depths
 Φs = sol(M.g.Φ, τs, ks) # metric potentials
 Φs_over_Ψs = sol(M.g.Φ / M.g.Ψ, τs, ks) # ratio between metric potentials
 nothing # hide
@@ -80,7 +80,7 @@ For example, to plot some of the same quantities that we obtained above:
 ```@example sol
 using Plots
 p1 = plot(sol, log10(M.g.a), (M.b.ρ + M.c.ρ) / M.G.ρ)
-p2 = plot(sol, log10(M.g.a), log10(abs(M.b.rec.κ)))
+p2 = plot(sol, log10(M.g.a), log10(abs(M.b.κ)))
 p3 = plot(sol, log10(M.g.a), M.g.Φ / M.g.Ψ, ks[1:3]) # exclude last k, where Φ and Ψ cross 0
 plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
 ```

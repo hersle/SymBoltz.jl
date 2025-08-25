@@ -142,10 +142,10 @@ function CosmologyProblem(
         end
         parsymbols = Symbol.(parameters(bg))
         haveτ0 = Symbol(iv) == :τ && Symbol("τ0") in parsymbols
-        haveκ0 = Symbol("b₊rec₊κ0") in parsymbols
+        haveκ0 = Symbol("b₊κ0") in parsymbols
         τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.τ0) : nothing
-        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b.rec._κ) : nothing
-        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.rec.κ0) : nothing
+        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b._κ) : nothing
+        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.κ0) : nothing
         function affect!(integrator)
             if haveτ0
                 integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
@@ -179,6 +179,7 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
+        # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, keys(var2spl)) # must remove ICs of splined variables to avoid overdetermined initialization system
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
     else
@@ -333,7 +334,7 @@ Solve the background cosmology problem `bgprob`.
 function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
     bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
     if !successful_retcode(bgsol)
-        @warn warning_failed_solution(bgsol, "Background"; verbose) maxlog=1
+        @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
     return bgsol
 end
@@ -418,7 +419,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
-            @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose) maxlog=1
+            @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
         end
         return output_func(sol, i)
     end
@@ -426,7 +427,6 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob, prob_func = prob_func, output_func = output_func_warn)
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
     ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, abstol, kwargs...) # TODO: test GPU parallellization
-    verbose && println() # end line in output_func
     return ptsols
 end
 

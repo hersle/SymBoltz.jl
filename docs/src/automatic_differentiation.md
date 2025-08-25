@@ -15,7 +15,7 @@ To do so, let us write a small wrapper function that calculates the power spectr
 ```@example ad
 using SymBoltz
 M = ΛCDM(K = nothing)
-pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.rec.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
+pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 probgen = parameter_updater(prob0, pars)

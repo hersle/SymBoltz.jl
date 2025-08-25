@@ -161,13 +161,13 @@ end
         return all(isapprox.(vals1, vals2; atol, rtol))
     end
     @test checkvar(M.g.a, 1e-6, 0)
-    @test checkvar(M.b.rec.κ̇, 0, 1e-2)
-    @test checkvar(M.b.rec.κ, 0, 1e-4)
-    @test checkvar(M.b.rec.v, 1e-3, 0)
-    @test checkvar(M.b.rec.v̇, 0, 1e1) # TODO: improve
-    @test checkvar(M.b.rec.cₛ², 1e-4, 0)
-    @test checkvar(M.b.rec.Tb, 0, 1e-5)
-    @test checkvar(M.b.rec.Xe, 1e-5, 0)
+    @test checkvar(M.b.κ̇, 0, 1e-2)
+    @test checkvar(M.b.κ, 0, 1e-4)
+    @test checkvar(M.b.v, 1e-3, 0)
+    @test checkvar(M.b.v̇, 0, 1e1) # TODO: improve
+    @test checkvar(M.b.cₛ², 1e-4, 0)
+    @test checkvar(M.b.T, 0, 1e-5)
+    @test checkvar(M.b.Xe, 1e-5, 0)
 end
 
 @testset "Whole model without autosplining" begin
@@ -177,8 +177,8 @@ end
 #=
 @testset "Spline observed variables" begin
     prob1 = prob
-    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.rec.v])
-    @test haskey(prob2.var2spl, M.b.rec.v)
+    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.v])
+    @test haskey(prob2.var2spl, M.b.v)
 
     obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS
     @test obs2["b₊rec₊v(τ)"] == "SymBoltz.value(b₊rec₊v_spline, τ)"
@@ -187,8 +187,8 @@ end
     sol1 = solve(prob1, 1.0)
     sol2 = solve(prob2, 1.0)
     τs = sol1[M.τ]
-    v1s = sol1(1.0, τs, M.b.rec.v)
-    v2s = sol2(1.0, τs, M.b.rec.v)
+    v1s = sol1(1.0, τs, M.b.v)
+    v2s = sol2(1.0, τs, M.b.v)
     @test all(isapprox.(v1s, v2s; atol = 1e-3))
 end
 =#
@@ -210,7 +210,7 @@ end
     τ0 = sol[M.τ0]
     @test sol(M.g.a, τ0) ≈ sol(M.g.a, τ0, ks) ≈ 1.0
     @test sol(M.χ, τ0) == sol(M.χ, τ0, ks) == 0.0
-    @test sol(M.b.rec.κ, τ0) == sol(M.b.rec.κ, τ0, ks) == 0.0
+    @test sol(M.b.κ, τ0) == sol(M.b.κ, τ0, ks) == 0.0
 end
 
 @testset "Equal parameters in background and perturbation solutions" begin
@@ -218,7 +218,7 @@ end
     pars = [ # choose lots of background parameters that should be equal in perturbations
         M.τ0, M.g.h,
         M.c.Ω₀,
-        M.b.Ω₀, M.b.rec.YHe, M.b.rec.fHe, M.b.rec.re1z, M.b.rec.re2z, M.b.rec.κ0,
+        M.b.Ω₀, M.b.YHe, M.b.fHe, M.b.rei1.z, M.b.rei2.z, M.b.κ0,
         M.γ.Ω₀, M.γ.T₀,
         M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
         M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
@@ -371,7 +371,7 @@ end
 end
 
 @testset "Background differentiation test" begin
-    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.rec.YHe, M.I.ln_As1e10, M.I.ns]
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = SymBoltz.parameter_updater(prob, diffpars)
     getτ0 = SymBoltz.getsym(prob, M.τ0)
     τ0(θ) = getτ0(solve(probgen(θ)))
@@ -381,4 +381,53 @@ end
     @test all(isapprox.(dτ0_ad, dτ0_fd; atol = 1e-2))
     @test all(isapprox.(dτ0_ad[end-2:end], 0.0; atol = 1e-10))
     @test all(isapprox.(dτ0_fd[end-2:end], 0.0; atol = 1e-2))
+end
+
+@testset "Stability of different RECFAST models" begin
+    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    M3 = ΛCDM(K = nothing; reionization = false)
+    for M in [M1, M2, M3]
+        prob = CosmologyProblem(M, pars)
+        sol = solve(prob)
+        @test issuccess(sol)
+        @test all(sol[M.b.rec.XH⁺] .≤ 1 + 1e-5)
+        @test all(sol[M.b.rec.XHe⁺] .≤ 1 + 1e-5)
+        @test all(sol[M.b.rec.XHe⁺⁺/M.b.fHe] .≤ 1 + 1e-5)
+    end
+end
+
+using QuasiMonteCarlo
+function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs...)
+    prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
+    pars = collect(keys(vary))
+    probgen = parameter_updater(prob0, pars)
+    lo = [bound[1] for bound in values(vary)] # lower corner of parameter space
+    hi = [bound[2] for bound in values(vary)] # uppper corner of parameter space
+    samples = QuasiMonteCarlo.sample(nsamples, lo, hi, LatinHypercubeSample())
+    nsuccess = 0
+    verbose && println("Varying ", keys(vary))
+    for sample in eachcol(samples)
+        prob = probgen(sample)
+        sol = solve(prob, ks; verbose, kwargs...)
+        if issuccess(sol)
+            nsuccess += 1
+        end
+        verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
+    end
+    return nsuccess / nsamples
+end
+vary = Dict(par => (0.5val, 1.5val) for (par, val) in pars) # ± 50% around fiducial values
+ks = [1e0, 1e1, 1e2, 1e3]
+@testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
+    @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
+
+    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    @test stability(M1, ks, vary, 100; verbose = true) == 1.0
+
+    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    @test stability(M2, ks, vary, 100; verbose = true) == 1.0
+
+    M3 = ΛCDM(K = nothing; reionization = false)
+    @test stability(M3, ks, vary, 100; verbose = true) == 1.0
 end

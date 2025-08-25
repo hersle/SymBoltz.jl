@@ -6,7 +6,7 @@ function parameters_Planck18(M::System)
         M.γ.T₀ => 2.7255,
         M.c.Ω₀ => 0.1200 / h^2,
         M.b.Ω₀ => 0.0224 / h^2,
-        M.b.rec.YHe => 0.2454,
+        M.b.YHe => 0.2454,
     )
     have(M, :ν) && push!(params, M.ν.Neff => 2.99)
     have(M, :h) && push!(params, M.h.m_eV => 0.06)

@@ -1,148 +1,162 @@
-# TODO: make BaryonSystem or something, then merge into a background_baryon component?
-# TODO: make e⁻ and γ species
-function thermodynamics_recombination_recfast(g; reionization = true, kwargs...)
-    ϵ = 1e-9 # small number to avoid divisions by zero (smaller => more accurate; higher => more stable?)
+"""
+    recombination_recfast(g; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
+
+Recombination physics for Hydrogen and Helium (including fudge factors) based on RECFAST 1.5.2.
+
+References
+==========
+- https://www.astro.ubc.ca/people/scott/recfast.html
+- https://www.astro.ubc.ca/people/scott/recfast.for
+- https://arxiv.org/abs/astro-ph/9909275
+- https://arxiv.org/abs/astro-ph/9912182).
+- https://arxiv.org/abs/1110.0247
+"""
+function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, Heswitch = 6, kwargs...)
     pars = @parameters begin
-        YHe, [description = "Primordial He mass fraction ρ(He)/(ρ(H)+ρ(He))"] # TODO: correct?
-        fHe, [description = "Primordial He-to-H nucleon ratio n(He)/n(H)"] # TODO: correct?
-        re1z, [description = "1st reionization redshift"]
-        re2z, [description = "2nd reionization redshift"]
-        κ0, [description = "Optical depth today"] # to make the real κ = 0 today
+        XlimC = 0.99, [description = "Set CHe = CH = 1 for larger XH⁺ and XHe⁺ to avoid instabilities"]
+        FH, [description = "Hydrogen fudge factor"] # to emulate more accurate and expensive multi-level calculation (https://arxiv.org/pdf/astro-ph/9909275)
     end
     vars = @variables begin
-        Xe(τ), [description = "Total free electron fraction"]
-        ne(τ), [description = "Free electron number density"]
+        Xe(τ), [description = "Free electron fraction contribution"]
+        ne(τ), [description = "Total free electron number density"]
         λe(τ), [description = "Electron de-Broglie wavelength"]
 
-        κ(τ), [description = "Optical depth normalized to 0 today"]
-        _κ(τ), [description = "Optical depth normalized to 0 initially"]
-        κ̇(τ), [description = "Optical depth derivative"]
-        I(τ), [description = "Optical depth exponential exp(-κ)"]
-        v(τ), [description = "Visibility function"]
-        v̇(τ), [description = "Visibility function derivative"]
+        T(τ), [description = "Temperature"]
+        β(τ), [description = "Inverse temperature (coldness)"]
 
-        Tγ(τ), [description = "Photon temperature"]
-        Tb(τ), [description = "Baryon temperature"]
-        ΔT(τ), [description = "Difference between baryon and photon temperature"]
-        DTγ(τ), [description = "Photon temperature derivative"]
-        DTb(τ), [description = "Baryon temperature derivative"]
-        βb(τ), [description = "inverse temperature (coldness)"]
-        cₛ²(τ), [description = "Thermal speed of sound squared"]
+        XH⁺(τ), [description = "H ionization fraction n(H⁺)/nH"]
+        nH(τ), [description = "Total H number density"]
+        αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ)
 
-        ρb(τ), [description = "Baryon density"]
-        μ(τ), [description = "Mean molecular weight"]
-
-        re1Xe(τ), [description = "1st reionization free electron fraction contribution"]
-        re2Xe(τ), [description = "2nd reionization free electron fraction contribution"]
-
-        XH⁺(τ), [description = "Hydrogen ionization factor"] # H <-> H⁺
-        nH(τ), [description = "Total Hydrogen number density"]
-        αH(τ), βH(τ), KH(τ), KH0(τ), KH1(τ), CH(τ)
-
-        nHe(τ), [description = "Total Helium number density"]
-        XHe⁺(τ), [description = "Singly ionized Helium fraction"] # He <-> He⁺
-        XHe⁺⁺(τ), [description = "Doubly ionized Helium fraction"] # He⁺ <-> He⁺⁺
-        αHe(τ), βHe(τ), τHe(τ), KHe(τ), KHe0⁻¹(τ), KHe1⁻¹(τ), KHe2⁻¹(τ), γ2Ps(τ), CHe(τ) # K(...)⁻¹ = 1 / K(...)
-        RHe⁺(τ), αHe3(τ), βHe3(τ), τHe3(τ), pHe3(τ), CHe3(τ), γ2Pt(τ), DXHe⁺_singlet(τ), DXHe⁺_triplet(τ) # He triplet correction variables
+        nHe(τ), [description = "Total He number density"]
+        XHe⁺(τ), [description = "Singly ionized He fraction"]
+        XHe⁺⁺(τ), [description = "Doubly ionized He fraction"]
+        αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ) # invK = 1 / K
     end
 
-    # RECFAST implementation of Hydrogen and Helium recombination (https://arxiv.org/pdf/astro-ph/9909275 + https://arxiv.org/abs/astro-ph/9912182))
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
-    A2Ps = 1.798287e9
-    A2Pt = 177.58e0
-    αH_fit(T; F=1.14-0.015, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor 1.14-0.015 here is equivalent to the way RECFAST does it)
-    αHe_fit(T, q, p, T1, T2) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
-    αHe_fit(T) = αHe_fit(T, 10^(-16.744), 0.711, 10^5.114, 3.0)
-    αHe3_fit(T) = αHe_fit(T, 10^(-16.306), 0.761, 10^5.114, 3.0)
-    KH_KH0_fit(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
-    KH_KH0_fit(a) = KH_KH0_fit(a, -0.14, 7.28, 0.18) + KH_KH0_fit(a, 0.079, 6.73, 0.33)
+
+    # Hydrogen singlet transitions
+    λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)
+    λH2s1s  = 121.56700e-9; fH2s1s = c/λH2s1s; EH2s1s = h*fH2s1s # 2s - 1s
+    EH∞2s  = EH∞1s - EH2s1s # E(∞) - E(2s)
+
+    # Helium singlet transitions
+    λHe∞1s  =  50.42590e-9; fHe∞1s  = c/λHe∞1s;  EHe∞1s  = h*fHe∞1s
+    λHe2s1s =  60.14045e-9; fHe2s1s = c/λHe2s1s; EHe2s1s = h*fHe2s1s
+    λHe2p1s =  58.43344e-9; fHe2p1s = c/λHe2p1s; EHe2p1s = h*fHe2p1s
+    EHe2p2s = EHe2p1s - EHe2s1s
+    EHe∞2s  = EHe∞1s - EHe2s1s
+    EHe⁺∞1s = 54.4178 * eV
+
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
-        XH⁺ => 1.0 - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-        _κ => 0.0
-        κ0 => NaN
-        re1z => 7.6711
-        re2z => 3.5
-        ΔT => 0.0 # i.e. Tb ~ Tγ at early times
+        XH⁺ => 1.0 # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
     ]
-    description = "Baryon-photon recombination thermodynamics (RECFAST)"
 
-    # reionization utility functions
-    y(z) = (1+z)^(3/2)
-    Δy(z, Δz0) = 3/2 * (1+z)^(1/2) * Δz0
-    smoothifelse(x, v1, v2; k=1) = 1/2 * ((v1+v2) + (v2-v1)*tanh(k*x)) # smooth transition/step function from v1 at x<0 to v2 at x>0
+    αHfit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
+    αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
 
-    return System([
-        # parameter equations
-        fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH # TODO: factor mHe/mH?
-
-        nH ~ (1-YHe) * ρb/mH # 1/m³
-        nHe ~ fHe * nH # 1/m³
-
-        DTb ~ -2*Tb*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
-        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
-        D(ΔT) ~ DTb - DTγ # solve ODE for D(Tb-Tγ), since solving it for D(Tb) instead is extremely sensitive to Tb-Tγ≈0 at early times
-        Tb ~ ΔT + Tγ
-        βb ~ 1 / (kB*Tb)
-        λe ~ h / √(2π*me/βb) # e⁻ de-Broglie wavelength
-        μ ~ mH / ((1 + (mH/mHe-1)*YHe + Xe*(1-YHe)))
-        cₛ² ~ kB/(μ*c^2) * (Tb - D(Tb)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+    eqs = [
+        β ~ 1 / (kB*T)
+        λe ~ h / √(2π*me/β) # e⁻ de-Broglie wavelength
 
         # H⁺ + e⁻ recombination
-        αH ~ αH_fit(Tb)
-        βH ~ αH / λe^3 * exp(-βb*E_H_∞_2s)
-        KH0 ~ λ_H_2s_1s^3 / (8π*g.H)
-        KH1 ~ KH0 * KH_KH0_fit(g.a)
-        KH ~ KH0 + KH1
-        CH ~ (1 + KH*ΛH*nH*(1-XH⁺+ϵ)) /
-             (1 + KH*(ΛH+βH)*nH*(1-XH⁺+ϵ))
-        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-βb*E_H_2s_1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
+        αH ~ αHfit(T)
+        βH ~ αH / λe^3 * exp(-β*EH∞2s)
+        KH ~ KHfitfactor/8π * λH2s1s^3 / g.H # KHfitfactor ≈ 1; see above
+        CH ~ smoothifelse(XH⁺ - XlimC, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
+        D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
-        αHe ~ αHe_fit(Tb)
-        βHe ~ 4 * αHe / λe^3 * exp(-βb*E_He_∞_2s)
-        KHe0⁻¹ ~ (8π*g.H) / λ_He_2p_1s^3 # RECFAST He flag 0
-        τHe ~ 3*A2Ps*nHe*(1-XHe⁺+ϵ) / KHe0⁻¹
-        KHe1⁻¹ ~ -exp(-τHe) * KHe0⁻¹ # RECFAST He flag 1 (close to zero modification?) # TODO: not that good, reliability depends on ϵ to avoid division by 0; try to use proper Saha ICs with XHe⁺ ≠ 1.0 and remove it
-        γ2Ps ~ 3*A2Ps*fHe*(1-XHe⁺+ϵ)*c^2 / (1.436289e-22*8π*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)*(f_He_2p_1s)^3) # TODO: introduce ν_He_2p_1s?
-        KHe2⁻¹ ~ A2Ps/(1+0.36*γ2Ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction) # TODO: increase reliability, particularly at initial time
-        KHe ~ 1 / (KHe0⁻¹ + KHe1⁻¹ + KHe2⁻¹) # corrections to inverse KHe are additive
-        CHe ~ (exp(-βb*E_He_2p_2s) + KHe*ΛHe*nHe*(1-XHe⁺)) /
-              (exp(-βb*E_He_2p_2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺))
-        DXHe⁺_singlet ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-βb*E_He_2s_1s))
-
-        # He⁺ + e⁻ triplet recombination
-        αHe3 ~ αHe3_fit(Tb)
-        βHe3 ~ 4/3 * αHe3 / λe^3 * exp(-βb*E_He_∞_2s_tri)
-        τHe3 ~ A2Pt*nHe*(1-XHe⁺+ϵ)*3 * λ_He_2p_1s_tri^3/(8π*g.H)
-        pHe3 ~ (1 - exp(-τHe3)) / τHe3
-        γ2Pt ~ 3*A2Pt*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*1.484872e-22*f_He_2p_1s_tri*√(2π/(βb*mHe*c^2))*(1-XH⁺+ϵ)) / (f_He_2p_1s_tri)^2
-        CHe3 ~ (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri)) /
-               (ϵ + A2Pt*(pHe3+1/(1+0.66*γ2Pt^0.9)/3)*exp(-βb*E_He_2p_2s_tri) + βHe3) # added 1e-10 to avoid NaN at late times (does not change early behavior) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
-        DXHe⁺_triplet ~ -g.a/(H100*g.h) * CHe3 * (αHe3*XHe⁺*ne - βHe3*(1-XHe⁺)*3*exp(-βb*E_He_2s_1s_tri))
+        αHe ~ αHefit(T; q=10^(-16.744), p=0.711)
+        βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
+        KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2) # corrections are additive in inverse KHe
+        invKHe0 ~ 8π*g.H / λHe2p1s^3
+        CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
+        DXHe⁺ ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
         # He⁺ + e⁻ total recombination
-        D(XHe⁺) ~ DXHe⁺_singlet + DXHe⁺_triplet
+        D(XHe⁺) ~ DXHe⁺ + DXHet⁺ # singlet + triplet
 
         # He⁺⁺ + e⁻ recombination
-        RHe⁺ ~ 1 * exp(-βb*E_He⁺_∞_1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
+        RHe⁺ ~ 1 * exp(-β*EHe⁺∞1s) / (nH * λe^3) # right side of equation (6) in https://arxiv.org/pdf/astro-ph/9909275
         XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2)) # solve quadratic Saha equation (6) in https://arxiv.org/pdf/astro-ph/9909275 with the method of https://arxiv.org/pdf/1011.3758#equation.6.96
 
-        # reionization
-        re1Xe ~ reionization ? smoothifelse(y(re1z)-y(g.z), 0, 1+fHe; k=1/Δy(re1z, 0.5)) : 0 # 1st reionization: H⁺ and He⁺ simultaneously
-        re2Xe ~ reionization ? smoothifelse(y(re2z)-y(g.z), 0, fHe; k=1/Δy(re2z, 0.5)) : 0 # 2nd reionization: He⁺⁺
+        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
+    ]
 
-        # electrons
-        Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + re1Xe + re2Xe # TODO: redefine XHe⁺⁺ so it is also 1 at early times!
-        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH
+    if Hswitch == 0
+        push!(defaults, FH => 1.14) # original fudge factor
+        push!(eqs, KHfitfactor ~ 1)
+    elseif Hswitch == 1
+        push!(defaults, FH => 1.125) # fudged fudge factor in RECFAST 1.5.2 to match new He physics in https://arxiv.org/abs/1110.0247
+        KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2) # Gaussian fit in log(a)-space
+        push!(eqs, KHfitfactor ~ 1 + KHfitfactorfunc(g.a, -0.14, 7.28, 0.18) + KHfitfactorfunc(g.a, 0.079, 6.73, 0.33))
+    else
+        error("Supported H switches are 0 and 1. Got $Hswitch.")
+    end
 
-        D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
-        κ̇ ~ D(_κ) # optical depth derivative
-        κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
-        I ~ exp(-κ)
+    if Heswitch == 0 # no corrections
+        append!(eqs, [DXHet⁺ ~ 0, invKHe1 ~ 0, invKHe2 ~ 0])
+    elseif Heswitch == 6 # all corrections (Doppler, triplet etc.)
+        ϵ = 1e-9 # original RECFAST switches off He corrections when XHe⁺ ≈ 1.0; I add a tiny ϵ to avoid numerical instabilities
+        λHet∞2s = 260.0463e-9; fHet∞2s = c/λHet∞2s; EHet∞2s = h*fHet∞2s # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV) (read: "wavelength Helium triplet ∞ to 2s")
+        λHet2p1s = 59.1411e-9; fHet2p1s = c/λHet2p1s; EHet2p1s = h*fHet2p1s
+        λHet2s1s = 62.5563e-9; fHet2s1s = c/λHet2s1s; EHet2s1s = h*fHet2s1s
+        EHet2p2s = EHet2p1s - EHet2s1s
+        A2ps = 1.798287e9 # A 2p singlet
+        A2pt = 177.58e0 # A 2p triplet
+        γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
+        append!(vars, @variables γ2ps(τ) αHet(τ) βHet(τ) τHet(τ) pHet(τ) CHet(τ) CHetnum(τ) γ2pt(τ))
+        append!(eqs, [
+            τHe ~ 3*A2ps*nHe*(1-XHe⁺+ϵ) / invKHe0
+            invKHe1 ~ -exp(-τHe) * invKHe0 # RECFAST He flag 1
 
-        v ~ D(exp(-κ)) |> expand_derivatives # visibility function
-        v̇ ~ D(v)
-    ], τ, vars, pars; defaults, description, kwargs...)
+            γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
+            invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction)
+
+            # He⁺ + e⁻ triplet recombination
+            αHet ~ αHefit(T; q=10^(-16.306), p=0.761)
+            βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
+            τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*g.H)
+            pHet ~ (1 - exp(-τHet)) / τHet
+            γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
+            CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet
+            CHet ~ (ϵ + CHetnum) / (ϵ + CHetnum + βHet) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
+            DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
+        ])
+    else
+        error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support more granular switches 1-5?
+    end
+    description = "Baryon-photon recombination thermodynamics (RECFAST)"
+    return System(eqs, τ, vars, pars; defaults, description, kwargs...)
+end
+
+"""
+    reionization_tanh(g; kwargs...)
+
+Reionization physics with a free electron function that is activated around a given redshift `z` by a tanh function.
+Equivalent to the reionization model in CAMB.
+
+References
+==========
+- https://cosmologist.info/notes/CAMB.pdf#section*.10
+"""
+function reionization_tanh(g; kwargs...)
+    pars = @parameters begin
+        z, [description = "reionization redshift"]
+        Δz, [description = "reionization redshift width"]
+        n, [description = "reionization exponent"]
+        Xemax, [description = "fully ionized contribution to the free electron fraction"]
+    end
+    vars = @variables begin
+        Xe(τ), [description = "free electron fraction contribution"]
+    end
+    eqs = [
+        Xe ~ smoothifelse((1+z)^n - (1+g.z)^n, 0, Xemax; k = 1/(n*(1+z)^(n-1)*Δz))
+    ]
+    description = "Reionization with tanh-like (activation function) contribution to the free electron fraction"
+    return System(eqs, τ, vars, pars; description, kwargs...)
 end

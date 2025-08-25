@@ -53,7 +53,7 @@ Create a particle species for matter (with equation of state `w ~ 0`) in the spa
 """
 function matter(g; name = :m, kwargs...)
     description = "Matter"
-    return species_constant_eos(g, 0; name, description, kwargs...)
+    return species_constant_eos(g, 0; adiabatic = true, name, description, kwargs...)
 end
 
 """
@@ -354,31 +354,90 @@ function cold_dark_matter(g; name = :c, kwargs...)
 end
 
 """
-    baryons(g; recombination=true, name = :b, kwargs...)
+    baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
 
 Create a particle species for baryons in the spacetime with metric `g`.
 """
-function baryons(g; recombination = true, reionization = true, name = :b, kwargs...)
-    description = "Baryons"
-    b = matter(g; adiabatic = false, θinteract=true, name, description, kwargs...) |> complete
-    if recombination # TODO: simply dont add recombination system when recombination = false
-        @named rec = thermodynamics_recombination_recfast(g; reionization)
-        eqs = Equation[]
-    else
-        vars = @variables begin
-            κ(τ), [description = "Optical depth"]
-            κ̇(τ), [description = "Optical depth derivative"]
-            ρb(τ), [description = "Baryon background density"]
-            Tγ(τ), [description = "Photon temperature"]
-            cₛ²(τ), [description = "Speed of sound squared"]
-        end
-        eqs = [κ ~ 0, κ̇ ~ 0, cₛ² ~ 0]
-        @named rec = System(eqs, τ, vars, [])
-    end
-    push!(eqs, b.cₛ² ~ rec.cₛ²)
+function baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
     description = "Baryonic matter"
-    b = extend(b, System(eqs, τ, [], []; name); description)
-    b = compose(b, rec)
+    b = matter(g; adiabatic = false, θinteract = true, name, description, kwargs...) |> complete
+
+    pars = @parameters begin
+        YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
+        fHe, [description = "Primordial He/H nucleon ratio n(He)/n(H)"]
+        κ0 = NaN, [description = "Optical depth today (set retrospectively)"] # to make the real κ = 0 today
+    end
+    vars = @variables begin
+        κ(τ), [description = "Optical depth normalized to 0 today"]
+        _κ(τ), [description = "Optical depth normalized to 0 initially"]
+        κ̇(τ), [description = "Optical depth derivative"]
+        I(τ), [description = "Optical depth exponential exp(-κ)"]
+        v(τ), [description = "Visibility function"]
+        v̇(τ), [description = "Visibility function derivative"]
+        cₛ²(τ), [description = "Thermal speed of sound squared"] # TODO: function only of τ
+        T(τ), [description = "Baryon temperature"]
+        Tγ(τ), [description = "Photon temperature"]
+        ΔT(τ) = 0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times
+        DTγ(τ), [description = "Photon temperature derivative"]
+        DT(τ), [description = "Baryon temperature derivative"]
+        μc²(τ), [description = "Mean molecular weight multiplied by speed of light squared"]
+        Xe(τ), [description = "Total free electron fraction"]
+        nH(τ), [description = "Total H number density"]
+        nHe(τ), [description = "Total He number density"]
+        ne(τ), [description = "Total free electron number density"]
+    end
+
+    comps = []
+    eqs = [
+        # parameter equations
+        fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH
+
+        D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
+        κ̇ ~ D(_κ) # optical depth derivative
+        κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
+        I ~ exp(-κ)
+        v ~ D(exp(-κ)) |> expand_derivatives # visibility function
+        v̇ ~ D(v)
+        cₛ² ~ kB/μc² * (T - D(T)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
+
+        DT ~ -2*T*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
+        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
+        D(ΔT) ~ DT - DTγ # solve ODE for D(T-Tγ), since solving it for D(T) instead is extremely sensitive to T-Tγ≈0 at early times
+        T ~ ΔT + Tγ
+
+        nH ~ (1-YHe) * b.ρ*(H100*g.h)^2/GN / mH # 1/m³; convert b.ρ from H₀=1 units to SI units
+        nHe ~ fHe * nH # 1/m³
+        ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
+    ]
+    defaults = [
+        _κ => 0.0
+    ]
+
+    if recombination
+        @named rec = recombination_recfast(g, ParentScope(YHe), ParentScope(fHe); Hswitch, Heswitch)
+        push!(eqs, rec.nH ~ nH, rec.nHe ~ nHe, rec.ne ~ ne, rec.T ~ T)
+        push!(comps, rec)
+    end
+
+    if reionization
+        @named rei1 = reionization_tanh(g)
+        @named rei2 = reionization_tanh(g)
+        append!(defaults, [
+            rei1.z => 7.6711, rei1.Δz => 0.5, rei1.n => 3/2,
+            rei2.z => 3.5, rei2.Δz => 0.5, rei2.n => 1,
+        ])
+        append!(eqs, [
+            rei1.Xemax ~ 1 + fHe
+            rei2.Xemax ~ fHe
+        ])
+        push!(comps, rei1, rei2)
+    end
+
+    push!(eqs, Xe ~ sum(comp.Xe for comp in comps; init = 0))
+
+    b = extend(b, System(eqs, τ, vars, pars; defaults, name); description)
+    b = compose(b, comps)
     return b
 end
 
