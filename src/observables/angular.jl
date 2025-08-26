@@ -127,7 +127,7 @@ Compute the angular power spectrum
 Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,τ₀)
 ```
 for the given `ls`.
-If `normaliation == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
+If `normalization == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
 """
 function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
