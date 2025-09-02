@@ -9,7 +9,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
 
     vars = @variables begin
         F0(τ, k), [description = "Distribution function monopole"]
-        F(τ, k)[1:lmax+1], [description = "Distribution function multipoles"]
+        F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
         σ(τ, k), [description = "Shear stress"]
