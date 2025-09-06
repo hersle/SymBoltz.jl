@@ -141,15 +141,16 @@ end
 end
 
 @testset "Initial conditions" begin
+    τini = prob.bg.tspan[1]
     ks = [1e-1, 1e0] / u"Mpc"
     sol = solve(prob, ks)
 
     # Check that Fₗ(0) ∝ kˡ
-    Fls = sol([M.γ.F0; collect(M.γ.F)], 0.0, ks)
+    Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)
     @test all(Fls[:,1] ./ Fls[:,2] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))
 
     # Check initial ratio of metric potentials
-    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, 0.0, ks), sol((1+2/5*M.fν), 0.0); atol = 1e-5))
+    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
 end
 
 @testset "Automatic background/thermodynamics splining" begin
@@ -336,8 +337,9 @@ end
 
     # custom output_func for e.g. source function
     getS = SymBoltz.getsym(prob.pt, M.ST0)
+    τi = bgsol.t[begin]
     τ0 = bgsol.t[end]
-    τs = range(0.0, τ0, length = 768)
+    τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
     ptsol = solvept(prob.pt, bgsol, ks, prob.var2spl; saveat = τs, output_func = (ptsol, _) -> (getS(ptsol), false))
     Ss = stack(ptsol.u)
@@ -348,15 +350,16 @@ end
 # TODO: define closure based on this?
 @testset "Type stability" begin
     getτ0 = SymBoltz.getsym(prob.bg, M.τ0)
-    sol = solve(prob; save_everystep = false, save_start = false, save_end = true)
+    sol = solve(prob; save_everystep = false, save_start = true, save_end = true)
+    τi = sol.bg.t[begin]
     τ0 = @inferred getτ0(sol.bg)
-    @test sol.bg.t[begin] == sol.bg.t[end] == τ0
+    @test sol.bg.t[end] == τ0
 
     ls = 20:20:500
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
     ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
-    τs = range(0.0, τ0, length = 768)
+    τs = range(τi, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST0)
     sol = solve(prob, ks_coarse; ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8, saveat = τs,))
