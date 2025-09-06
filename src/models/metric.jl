@@ -20,9 +20,6 @@ function metric(; name = :g, kwargs...)
     vars = a, ℰ, E, ℋ, H, Ψ, Φ, Ψ̇, Φ̇, z, ż = GlobalScope.(vars)
 
     pars = h, = GlobalScope.(@parameters h [description = "Dimensionless Hubble parameter today (H₀/(100km/s/Mpc))"])
-    defaults = Dict(
-        a => 1e-8 # default initial scale factor # TODO: move elsewhere?
-    )
     description = "Spacetime FLRW metric in Newtonian gauge"
     return System([
         z ~ 1/a - 1
@@ -31,5 +28,5 @@ function metric(; name = :g, kwargs...)
         E ~ ℰ / a # E = H/H₀
         ℋ ~ ℰ * H100 * h
         H ~ E * H100 * h
-    ], τ, vars, pars; defaults, name, description, kwargs...)
+    ], τ, vars, pars; name, description, kwargs...)
 end

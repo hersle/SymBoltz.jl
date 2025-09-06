@@ -59,7 +59,8 @@ function ΛCDM(;
     end
     defs = Dict(
         C => 1//2,
-        τ0 => NaN
+        τ0 => NaN,
+        g.a => √(sum(s.Ω₀ for s in [ν, h, γ] if have(s))) * τ # default initial scale factor
     )
     ics = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
@@ -152,7 +153,8 @@ function RMΛ(;
     ]
     defs = Dict(
         g.Ψ => 20 // 15,
-        τ0 => NaN
+        τ0 => NaN,
+        g.a => √(r.Ω₀) * τ # default initial scale factor
     )
     append!(eqs, Ω₀_eqs(G, species)) # parameter equations
     connections = System(eqs, τ, vars, [pars; k]; defaults = defs, name)

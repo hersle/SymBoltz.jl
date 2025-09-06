@@ -166,12 +166,13 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_coarse = kτ0s_coarse ./ τ0
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
+    τi = τs[begin]
     if Nlos != 0 # instead choose Nlos time points τ = τ(u) corresponding to uniformly spaced u
         τmin, τmax = extrema(τs)
         umin, umax = u(τmin), u(τmax)
         us = range(umin, umax, length = Nlos)
         τs = u⁻¹.(us)
-        τs[begin] = 0.0
+        τs[begin] = τi
         τs[end] = τ0
     end
 

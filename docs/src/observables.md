@@ -135,7 +135,7 @@ sol = solve(prob)
 zs = 0.0:1.0:10.0
 τs = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
 dLs = SymBoltz.distance_luminosity(sol, τs) / SymBoltz.Gpc
-@assert dLs[begin] == 0.0 || zs[begin] != 0.0 # ensure bug does not reappear # hide
+@assert isapprox(dLs[begin], 0.0; atol = 1e-14) || zs[begin] != 0.0 # ensure bug does not reappear # hide
 plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```
 

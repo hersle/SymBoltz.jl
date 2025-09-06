@@ -104,7 +104,7 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs...
+        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -116,7 +116,7 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (0.0, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs... # TODO: restore jac = true, not working with massive neutrinos?
+    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs... # TODO: restore jac = true, not working with massive neutrinos?
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
     parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
