@@ -31,7 +31,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ) # D(θ) ~ -κ̇ (θb-θγ)
         [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℰ
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
@@ -51,7 +51,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
             D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Π/2)
             D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
             [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
-            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) * g.ℰ * G[lmax] + κ̇ * G[lmax]
+            D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / τ * G[lmax] + κ̇ * G[lmax]
         ])
         append!(ics, [
             G0 ~ 5//16 * F[2],

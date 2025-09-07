@@ -21,7 +21,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
-        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) * g.ℰ * F[lmax] # τ ≈ 1/ℰ
+        D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax]
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
@@ -118,7 +118,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
             D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
             D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
             [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for l in 2:lmax-1]...
-            D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] * g.ℰ/k - ψ[i,lmax-1])) # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
+            D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*τ) - ψ[i,lmax-1])) # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
         ])
         append!(ics, [
             ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
