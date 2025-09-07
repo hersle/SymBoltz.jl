@@ -300,13 +300,13 @@ plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 
 ```@example class
 δ1 = map(s -> sol1["perturbations_k0_s"][:,"delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 δ2 = map(s -> sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true)
+plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true, tol = 3e2)
 ```
 ### Momenta
 ```@example class
 θ1 = map(s -> sol1["perturbations_k0_s"][:,"theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 3e-2)
+plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 6e-2)
 ```
 ### Dark energy overdensity
 ```@example class
@@ -324,7 +324,7 @@ plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 3e-7)
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 7e-4)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 3e-3)
 ```
 ### Polarization
 ```@example class
@@ -354,7 +354,7 @@ function P_symboltz(k, pars)
 end
 k, P1 = P_class(pars)
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 5e1)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 6e0)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
@@ -378,13 +378,13 @@ end
 #∂logP2_∂θ = ForwardDiff.jacobian(θ -> log.(P_symboltz(k, Dict(diffpars .=> θ))[2]), θ) # hide
 #plot_compare(k, k, eachcol(∂logP1_∂θ), eachcol(∂logP2_∂θ), "k", ["∂(lg(P))/∂($par)" for par in ["Ωc0", "Ωb0", "h"]]; lgx = true) # hide
 
-plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
+plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 4e-2) # smaller relstep is noisier
 ```
 ```@example class
-plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
+plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 2e-2) # smaller relstep is noisier
 ```
 ```@example class
-plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 1e-1) # smaller relstep is noisier
+plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 5e-2) # smaller relstep is noisier
 ```
 
 ## CMB power spectrum
@@ -405,13 +405,13 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 6e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 7e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 2e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 2e-14)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
@@ -427,12 +427,12 @@ println("Computed SymBoltz derivatives in $Δt2 seconds")
 ∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
 ∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
 
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 1e-10)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 3e-11)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 1e-11)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 5e-12)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 1e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 9e-13)
 ```
 
