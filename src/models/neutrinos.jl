@@ -28,9 +28,9 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     ]
     ics = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ
-        σ ~ 1//15 * (k/g.ℰ)^2 * g.Ψ
-        [F[l] ~ +l//(2*l+1) * k/g.ℰ * F[l-1] for l in 3:lmax]...
+        θ ~ 1//2 * (k^2*τ) * g.Ψ
+        σ ~ 1//15 * (k*τ)^2 * g.Ψ
+        [F[l] ~ +l//(2*l+1) * k*τ * F[l-1] for l in 3:lmax]...
     ]
     description = "Massless neutrinos"
     return extend(ν, System(eqs, τ, vars, pars; initialization_eqs=ics, name, kwargs...); description)
@@ -124,8 +124,8 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         ])
         append!(ics, [
             ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
-            ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k/g.ℰ*g.Ψ) * dlnf₀_dlnx(x[i])
-            ψ[i,2] ~ -1//2 * (1//15*(k/g.ℰ)^2*g.Ψ) * dlnf₀_dlnx(x[i])
+            ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * dlnf₀_dlnx(x[i])
+            ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * dlnf₀_dlnx(x[i])
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ])
     end
