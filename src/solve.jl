@@ -420,6 +420,8 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
             @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
+        else
+            verbose && print("\rSolved perturbations for wavenumber k = $(ks[i])")
         end
         return output_func(sol, i)
     end
@@ -427,6 +429,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2
     ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob, prob_func = prob_func, output_func = output_func_warn)
     ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
     ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, abstol, kwargs...) # TODO: test GPU parallellization
+    verbose && println()
     return ptsols
 end
 

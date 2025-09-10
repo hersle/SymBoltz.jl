@@ -183,8 +183,8 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
 end
 
 # TODO: take in kτ0s and xs
-function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true)
-    bgsol = solvebg(prob.bg; bgopts...)
+function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+    bgsol = solvebg(prob.bg; bgopts..., verbose)
     getSs = map(s -> getsym(prob.pt, s), S)
     Ss = similar(bgsol, length(S), length(τs), length(ks))
     extrema(τs) == extrema(bgsol.t) || error("input τs and computed background solution have different timespans") # TODO: don't rely on
@@ -194,6 +194,6 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
         end
         return nothing, false
     end
-    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs, ptopts..., thread)
+    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end

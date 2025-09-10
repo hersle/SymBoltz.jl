@@ -77,6 +77,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
             ∂I_∂τ = similar(Ss, length(τs))
         end
         l = ls[il]
+        verbose && print("\rLOS integrating with l = $l")
         for ik in eachindex(ks)
             k = ks[ik]
             for iτ in eachindex(τs)
@@ -88,6 +89,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
             Is[ik,il] = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
         end
     end
+    verbose && println()
 
     return Is
 end
@@ -105,7 +107,7 @@ end
 Calculate photon temperature multipoles today by line-of-sight integration.
 """
 function los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST0, jl)
+    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST0, jl; ktransform, kwargs...)
 end
 
 """
@@ -114,7 +116,7 @@ end
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl_x2; kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl_x2; ktransform, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -155,14 +157,14 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), thread = true, kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), thread = true, verbose = false, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), thread = true, kwargs...)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::AbstractVector; normalization = :Cl, unit = nothing, Δkτ0 = 2π/2, Δkτ0_S = 8.0, kτ0min = 0.1*ls[begin], kτ0max = 3*ls[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), thread = true, verbose = false, kwargs...)
     kτ0s_coarse, kτ0s_fine = cmb_kτ0s(ls[begin], ls[end]; Δkτ0, Δkτ0_S, kτ0min, kτ0max)
-    sol = solve(prob; bgopts)
+    sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_coarse = kτ0s_coarse ./ τ0
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
@@ -182,15 +184,15 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
     iE > 0 && push!(Ss, prob.M.ST2_polarization)
-    Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts, thread) # TODO: pass kτ0 and x # TODO: pass bgsol
+    Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts, thread, verbose) # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # TODO: ideally avoid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
 
-    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
+    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
