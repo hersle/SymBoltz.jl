@@ -50,6 +50,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         #x[1:nx], [description = "Dimensionless momentum bins"] # not working with MTKv10 # TODO: reintroduce?
         #W[1:nx], [description = "Gaussian momentum quadrature weights"] # not working with MTKv10 # TODO: reintroduce?
         Ω₀, [description = "Reduced background density today"]
+        Ω₀_m0, [description = "Reduced background density today when massless"]
         y₀, [description = "Temperature-reduced mass today"]
         Iρ₀, [description = "Density integral today"]
     end
@@ -93,6 +94,7 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         y₀ ~ m*c^2 / (kB*T₀)
         Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
         Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
+        Ω₀_m0 ~ Ω₀ / Iρ₀ * 7π^4/120
 
         T ~ T₀ / g.a
         y ~ y₀ * g.a
@@ -129,6 +131,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     end
 
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, #=x, W,=# Ω₀, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
+    pars = [m, m_eV, T₀, #=x, W,=# Ω₀, Ω₀_m0, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
     return System(eqs, τ, vars, pars; initialization_eqs=ics, #=defaults=defs,=# name, description, kwargs...)
 end

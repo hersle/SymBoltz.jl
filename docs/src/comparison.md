@@ -207,13 +207,13 @@ plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 2e-2)
 ```@example class
 E1 = sol1["background"][:,"H [1/Mpc]"]./sol1["background"][end,"H [1/Mpc]"]
 E2 = sol2[M.g.E]
-plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 8e6)
+plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 3e8)
 ```
 ### Energy densities
 ```@example class
 ρ1 = map(s -> sol1["background"][:,"(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
 ρ2 = map(s -> sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
-plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 6e12)
+plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 3e15)
 ```
 ### Equations of state
 ```@example class
@@ -227,13 +227,13 @@ plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 
 ```@example class
 rs1 = sol1["background"][:,"comov.snd.hrz."]
 rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
-plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 1e-2)
+plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 2e-2)
 ```
 ### Luminosity distance
 ```@example class
 dL1 = sol1["background"][:,"lum. dist."]
 dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
-plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 3e5)
+plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 2e6)
 ```
 
 ## Thermodynamics
@@ -405,10 +405,10 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 6e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 7e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 2e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)

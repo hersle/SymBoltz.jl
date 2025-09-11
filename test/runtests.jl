@@ -145,6 +145,9 @@ end
     ks = [1e-1, 1e0] / u"Mpc"
     sol = solve(prob, ks)
 
+    # Check that τ ≈ 1 / g.ℰ
+    @test isapprox(sol[M.τ][begin], sol[1/M.g.ℰ][begin]; atol = 1e-5)
+
     # Check that Fₗ(0) ∝ kˡ
     Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)
     @test all(Fls[:,1] ./ Fls[:,2] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))

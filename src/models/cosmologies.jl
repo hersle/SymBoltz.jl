@@ -57,10 +57,14 @@ function ΛCDM(;
         ST0_Doppler(τ, k), ST1_Doppler(τ, k),
         ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k)
     end
+    Ωr0 = sum(s.Ω₀ for s in [ν, γ] if have(s))
+    if have(h)
+        Ωr0 += h.Ω₀_m0 # must add Ω₀ *as if* massive neutrinos are massless; not the massive Ω₀!
+    end
     defs = Dict(
         C => 1//2,
         τ0 => NaN,
-        g.a => √(sum(s.Ω₀ for s in [ν, h, γ] if have(s))) * τ # default initial scale factor
+        g.a => √(Ωr0) * τ # default initial scale factor
     )
     ics = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
