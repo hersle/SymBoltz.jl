@@ -201,7 +201,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 2e-2)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 2e-3)
 ```
 ### Hubble function
 ```@example class
@@ -294,37 +294,37 @@ a1 = sol1["perturbations_k0_s"][:,"a"]
 a2 = sol2[1, M.g.a]
 Φ1, Ψ1 = sol1["perturbations_k0_s"][:,"phi"], sol1["perturbations_k0_s"][:,"psi"]
 Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
-plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 2e-3)
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 2e-4)
 ```
 ### Energy overdensities
 ```@example class
 δ1 = map(s -> sol1["perturbations_k0_s"][:,"delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 δ2 = map(s -> sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true, tol = 3e2)
+plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true, tol = 2e2)
 ```
 ### Momenta
 ```@example class
 θ1 = map(s -> sol1["perturbations_k0_s"][:,"theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 6e-2)
+plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 2e-2)
 ```
 ### Dark energy overdensity
 ```@example class
 δρX1 = sol1["perturbations_k0_s"][:,"delta_rho_fld"]
 δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
-plot_compare(a1, a2, δρX1, δρX2, "a", "δρX"; lgx=true, lgy=true, tol = 4e-7)
+plot_compare(a1, a2, δρX1, δρX2, "a", "δρX"; lgx=true, lgy=true, tol = 2e-7)
 ```
 ### Dark energy momentum
 ```@example class
 pX1 = sol1["perturbations_k0_s"][:,"rho_plus_p_theta_fld"]
 pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
-plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 3e-7)
+plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 7e-8)
 ```
 ### Shear stresses
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 3e-3)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
 ```
 ### Polarization
 ```@example class
@@ -411,7 +411,7 @@ plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 7e-13)
 plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 5e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]

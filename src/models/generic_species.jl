@@ -40,7 +40,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     adiabatic && push!(eqs, cₛ² ~ w)
     ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
-        θ ~ 1//2 * (k^2/g.ℰ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !θinteract && push!(eqs, (θinteraction ~ 0))
     return System(eqs, τ, vars, [pars; k]; initialization_eqs=ics, name, kwargs...)

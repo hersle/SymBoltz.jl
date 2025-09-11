@@ -42,7 +42,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
     ]
     ics = [
         F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
-        F[1] ~ 2//3 * k/g.ℰ*g.Ψ # Dodelson (7.95)
+        F[1] ~ 2//3 * k*τ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
         [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
     ]
