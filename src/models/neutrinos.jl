@@ -47,8 +47,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         m, [description = "Neutrino mass (in kg)"]
         m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
         T₀, [description = "Temperature today (in K)"]
-        #x[1:nx], [description = "Dimensionless momentum bins"] # not working with MTKv10 # TODO: reintroduce?
-        #W[1:nx], [description = "Gaussian momentum quadrature weights"] # not working with MTKv10 # TODO: reintroduce?
         Ω₀, [description = "Reduced background density today"]
         Ω₀_m0, [description = "Reduced background density today when massless"]
         y₀, [description = "Temperature-reduced mass today"]
@@ -75,18 +73,15 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         Iδρ(τ, k), [description = "Overdensity integral"]
     end
 
+    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights
+    # for approximating integrals ∫dx x² f₀(x) g(x) for any g(x) from 0 to ∞,
+    # but change variables to z(x) = 1 / (x + 1) to transform it into ∫dz (x/z)^2 f₀(x(z)) g(x(z)) from 0 to 1, which is a finite interval
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
+    x(z) = 1 / z - 1 # inverse of transformation z(x) = 1 / (x + 1), which collapses x = (0, ∞) to z = (1, 0)
+    z, W = gauss(z -> (x(z)/z)^2 * f₀(x(z)), nx, 0.0, 1.0) # instead of x -> x^2*f₀(x) over a finite interval
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
-
-    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
-    x, W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
-    #= # not working with MTKv10 # TODO: reintroduce _x and _W?
-    defs = [
-        collect(x .=> _x);
-        collect(W .=> _W);
-    ]
-    =#
+    x = x.(z) # reduced momentum bins
 
     eqs = [
         # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
@@ -131,6 +126,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     end
 
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, #=x, W,=# Ω₀, Ω₀_m0, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, #=defaults=defs,=# name, description, kwargs...)
+    pars = [m, m_eV, T₀, Ω₀, Ω₀_m0, y₀, T₀, Iρ₀]
+    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
 end
