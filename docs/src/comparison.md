@@ -324,7 +324,7 @@ plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 7e-8)
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 4e-4)
 ```
 ### Polarization
 ```@example class
