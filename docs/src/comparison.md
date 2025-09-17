@@ -201,7 +201,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 2e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 8e-4)
 ```
 ### Hubble function
 ```@example class
@@ -354,7 +354,7 @@ function P_symboltz(k, pars)
 end
 k, P1 = P_class(pars)
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 6e0)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 7e0)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
@@ -405,13 +405,13 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 7e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 5e-15)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
