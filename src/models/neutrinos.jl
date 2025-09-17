@@ -56,11 +56,11 @@ end
 
 # TODO: use vector equations and simplify loops
 """
-    massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
+    massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
-function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
+function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
     # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights
     # for approximating integrals ∫dx x² f₀(x) g(x) for any g(x) over the infinite domain (0, ∞),
     # but change variables to transform it into a finite domain (0, 1)
