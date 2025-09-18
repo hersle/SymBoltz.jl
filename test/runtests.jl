@@ -145,8 +145,15 @@ end
     ks = [1e-1, 1e0] / u"Mpc"
     sol = solve(prob, ks)
 
+    # Check that a ≈ √(Ωᵣ₀) * t
+    Ωγ0 = M.γ.Ω₀
+    Ων0 = M.ν.Ω₀
+    Ωh0 = M.h.Ω₀ / M.h.Iρ₀ * 7π^4/120
+    Ωr0 = Ωγ0 + Ων0 + Ωh0
+    @test isapprox(sol[M.g.a][begin], sol[√(Ωr0)*M.τ][begin]; atol = 1e-10)
+
     # Check that τ ≈ 1 / g.ℰ
-    @test isapprox(sol[M.τ][begin], sol[1/M.g.ℰ][begin]; atol = 1e-5)
+    @test isapprox(sol[M.τ][begin], sol[1/M.g.ℰ][begin]; atol = 1e-10)
 
     # Check that Fₗ(0) ∝ kˡ
     Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)

@@ -122,6 +122,7 @@ nothing # hide
 ```
 We can now sample from the model to obtain a MCMC chain for the ΛCDM model:
 ```@example fit
+# TODO: fix! # hide
 chain = sample(sn_ΛCDM, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, Ωk0 = 0.0))
 import Plots, StatsPlots # don't collide with Makie
 Plots.plot(chain)
