@@ -122,8 +122,8 @@ nothing # hide
 ```
 We can now sample from the model to obtain a MCMC chain for the ΛCDM model:
 ```@example fit
-# TODO: fix! # hide
-chain = sample(sn_ΛCDM, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, Ωk0 = 0.0))
+chain = sample(sn_ΛCDM, NUTS(), 1000; initial_params = (h = 0.7, Ωm0 = 0.3, Ωk0 = 0.01))
+@assert all(std(Array(chain); dims = 1) .> 0) # hide
 import Plots, StatsPlots # don't collide with Makie
 Plots.plot(chain)
 ```
@@ -145,6 +145,7 @@ We can easily repeat this for another model:
 sn_w0CDM_flat = fix(sn_w0waCDM, Ωk0 = 0.0, wa = 0.0);
 # TODO: describe Turing model more, e.g. loglikelihood(sn_fc, (h = 0.70, Ωm0 = 0.26, Ωk0 = 0.10, w0 = -1.01, wa = -0.07)) # hide
 chain = sample(sn_w0CDM_flat, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, w0 = -1.0))
+@assert all(std(Array(chain); dims = 1) .> 0) # hide
 pp = pairplot(chain => layout)
 ```
 
