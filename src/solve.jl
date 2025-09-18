@@ -7,7 +7,7 @@ import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
-import SymbolicIndexingInterface: getsym, setsym, parameter_values
+import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
 import NumericalIntegration: cumul_integrate
 
@@ -230,33 +230,25 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
 
     @unpack bg, pt = prob
 
-    bgsetsym! = setsym(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
+    bgsetsym = SymbolicIndexingInterface.setsym_oop(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
     bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
 
     if !isnothing(pt)
-        ptsetsym! = setsym(pt, idxs)
+        ptsetsym = setsym_oop(pt, idxs)
         ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
     end
 
     function updater(p)
         # Update background problem
-        bgps = parameter_values(bg)
-        bgbuffer = get_tmp(bgdiffcache, p) # get newly typed buffer
-        copyto!(bgbuffer, canonicalize(Tunable(), bgps)[1]) # copy all parameters to buffer
-        bgps = SciMLStructures.replace(Tunable(), bgps, bgbuffer) # get newly typed parameter object
-        bgsetsym!(bgps, p) # set new parameters
-        bg_new = remake(bg; p = bgps, kwargs...) # create updated problem (don't overwrite old)
+        newu0, newp = bgsetsym(bg, p) # set new parameters
+        bg_new = remake(bg; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
 
         # Update perturbation problem
         if isnothing(pt)
             pt_new = pt
         else
-            ptps = parameter_values(pt)
-            ptbuffer = get_tmp(ptdiffcache, p) # need another for perturbation parameters
-            copyto!(ptbuffer, canonicalize(Tunable(), ptps)[1])
-            ptps = SciMLStructures.replace(Tunable(), ptps, ptbuffer)
-            ptsetsym!(ptps, p)
-            pt_new = remake(pt; p = ptps, kwargs...) # create updated problem (don't overwrite old)
+            newu0, newp = ptsetsym(pt, p)
+            pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
         end
 
         return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.var2spl)
