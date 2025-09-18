@@ -274,6 +274,7 @@ initialization_equations(ν)
 ```
 
 ```@docs
+SymBoltz.momentum_quadrature
 SymBoltz.massive_neutrinos
 ```
 ```@example components

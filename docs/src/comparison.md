@@ -201,7 +201,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 2e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 3e-3)
 ```
 ### Hubble function
 ```@example class
@@ -221,7 +221,7 @@ wh1 = sol1["background"][:,"(.)p_ncdm[0]"] ./ sol1["background"][:,"(.)rho_ncdm[
 wh2 = sol2[M.h.w]
 wX1 = sol1["background"][:,"(.)w_fld"]
 wX2 = sol2[M.X.w]
-plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 2e-4)
+plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 3e-4)
 ```
 ### Photon-baryon sound horizon
 ```@example class
@@ -262,7 +262,7 @@ plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 2e-6)
 ```@example class
 Xe1 = reverse(sol1["thermodynamics"][:,"x_e"])
 Xe2 = sol2[M.b.Xe]
-plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 4e-4)
+plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 5e-4)
 ```
 ### Baryon temperature
 ```@example class
@@ -354,7 +354,7 @@ function P_symboltz(k, pars)
 end
 k, P1 = P_class(pars)
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 6e0)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 7e0)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
@@ -405,13 +405,13 @@ end
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 7e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 5e-15)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
@@ -427,7 +427,7 @@ println("Computed SymBoltz derivatives in $Δt2 seconds")
 ∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
 ∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
 
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 3e-11)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 4e-11)
 ```
 ```@example class
 plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 5e-12)

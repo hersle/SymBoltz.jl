@@ -36,19 +36,44 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     return extend(ν, System(eqs, τ, vars, pars; initialization_eqs=ics, name, kwargs...); description)
 end
 
+"""
+    momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, dx_du = u -> -100/u^2, x1 = 0.0, x2 = Inf)
+
+Compute ``N`` dimensionless momentum bins ``xᵢ`` and integral weights ``Wᵢ`` for integrating ``∫dx x²f(x)g(x)`` from ``0`` to ``∞``
+against arbitrary weight functions ``g(x)`` with ``N``-point Gaussian quadrature using QuadGK.jl.
+The returned weights `Ws` approximates the integral for arbitrary functions `g(x)` with the sum ``sum(Ws .* g.(xs))``.
+
+The keyword arguments specifies an integral substitution ``x(u)`` with derivative ``\\mathrm{d}x/\\mathrm{d}u`` and inverse ``u(x)`` to apply.
+The default transformation first maps ``x`` on the infinite domain ``(0, ∞)`` to ``x/L`` with ``L = 100``, which is an approximate decay length of the massive neutrino distribution function.
+It then performs a rational transformation of ``x/L`` into ``u`` on the finite domain ``(0, 1)`` to make the numerical integral well-defined.
+"""
+function momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, dx_du = u -> -100/u^2, x1 = 0.0, x2 = Inf)
+    w(x) = f(x) * x^2 # weight function to integrate against, i.e. want weights for ∫dx*w(x)*g(x) for arbitrary g(x)
+    us, Ws = gauss(u -> dx_du(u) * x(u)^2 * f(x(u)), N, u(x1), u(x2)) # get u bins and quadrature weights
+    xs = x.(us) # corresponding x values
+    return xs, Ws
+end
+
 # TODO: use vector equations and simplify loops
 """
-    massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
+    massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
-function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
+function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
+    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights
+    # for approximating integrals ∫dx x² f₀(x) g(x) for any g(x) over the infinite domain (0, ∞),
+    # but change variables to transform it into a finite domain (0, 1)
+    # (see e.g. https://juliamath.github.io/QuadGK.jl/v2.11/quadgk-examples/#Improper-integrals:-Infinite-limits)
+    f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
+    dlnf₀_dlnx(x) = -x / (1 + exp(-x))
+    x, W = momentum_quadrature(f₀, nx)
+    ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
+
     pars = @parameters begin
         m, [description = "Neutrino mass (in kg)"]
         m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
         T₀, [description = "Temperature today (in K)"]
-        #x[1:nx], [description = "Dimensionless momentum bins"] # not working with MTKv10 # TODO: reintroduce?
-        #W[1:nx], [description = "Gaussian momentum quadrature weights"] # not working with MTKv10 # TODO: reintroduce?
         Ω₀, [description = "Reduced background density today"]
         Ω₀_m0, [description = "Reduced background density today when massless"]
         y₀, [description = "Temperature-reduced mass today"]
@@ -74,19 +99,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
         IP(τ), [description = "Pressure integral"]
         Iδρ(τ, k), [description = "Overdensity integral"]
     end
-
-    f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
-    dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-    ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
-
-    # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights, and map the symbolic parameters to them
-    x, W = gauss(x -> x^2 * f₀(x), nx, 0.0, 1e3)
-    #= # not working with MTKv10 # TODO: reintroduce _x and _W?
-    defs = [
-        collect(x .=> _x);
-        collect(W .=> _W);
-    ]
-    =#
 
     eqs = [
         # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
@@ -131,6 +143,6 @@ function massive_neutrinos(g; nx = 5, lmax = 4, name = :h, kwargs...)
     end
 
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, #=x, W,=# Ω₀, Ω₀_m0, y₀, T₀, Iρ₀] #  ModelingToolkit.scalarize(E₀)] # need every E₀ index
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, #=defaults=defs,=# name, description, kwargs...)
+    pars = [m, m_eV, T₀, Ω₀, Ω₀_m0, y₀, T₀, Iρ₀]
+    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
 end
