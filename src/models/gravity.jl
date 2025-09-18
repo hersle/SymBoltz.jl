@@ -40,9 +40,8 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         g.Ψ̇ ~ D(g.Ψ)
         g.Φ̇ ~ D(g.Φ)
     ])
-    guesses = [ρ => 0.1, D(a) => +1]
     description = "General relativity gravity"
-    return System(eqs, τ, vars, pars; initialization_eqs = ics, guesses, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs = ics, name, description, kwargs...)
 end
 
 # TODO: potential
