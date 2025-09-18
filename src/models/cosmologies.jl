@@ -57,14 +57,13 @@ function ΛCDM(;
         ST0_Doppler(τ, k), ST1_Doppler(τ, k),
         ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k)
     end
-    Ωr0 = sum(s.Ω₀ for s in [ν, γ] if have(s))
-    if have(h)
-        Ωr0 += h.Ω₀_m0 # must add Ω₀ *as if* massive neutrinos are massless; not the massive Ω₀!
-    end
     defs = Dict(
         C => 1//2,
         τ0 => NaN,
-        g.a => √(Ωr0) * τ # default initial scale factor
+        D(g.a) => g.a / τ, # ℰ ≈ 1 / τ
+    )
+    guesses = Dict(
+        g.a => τ # sensible initial guess because radiation-dominated solution is e.g. a = √(Ωr0)*τ
     )
     ics = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
@@ -105,7 +104,7 @@ function ΛCDM(;
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, name, description)
+    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, guesses, name, description)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)

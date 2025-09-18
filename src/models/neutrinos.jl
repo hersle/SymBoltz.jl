@@ -75,7 +75,6 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
         T₀, [description = "Temperature today (in K)"]
         Ω₀, [description = "Reduced background density today"]
-        Ω₀_m0, [description = "Reduced background density today when massless"]
         y₀, [description = "Temperature-reduced mass today"]
         Iρ₀, [description = "Density integral today"]
     end
@@ -106,7 +105,6 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         y₀ ~ m*c^2 / (kB*T₀)
         Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
         Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
-        Ω₀_m0 ~ Ω₀ / Iρ₀ * 7π^4/120
 
         T ~ T₀ / g.a
         y ~ y₀ * g.a
@@ -143,6 +141,6 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
     end
 
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, Ω₀, Ω₀_m0, y₀, T₀, Iρ₀]
+    pars = [m, m_eV, T₀, Ω₀, y₀, T₀, Iρ₀]
     return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
 end
