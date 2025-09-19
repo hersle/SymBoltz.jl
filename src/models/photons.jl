@@ -15,6 +15,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         Θ(τ, k)[1:lmax], [description = "Temperature perturbation multipoles"]
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
+        u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shears tress"]
         κ̇(τ), [description = "Optical depth derivative"]
         θb(τ, k), [description = "Baryon velocity divergence"]
@@ -35,6 +36,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
+        u ~ θ / k
         Π ~ F[2] + G0 + G[2]
         Π̇ ~ D(Π)
         Θ0 ~ F0/4

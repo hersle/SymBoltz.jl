@@ -161,6 +161,15 @@ end
 
     # Check initial ratio of metric potentials
     @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
+
+    # Check initial adiabatic perturbations
+    species = [M.c, M.b, M.γ, M.ν, M.h]
+    y0s = sol([s.δ/(1+s.w) for s in species], τini, ks) # should be equal for all species
+    y1s = sol([s.u/M.k for s in species], τini, ks) # should be equal for all species
+    @test isapprox(minimum(y0s), maximum(y0s); rtol = 1e-3)
+    @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-3)
+    y2s = sol([s.σ/M.k^2 for s in [M.ν, M.h]], τini, ks) # should be equal for massless and massive neutrinos
+    @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-3)
 end
 
 @testset "Automatic background/thermodynamics splining" begin

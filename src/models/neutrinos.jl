@@ -12,6 +12,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
+        u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shear stress"]
     end
     pars = @parameters begin
@@ -25,6 +26,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         δ ~ F0
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
+        u ~ θ / k
     ]
     ics = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
