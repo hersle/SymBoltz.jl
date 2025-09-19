@@ -393,7 +393,7 @@ end
 end
 
 @testset "Background differentiation test" begin
-    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.Σm_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = SymBoltz.parameter_updater(prob, diffpars)
     getτ0 = SymBoltz.getsym(prob, M.τ0)
     τ0(θ) = getτ0(solve(probgen(θ)))
