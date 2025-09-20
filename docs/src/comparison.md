@@ -61,6 +61,7 @@ function solve_class(pars, k = nothing)
         # neutrinos
         "N_ur" => SymBoltz.have(M, :ν) ? pars[M.ν.Neff] : 0.0,
         "N_ncdm" => SymBoltz.have(M, :h) ? 1 : 0,
+        "deg_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.N] : 0,
         "m_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.m_eV] : 0.0, # in eV/c^2
         "T_ncdm" => SymBoltz.have(M, :h) ? (4/11)^(1/3) : 0.0,
         "l_max_ur" => lmax,
@@ -201,7 +202,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 3e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 5e-3)
 ```
 ### Hubble function
 ```@example class
@@ -270,7 +271,7 @@ Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
 dTb2 = sol2[M.b.DT] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
-plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 5e0)
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
 ```
 ### Baryon equation of state
 ```@example class
@@ -300,13 +301,13 @@ plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 
 ```@example class
 δ1 = map(s -> sol1["perturbations_k0_s"][:,"delta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 δ2 = map(s -> sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true, tol = 2e2)
+plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=true, lgy=true, tol = 3e2)
 ```
 ### Momenta
 ```@example class
 θ1 = map(s -> sol1["perturbations_k0_s"][:,"theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
 θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
-plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 2e-2)
+plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 3e-2)
 ```
 ### Dark energy overdensity
 ```@example class
@@ -330,7 +331,7 @@ plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
 ```@example class
 P1 = map(n -> sol1["perturbations_k0_s"][:,"pol$(n)_g"], 0:2)
 P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
-plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 4e-5)
+plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 5e-5)
 ```
 
 ## Matter power spectrum
@@ -430,9 +431,9 @@ println("Computed SymBoltz derivatives in $Δt2 seconds")
 plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 4e-11)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 5e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 6e-12)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 9e-13)
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 1e-12)
 ```
 

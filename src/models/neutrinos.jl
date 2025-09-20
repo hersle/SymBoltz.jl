@@ -73,8 +73,9 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
 
     pars = @parameters begin
-        m, [description = "Neutrino mass (in kg)"]
-        m_eV, [description = "Neutrino mass (in eV/c^2)"] # TODO: only one m?
+        m, [description = "Individual neutrino mass (in kg)"]
+        m_eV, [description = "Individual neutrino mass (in eV/c^2)"] # TODO: only one m?
+        N, [description = "Number of degenerate neutrino masses"]
         T₀, [description = "Temperature today (in K)"]
         Ω₀, [description = "Reduced background density today"]
         y₀, [description = "Temperature-reduced mass today"]
@@ -106,15 +107,15 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
         y₀ ~ m*c^2 / (kB*T₀)
         Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
-        Ω₀ ~ 8π/3 * 2/(2*π^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
+        Ω₀ ~ N * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
 
         T ~ T₀ / g.a
         y ~ y₀ * g.a
         In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
         IP ~ ∫dx_x²_f₀(x.^2 ./ E)
-        ρ ~ 2/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
-        P ~ 2/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        ρ ~ 2N/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        P ~ 2N/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
         Ω ~ 8*Num(π)/3 * ρ
 
@@ -141,8 +142,8 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
             [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
         ])
     end
-
+    defaults = [N => 3] # 3 degenerate neutrinos with equal mass
     description = "Massive neutrino"
-    pars = [m, m_eV, T₀, Ω₀, y₀, T₀, Iρ₀]
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
+    pars = [m, m_eV, N, T₀, Ω₀, y₀, T₀, Iρ₀]
+    return System(eqs, τ, vars, pars; initialization_eqs=ics, defaults, name, description, kwargs...)
 end

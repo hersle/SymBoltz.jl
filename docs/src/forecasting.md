@@ -16,7 +16,7 @@ pars = Dict(
     M.γ.T₀ => 2.7,
     M.ν.Neff => 3.0,
     M.b.YHe => 0.25,
-    M.h.m_eV => 0.06,
+    M.h.m_eV => 0.02,
     M.I.ln_As1e10 => 3.0,
     M.I.ns => 0.96
 )
