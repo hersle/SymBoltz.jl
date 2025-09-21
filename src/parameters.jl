@@ -9,7 +9,10 @@ function parameters_Planck18(M::System)
         M.b.YHe => 0.2454,
     )
     have(M, :ν) && push!(params, M.ν.Neff => 2.99)
-    have(M, :h) && push!(params, M.h.m_eV => 0.06)
+    have(M, :h) && merge!(params, Dict(
+        M.h.m_eV => 0.02,
+        M.h.N => 3,
+    ))
     have(M, :I) && merge!(params, Dict(
         M.I.ln_As1e10 => log(2.099e-9*1e10),
         M.I.ns => 0.965

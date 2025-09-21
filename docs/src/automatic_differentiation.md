@@ -24,7 +24,7 @@ P(k, θ) = spectrum_matter(probgen(θ), k; verbose = true, ptopts = (reltol = 1e
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
-θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.06, 3.0, 0.95]
+θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.02, 3.0, 0.95]
 ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
 Ps = P(ks, θ)
 ```
