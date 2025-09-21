@@ -20,6 +20,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         Xe(τ), [description = "Free electron fraction contribution"]
         ne(τ), [description = "Total free electron number density"]
         λe(τ), [description = "Electron de-Broglie wavelength"]
+        H(τ), [description = "Cosmic Hubble function in SI units"]
 
         T(τ), [description = "Temperature"]
         β(τ), [description = "Inverse temperature (coldness)"]
@@ -61,11 +62,12 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
     eqs = [
         β ~ 1 / (kB*T)
         λe ~ h / √(2π*me/β) # e⁻ de-Broglie wavelength
+        H ~ H100 * g.h * g.E
 
         # H⁺ + e⁻ recombination
         αH ~ αHfit(T)
         βH ~ αH / λe^3 * exp(-β*EH∞2s)
-        KH ~ KHfitfactor/8π * λH2s1s^3 / g.H # KHfitfactor ≈ 1; see above
+        KH ~ KHfitfactor/8π * λH2s1s^3 / H # KHfitfactor ≈ 1; see above
         CH ~ smoothifelse(XH⁺ - XlimC, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
         D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
@@ -73,7 +75,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         αHe ~ αHefit(T; q=10^(-16.744), p=0.711)
         βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
         KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2) # corrections are additive in inverse KHe
-        invKHe0 ~ 8π*g.H / λHe2p1s^3
+        invKHe0 ~ 8π*H / λHe2p1s^3
         CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
         DXHe⁺ ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
@@ -120,7 +122,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
             # He⁺ + e⁻ triplet recombination
             αHet ~ αHefit(T; q=10^(-16.306), p=0.761)
             βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
-            τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*g.H)
+            τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*H)
             pHet ~ (1 - exp(-τHet)) / τHet
             γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
             CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet

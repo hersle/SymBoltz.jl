@@ -119,15 +119,15 @@ And for the w₀wₐCDM model:
 prob2 = CosmologyProblem(M2, θ2)
 sol2 = solve(prob2, ks)
 ```
-Let us compare ``H(τ)`` and ``Ψ(k,τ)`` at equal scale factors ``a(τ)``:
+Let us compare ``E(τ)`` and ``Ψ(k,τ)`` at equal scale factors ``a(τ)``:
 ```@example ext
 lgas = range(-3, 0, length=500) # log10(a)
-H1s = sol1(M1.g.H, log10(M1.g.a) => lgas)
-H2s = sol2(M2.g.H, log10(M2.g.a) => lgas)
+E1s = sol1(M1.g.E, log10(M1.g.a) => lgas)
+E2s = sol2(M2.g.E, log10(M2.g.a) => lgas)
 Ψ1s = sol1(M1.g.Ψ, log10(M1.g.a) => lgas, ks)
 Ψ2s = sol2(M2.g.Ψ, log10(M2.g.a) => lgas, ks)
 
 using Plots
-plot(lgas, H2s ./ H1s; xlabel = "lg(a)", label = "H₂ / H₁")
+plot(lgas, E2s ./ E1s; xlabel = "lg(a)", label = "E₂ / E₁")
 plot!(lgas, Ψ1s ./ Ψ2s; xlabel = "lg(a)", label = "Ψ₂ / Ψ₁")
 ```
