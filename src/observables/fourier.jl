@@ -37,7 +37,7 @@ P(k,τ) = P₀(k) |Δ(k,τ)|²
 ```
 of the total gauge-invariant overdensity
 ```math
-Δ = δ + (3ℰ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℰ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
+Δ = δ + (3ℋ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℋ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
 ```
 for the given `species` at wavenumber(s) `k` and conformal time(s) `tau` (final, if omitted) from the solution `sol`.
 By default, the species are cold dark matter, baryons and massive neutrinos, which are matter-like at late times in the ΛCDM model.
@@ -53,7 +53,7 @@ function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species =
     ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
     ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
     θ = ρ_plus_P_θ / ρ_plus_P
-    Δ = δ + 3*M.g.ℰ*θ/M.k^2 # total gauge-independent overdensity
+    Δ = δ + 3*M.g.ℋ*θ/M.k^2 # total gauge-independent overdensity
 
     # convert P (through P0) to same units as 1/k^3
     #=

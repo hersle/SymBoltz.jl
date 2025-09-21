@@ -207,7 +207,7 @@ plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 5e-3)
 ### Hubble function
 ```@example class
 E1 = sol1["background"][:,"H [1/Mpc]"]./sol1["background"][end,"H [1/Mpc]"]
-E2 = sol2[M.g.E]
+E2 = sol2[M.g.H]
 plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 3e8)
 ```
 ### Energy densities
@@ -270,7 +270,7 @@ plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 5e-4)
 Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
-dTb2 = sol2[M.b.DT] ./ -sol2[M.g.E] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
+dTb2 = sol2[M.b.DT] ./ -sol2[M.g.H] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
 plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
 ```
 ### Baryon equation of state

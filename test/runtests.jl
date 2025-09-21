@@ -152,8 +152,8 @@ end
     Ωr0 = Ωγ0 + Ων0 + Ωh0
     @test isapprox(sol[M.g.a][begin], sol[√(Ωr0)*M.τ][begin]; atol = 1e-10)
 
-    # Check that τ ≈ 1 / g.ℰ
-    @test isapprox(sol[M.τ][begin], sol[1/M.g.ℰ][begin]; atol = 1e-10)
+    # Check that τ ≈ 1 / g.ℋ
+    @test isapprox(sol[M.τ][begin], sol[1/M.g.ℋ][begin]; atol = 1e-10)
 
     # Check that Fₗ(0) ∝ kˡ
     Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)
@@ -213,7 +213,7 @@ end
 end
 =#
 @testset "Do not spline observed variables" begin
-    @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.E])
+    @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.H])
 end
 
 @testset "Primordial power spectrum pivot scale" begin

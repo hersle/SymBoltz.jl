@@ -28,11 +28,11 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     eqs = [
         w ~ _w
         P ~ w * ρ
-        analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℰ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℰ * (ρ + P)
+        analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℋ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℋ * (ρ + P)
         Ω ~ 8*Num(π)/3 * ρ
 
-        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
-        D(θ) ~ -g.ℰ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
+        D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
         u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
@@ -40,7 +40,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
     adiabatic && push!(eqs, cₛ² ~ w)
     ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
-        θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℰ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
+        θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !θinteract && push!(eqs, (θinteraction ~ 0))
     return System(eqs, τ, vars, [pars; k]; initialization_eqs=ics, name, kwargs...)

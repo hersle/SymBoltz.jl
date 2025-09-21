@@ -60,7 +60,7 @@ function ΛCDM(;
     defs = Dict(
         C => 1//2,
         τ0 => NaN,
-        D(g.a) => g.a / τ, # ℰ ≈ 1 / τ
+        D(g.a) => g.a / τ, # ℋ ≈ 1 / τ
     )
     guesses = Dict(
         g.a => τ # sensible initial guess because radiation-dominated solution is e.g. a = √(Ωr0)*τ

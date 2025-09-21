@@ -47,18 +47,18 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         append!(pars, @parameters Ω₀)
         push!(eqs, ρ ~ 3/(8*Num(π))*Ω₀ * abs(g.a)^(-3 * (1 + w0 + wa)) * exp(-3 * wa * (1 - g.a))) # energy density # TODO: get rid of abs
     else
-        push!(eqs, D(ρ) ~ -3 * g.ℰ * ρ * (1 + w))
+        push!(eqs, D(ρ) ~ -3 * g.ℋ * ρ * (1 + w))
     end
     append!(eqs, [
         # Following https://arxiv.org/pdf/1002.1311 section II
-        cₐ² ~ w - ẇ/(3*g.ℰ*(1+w))
-        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℰ*(cₛ²-w)*δ - 9*(g.ℰ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
-        D(θ) ~ -g.ℰ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
+        cₐ² ~ w - ẇ/(3*g.ℋ*(1+w))
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ - 9*(g.ℋ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
+        D(θ) ~ -g.ℋ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
         σ ~ 0
     ])
     ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
-        θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℰ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
+        θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ]
     description = "w₀wₐ (CPL) dark energy"
     return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
@@ -91,7 +91,7 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         V′ ~ v′
         V′′ ~ v′′
         K ~ (D(ϕ)/g.a)^2 / 2 # ϕ̇²/2 = (ϕ′/a)²/2
-        D(D(ϕ)) ~ -2 * g.ℰ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*E*ϕ̇ + V′ = 0
+        D(D(ϕ)) ~ -2 * g.ℋ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*H*ϕ̇ + V′ = 0
         ρ ~ K + V
         P ~ K - V
         w ~ P / ρ

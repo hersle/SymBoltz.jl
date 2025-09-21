@@ -62,7 +62,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
     eqs = [
         β ~ 1 / (kB*T)
         λe ~ h / √(2π*me/β) # e⁻ de-Broglie wavelength
-        H ~ H100 * g.h * g.E
+        H ~ H100 * g.h * g.H
 
         # H⁺ + e⁻ recombination
         αH ~ αHfit(T)
@@ -208,11 +208,11 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         I ~ exp(-κ)
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-        cₛ² ~ kB/μc² * (T - D(T)/3g.ℰ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        cₛ² ~ kB/μc² * (T - D(T)/3g.ℋ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
         μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
 
-        DT ~ -2*T*g.ℰ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
-        DTγ ~ D(Tγ) # or -1*Tγ*g.ℰ
+        DT ~ -2*T*g.ℋ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature
+        DTγ ~ D(Tγ) # or -1*Tγ*g.ℋ
         D(ΔT) ~ DT - DTγ # solve ODE for D(T-Tγ), since solving it for D(T) instead is extremely sensitive to T-Tγ≈0 at early times
         T ~ ΔT + Tγ
 
