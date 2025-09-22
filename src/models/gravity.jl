@@ -35,7 +35,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         ics = []
     end
     append!(eqs, [
-        D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℰ*δρ - k^2/(3*g.ℰ)*g.Φ - g.ℰ*g.Ψ
+        D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℋ*δρ - k^2/(3*g.ℋ)*g.Φ - g.ℋ*g.Ψ
         k^2 * (g.Φ - g.Ψ) ~ 12*Num(π) * a^2 * Π
         g.Ψ̇ ~ D(g.Ψ)
         g.Φ̇ ~ D(g.Φ)
@@ -67,7 +67,7 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         F₂(τ), [description = "2nd Friedmann equation residual"]
         G(τ), [description = "Effective gravitational strength"]
     end
-    @unpack a, ℰ, Φ, Ψ = g # shorthand
+    @unpack a, ℋ, Φ, Ψ = g # shorthand
     F1 = D(a)^2 ~ 8*Num(π)/3*ρ*a^4/ϕ - D(a)*a*D(ϕ)/ϕ + ω/6*a^2*(D(ϕ)/ϕ)^2
     F2 = D(D(a)) ~ D(a)^2/(2*a) - 4*Num(π)*a^3*P/ϕ - ω/4*a*(D(ϕ)/ϕ)^2 - D(a)/2*D(ϕ)/ϕ - a/2*D(D(ϕ))/ϕ
     KG = D(D(ϕ)) ~ 8*Num(π)/(2*ω+3) * a^2 * (ρ-3*P) - 2*D(a)/a*D(ϕ)
@@ -92,9 +92,9 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     end
     append!(eqs, [
         # https://arxiv.org/pdf/2006.04273 equations (D.20, D.22, D.25) with Φ → Ψ and Ψ → -Φ
-        D(Φ) ~ -(8*Num(π)*a^2*(2*Ψ*ρ+δρ) + 2*k^2*Φ*ϕ - (3*ℰ^2+k^2)*δϕ - 3*ℰ*D(δϕ) - ω/2*(δϕ*(D(ϕ)/ϕ)^2-2*D(ϕ)*D(δϕ))) / (6*ℰ*ϕ + 3*D(ϕ)) # (μ,ν) = (0,0)
+        D(Φ) ~ -(8*Num(π)*a^2*(2*Ψ*ρ+δρ) + 2*k^2*Φ*ϕ - (3*ℋ^2+k^2)*δϕ - 3*ℋ*D(δϕ) - ω/2*(δϕ*(D(ϕ)/ϕ)^2-2*D(ϕ)*D(δϕ))) / (6*ℋ*ϕ + 3*D(ϕ)) # (μ,ν) = (0,0)
         Ψ ~ Φ - δϕ/ϕ - 12*Num(π)/ϕ * a^2 * Π / k^2 # (μ,ν) = (i,j), i ≠ j, add matter stress divided by ϕ from field equations # TODO: correct?
-        D(D(δϕ)) ~ -8*Num(π)/(3+2*ω)*a^2*(3*δP-δρ) + 2*D(D(ϕ))*Ψ - k^2*δϕ - 2*ℰ*D(δϕ) + D(ϕ)*(D(Ψ)+3*D(ϕ)) + 4*ℰ*Ψ*D(ϕ) # perturbed Klein-Gordon equation
+        D(D(δϕ)) ~ -8*Num(π)/(3+2*ω)*a^2*(3*δP-δρ) + 2*D(D(ϕ))*Ψ - k^2*δϕ - 2*ℋ*D(δϕ) + D(ϕ)*(D(Ψ)+3*D(ϕ)) + 4*ℋ*Ψ*D(ϕ) # perturbed Klein-Gordon equation
         g.Ψ̇ ~ D(g.Ψ)
         g.Φ̇ ~ D(g.Φ)
     ])
