@@ -1,9 +1,9 @@
 """
-    massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
+    massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
 
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
-function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
+function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
     description = "Massless neutrinos"
     ν = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete
 
@@ -58,11 +58,11 @@ end
 
 # TODO: use vector equations and simplify loops
 """
-    massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
+    massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
 
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
 """
-function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
+function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
     # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights
     # for approximating integrals ∫dx x² f₀(x) g(x) for any g(x) over the infinite domain (0, ∞),
     # but change variables to transform it into a finite domain (0, 1)

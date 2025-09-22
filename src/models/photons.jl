@@ -1,9 +1,9 @@
 """
-    photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
+    photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
 
 Create a particle species for photons in the spacetime with metric `g`.
 """
-function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
+function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     description = "Photons"
     γ = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete # prevent namespacing in extension below

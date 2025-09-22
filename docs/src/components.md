@@ -143,7 +143,7 @@ initialization_equations(r)
 SymBoltz.photons
 ```
 ```@example components
-γ = SymBoltz.photons(g; lmax = 6)
+γ = SymBoltz.photons(g; lmax = 10)
 nothing # hide
 ```
 ```@raw html
@@ -251,7 +251,7 @@ initialization_equations(b)
 SymBoltz.massless_neutrinos
 ```
 ```@example components
-ν = SymBoltz.massless_neutrinos(g; lmax = 6)
+ν = SymBoltz.massless_neutrinos(g; lmax = 10)
 nothing # hide
 ```
 ```@raw html
@@ -278,7 +278,7 @@ SymBoltz.momentum_quadrature
 SymBoltz.massive_neutrinos
 ```
 ```@example components
-h = SymBoltz.massive_neutrinos(g; nx=4, lmax = 5)
+h = SymBoltz.massive_neutrinos(g; nx=4, lmax = 10)
 nothing # hide
 ```
 ```@raw html
