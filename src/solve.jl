@@ -119,7 +119,7 @@ function CosmologyProblem(
     ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = false, kwargs... # TODO: restore jac = true, not working with massive neutrinos?
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
-    parsk = merge(pars, Dict(M.k => NaN)) # k is unused, but must be set
+    parsk = merge(pars, Dict(:k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
 
     if bg
@@ -133,7 +133,7 @@ function CosmologyProblem(
         terminate = !isnothing(term)
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
-            aidx = ModelingToolkit.variable_index(bg, bg.g.a)
+            aidx = ModelingToolkit.variable_index(bg, :a)
             f = (u, τ, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
         elseif Symbol(iv) == :a
             f = (u, a, integrator) -> a - 1.0 # a is independent variable
@@ -143,7 +143,7 @@ function CosmologyProblem(
         parsymbols = Symbol.(parameters(bg))
         haveτ0 = Symbol(iv) == :τ && Symbol("τ0") in parsymbols
         haveκ0 = Symbol("b₊κ0") in parsymbols
-        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, M.τ0) : nothing
+        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, :τ0) : nothing
         _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b._κ) : nothing
         κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.κ0) : nothing
         function affect!(integrator)
