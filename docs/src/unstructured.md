@@ -15,6 +15,7 @@ using SymBoltz
 @unpack kB, h, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse = SymBoltz
 lγmax = 6
 lνmax = 6
+lhmax = 6
 ϵ = 1e-9
 ΛH = 8.2245809
 ΛHe = 51.3
@@ -39,6 +40,13 @@ KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
 γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
 fν = 0
 
+# massive neutrino distribution function and quadrature momenta
+nx = 4
+f₀(x) = 1 / (exp(x) + 1)
+dlnf₀_dlnx(x) = -x / (1 + exp(-x))
+x, W = SymBoltz.momentum_quadrature(f₀, nx)
+∫dx_x²_f₀(f) = sum(collect(f .* W))
+
 @independent_variables τ # conformal time
 D = Differential(τ)
 
@@ -49,6 +57,7 @@ pars = @parameters begin
     Ωb0, YHe, fHe,
     Tγ0, Ωγ0,
     Ων0, Tν0, Neff,
+    mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0,
     ΩΛ0,
     zre1, Δzre1, nre1,
     zre2, Δzre2, nre2
@@ -67,6 +76,7 @@ vars = @variables begin
     ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ, k), Fγ(τ, k)[1:lγmax], Gγ0(τ, k), Gγ(τ, k)[1:lγmax], δγ(τ, k), θγ(τ, k), σγ(τ, k), Πγ(τ, k) # photons
     ρc(τ), δc(τ, k), θc(τ, k) # cold dark matter
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ, k), Fν(τ, k)[1:lνmax], δν(τ, k), θν(τ, k), σν(τ, k), # massless neutrinos
+    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ, k), δh(τ, k), σh(τ, k), uh(τ, k), θh(τ, k), Eh(τ)[1:nx], ψh0(τ, k)[1:nx], ψh(τ, k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ, k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
 end
 
@@ -80,10 +90,10 @@ eqs = [
     D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # 1st Friedmann equation
     D(Φ) ~ -4*Num(π)/3*a^2/ℋ*δρ - k^2/(3*ℋ)*Φ - ℋ*Ψ
     k^2 * (Φ - Ψ) ~ 12*Num(π) * a^2 * Π
-    ρ ~ ρc + ρb + ργ + ρν + ρΛ
-    P ~ Pγ + Pν + PΛ
-    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν
-    Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν
+    ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
+    P ~ Pγ + Pν + Ph + PΛ
+    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν + δh*ρh
+    Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν + (1+wh)*ρh*σh
 
     # baryon recombination
     β ~ 1 / (kB*Tb)
@@ -186,6 +196,30 @@ eqs = [
     θν ~ 3*k*Fν[1]/4
     σν ~ Fν[2]/2
 
+    # massive neutrinos
+    mh ~ mh_eV * eV/c^2
+    yh0 ~ mh*c^2 / (kB*Th0)
+    Iρh0 ~ ∫dx_x²_f₀(@. √(x^2 + yh0^2))
+    Ωh0 ~ Nh * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H100*h*c)^2/GN)
+    Th ~ Th0 / a
+    yh ~ yh0 * a
+    Iρh ~ ∫dx_x²_f₀(Eh)
+    IPh ~ ∫dx_x²_f₀(x.^2 ./ Eh)
+    ρh ~ 2Nh/(2*π^2) * (kB*Th)^4 / (ħ*c)^3 * Iρh / ((H100*h*c)^2/GN)
+    Ph ~ 2Nh/(6*π^2) * (kB*Th)^4 / (ħ*c)^3 * IPh / ((H100*h*c)^2/GN)
+    wh ~ Ph / ρh
+    Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
+    δh ~ Iδρh / Iρh
+    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
+    θh ~ k * uh
+    σh ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
+    csh2 ~ ∫dx_x²_f₀(x.^2 ./ Eh .* ψh0) / Iδρh
+    [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
+    [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [D(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2*ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [D(ψh[i,l]) ~ k/(2*l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
+    [D(ψh[i,lhmax]) ~ k/(2*lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2*lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
+
     # cosmological constant
     ρΛ ~ 3/(8*Num(π)) * ΩΛ0
     wΛ ~ -1
@@ -219,6 +253,12 @@ initialization_eqs = [
     θν ~ 1//2 * (k^2*τ) * Ψ
     σν ~ 1//15 * (k*τ)^2 * Ψ
     [Fν[l] ~ +l//(2*l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
+
+    # massive neutrinos
+    [ψh0[i] ~ -1//4 * (-2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,1] ~ -1//3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,2] ~ -1//2 * (1//15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
 ]
 
 defaults = [
@@ -238,6 +278,8 @@ defaults = [
     ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0
     Tν0 => (4/11)^(1/3) * Tγ0
     Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
+    Nh => 3
+    Th0 => (4/11)^(1/3) * Tγ0
 ]
 
 guesses = [
@@ -249,7 +291,7 @@ M = System(eqs, τ, vars, pars; initialization_eqs, defaults, guesses, name = :�
 
 Now set parameter values and compile the numerical problem:
 ```@example unstructured
-pars = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046)
+pars = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02)
 prob = CosmologyProblem(M, pars)
 ```
 
