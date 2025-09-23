@@ -14,12 +14,13 @@ using SymBoltz
 # constants and some functions
 @unpack kB, h, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse = SymBoltz
 lγmax = 6
+lνmax = 6
 ϵ = 1e-9
 ΛH = 8.2245809
 ΛHe = 51.3
 λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s
 λH2s1s  = 121.56700e-9; fH2s1s = c/λH2s1s; EH2s1s = h*fH2s1s
-EH∞2s  = EH∞1s - EH2s1s # E(∞) - E(2s)
+EH∞2s  = EH∞1s - EH2s1s
 λHe∞1s  =  50.42590e-9; fHe∞1s  = c/λHe∞1s;  EHe∞1s  = h*fHe∞1s
 λHe2s1s =  60.14045e-9; fHe2s1s = c/λHe2s1s; EHe2s1s = h*fHe2s1s
 λHe2p1s =  58.43344e-9; fHe2p1s = c/λHe2p1s; EHe2p1s = h*fHe2p1s
@@ -47,6 +48,7 @@ pars = @parameters begin
     Ωc0, 
     Ωb0, YHe, fHe,
     Tγ0, Ωγ0,
+    Ων0, Tν0, Neff,
     ΩΛ0,
     zre1, Δzre1, nre1,
     zre2, Δzre2, nre2
@@ -62,8 +64,9 @@ vars = @variables begin
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ) # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
-    ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), F0(τ, k), F(τ, k)[1:lγmax], G0(τ, k), G(τ, k)[1:lγmax], δγ(τ, k), θγ(τ, k), σγ(τ, k), Πγ(τ, k) # photons
+    ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ, k), Fγ(τ, k)[1:lγmax], Gγ0(τ, k), Gγ(τ, k)[1:lγmax], δγ(τ, k), θγ(τ, k), σγ(τ, k), Πγ(τ, k) # photons
     ρc(τ), δc(τ, k), θc(τ, k) # cold dark matter
+    ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ, k), Fν(τ, k)[1:lνmax], δν(τ, k), θν(τ, k), σν(τ, k), # massless neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
 end
 
@@ -77,10 +80,10 @@ eqs = [
     D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # 1st Friedmann equation
     D(Φ) ~ -4*Num(π)/3*a^2/ℋ*δρ - k^2/(3*ℋ)*Φ - ℋ*Ψ
     k^2 * (Φ - Ψ) ~ 12*Num(π) * a^2 * Π
-    ρ ~ ρc + ρb + ργ + ρΛ
-    P ~ Pγ + PΛ
-    δρ ~ δc*ρc + δb*ρb + δγ*ργ
-    Π ~ (1+wγ) * ργ * σγ
+    ρ ~ ρc + ρb + ργ + ρν + ρΛ
+    P ~ Pγ + Pν + PΛ
+    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν
+    Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν
 
     # baryon recombination
     β ~ 1 / (kB*Tb)
@@ -152,23 +155,36 @@ eqs = [
     ργ ~ 3/(8*Num(π)) * Ωγ0 * a^(-4)
     wγ ~ 1//3
     Pγ ~ wγ * ργ
-    D(F0) ~ -k*F[1] + 4*D(Φ)
-    D(F[1]) ~ k/3*(F0-2*F[2]+4*Ψ) - 4//3 * κ̇/k * (θb - θγ)
-    [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
-    D(F[lγmax]) ~ k*F[lγmax-1] - (lγmax+1) / τ * F[lγmax] + κ̇ * F[lγmax]
-    δγ ~ F0
-    θγ ~ 3*k*F[1]/4
-    σγ ~ F[2]/2
-    Πγ ~ F[2] + G0 + G[2]
-    D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Πγ/2)
-    D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
-    [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
-    D(G[lγmax]) ~ k*G[lγmax-1] - (lγmax+1) / τ * G[lγmax] + κ̇ * G[lγmax]
+    D(Fγ0) ~ -k*Fγ[1] + 4*D(Φ)
+    D(Fγ[1]) ~ k/3*(Fγ0-2*Fγ[2]+4*Ψ) - 4//3 * κ̇/k * (θb - θγ)
+    [D(Fγ[l]) ~ k/(2l+1) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + κ̇ * (Fγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
+    D(Fγ[lγmax]) ~ k*Fγ[lγmax-1] - (lγmax+1) / τ * Fγ[lγmax] + κ̇ * Fγ[lγmax]
+    δγ ~ Fγ0
+    θγ ~ 3*k*Fγ[1]/4
+    σγ ~ Fγ[2]/2
+    Πγ ~ Fγ[2] + Gγ0 + Gγ[2]
+    D(Gγ0) ~ k * (-Gγ[1]) + κ̇ * (Gγ0 - Πγ/2)
+    D(Gγ[1]) ~ k/(2*1+1) * (1*Gγ0 - 2*Gγ[2]) + κ̇ * Gγ[1]
+    [D(Gγ[l]) ~ k/(2l+1) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + κ̇ * (Gγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
+    D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + κ̇ * Gγ[lγmax]
 
     # cold dark matter
     ρc ~ 3/(8*Num(π)) * Ωc0 * a^(-3)
     D(δc) ~ -(θc-3*D(Φ))
     D(θc) ~ -ℋ*θc + k^2*Ψ
+
+    # massless neutrinos
+    ρν ~ 3/(8*Num(π)) * Ων0 * a^(-4)
+    wν ~ 1//3
+    Pν ~ wν * ρν
+    Tν ~ Tν0 / a
+    D(Fν0) ~ -k*Fν[1] + 4*D(Φ)
+    D(Fν[1]) ~ k/3*(Fν0-2*Fν[2]+4*Ψ)
+    [D(Fν[l]) ~ k/(2*l+1) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
+    D(Fν[lνmax]) ~ k*Fν[lνmax-1] - (lνmax+1) / τ * Fν[lνmax]
+    δν ~ Fν0
+    θν ~ 3*k*Fν[1]/4
+    σν ~ Fν[2]/2
 
     # cosmological constant
     ρΛ ~ 3/(8*Num(π)) * ΩΛ0
@@ -185,18 +201,24 @@ initialization_eqs = [
     θb ~ 1//2 * (k^2*τ) * Ψ
 
     # photons
-    F0 ~ -2*Ψ
-    F[1] ~ 2//3 * k*τ*Ψ
-    F[2] ~ -8//15 * k/κ̇ * F[1]
-    [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lγmax]...
-    G0 ~ 5//16 * F[2]
-    G[1] ~ -1//16 * k/κ̇ * F[2]
-    G[2] ~ 1//16 * F[2]
-    [G[l] ~ -l//(2l+1) * k/κ̇ * G[l-1] for l in 3:lγmax]...
+    Fγ0 ~ -2*Ψ
+    Fγ[1] ~ 2//3 * k*τ*Ψ
+    Fγ[2] ~ -8//15 * k/κ̇ * Fγ[1]
+    [Fγ[l] ~ -l//(2*l+1) * k/κ̇ * Fγ[l-1] for l in 3:lγmax]...
+    Gγ0 ~ 5//16 * Fγ[2]
+    Gγ[1] ~ -1//16 * k/κ̇ * Fγ[2]
+    Gγ[2] ~ 1//16 * Fγ[2]
+    [Gγ[l] ~ -l//(2l+1) * k/κ̇ * Gγ[l-1] for l in 3:lγmax]...
 
     # cold dark matter
     δc ~ -3//2 * Ψ
     θc ~ 1//2 * (k^2*τ) * Ψ
+
+    # massless neutrinos
+    δν ~ -2 * Ψ
+    θν ~ 1//2 * (k^2*τ) * Ψ
+    σν ~ 1//15 * (k*τ)^2 * Ψ
+    [Fν[l] ~ +l//(2*l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
 ]
 
 defaults = [
@@ -214,6 +236,8 @@ defaults = [
     τ0 => NaN
     D(a) => a / τ
     ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0
+    Tν0 => (4/11)^(1/3) * Tγ0
+    Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
 ]
 
 guesses = [
@@ -225,7 +249,7 @@ M = System(eqs, τ, vars, pars; initialization_eqs, defaults, guesses, name = :�
 
 Now set parameter values and compile the numerical problem:
 ```@example unstructured
-pars = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7)
+pars = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046)
 prob = CosmologyProblem(M, pars)
 ```
 
