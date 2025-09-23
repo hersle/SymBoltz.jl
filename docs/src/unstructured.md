@@ -8,6 +8,9 @@ This makes it **extremely easy** to make direct changes anywhere in the model!
 !!! tip
     Paste the code below into a notebook to freely edit the model and interactively inspect changes.
 
+!!! warning
+    Beware of variable name collisions!
+
 ```@example unstructured
 using SymBoltz
 
@@ -47,35 +50,34 @@ x, W = SymBoltz.momentum_quadrature(f₀, nx)
 ∫dx_x²_f₀(f) = sum(collect(f .* W))
 
 @independent_variables τ # conformal time
-D = Differential(τ)
+D = Differential(τ) # derivative operator
 
 pars = @parameters begin
-    k,
-    h, # overwrites Planck constant above!
-    Ωc0, 
-    Ωb0, YHe, fHe,
-    Tγ0, Ωγ0,
-    Ων0, Tν0, Neff, fν,
-    mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0,
-    ΩΛ0,
-    zre1, Δzre1, nre1,
-    zre2, Δzre2, nre2
-    C,
-    τ0
+    k, τ0, # wavenumber and conformal time today
+    h, # reduced Hubble parameter (overwrites Planck constant above!)
+    Ωc0, # cold dark matter
+    Ωb0, YHe, fHe, # baryons and recombination
+    Tγ0, Ωγ0, # photons
+    Ων0, Tν0, Neff, fν, # massless neutrinos
+    mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
+    ΩΛ0, # cosmological constant
+    zre1, Δzre1, nre1, # 1st reionization
+    zre2, Δzre2, nre2, # 2nd reionization
+    C # integration constant in initial conditions
 end
 
 vars = @variables begin
-    a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ, k), Φ(τ, k), # metric
-    ρ(τ), P(τ), δρ(τ, k), Π(τ, k), # gravity
-    ρb(τ), Tb(τ), θb(τ, k), δb(τ, k), θb(τ, k), # baryons
+    a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), # metric
+    ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
+    ρb(τ), Tb(τ), θb(τ,k), δb(τ,k), θb(τ,k), # baryons
     κ(τ), κ̇(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), DTγ(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), Hrec(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ) # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
-    ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ, k), Fγ(τ, k)[1:lγmax], Gγ0(τ, k), Gγ(τ, k)[1:lγmax], δγ(τ, k), θγ(τ, k), σγ(τ, k), Πγ(τ, k) # photons
-    ρc(τ), δc(τ, k), θc(τ, k) # cold dark matter
-    ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ, k), Fν(τ, k)[1:lνmax], δν(τ, k), θν(τ, k), σν(τ, k), # massless neutrinos
-    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ, k), δh(τ, k), σh(τ, k), uh(τ, k), θh(τ, k), Eh(τ)[1:nx], ψh0(τ, k)[1:nx], ψh(τ, k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ, k), # massive neutrinos
+    ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ,k), Fγ(τ,k)[1:lγmax], Gγ0(τ,k), Gγ(τ,k)[1:lγmax], δγ(τ,k), θγ(τ,k), σγ(τ,k), Πγ(τ,k) # photons
+    ρc(τ), δc(τ,k), θc(τ,k) # cold dark matter
+    ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
+    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
 end
 
@@ -154,14 +156,14 @@ eqs = [
     Xre2 ~ smoothifelse((1+zre2)^nre2 - (1+z)^nre2, 0, 0 + fHe; k = 1/(nre2*(1+zre2)^(nre2-1)*Δzre2))
 
     # baryons
-    ρb ~ 3/(8*Num(π)) * Ωb0 * a^(-3)
+    ρb ~ 3/(8*Num(π)) * Ωb0 / a^3
     D(δb) ~ -θb - 3*ℋ*csb2*δb + 3*D(Φ)
     D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4//3*κ̇*ργ/ρb*(θγ-θb)
 
     # photons
     Tγ ~ Tγ0 / a
     Ωγ0 ~ π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*h)^2)
-    ργ ~ 3/(8*Num(π)) * Ωγ0 * a^(-4)
+    ργ ~ 3/(8*Num(π)) * Ωγ0 / a^4
     wγ ~ 1//3
     Pγ ~ wγ * ργ
     D(Fγ0) ~ -k*Fγ[1] + 4*D(Φ)
@@ -178,12 +180,12 @@ eqs = [
     D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + κ̇ * Gγ[lγmax]
 
     # cold dark matter
-    ρc ~ 3/(8*Num(π)) * Ωc0 * a^(-3)
+    ρc ~ 3/(8*Num(π)) * Ωc0 / a^3
     D(δc) ~ -(θc-3*D(Φ))
     D(θc) ~ -ℋ*θc + k^2*Ψ
 
     # massless neutrinos
-    ρν ~ 3/(8*Num(π)) * Ων0 * a^(-4)
+    ρν ~ 3/(8*Num(π)) * Ων0 / a^4
     wν ~ 1//3
     Pν ~ wν * ρν
     Tν ~ Tν0 / a
@@ -261,6 +263,10 @@ initialization_eqs = [
 ]
 
 defaults = [
+    D(a) => a / τ
+    τ0 => NaN
+    fν => (ρν + ρh) / (ρν + ρh + ργ)
+    C => 1//2
     XHe⁺ => 1.0
     XH⁺ => 1.0
     κ => 0.0
@@ -271,15 +277,11 @@ defaults = [
     zre2 => 3.5
     Δzre2 => 0.5
     nre2 => 1
-    C => 1//2
-    τ0 => NaN
-    D(a) => a / τ
-    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0
     Tν0 => (4/11)^(1/3) * Tγ0
     Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
-    fν => (ρν + ρh) / (ρν + ρh + ργ)
+    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0
 ]
 
 guesses = [
@@ -316,5 +318,5 @@ plot!(p[3], sol, log10(a), [Φ, Ψ], ks)
     Because it is unstructured, this model is only available for the standard ΛCDM model.
     It cannot and will not include all combinations of extended models in a way that scales well in model space.
     To enable and disable components, you have to manually edit them in and out yourself.
-    For this it can be helpful to look at SymBoltz' library of components in the [src/models/](https://github.com/hersle/SymBoltz.jl/tree/main/src/models) directory.
+    For this it can be helpful to look at SymBoltz' library of components in the [src/models/](https://github.com/hersle/SymBoltz.jl/tree/main/src/models) directory (this model is essentially a copy-paste of those components).
 
