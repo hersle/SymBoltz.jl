@@ -14,7 +14,7 @@ using DataInterpolations
 using Unitful, UnitfulAstro
 using CairoMakie
 
-lmax = 6
+lmax = 10
 reionization = true
 Hswitch = 1
 Heswitch = 6
