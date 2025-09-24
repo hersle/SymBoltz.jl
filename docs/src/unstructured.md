@@ -38,7 +38,6 @@ A2pt = 177.58e0
 αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p))
 KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
 γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
-fν = 0
 
 # massive neutrino distribution function and quadrature momenta
 nx = 4
@@ -56,7 +55,7 @@ pars = @parameters begin
     Ωc0, 
     Ωb0, YHe, fHe,
     Tγ0, Ωγ0,
-    Ων0, Tν0, Neff,
+    Ων0, Tν0, Neff, fν,
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0,
     ΩΛ0,
     zre1, Δzre1, nre1,
@@ -280,6 +279,7 @@ defaults = [
     Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
+    fν => (ρν + ρh) / (ρν + ρh + ργ)
 ]
 
 guesses = [
