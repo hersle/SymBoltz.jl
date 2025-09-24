@@ -25,6 +25,10 @@ For example, to see all equations for the theory of gravity:
 equations(M.G)
 ```
 
+!!! tip
+    Are you not a fan of the modular model structure?
+    SymBoltz also provides a [full unstructured ΛCDM model](@ref "Unstructured ΛCDM model") that lays out all variables and equations in one huge model.
+
 ## 2. Solve the problem
 
 Next, we create a *numerical* representation of the cosmological problem we want to solve.
