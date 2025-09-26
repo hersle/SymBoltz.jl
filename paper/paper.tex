@@ -175,7 +175,7 @@ Fifth, the perturbations must be solved for many different wavenumbers $k$, and 
 
 To overcome these challenges, Boltzmann solvers are typically written in low-level high-performance languages like C, C++ and Fortran.
 Codes are usually tightly adapted to the pipeline-like \emph{computational} structure of the problem (e.g. input $\rightarrow$ background $\rightarrow$ thermodynamics $\rightarrow$ perturbations $\rightarrow \ldots \rightarrow$ output in section 3.3 in \cite{lesgourguesCosmicLinearAnisotropy2011}).
-This makes sense for the programmer and computer, but not always for the modeler.
+This makes sense for programmers and computers, but not always for modelers.
 
 Traditional codes have nonexistent or only very thin abstraction layers around them.
 To modify them, users must work directly in the low-level numerical interface and should be prepared to get their hands dirty.
@@ -371,7 +371,7 @@ Interactions (e.g. Compton scattering or sourcing of gravity) are equations that
 This structure is made possible by the symbolic interface and would slow a purely numerical code.
 
 Separation of computational stages is secondary and done automatically (see \cref{sec:splining}).
-This makes it possible to write everything related to one component \emph{in one place}, instead of scattering code across separate modules for input, background, perturbations and so on.
+This makes it possible to write everything related to one component \emph{in one place}, instead of scattering it across separate modules for input, background, perturbations and so on.
 One component can be replaced by another to construct a different cosmological model without polluting a big global model.
 A large part of SymBoltz is thus simply devoted to building a well-organized library of such physical components.
 
@@ -970,7 +970,7 @@ We think the modular design makes it very easy to add new models and compute oth
 Forward-mode automatic differentiation is well-tested, while support for reverse-mode is a future goal.
 This would make SymBoltz very powerful for scalar loss applications like MCMCs.
 
-With some more work, SymBoltz could grow from a \enquote{mere} Boltzmann solver into a fully integrated symbolic-numeric and differentiable cosmological modeling environment.
+With some more work, SymBoltz could grow into a fully integrated symbolic-numeric and differentiable cosmological modeling environment.
 For example, numerical code generation could be extended from linear equations to non-linear $N$-body simulations in a consistent and unified framework.
 This could alleviate the $N$-language problem ($N \gtrsim 2$) prevalent in cosmological modeling, which glues together convenient high-level languages like Python with performant low-level languages like C and Fortran, and sometimes symbolic work in a CAS like Mathematica.
 
