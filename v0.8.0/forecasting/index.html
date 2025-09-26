@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Fisher forecasting · SymBoltz</title><meta name="title" content="Fisher forecasting · SymBoltz"/><meta property="og:title" content="Fisher forecasting · SymBoltz"/><meta property="twitter:title" content="Fisher forecasting · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li class="is-active"><a class="tocitem" href>Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Fisher forecasting</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Fisher forecasting</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/forecasting.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fisher-forecasting"><a class="docs-heading-anchor" href="#Fisher-forecasting">Fisher forecasting</a><a id="Fisher-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Fisher-forecasting" title="Permalink"></a></h1><p>Fisher forecasting is an important tool for estimating what constraints on parameters that observations with some given uncertainties can place. This example shows how SymBoltz can be used to perform a Fisher forecast on a CMB (TT) survey limited only by cosmic variance.</p><p>First, create a base ΛCDM cosmological model and problem:</p><pre><code class="language-julia hljs">using SymBoltz, Plots
+M = ΛCDM(K = nothing) # flat
+pars = Dict(
+    M.g.h =&gt; 0.70,
+    M.c.Ω₀ =&gt; 0.27,
+    M.b.Ω₀ =&gt; 0.05,
+    M.γ.T₀ =&gt; 2.7,
+    M.ν.Neff =&gt; 3.0,
+    M.b.YHe =&gt; 0.25,
+    M.h.m_eV =&gt; 0.02,
+    M.I.ln_As1e10 =&gt; 3.0,
+    M.I.ns =&gt; 0.96
+)
+pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
+prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=&gt; NaN))) # set varying to NaN</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology problem for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: 5 unknowns, 0 splines
+  Perturbations: 54 unknowns, 5 splines
+<span class="sgr1">Parameters &amp; initial conditions:</span>
+  c₊Ω₀ = NaN
+  b₊Ω₀ = NaN
+  γ₊T₀ = 2.7
+  b₊YHe = NaN
+  I₊ns = NaN
+  h = NaN
+  h₊m_eV = 0.02
+  I₊ln_As1e10 = NaN
+  ν₊Neff = 3.0</code></pre><p>Next, create a function for computing <span>$Cₗ$</span> of the CMB TT power spectrum. Since <span>$Cₗ$</span> is an expensive but smooth function of <span>$l$</span>, we make one function for it exactly on a coarse grid of <span>$l$</span> and another for interpolating it to a finer grid:</p><pre><code class="language-julia hljs">probgen = parameter_updater(prob0, pars_varying)
+ls, ls′ = 40:1:1000, 40:20:1000
+function Cl(θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8))
+    return spectrum_cmb(:TT, probgen(θ), ls, ls′; bgopts, ptopts)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cl (generic function with 1 method)</code></pre><p>We can now compute <span>$Cₗ$</span> and the cosmic variance uncertainties</p><p class="math-container">\[σₗ = \sqrt{\frac{2}{2l+1}} Cₗ\]</p><p>and plot them with error bars:</p><pre><code class="language-julia hljs">θ0 = [pars[par] for par in pars_varying]
+Cls = Cl(θ0)
+σs = @. √(2/(2ls+1)) * Cls # cosmic variance
+plot(ls, Cls.*ls.*(ls.+1)/2π; ribbon = σs.*ls.*(ls.+1)/2π, xlabel = &quot;l&quot;, ylabel = &quot;l(l+1)Cₗ/2π&quot;, label = &quot;Dₗ ± ΔDₗ&quot;)</code></pre><img src="059b9914.svg" alt="Example block output"/><p>The likelihood (logarithm) function (given model parameters <span>$θ$</span> and measured <span>$̄\bar{C}ₗ$</span>) is</p><p class="math-container">\[\log L(θ) = -\frac12 \sum_i \left( \frac{Cₗ(θ)-C̄ₗ}{σᵢ} \right)².\]</p><p>To calculate parameter covariances, we first need the <a href="https://en.wikipedia.org/wiki/Fisher_information">Fisher information matrix</a>:</p><p class="math-container">\[Fᵢⱼ = -\frac{1}{2} ∑ₗ \left⟨ \frac{∂² \log L}{∂θᵢ ∂θⱼ} \right⟩ = ∑ₗ \frac{∂Cₗ}{∂θᵢ} \frac{1}{σₗ²} \frac{∂Cₗ}{∂θⱼ}.\]</p><p>Notice that the Fisher matrix is independent of the measured <span>$C̄ₗ$</span>, and depends only on the uncertainties and the <em>derivatives</em> of the <span>$Cₗ$</span> with respect to the cosmological parameters. We can compute the derivatives using automatic differentiation, and compare them to those found with finite differences:</p><pre><code class="language-julia hljs">using ForwardDiff, FiniteDiff
+dCl_dθ_ad = ForwardDiff.jacobian(Cl, θ0)
+dCl_dθ_fd = FiniteDiff.finite_difference_jacobian(Cl, θ0, Val{:central}; relstep = 5e-3) # TODO: 4e-2 is good for m_eV
+
+θnames = replace.(string.(pars_varying), &quot;₊&quot; =&gt; &quot;.&quot;)
+color = permutedims(eachindex(θnames))
+hline([NaN NaN], color = :black, linestyle = [:solid :dash], xlabel = &quot;l&quot;, label = [&quot;AD&quot; &quot;FD&quot;])
+plot!(ls, dCl_dθ_ad ./ Cls; color, linestyle = :solid, label = &quot;∂(Cₗ)/∂(&quot; .* permutedims(θnames) .* &quot;)&quot;)
+plot!(ls, dCl_dθ_fd ./ Cls; color, linestyle = :dash, label = nothing)</code></pre><img src="e413ab1d.svg" alt="Example block output"/><p>We can now compute <span>$F$</span> and the parameter covariance matrix</p><p class="math-container">\[C = F⁻¹,\]</p><p>which is simply the inverse of <span>$F$</span>:</p><pre><code class="language-julia hljs">fisher_matrix(dCl_dθ) = [sum(dCl_dθ[il,i]*dCl_dθ[il,j]/σs[il]^2 for il in eachindex(ls)) for i in eachindex(θ0), j in eachindex(θ0)]
+F_fd = fisher_matrix(dCl_dθ_fd)
+F_ad = fisher_matrix(dCl_dθ_ad)
+C_fd = inv(F_fd)
+C_ad = inv(F_ad)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">6×6 Matrix{Float64}:
+  0.000506831  -0.000594433  -5.21517e-5  …  -0.000145994   0.000271912
+ -0.000594433   0.000707536   6.19562e-5      0.000199447  -0.00029147
+ -5.21517e-5    6.19562e-5    5.4956e-6       1.71499e-5   -2.61067e-5
+ -0.000265789   0.000474763   3.75678e-5      0.00054497    0.000353774
+ -0.000145994   0.000199447   1.71499e-5      0.000122915  -5.91129e-7
+  0.000271912  -0.00029147   -2.61067e-5  …  -5.91129e-7    0.000240458</code></pre><p>Finally, we can plot ellipses for the forecasted parameter constraints in the multi-dimensional parameter space:</p><pre><code class="language-julia hljs">using Plots
+
+function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd = 1, N = 33)
+    σᵢ², σⱼ², σᵢⱼ = C[i,i], C[j,j], C[i,j]
+    θ = (atan(2σᵢⱼ, σᵢ²-σⱼ²)) / 2
+    a = √((σᵢ²+σⱼ²)/2 + √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2))
+    b = √(max(0.0, (σᵢ²+σⱼ²)/2 - √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2)))
+
+    a *= nstd # TODO: correct?
+    b *= nstd # TODO: correct?
+
+    cx, cy = c
+    ts = range(0, 2π, length=N)
+    xs = cx .+ a*cos(θ)*cos.(ts) - b*sin(θ)*sin.(ts)
+    ys = cy .+ a*sin(θ)*cos.(ts) + b*cos(θ)*sin.(ts)
+    return xs, ys
+end
+
+function plot_ellipses!(p, C; label = nothing, kwargs...)
+    for i in eachindex(IndexCartesian(), C)
+        ix, iy = i[1], i[2]
+        if iy == 1 || iy &gt; size(p)[1] + 1 || ix &gt; size(p)[2]
+            continue # out of bounds; skip
+        end
+        subplot = p[iy-1, ix]
+        if ix &gt;= iy
+            # upper triangular part
+            _label = (iy-1, ix) == (1, size(p)[2]) ? label : nothing
+            hline!(subplot, [NaN]; framestyle = :none, label = _label, legendfontsize = 10, kwargs...)
+        else
+            # lower triangular part
+            μx = θ0[ix]
+            μy = θ0[iy]
+            xlabel = iy == length(θ0) ? θnames[ix] : &quot;&quot;
+            ylabel = ix == 1 ? θnames[iy] : &quot;&quot;
+            for nstd in 1:2
+                xs, ys = ellipse(C, ix, iy, (μx, μy); nstd)
+                plot!(subplot, xs, ys; xlabel, ylabel, label = nothing, kwargs...)
+            end
+        end
+    end
+    return p
+end
+
+p = plot(layout = (length(θ0)-1, length(θ0)-1), size = (1000, 1000), aspect = 1)
+plot_ellipses!(p, C_ad; color = :blue, linestyle = :solid, linewidth = 2, label = &quot;automatic differentiation&quot;)
+plot_ellipses!(p, C_fd; color = :red, linestyle = :dash, linewidth = 2, label = &quot;finite differences&quot;)</code></pre><img src="546c3d87.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parameter_fitting/">« Fitting parameters</a><a class="docs-footer-nextpage" href="../components/">Components (submodels) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 23 September 2025 14:53">Tuesday 23 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
