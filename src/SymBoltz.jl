@@ -47,19 +47,4 @@ export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, sound_horizon
 export express_derivatives
 
-using PrecompileTools: @compile_workload
-@compile_workload begin
-    using SymBoltz, Unitful, UnitfulAstro
-    M = ΛCDM(ν = nothing, h = nothing)
-    propertynames(M) # speed up first TAB completion of e.g. M.<TAB>
-    propertynames(M.g) # speed up first TAB completion of e.g. M.g.<TAB>
-    pars = parameters_Planck18(M)
-    prob = CosmologyProblem(M, pars)
-    ks = 10 .^ range(-6, 0, length=5) / u"Mpc"
-    sol = solve(prob, ks; thread = false)
-    Ps = spectrum_matter(sol, ks)
-    ls = 1:3
-    Dls = spectrum_cmb(:TT, prob, ls; normalization = :Dl, thread = false)
-end
-
 end
