@@ -1,7 +1,7 @@
 name = "SymBoltz"
 uuid = "64c5a815-d72d-4982-8b1f-85a778bbef4e"
 authors = ["Herman Sletmoen"]
-version = "0.8.1"
+version = "0.8.2"
 
 [deps]
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
