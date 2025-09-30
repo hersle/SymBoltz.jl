@@ -20,3 +20,20 @@ Visit [**the documentation pages**](https://hersle.github.io/SymBoltz.jl/) to ge
 ## Gallery
 
 <img width="1677" height="1295" alt="bilde" src="https://github.com/user-attachments/assets/72982f26-4a9d-4962-8075-b94462fc711a" />
+
+## Citation
+
+If you use SymBoltz in your work, please cite [this paper](https://arxiv.org/abs/2509.24740):
+```
+@article{SymBoltz,
+  title = {{SymBoltz.jl}: a symbolic-numeric, approximation-free and differentiable linear {Einstein-Boltzmann} solver},
+  author = {Herman Sletmoen},
+  year = {2025},
+  journal = {arXiv},
+  eprint = {2509.24740},
+  archiveprefix = {arXiv},
+  primaryclass = {astro-ph.CO},
+  doi = {10.48550/arXiv.2509.24740},
+  url = {http://arxiv.org/abs/2509.24740},
+}
+```

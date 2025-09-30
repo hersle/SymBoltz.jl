@@ -1,0 +1,12 @@
+SymBoltz is a new Julia package that solves the linear Einstein-Boltzmann equations.
+It features a symbolic-numeric interface for specifying equations, is free of approximation switching schemes and is compatible with automatic differentiation.
+Cosmological models are built from replaceable physical components in a way that scales well in model space.
+The modeler should simply write down their equations, and SymBoltz solves them and eliminates much of the friction in the process.
+SymBoltz enables up to 100x shorter model definitions compared to browsing equivalent files in CLASS.
+Symbolic knowledge enables powerful automation of tasks, such as separating computational stages like the background and perturbations, generating the Jacobian matrix and its sparsity pattern, and interpolating arbitrary expressions from the solution.
+Modern implicit solvers integrate the full stiff equations at all times, reducing slowdowns by taking long time steps, reusing the Jacobian and LU-factorizing it over several time steps, and using fast linear system solvers.
+Automatic differentiation gives exact derivatives of any output with respect to any input, which is important for gradient-based Markov chain Monte Carlo methods in large parameter spaces, training of emulators, Fisher forecasting and sensitivity analysis.
+These features are useful in their own rights, but also reinforce each other in a synergy.
+Results agree with established codes like CLASS and CAMB.
+With more work, SymBoltz can grow into an integrated symbolic-numeric cosmological modeling environment with a large library of models that delivers differentiable output as fast as other codes.
+SymBoltz is available at https://github.com/hersle/SymBoltz.jl with single-command installation and extensive documentation, and welcomes questions, suggestions and contributions.
