@@ -1,5 +1,10 @@
 # SymBoltz.jl
 
+[![Documentation](https://img.shields.io/badge/documentation%20-%20stable%20-%20%232e63b8)](https://hersle.github.io/SymBoltz.jl/stable/)
+[![Code paper](https://img.shields.io/badge/paper%20-%20arXiv%20-%20%23b31b1b)](https://arxiv.org/abs/2509.24740)
+[![Build status](https://img.shields.io/github/actions/workflow/status/hersle/SymBoltz.jl/ContinuousIntegration.yml)](https://github.com/hersle/SymBoltz.jl/actions/workflows/ContinuousIntegration.yml)
+[![License](https://img.shields.io/github/license/hersle/SymBoltz.jl)](https://github.com/hersle/SymBoltz.jl/blob/main/LICENSE)
+
 SymBoltz.jl is a Julia package for solving the linear Einstein-Boltzmann equations in cosmology. It is:
 
 - **Symbolic-numeric:** Models are specified with symbolic equations in a simple, convenient and extensible high-level format, then automatically compiled to fast numerical functions that are solved.
