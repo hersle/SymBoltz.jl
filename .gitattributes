@@ -1,0 +1,4 @@
+# https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
+paper/* linguist-documentation
+paper/bibtex/* linguist-documentation
+poster/* linguist-documentation
