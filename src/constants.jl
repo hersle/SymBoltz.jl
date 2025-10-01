@@ -23,6 +23,25 @@ const me = PhysicalConstants.CODATA2018.m_e / u"kg"
 const mH = elements[:H].atomic_mass / u"kg" |> NoUnits
 const mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
 
+# Hydrogen singlet transitions
+const λH∞1s   =  91.17534e-9; const fH∞1s  = c/λH∞1s;  const EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)
+const λH2s1s  = 121.56700e-9; const fH2s1s = c/λH2s1s; const EH2s1s = h*fH2s1s # 2s - 1s
+const EH∞2s  = EH∞1s - EH2s1s # E(∞) - E(2s)
+
+# Helium singlet transitions
+const λHe∞1s  =  50.42590e-9; const fHe∞1s  = c/λHe∞1s;  const EHe∞1s  = h*fHe∞1s
+const λHe2s1s =  60.14045e-9; const fHe2s1s = c/λHe2s1s; const EHe2s1s = h*fHe2s1s
+const λHe2p1s =  58.43344e-9; const fHe2p1s = c/λHe2p1s; const EHe2p1s = h*fHe2p1s
+const EHe2p2s = EHe2p1s - EHe2s1s
+const EHe∞2s  = EHe∞1s - EHe2s1s
+const EHe⁺∞1s = 54.4178 * eV
+
+# Helium triplet transitions
+const λHet∞2s = 260.0463e-9; const fHet∞2s = c/λHet∞2s; const EHet∞2s = h*fHet∞2s # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV) (read: "wavelength Helium triplet ∞ to 2s")
+const λHet2p1s = 59.1411e-9; const fHet2p1s = c/λHet2p1s; const EHet2p1s = h*fHet2p1s
+const λHet2s1s = 62.5563e-9; const fHet2s1s = c/λHet2s1s; const EHet2s1s = h*fHet2s1s
+const EHet2p2s = EHet2p1s - EHet2s1s
+
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
 
 function k_dimensionless(k::Number, h)

@@ -16,25 +16,14 @@ using SymBoltz
 
 # constants and some functions
 @unpack kB, h, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse = SymBoltz
+@unpack λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s = SymBoltz # energy levels
+
 lγmax = 6
 lνmax = 6
 lhmax = 6
 ϵ = 1e-9
 ΛH = 8.2245809
 ΛHe = 51.3
-λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s
-λH2s1s  = 121.56700e-9; fH2s1s = c/λH2s1s; EH2s1s = h*fH2s1s
-EH∞2s  = EH∞1s - EH2s1s
-λHe∞1s  =  50.42590e-9; fHe∞1s  = c/λHe∞1s;  EHe∞1s  = h*fHe∞1s
-λHe2s1s =  60.14045e-9; fHe2s1s = c/λHe2s1s; EHe2s1s = h*fHe2s1s
-λHe2p1s =  58.43344e-9; fHe2p1s = c/λHe2p1s; EHe2p1s = h*fHe2p1s
-EHe2p2s = EHe2p1s - EHe2s1s
-EHe∞2s  = EHe∞1s - EHe2s1s
-EHe⁺∞1s = 54.4178 * eV
-λHet∞2s = 260.0463e-9; fHet∞2s = c/λHet∞2s; EHet∞2s = h*fHet∞2s
-λHet2p1s = 59.1411e-9; fHet2p1s = c/λHet2p1s; EHet2p1s = h*fHet2p1s
-λHet2s1s = 62.5563e-9; fHet2s1s = c/λHet2s1s; EHet2s1s = h*fHet2s1s
-EHet2p2s = EHet2p1s - EHet2s1s
 A2ps = 1.798287e9
 A2pt = 177.58e0
 αHfit(T; F=1.125, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d)

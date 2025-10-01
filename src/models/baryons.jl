@@ -38,19 +38,6 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
 
-    # Hydrogen singlet transitions
-    λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)
-    λH2s1s  = 121.56700e-9; fH2s1s = c/λH2s1s; EH2s1s = h*fH2s1s # 2s - 1s
-    EH∞2s  = EH∞1s - EH2s1s # E(∞) - E(2s)
-
-    # Helium singlet transitions
-    λHe∞1s  =  50.42590e-9; fHe∞1s  = c/λHe∞1s;  EHe∞1s  = h*fHe∞1s
-    λHe2s1s =  60.14045e-9; fHe2s1s = c/λHe2s1s; EHe2s1s = h*fHe2s1s
-    λHe2p1s =  58.43344e-9; fHe2p1s = c/λHe2p1s; EHe2p1s = h*fHe2p1s
-    EHe2p2s = EHe2p1s - EHe2s1s
-    EHe∞2s  = EHe∞1s - EHe2s1s
-    EHe⁺∞1s = 54.4178 * eV
-
     defaults = [
         XHe⁺ => 1.0 # TODO: add first order correction?
         XH⁺ => 1.0 # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
@@ -104,10 +91,6 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         append!(eqs, [DXHet⁺ ~ 0, invKHe1 ~ 0, invKHe2 ~ 0])
     elseif Heswitch == 6 # all corrections (Doppler, triplet etc.)
         ϵ = 1e-9 # original RECFAST switches off He corrections when XHe⁺ ≈ 1.0; I add a tiny ϵ to avoid numerical instabilities
-        λHet∞2s = 260.0463e-9; fHet∞2s = c/λHet∞2s; EHet∞2s = h*fHet∞2s # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV) (read: "wavelength Helium triplet ∞ to 2s")
-        λHet2p1s = 59.1411e-9; fHet2p1s = c/λHet2p1s; EHet2p1s = h*fHet2p1s
-        λHet2s1s = 62.5563e-9; fHet2s1s = c/λHet2s1s; EHet2s1s = h*fHet2s1s
-        EHet2p2s = EHet2p1s - EHet2s1s
         A2ps = 1.798287e9 # A 2p singlet
         A2pt = 177.58e0 # A 2p triplet
         γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
