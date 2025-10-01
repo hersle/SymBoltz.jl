@@ -58,7 +58,7 @@ end
     @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
     @test_throws "Could not express derivative" sol(D(D(M.g.z)), τ0)
     sol(D(M.g.Φ), τ0, ks)
-    @test isapprox(sol(D(M.g.Φ), τ0, ks), sol(D(M.g.Ψ), τ0, ks); atol = 1e-5)
+    @test isapprox(sol(D(M.g.Φ), τ0, ks), sol(D(M.g.Ψ), τ0, ks); atol = 2e-5)
     @test_throws "Could not express derivative" sol(D(D(M.g.Φ)), τ0, ks)
     @test_throws "Could not express derivative" sol(D(D(M.g.Ψ)), τ0, ks)
 end
@@ -381,10 +381,11 @@ end
     τs = range(τi, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST0)
-    sol = solve(prob, ks_coarse; ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8, saveat = τs,))
+    ptopts = (alg = SymBoltz.DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8)
+    sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
     Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
-    @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse)
+    @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Ss = @view Ss[1, :, :]
     Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)

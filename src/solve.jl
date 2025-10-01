@@ -14,6 +14,10 @@ import NumericalIntegration: cumul_integrate
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
+const DEFAULT_BGALG = Rodas4P(linsolve = RFLUFactorization(throwerror = true))
+const DEFAULT_PTALG = KenCarp4(linsolve = RFLUFactorization(throwerror = true), nlsolve = NLNewton(fast_convergence_cutoff = 0, κ = 1))
+const DEFAULT_SHOOTALG = NewtonRaphson()
+
 struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     M::System
 
@@ -265,9 +269,9 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9),
-        ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8),
-        shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
+        bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
+        ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
+        shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
 
@@ -278,9 +282,9 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9),
-    ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8),
-    shootopts = (alg = NewtonRaphson(), abstol = 1e-5),
+    bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
+    ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
+    shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
@@ -319,11 +323,11 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
-function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
     bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
@@ -331,7 +335,7 @@ function solvebg(bgprob::ODEProblem; alg = Rodas4P(), reltol = 1e-9, abstol = 1e
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9, shootopts = (alg = NewtonRaphson(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, shootopts = (alg = DEFAULT_SHOOTALG, reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
@@ -388,14 +392,14 @@ end
 
 # TODO: use ensemblesolution output func to save e.g. necessary source functions for optimized code paths
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
 A background solution `bgsol` must be passed (see `solvebg`), and a dictionary `var2spl` that maps background variables to spline parameters in the perturbation problem.
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is an `EnsembleSolution` over all `ks`.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, var2spl::Dict; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
