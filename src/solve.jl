@@ -709,3 +709,17 @@ end
 # Fix model/solution under broadcasted calls
 Base.broadcastable(sys::System) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)
+
+# Statistics for solution of background
+function statsbg(sol::CosmologySolution)
+    return sol.bg.stats
+end
+
+# Summarized statistics for solution of all perturbation modes
+function statspt(sol::CosmologySolution)
+    stats = SciMLBase.DEStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NaN)
+    for field in fieldnames(typeof(stats))
+        @eval $stats.$field = sum(ptsol.stats.$field for ptsol in $sol.pts)
+    end
+    return stats
+end
