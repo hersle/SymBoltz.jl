@@ -354,8 +354,10 @@ function P_symboltz(k, pars)
     return P
 end
 k, P1 = P_class(pars)
+P1 = P1[k .> 9e-5]
+k = k[k .> 9e-5]
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 7e0)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 4e0)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
