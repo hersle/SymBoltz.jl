@@ -98,7 +98,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 "emulate" radiation streaming, while higher-precision Rodas5P continues in an exact way
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),))
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -354,8 +354,10 @@ function P_symboltz(k, pars)
     return P
 end
 k, P1 = P_class(pars)
+P1 = P1[k .> 9e-5]
+k = k[k .> 9e-5]
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 7e0)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 4e0)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
