@@ -46,6 +46,7 @@ function ΛCDM(;
     pars = @parameters begin
         C, [description = "Initial conditions integration constant"]
         τ0, [description = "Conformal time today"]
+        τrec, [description = "Conformal time of recombination"]
     end
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
@@ -56,10 +57,12 @@ function ΛCDM(;
         ST0_ISW(τ, k), ST1_ISW(τ, k),
         ST0_Doppler(τ, k), ST1_Doppler(τ, k),
         ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k)
+        Sψ(τ, k), [description = "Lensing source function"]
     end
     defs = Dict(
         C => 1//2,
         τ0 => NaN,
+        τrec => NaN,
         D(g.a) => g.a / τ, # ℋ ≈ 1 / τ
     )
     guesses = Dict(
@@ -100,6 +103,7 @@ function ΛCDM(;
         ST2_polarization ~ 3/16 * b.v*γ.Π
         ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
         ST1 ~ 0
+        Sψ ~ ifelse(τ ≥ τrec, -2*g.Ψ * (1/(τ0-τrec) - 1/(τ0-τ)), 0)
     ])
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
