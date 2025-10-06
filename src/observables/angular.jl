@@ -181,18 +181,22 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     # Integrate perturbations to calculate source function on coarse k-grid
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
+    iψ = 'ψ' in join(modes) ? iE + 1 : 0
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
     iE > 0 && push!(Ss, prob.M.ST2_polarization)
+    iψ > 0 && push!(Ss, prob.M.Sψ)
     Ss_coarse = source_grid(prob, Ss, τs, ks_coarse; bgopts, ptopts, thread, verbose) # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # TODO: ideally avoid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
+    Ss_fine[:,end,:] .= 0
 
     ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
     ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    Θlψs = iψ > 0 ? los_integrate(@view(Ss_fine[iψ, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
@@ -212,6 +216,8 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
             spectrum = spectrum_cmb(ΘlEs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
         elseif mode == :TE
             spectrum = spectrum_cmb(ΘlTs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
+        elseif mode == :ψψ
+            spectrum = spectrum_cmb(Θlψs, Θlψs, P0s, ls, ks_fine; integrator, normalization)
         else
             error("Unknown CMB power spectrum mode $mode")
         end
