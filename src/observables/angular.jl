@@ -205,9 +205,11 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
     # Integrate perturbations to calculate source function on coarse k-grid
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
+    iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
     iE > 0 && push!(Ss, prob.M.SE_kχ²)
+    iψ > 0 && push!(Ss, prob.M.Sψ)
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = 2)
     ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, sourceopts...) # TODO: thread flag # TODO: pass kτ0 and x # TODO: pass bgsol
 
@@ -219,8 +221,16 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
     end
     Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
 
-    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    Θls = zeros(eltype(Ss_fine), max(iT, iE, iψ), length(ks_fine), length(ls))
+    if iT > 0
+        Θls[iT, :, :] .= los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    end
+    if iE > 0
+        Θls[iE, :, :] .= los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    end
+    if iψ > 0
+        Θls[iψ, :, :] .= los_integrate(@view(Ss_fine[iψ, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
@@ -232,17 +242,21 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
         error("Requested unit $unit is not a temperature unit")
     end
 
+    function geti(mode)
+        mode == :T && return iT
+        mode == :E && return iE
+        mode == :ψ && return iψ
+        error("Unknown CMB power spectrum mode $mode")
+    end
+
     spectra = zeros(eltype(Ss_fine[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
-        if mode == :TT
-            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :EE
-            spectrum = spectrum_cmb(ΘlEs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :TE
-            spectrum = spectrum_cmb(ΘlTs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        else
-            error("Unknown CMB power spectrum mode $mode")
-        end
+        mode = String(mode)
+        iA = geti(Symbol(mode[firstindex(mode)]))
+        iB = geti(Symbol(mode[lastindex(mode)]))
+        ΘlAs = @view(Θls[iA, :, :])
+        ΘlBs = @view(Θls[iB, :, :])
+        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization)
         spectrum *= factor^2 # possibly make dimensionful
         spectra[:, i] .= spectrum
     end
