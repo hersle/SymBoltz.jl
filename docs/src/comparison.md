@@ -417,8 +417,12 @@ plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
 ```
 ```@example class
-Dl2 = Dl_symboltz([:ψψ], l, pars; Nlos = 8196)
+Dl2 = Dl_symboltz([:ψψ], l, pars; Nlos = 8196) # do not use Limber approximation
 plot_compare(l, l, Dl1[:, 4], Dl2[:, 1], "l", "Dₗ(ψψ)"; lgx = true, lgy = true, tol = 2e-12)
+```
+```@example class
+Dl2 = Dl_symboltz([:ψψ], l, pars; l_limber = 0) # use Limber approximation for all l
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 1], "l", "Dₗ(ψψ)"; lgx = true, lgy = true, tol = 9e-11)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]

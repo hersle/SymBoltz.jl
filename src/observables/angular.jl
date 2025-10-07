@@ -55,7 +55,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl_x2), l, x) = jl_x2(l, x), jl_x2′
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
@@ -63,8 +63,13 @@ Iₗ(k) = ∫dτ S(k,τ) Rₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the radial functions `Rl` (e.g. the spherical Bessel functions ``jₗ(x)``).
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
+The limber approximation
+```math
+Iₗ ≈ √(π/(2l+1)) S(k,τ₀-(l+1/2)/k)
+```
+is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function = jl; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, Rl::Function = jl; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss) == (length(τs), length(ks)) "size(Ss) = $(size(Ss)) ≠ $((length(τs), length(ks)))"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
@@ -80,13 +85,30 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         verbose && print("\rLOS integrating with l = $l")
         for ik in eachindex(ks)
             k = ks[ik]
-            for iτ in eachindex(τs)
-                S = Ss[iτ,ik]
-                χ = χs[iτ]
-                kχ = k * χ
-                ∂I_∂τ[iτ] = S * Rl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
+            if l ≥ l_limber
+                χ = (l+1/2) / k
+                if χ > χs[1]
+                    # χ > χini > χrec, so source function is definitely zero
+                    S = 0.0
+                else
+                    # interpolate between two closest points in saved array
+                    iχ₋ = searchsortedfirst(χs, χ; rev = true)
+                    iχ₊ = iχ₋ - 1
+                    χ₋, χ₊ = χs[iχ₋], χs[iχ₊] # now χ₋ < χ < χ₊
+                    S₋, S₊ = Ss[iχ₋,ik], Ss[iχ₊,ik]
+                    S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                end
+                I = √(π/(2l+1)) * S / k
+            else
+                for iτ in eachindex(τs)
+                    S = Ss[iτ,ik]
+                    χ = χs[iτ]
+                    kχ = k * χ
+                    ∂I_∂τ[iτ] = S * Rl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
+                end
+                I = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
             end
-            Is[ik,il] = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
+            Is[ik,il] = I
         end
     end
     verbose && println()
