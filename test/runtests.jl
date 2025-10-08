@@ -1,4 +1,4 @@
-using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff
+using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff, BenchmarkTools
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
@@ -115,6 +115,26 @@ end
         dcrazy_x2_ad(l, x) = ForwardDiff.derivative(x -> crazy_x2(l, x), x)
         @test all(isapprox.(dcrazy_x2_ad.(l, x), dcrazy_x2_fd.(l, x); atol = 1e-6))
     end
+end
+
+@testset "Spherical Bessel function cache" begin
+    ls = 10:10:100
+    jl = SphericalBesselCache(ls)
+
+    @test_throws BoundsError jl(5, 0.0) # not cached
+    @test_throws BoundsError jl(10, -1.0)
+    @test_throws BoundsError jl(10, jl.x[end] + 1.0)
+    @test jl(10, 0.0) == SymBoltz.sphericalbesselj(10, 0.0)
+    @test jl(10, jl.x[end]) == SymBoltz.sphericalbesselj(10, jl.x[end])
+    @test isapprox(jl(10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol = 1e-3)
+
+    t1 = @belapsed $jl(10, π)
+    t2 = @belapsed SymBoltz.sphericalbesselj(10, π)
+    @test t1 < t2 # faster
+    @test (@ballocated $jl(10, π)) == 0 # non-allocating
+
+    j10(x) = jl(10, x)
+    @test isfinite(ForwardDiff.derivative(j10, π))
 end
 
 @testset "Extend array" begin
