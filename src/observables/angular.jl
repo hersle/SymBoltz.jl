@@ -216,9 +216,16 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
     Ss_fine[:,end,:] .= 0
 
-    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
-    Θlψs = iψ > 0 ? los_integrate(@view(Ss_fine[iψ, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
+    Θls = zeros(eltype(Ss_fine), max(iT, iE, iψ), length(ks_fine), length(ls))
+    if iT > 0
+        Θls[iT, :, :] .= los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    end
+    if iE > 0
+        Θls[iE, :, :] .= los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    end
+    if iψ > 0
+        Θls[iψ, :, :] .= los_integrate(@view(Ss_fine[iψ, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
@@ -230,19 +237,21 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
         error("Requested unit $unit is not a temperature unit")
     end
 
+    function geti(mode)
+        mode == :T && return iT
+        mode == :E && return iE
+        mode == :ψ && return iψ
+        error("Unknown CMB power spectrum mode $mode")
+    end
+
     spectra = zeros(eltype(Ss_fine[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
-        if mode == :TT
-            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :EE
-            spectrum = spectrum_cmb(ΘlEs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :TE
-            spectrum = spectrum_cmb(ΘlTs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :ψψ
-            spectrum = spectrum_cmb(Θlψs, Θlψs, P0s, ls, ks_fine; integrator, normalization)
-        else
-            error("Unknown CMB power spectrum mode $mode")
-        end
+        mode = String(mode)
+        iA = geti(Symbol(mode[firstindex(mode)]))
+        iB = geti(Symbol(mode[lastindex(mode)]))
+        ΘlAs = @view(Θls[iA, :, :])
+        ΘlBs = @view(Θls[iB, :, :])
+        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization)
         spectrum *= factor^2 # possibly make dimensionful
         spectra[:, i] .= spectrum
     end
