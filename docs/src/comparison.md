@@ -32,7 +32,7 @@ function solve_class(pars, k = nothing)
         "write_background" => "yes",
         "write_thermodynamics" => "yes",
         "background_verbose" => 2,
-        "output" => "mPk, tCl, pCl", # need one to evolve perturbations
+        "output" => "mPk, tCl, pCl, lCl", # need one to evolve perturbations
 
         "k_output_values" => isnothing(k) ? "" : NoUnits(k / u"1/Mpc"),
         "ic" => "ad",
@@ -406,7 +406,7 @@ function Dl_symboltz(modes, l, pars; kwargs...)
 end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
-Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
+Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
 plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
 ```
@@ -415,6 +415,18 @@ plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
+```
+```@example class
+Dl2 = Dl_symboltz([:ψψ], l, pars; Nlos = 8196) # do not use Limber approximation
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 1], "l", "Dₗ(ψψ)"; lgx = true, lgy = true, tol = 2e-12)
+```
+```@example class
+Dl2 = Dl_symboltz([:Tψ], l, pars; Nlos = 10000, verbose = true) # do not use Limber approximation
+plot_compare(l, l, Dl1[:, 5], Dl2[:, 1], "l", "Dₗ(ψψ)"; lgx = true, lgy = true)
+```
+```@example class
+Dl2 = Dl_symboltz([:ψψ], l, pars; l_limber = 0) # use Limber approximation for all l
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 1], "l", "Dₗ(ψψ)"; lgx = true, lgy = true, tol = 9e-11)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
