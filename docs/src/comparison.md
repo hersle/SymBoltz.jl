@@ -400,18 +400,19 @@ function Dl_class(modes, l, pars)
     Dl = [Dl[j][i] for j in eachindex(modes)]
     return stack(Dl)
 end
-function Dl_symboltz(modes, l, pars; kwargs...)
+function Dl_symboltz(modes, jl, pars; kwargs...)
     prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
-    return spectrum_cmb(modes, prob′, l; normalization = :Dl, kwargs...)
+    return spectrum_cmb(modes, prob′, jl; normalization = :Dl, kwargs...)
 end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
-Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
+jl = SphericalBesselCache(l)
+Dl2 = Dl_symboltz([:TT, :TE, :EE], jl, pars)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 2e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
@@ -423,7 +424,7 @@ modes = [:TT, :TE, :EE]
 
 Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> Dl_class(modes, l, merge(pars, Dict(diffpars .=> θ))), θ, Val{:central}; relstep = 1e-3)
 println("Computed CLASS derivatives in $Δt1 seconds")
-Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(modes, l, Dict(diffpars .=> θ)), θ)
+Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(modes, jl, Dict(diffpars .=> θ)), θ)
 println("Computed SymBoltz derivatives in $Δt2 seconds")
 
 # returned matrices have size (length(l)*length(modes), length(diffpars)); reshape to (length(l), length(modes), length(diffpars))

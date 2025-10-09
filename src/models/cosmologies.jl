@@ -97,7 +97,7 @@ function ΛCDM(;
         ST1_Doppler ~ b.v*b.u
         ST0_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
         ST1_polarization ~ 3/(16*k) * D(b.v*γ.Π) |> expand_derivatives
-        ST2_polarization ~ 3/16 * b.v*γ.Π
+        ST2_polarization ~ 3/16 * b.v*γ.Π / (k*χ)^2
         ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
         ST1 ~ 0
     ])

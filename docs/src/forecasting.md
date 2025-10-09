@@ -30,9 +30,10 @@ Since $Cₗ$ is an expensive but smooth function of $l$, we make one function fo
 ```@example forecast
 # TODO: ω0 better than Ω0? # hide
 probgen = parameter_updater(prob0, pars_varying)
-ls, ls′ = 40:1:1000, 40:20:1000
+jl = SphericalBesselCache(40:20:1000)
+ls = 40:1:1000
 function Cl(θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8))
-    return spectrum_cmb(:TT, probgen(θ), ls, ls′; bgopts, ptopts)
+    return spectrum_cmb(:TT, probgen(θ), jl, ls; bgopts, ptopts)
 end
 ```
 We can now compute $Cₗ$ and the cosmic variance uncertainties

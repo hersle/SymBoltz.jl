@@ -1,4 +1,4 @@
-using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff
+using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff, BenchmarkTools
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
@@ -82,18 +82,6 @@ end
         SymBoltz.jl!(jlfast, l, x) # "unsafe" implementation
         SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
         @test jlfast ≈ jlslow
-
-        # Test jₗ(x) / x²
-        SymBoltz.jl_x2!(jlfast, l, x) # unsafe implementation
-        if x == 0.0
-            jlslow[3] = 1/15 # l = 2
-            jlslow[4:1000] .= 0.0 # l ≥ 3
-        else
-            SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
-            jlslow ./= x^2
-            @test jlfast[1:2] ≈ jlslow[1:2] # test l = 0 and 1 only for x > 0 (diverges for x = 0)
-        end
-        @test jlfast[3:end] ≈ jlslow[3:end] # l ≥ 2
     end
 end
 
@@ -107,14 +95,26 @@ end
         dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
         @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
     end
+end
 
-    # Test (jl/x^2)(l, x) chain rule
-    crazy_x2(l, x) = sin(7*SymBoltz.jl_x2(l, x^2)) # plot(x -> crazy_x2(5, x)) looks very cool
-    for l in 2:500
-        dcrazy_x2_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy_x2(l, x), x)
-        dcrazy_x2_ad(l, x) = ForwardDiff.derivative(x -> crazy_x2(l, x), x)
-        @test all(isapprox.(dcrazy_x2_ad.(l, x), dcrazy_x2_fd.(l, x); atol = 1e-6))
-    end
+@testset "Spherical Bessel function cache" begin
+    ls = 10:10:100
+    jl = SphericalBesselCache(ls)
+
+    @test_throws BoundsError jl(5, 0.0) # not cached
+    @test_throws BoundsError jl(10, -1.0)
+    @test_throws BoundsError jl(10, jl.x[end] + 1.0)
+    @test jl(10, 0.0) == SymBoltz.sphericalbesselj(10, 0.0)
+    @test jl(10, jl.x[end]) == SymBoltz.sphericalbesselj(10, jl.x[end])
+    @test isapprox(jl(10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol = 1e-3)
+
+    t1 = @belapsed $jl(10, π)
+    t2 = @belapsed SymBoltz.sphericalbesselj(10, π)
+    @test t1 < t2 # faster
+    @test (@ballocated $jl(10, π)) == 0 # non-allocating
+
+    j10(x) = jl(10, x)
+    @test isfinite(ForwardDiff.derivative(j10, π))
 end
 
 @testset "Extend array" begin
@@ -283,10 +283,11 @@ end
     =#
 
     l = 25:25:1000
+    jl = SphericalBesselCache(l)
     function logDlTT(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
-        DlTT = spectrum_cmb(:TT, prob′, l; normalization = :Dl)
+        DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
         return log.(DlTT)
     end
     ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
@@ -375,6 +376,7 @@ end
     @test sol.bg.t[end] == τ0
 
     ls = 20:20:500
+    jl = SphericalBesselCache(ls)
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
     ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
@@ -388,7 +390,7 @@ end
     @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Ss = @view Ss[1, :, :]
-    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
+    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end
