@@ -25,18 +25,29 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         u(τ, k), [description = "Velocity"]
         u̇(τ, k), [description = "Velocity derivative"]
     end
-    eqs = [
+    n = 3 * (1 + _w)
+    n = !(unwrap(_w) isa ModelingToolkit.Symbolic) && isinteger(n) ? Int(n) : n
+    if analytical
+        eqs = [
+            Ω ~ Ω₀ / g.a^n
+            ρ ~ 3/(8*Num(π)) * Ω
+        ]
+    else
+        eqs = [
+            D(ρ) ~ -3 * g.ℋ * (ρ + P)
+            Ω ~ 8π/3 * ρ
+        ]
+    end
+    append!(eqs, [
         w ~ _w
         P ~ w * ρ
-        analytical ? (ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w))) : (D(ρ) ~ -3 * g.ℋ * (ρ + P)) # alternative derivative: D(ρ) ~ -3 * g.ℋ * (ρ + P)
-        Ω ~ 8*Num(π)/3 * ρ
 
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
         u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
-    ]
+    ])
     adiabatic && push!(eqs, cₛ² ~ w)
     ics = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632

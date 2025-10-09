@@ -238,7 +238,7 @@ end
     pars = [ # choose lots of background parameters that should be equal in perturbations
         M.τ0, M.g.h,
         M.c.Ω₀,
-        M.b.Ω₀, M.b.YHe, M.b.fHe, M.b.rei1.z, M.b.rei2.z, M.b.κ0,
+        M.b.Ω₀, M.b.YHe, M.b.fHe, M.b.κ0,
         M.γ.Ω₀, M.γ.T₀,
         M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
         M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
