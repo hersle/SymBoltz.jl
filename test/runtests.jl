@@ -283,10 +283,11 @@ end
     =#
 
     l = 25:25:1000
+    jl = SphericalBesselCache(l)
     function logDlTT(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
-        DlTT = spectrum_cmb(:TT, prob′, l; normalization = :Dl)
+        DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
         return log.(DlTT)
     end
     ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
@@ -375,6 +376,7 @@ end
     @test sol.bg.t[end] == τ0
 
     ls = 20:20:500
+    jl = SphericalBesselCache(ls)
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
     ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
@@ -388,7 +390,7 @@ end
     @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Ss = @view Ss[1, :, :]
-    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
+    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
     Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end

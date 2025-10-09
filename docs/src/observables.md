@@ -61,7 +61,8 @@ pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ls = 10:5:1500
 
-Dls = spectrum_cmb([:TT, :EE, :TE], prob, ls; normalization = :Dl, unit = u"μK")
+jl = SphericalBesselCache(ls)
+Dls = spectrum_cmb([:TT, :EE, :TE], prob, jl; normalization = :Dl, unit = u"μK")
 pTT = plot(ls, Dls[:, 1]; ylabel = "Dₗᵀᵀ")
 pEE = plot(ls, Dls[:, 2]; ylabel = "Dₗᴱᴱ")
 pTE = plot(ls, Dls[:, 3]; ylabel = "Dₗᵀᴱ", xlabel = "l")
