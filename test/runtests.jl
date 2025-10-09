@@ -82,18 +82,6 @@ end
         SymBoltz.jl!(jlfast, l, x) # "unsafe" implementation
         SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
         @test jlfast ≈ jlslow
-
-        # Test jₗ(x) / x²
-        SymBoltz.jl_x2!(jlfast, l, x) # unsafe implementation
-        if x == 0.0
-            jlslow[3] = 1/15 # l = 2
-            jlslow[4:1000] .= 0.0 # l ≥ 3
-        else
-            SymBoltz.jlsafe!(jlslow, l, x) # safe implementation
-            jlslow ./= x^2
-            @test jlfast[1:2] ≈ jlslow[1:2] # test l = 0 and 1 only for x > 0 (diverges for x = 0)
-        end
-        @test jlfast[3:end] ≈ jlslow[3:end] # l ≥ 2
     end
 end
 
@@ -106,14 +94,6 @@ end
         dcrazy_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy(l, x), x)
         dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
         @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
-    end
-
-    # Test (jl/x^2)(l, x) chain rule
-    crazy_x2(l, x) = sin(7*SymBoltz.jl_x2(l, x^2)) # plot(x -> crazy_x2(5, x)) looks very cool
-    for l in 2:500
-        dcrazy_x2_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy_x2(l, x), x)
-        dcrazy_x2_ad(l, x) = ForwardDiff.derivative(x -> crazy_x2(l, x), x)
-        @test all(isapprox.(dcrazy_x2_ad.(l, x), dcrazy_x2_fd.(l, x); atol = 1e-6))
     end
 end
 

@@ -43,8 +43,6 @@ end
 # Out-of-place spherical Bessel function variants
 jl(l, x) = sphericalbesselj(l, x) # for l ≥ 0, from Bessels.jl
 jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analytical relation
-jl_x2(l, x) = x == 0 ? l == 2 ? 1/15 : 0.0 : jl(l, x) / x^2 # for l ≥ 2, jₗ(x)/x² ≃ xˡ⁻²/(2l+1)!! as x → 0
-jl_x2′(l, x) = x == 0 ? l == 3 ? 1/105 : 0.0 : jl′(l,x)/x^2 - 2*jl_x2(l,x)/x # for l ≥ 3; (jₗ(x)/x²)′ = jl′(x)/x² - 2jl(x)/x³ ≃ (l-2)/(2l+1)!! * x^(l-3) as x → 0
 
 # In-place spherical Bessel function variants
 # TODO: create SphericalBesselFunctionMachine-like struct, which can calculate value, derivative, ...
@@ -67,18 +65,10 @@ function jl′(l, ls::AbstractRange, Jls)
     i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
     return l/(2l+1)*Jls[i-1] - (l+1)/(2l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
 end
-function jl_x2!(out, l::AbstractRange, x::Number)
-    x = max(x, 1e-20) # avoid division by zero
-    jl!(out, l, x)
-    out ./= x .^ 2
-    return out
-end
 
 # Overload chain rule for spherical Bessel function
 ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * Δx # (value, derivative)
-ChainRulesCore.frule((_, _, Δx), ::typeof(jl_x2), l, x) = jl_x2(l, x), jl_x2′(l, x) * Δx
 @ForwardDiff_frule jl(l::Integer, x::ForwardDiff.Dual) # define dispatch
-@ForwardDiff_frule jl_x2(l::Integer, x::ForwardDiff.Dual)
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(τ0-τini)
@@ -131,6 +121,7 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
     Ss = [S]
     Ss = source_grid(sol, Ss, τs)
     Ss = source_grid(Ss, sol.ks, ks; ktransform)
+    Ss[:, end, :] .= 0.0 # may be NaNs today, but jl(0) = 0, so today is always 0 in the line-of-sight integral
     Ss = @view Ss[1, :, :]
     return los_integrate(Ss, ls, τs, ks, Rl; kwargs...)
 end
@@ -150,7 +141,7 @@ end
 Calculate photon E-mode polarization multipoles today by line-of-sight integration.
 """
 function los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl_x2; ktransform, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl; ktransform, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
@@ -224,9 +215,10 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls::Abstrac
     ks_fine = collect(kτ0s_fine ./ τ0)
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # TODO: ideally avoid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
+    Ss_fine[:, end, :] .= 0.0
 
     ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl_x2; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
