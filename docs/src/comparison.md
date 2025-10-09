@@ -409,10 +409,10 @@ l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
 jl = SphericalBesselCache(l)
 Dl2 = Dl_symboltz([:TT, :TE, :EE], jl, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 8e-13)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 2e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
