@@ -93,22 +93,17 @@ function spline(y, ẏ, x)
     return CubicHermiteSpline(ẏ, y, x) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
-function spline(sol::ODESolution, var, dvar = nothing)
-    t = sol.t
-    y = sol(t, Val{0}; idxs=var).u
-    if isnothing(dvar)
-        ẏ = sol(t, Val{1}; idxs=var).u # evaluates derivative from ODE f (?)
-    else
-        ẏ = sol(t, Val{0}; idxs=dvar).u # evaluates derivative from custom expression
-    end
-    return CubicHermiteSpline(ẏ, y, t; extrapolation = ExtrapolationType.Linear)
+function spline(sol::ODESolution)
+    ts = sol.t
+    Nu, _ = size(sol)
+    us = map(u -> SVector{Nu}(u), sol(ts, Val{0}))
+    dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}))
+    return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
 # TODO: takes up a lot of time in solvept; refactor so all splines are computed simultaneously for the same ODE time t
-value(s::AbstractInterpolation, t) = s(t)
-derivative(s::AbstractInterpolation, t, order=1) = DataInterpolations.derivative(s, t, order)
-@register_symbolic value(s::AbstractInterpolation, t)
-@register_symbolic derivative(s::AbstractInterpolation, t, order)
+value(s::AbstractInterpolation, t, i) = s(t)[i]
+@register_symbolic value(s::AbstractInterpolation, t, i)
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
@@ -153,16 +148,12 @@ end
 
 # TODO: generate_jacobian fails on systems returned from this function
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
-function mtkcompile_spline(sys::System, vars; maxorder = 2)
+function mtkcompile_spline(sys::System, vars)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
-    function spline(var)
-        splname = Symbol(nameof(operation(var)), :ˍspline) # e.g. :aˍspline
-        spl, = @parameters $splname::CubicHermiteSpline
-        return spl
-    end
-    var2spl = Dict(var => spline(var) for var in vars)
+    splname = :bgspline
+    spl, = @parameters $splname::CubicHermiteSpline
 
     # Replace variable equations in system by spline evaluations
     function spline(sys::System)
@@ -173,23 +164,12 @@ function mtkcompile_spline(sys::System, vars; maxorder = 2)
 
         diffvar(expr) = operation(expr) == D ? diffvar(only(sorted_arguments(expr))) : expr # return e.g. a(τ) for D(D(a(τ)))
 
-        for var in vars
-            spl = var2spl[var]
-
+        for (vari, var) in enumerate(vars)
             # Find and replace the unknown equation by observed spline evaluation
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ value(spl, iv)) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
-
-            # Find and replace any observed derivative expressions with spline derivative evaluations
-            for order in 1:maxorder
-                dvar = ModelingToolkit.diff2term((D^order)(var))
-                i = findfirst(eq -> isequal(eq.lhs, dvar), obs)
-                if !isnothing(i)
-                    obs[i] = dvar ~ derivative(spl, iv, order)
-                end
-            end
+            insert!(obs, 1, var ~ value(spl, iv, vari)) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
         end
 
         # Remove splined variables from unknowns (they no longer need to be solved for)
@@ -199,13 +179,15 @@ function mtkcompile_spline(sys::System, vars; maxorder = 2)
 
         # Add splines as system parameters
         ps = ModelingToolkit.get_ps(sys)
-        ps = [ps; collect(values(var2spl))]
+        ps = [ps; spl]
         @set! sys.ps = ps
 
         # Do not solve for splined variables during initialization, and add dummy defaults for all splines
         defs = ModelingToolkit.get_defaults(sys)
-        defs = remove_initial_conditions!(defs, keys(var2spl))
-        defs = merge(defs, Dict(spl => CubicHermiteSpline([NaN, NaN], [NaN, NaN], [0.0, 1.0]) for spl in values(var2spl)))
+        defs = remove_initial_conditions!(defs, vars)
+        nans = SVector{length(vars)}(zeros(length(vars)))
+        spldummy = CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
+        defs = merge(defs, Dict(spl => spldummy))
         @set! sys.defaults = defs
 
         return sys
@@ -213,7 +195,7 @@ function mtkcompile_spline(sys::System, vars; maxorder = 2)
 
     sys = mtkcompile(sys; additional_passes = [spline])
 
-    return sys, var2spl
+    return sys, spl
 end
 
 function remove_initial_conditions!(ics::Dict, vars; maxorder=2)

@@ -128,7 +128,7 @@ plot(results; size = (800, 400))
 ```@setup
 # TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
 # TODO: KenCarp47(linsolve, precs = incompletelu) # hide
-#ptsol = @btime solvept(prob.pt, bgsol, ks, prob.var2spl; alg = SymBoltz.KenCarp47(linsolve = SymBoltz.KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
+#ptsol = @btime solvept(prob.pt, bgsol, ks, prob.bgspline; alg = SymBoltz.KenCarp47(linsolve = SymBoltz.KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
 # TODO: make linsolve work with sparse Jacobian (jac = true, sparse = true)
 # TODO: thread = true is not helping as much as it should!
 # TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
@@ -160,7 +160,7 @@ plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), ma
 
 ```@example bench
 ks = [1e0, 1e1, 1e2, 1e3]
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.var2spl)
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
 
 refalg = Rodas4P()
 setups = [Dict(:alg => alg) for alg in ptalgs]
