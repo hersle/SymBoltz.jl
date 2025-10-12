@@ -102,8 +102,11 @@ function spline(sol::ODESolution)
 end
 
 # TODO: takes up a lot of time in solvept; refactor so all splines are computed simultaneously for the same ODE time t
-value(s::AbstractInterpolation, t, i) = s(t)[i]
-@register_symbolic value(s::AbstractInterpolation, t, i)
+value(s::AbstractInterpolation, t, N) = s(t)
+@register_array_symbolic value(s::AbstractInterpolation, t, N) begin
+    size = (N,)
+    eltype = Float64 # TODO: generalize
+end
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
@@ -155,21 +158,22 @@ function mtkcompile_spline(sys::System, vars)
     splname = :bgspline
     spl, = @parameters $splname::CubicHermiteSpline
 
+    iv = ModelingToolkit.get_iv(sys)
+    D = Differential(iv)
+
     # Replace variable equations in system by spline evaluations
     function spline(sys::System)
         # TODO: initialization_eqs? guesses?
-        iv = ModelingToolkit.get_iv(sys)
         eqs = ModelingToolkit.get_eqs(sys) # will be modified in-place
         obs = ModelingToolkit.get_observed(sys) # will be modified in-place
 
         diffvar(expr) = operation(expr) == D ? diffvar(only(sorted_arguments(expr))) : expr # return e.g. a(τ) for D(D(a(τ)))
-
         for (vari, var) in enumerate(vars)
             # Find and replace the unknown equation by observed spline evaluation
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ value(spl, iv, vari)) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
+            insert!(obs, 1, var ~ value(spl, iv, length(vars))[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
         end
 
         # Remove splined variables from unknowns (they no longer need to be solved for)
