@@ -98,7 +98,7 @@ function spline(sol::ODESolution)
     Nu, _ = size(sol)
     us = map(u -> SVector{Nu}(u), sol(ts, Val{0}))
     dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}))
-    return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
+    return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
 # TODO: takes up a lot of time in solvept; refactor so all splines are computed simultaneously for the same ODE time t
