@@ -194,24 +194,7 @@ end
     @test mtkcompile(M) isa Any
 end
 
-#=
-@testset "Spline observed variables" begin
-    prob1 = prob
-    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.v])
-    @test haskey(prob2.var2spl, M.b.v)
-
-    obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS
-    @test obs2["b₊rec₊v(τ)"] == "SymBoltz.value(b₊rec₊v_spline, τ)"
-    @test obs2["b₊rec₊vˍτ(τ)"] == "SymBoltz.derivative(b₊rec₊v_spline, τ, 1)"
-
-    sol1 = solve(prob1, 1.0)
-    sol2 = solve(prob2, 1.0)
-    τs = sol1[M.τ]
-    v1s = sol1(1.0, τs, M.b.v)
-    v2s = sol2(1.0, τs, M.b.v)
-    @test all(isapprox.(v1s, v2s; atol = 1e-3))
-end
-=#
+# TODO: optionally spline observables, too, with cubic hermite splines using analytic derivatives, to save computations in perturbations (e.g. visibility function and derivatives for CMB)
 @testset "Do not spline observed variables" begin
     @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.H])
 end
