@@ -1,7 +1,7 @@
 name = "SymBoltz"
 uuid = "64c5a815-d72d-4982-8b1f-85a778bbef4e"
-authors = ["Herman Sletmoen"]
 version = "0.9.0"
+authors = ["Herman Sletmoen"]
 
 [deps]
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
@@ -49,7 +49,7 @@ Integrals = "4.5.0"
 LinearAlgebra = "1.11.0"
 LinearSolve = "~3.19.0"
 MatterPower = "0.5.0"
-ModelingToolkit = "10.5.0"
+ModelingToolkit = "~10.25.0"
 NonlinearSolve = "4.3"
 NumericalIntegration = "0.3.4"
 OhMyThreads = "0.8.0"
