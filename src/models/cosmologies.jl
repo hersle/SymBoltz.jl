@@ -1,6 +1,6 @@
 """
     ΛCDM(;
-        lmax = 6,
+        lmax = 10,
         recombination = true,
         reionization = true,
         Hswitch = 1,
@@ -23,7 +23,7 @@
 Create a ΛCDM model.
 """
 function ΛCDM(;
-    lmax = 6,
+    lmax = 10,
     recombination = true,
     reionization = true,
     Hswitch = 1,
