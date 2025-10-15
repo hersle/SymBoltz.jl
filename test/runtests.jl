@@ -12,8 +12,8 @@ prob = CosmologyProblem(M, pars)
     prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
     bgsol = @test_nowarn solvebg(prob.bg)
 
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.var2spl; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.var2spl; thread = false)
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.bgspline; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.bgspline; thread = false)
 end
 
 @testset "Solution accessing" begin
@@ -194,24 +194,7 @@ end
     @test mtkcompile(M) isa Any
 end
 
-#=
-@testset "Spline observed variables" begin
-    prob1 = prob
-    prob2 = CosmologyProblem(M, pars; spline = [unknowns(prob1.bg.f.sys); M.b.v])
-    @test haskey(prob2.var2spl, M.b.v)
-
-    obs2 = Dict(string(eq.lhs) => string(eq.rhs) for eq in observed(prob2.pt.f.sys)) # for easy lookup based on LHS
-    @test obs2["b₊rec₊v(τ)"] == "SymBoltz.value(b₊rec₊v_spline, τ)"
-    @test obs2["b₊rec₊vˍτ(τ)"] == "SymBoltz.derivative(b₊rec₊v_spline, τ, 1)"
-
-    sol1 = solve(prob1, 1.0)
-    sol2 = solve(prob2, 1.0)
-    τs = sol1[M.τ]
-    v1s = sol1(1.0, τs, M.b.v)
-    v2s = sol2(1.0, τs, M.b.v)
-    @test all(isapprox.(v1s, v2s; atol = 1e-3))
-end
-=#
+# TODO: optionally spline observables, too, with cubic hermite splines using analytic derivatives, to save computations in perturbations (e.g. visibility function and derivatives for CMB)
 @testset "Do not spline observed variables" begin
     @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.H])
 end
@@ -238,7 +221,7 @@ end
     pars = [ # choose lots of background parameters that should be equal in perturbations
         M.τ0, M.g.h,
         M.c.Ω₀,
-        M.b.Ω₀, M.b.YHe, M.b.fHe, M.b.rei1.z, M.b.rei2.z, M.b.κ0,
+        M.b.Ω₀, M.b.YHe, M.b.fHe, M.b.κ0,
         M.γ.Ω₀, M.γ.T₀,
         M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
         M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
@@ -352,7 +335,7 @@ end
     @test bgsol isa SymBoltz.ODESolution
 
     ks = 1.0:1.0:10.0
-    ptsol = solvept(prob.pt, bgsol, ks, prob.var2spl) # TODO: @inferred
+    ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline) # TODO: @inferred
     @test ptsol isa SymBoltz.EnsembleSolution
 
     # custom output_func for e.g. source function
@@ -361,7 +344,7 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    ptsol = solvept(prob.pt, bgsol, ks, prob.var2spl; saveat = τs, output_func = (ptsol, _) -> (getS(ptsol), false))
+    ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> (getS(ptsol), false))
     Ss = stack(ptsol.u)
     @test size(Ss) == (length(τs), length(ks))
 end

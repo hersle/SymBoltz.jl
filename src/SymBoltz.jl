@@ -8,6 +8,7 @@ using NonlinearSolve
 using OhMyThreads
 using Base.Threads
 using Setfield
+using StaticArrays
 
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...

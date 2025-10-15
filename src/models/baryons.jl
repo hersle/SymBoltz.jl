@@ -129,21 +129,16 @@ References
 ==========
 - https://cosmologist.info/notes/CAMB.pdf#section*.10
 """
-function reionization_tanh(g; kwargs...)
-    pars = @parameters begin
-        z, [description = "reionization redshift"]
-        Δz, [description = "reionization redshift width"]
-        n, [description = "reionization exponent"]
-        Xemax, [description = "fully ionized contribution to the free electron fraction"]
-    end
+function reionization_tanh(g, z, Δz, n, Xemax; kwargs...)
     vars = @variables begin
         Xe(τ), [description = "free electron fraction contribution"]
     end
+    f(_z) = n % 1 == 1//2 ? √(1+_z) * (1+_z)^Int(n-1//2) : (1+_z)^n
     eqs = [
-        Xe ~ smoothifelse((1+z)^n - (1+g.z)^n, 0, Xemax; k = 1/(n*(1+z)^(n-1)*Δz))
+        Xe ~ smoothifelse(f(z) - f(g.z), 0, Xemax; k = 1/(n*(1+z)^(n-1)*Δz))
     ]
     description = "Reionization with tanh-like (activation function) contribution to the free electron fraction"
-    return System(eqs, τ, vars, pars; description, kwargs...)
+    return System(eqs, τ, vars, []; description, kwargs...)
 end
 
 """
@@ -214,16 +209,8 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
     end
 
     if reionization
-        @named rei1 = reionization_tanh(g)
-        @named rei2 = reionization_tanh(g)
-        append!(defaults, [
-            rei1.z => 7.6711, rei1.Δz => 0.5, rei1.n => 3/2,
-            rei2.z => 3.5, rei2.Δz => 0.5, rei2.n => 1,
-        ])
-        append!(eqs, [
-            rei1.Xemax ~ 1 + fHe
-            rei2.Xemax ~ fHe
-        ])
+        @named rei1 = reionization_tanh(g, 7.6711, 0.5, 3//2, 1 + ParentScope(fHe))
+        @named rei2 = reionization_tanh(g, 3.5, 0.5, 1, ParentScope(fHe))
         push!(comps, rei1, rei2)
     end
 

@@ -194,6 +194,6 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
         end
         return nothing, false
     end
-    solvept(prob.pt, bgsol, ks, prob.var2spl; output_func, saveat = τs, ptopts..., thread, verbose)
+    solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
