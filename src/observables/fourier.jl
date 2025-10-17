@@ -197,3 +197,61 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
     solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
+
+# TODO: handle multiple S
+# TODO: Hermite interpolation
+# TODO: create SourceFunction type that does k and τ interpolation?
+function source_grid_adaptive(prob::CosmologyProblem, symS, τs, kmin, kmax; bgopts = (), ptopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts...)
+
+    getS = getsym(prob.pt, symS)
+    function Sk(k)
+        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, ptopts...)
+        ptsol = only(ptsols)
+        return getS(ptsol)
+    end
+
+    Sint = similar(bgsol, length(τs))
+    ks = [kmin, kmax]
+    ks = zeros(typeof(kmin), 1024)
+    Ss = similar(bgsol, length(τs), length(ks))
+    ks[1] = kmin
+    ks[2] = kmax
+    Ss[:, 1] .= Sk(ks[1])
+    Ss[:, 2] .= Sk(ks[2])
+
+    i = 2
+    i1i2s = [(j, j+1) for j in 1:i-1]
+    while !isempty(i1i2s)
+        i1, i2 = pop!(i1i2s)
+
+        k1 = ks[i1]
+        k2 = ks[i2]
+        S1 = @view Ss[:, i1]
+        S2 = @view Ss[:, i2]
+
+        verbose && println("Refining k-grid between [$k1, $k2]")
+
+        i += 1
+        i > length(ks) && error("fuck")
+
+        k = (k1 + k2) / 2
+        Ss[:, i] .= Sk(k)
+        ks[i] = k
+        S = @view Ss[:, i]
+
+        Sint .= (S1 .+ S2) ./ 2 # linear interpolation
+
+        if !isapprox(S, Sint; kwargs...)
+            push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
+        end
+    end
+
+    # sort according to k
+    ks = ks[1:i]
+    is = sortperm(ks)
+    ks = ks[is]
+    Ss = Ss[:, is]
+
+    return ks, Ss
+end
