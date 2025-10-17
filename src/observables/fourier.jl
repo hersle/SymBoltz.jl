@@ -198,27 +198,27 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
     return Ss
 end
 
-# TODO: handle multiple S
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
-function source_grid_adaptive(prob::CosmologyProblem, symS, τs, kmin, kmax; bgopts = (), ptopts = (), verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, kmin, kmax; bgopts = (), ptopts = (), verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
 
-    getS = getsym(prob.pt, symS)
+    getSs = map(S -> getsym(prob.pt, S), Ss)
     function Sk(k)
         ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, ptopts...)
         ptsol = only(ptsols)
-        return getS(ptsol)
+        S = transpose(stack(map(getS -> getS(ptsol), getSs)))
+        S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
+        return S
     end
 
-    Sint = similar(bgsol, length(τs))
-    ks = [kmin, kmax]
+    Sint = similar(bgsol, length(Ss), length(τs))
     ks = zeros(typeof(kmin), 1024)
-    Ss = similar(bgsol, length(τs), length(ks))
+    Ss = similar(bgsol, length(Ss), length(τs), length(ks))
     ks[1] = kmin
     ks[2] = kmax
-    Ss[:, 1] .= Sk(ks[1])
-    Ss[:, 2] .= Sk(ks[2])
+    Ss[:, :, 1] .= Sk(ks[1])
+    Ss[:, :, 2] .= Sk(ks[2])
 
     i = 2
     i1i2s = [(j, j+1) for j in 1:i-1]
@@ -227,8 +227,8 @@ function source_grid_adaptive(prob::CosmologyProblem, symS, τs, kmin, kmax; bgo
 
         k1 = ks[i1]
         k2 = ks[i2]
-        S1 = @view Ss[:, i1]
-        S2 = @view Ss[:, i2]
+        S1 = @view Ss[:, :, i1]
+        S2 = @view Ss[:, :, i2]
 
         verbose && println("Refining k-grid between [$k1, $k2]")
 
@@ -236,13 +236,15 @@ function source_grid_adaptive(prob::CosmologyProblem, symS, τs, kmin, kmax; bgo
         i > length(ks) && error("fuck")
 
         k = (k1 + k2) / 2
-        Ss[:, i] .= Sk(k)
+        Ss[:, :, i] .= Sk(k)
         ks[i] = k
-        S = @view Ss[:, i]
+        S = @view Ss[:, :, i]
 
         Sint .= (S1 .+ S2) ./ 2 # linear interpolation
 
-        if !isapprox(S, Sint; kwargs...)
+        # check if interpolation is close enough for all sources
+        # (equivalent to finding the source grid of each source separately)
+        if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
             push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
         end
     end
@@ -251,7 +253,7 @@ function source_grid_adaptive(prob::CosmologyProblem, symS, τs, kmin, kmax; bgo
     ks = ks[1:i]
     is = sortperm(ks)
     ks = ks[is]
-    Ss = Ss[:, is]
+    Ss = Ss[:, :, is]
 
     return ks, Ss
 end
