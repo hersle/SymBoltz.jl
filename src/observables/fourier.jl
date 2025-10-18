@@ -222,10 +222,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         Ss[:, :, j] .= Sk(ks[j])
     end
 
-    i1i2s = [(j, j+1) for j in 1:i-1]
-    while !isempty(i1i2s)
-        i1, i2 = pop!(i1i2s)
-
+    function refine(i1, i2)
         k1 = ks[i1]
         k2 = ks[i2]
         S1 = @view Ss[:, :, i1]
@@ -246,8 +243,14 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         # check if interpolation is close enough for all sources
         # (equivalent to finding the source grid of each source separately)
         if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
-            push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
+            _i = i # copy, since first refine can modify i before call to second refine
+            refine(i1, _i) # refine left subinterval
+            refine(_i, i2) # refine right subinterval
         end
+    end
+
+    for j in 1:i-1
+        refine(j, j+1)
     end
 
     # sort according to k
