@@ -200,7 +200,7 @@ end
 
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, kmin, kmax; bgopts = (), ptopts = (), verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
@@ -212,15 +212,16 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         return S
     end
 
+    i = length(ks)
+    i ≥ 2 || error("Initial k-grid must have at least 2 values")
+    ks = Vector(ks) # common to input a range
+    resize!(ks, 1024)
     Sint = similar(bgsol, length(Ss), length(τs))
-    ks = zeros(typeof(kmin), 1024)
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
-    ks[1] = kmin
-    ks[2] = kmax
-    Ss[:, :, 1] .= Sk(ks[1])
-    Ss[:, :, 2] .= Sk(ks[2])
+    for j in 1:i
+        Ss[:, :, j] .= Sk(ks[j])
+    end
 
-    i = 2
     i1i2s = [(j, j+1) for j in 1:i-1]
     while !isempty(i1i2s)
         i1, i2 = pop!(i1i2s)
