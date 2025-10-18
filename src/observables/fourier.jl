@@ -212,49 +212,84 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         return S
     end
 
-    i = length(ks)
+    initks = Vector(ks) # common to input a range
+    i = length(initks)
     i ≥ 2 || error("Initial k-grid must have at least 2 values")
-    ks = Vector(ks) # common to input a range
-    resize!(ks, 1024)
-    Sint = similar(bgsol, length(Ss), length(τs))
-    Ss = similar(bgsol, length(Ss), length(τs), length(ks))
+    initSs = similar(bgsol, length(Ss), length(τs), length(initks))
     for j in 1:i
-        Ss[:, :, j] .= Sk(ks[j])
+        initSs[:, :, j] .= Sk(initks[j])
     end
+    initi1i2s = [(j, j+1) for j in 1:i-1]
 
-    i1i2s = [(j, j+1) for j in 1:i-1]
-    while !isempty(i1i2s)
-        i1, i2 = pop!(i1i2s)
+    outs = map(initi1i2s) do initi1i2
+        initi1, initi2 = initi1i2
+        verbose && println("Refining from initial $initi1i2")
+        ks = similar(initks, 1024)
+        ks[1] = initks[initi1]
+        ks[2] = initks[initi2]
+        Ss = similar(initSs, size(initSs)[1], length(τs), length(ks))
+        Ss[:, :, 1] .= initSs[:, :, initi1]
+        Ss[:, :, 2] .= initSs[:, :, initi2]
+        Sint = similar(initSs, size(initSs)[1], length(τs))
 
-        k1 = ks[i1]
-        k2 = ks[i2]
-        S1 = @view Ss[:, :, i1]
-        S2 = @view Ss[:, :, i2]
+        i = 2
+        i1i2s = [(1, 2)]
+        while !isempty(i1i2s)
+            i1, i2 = pop!(i1i2s)
 
-        verbose && println("Refining k-grid between [$k1, $k2]")
+            k1 = ks[i1]
+            k2 = ks[i2]
+            S1 = @view Ss[:, :, i1]
+            S2 = @view Ss[:, :, i2]
 
-        i += 1
-        i > length(ks) && error("fuck")
+            verbose && println("Refining k-grid between [$k1, $k2]")
 
-        k = (k1 + k2) / 2
-        Ss[:, :, i] .= Sk(k)
-        ks[i] = k
-        S = @view Ss[:, :, i]
+            i += 1
+            i > length(ks) && error("fuck")
 
-        Sint .= (S1 .+ S2) ./ 2 # linear interpolation
+            k = (k1 + k2) / 2
+            Ss[:, :, i] .= Sk(k)
+            ks[i] = k
+            S = @view Ss[:, :, i]
 
-        # check if interpolation is close enough for all sources
-        # (equivalent to finding the source grid of each source separately)
-        if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
-            push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
+            Sint .= (S1 .+ S2) ./ 2 # linear interpolation
+
+            # check if interpolation is close enough for all sources
+            # (equivalent to finding the source grid of each source separately)
+            if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
+                push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
+            end
         end
+
+        return ks[3:i], Ss[:, :, 3:i] # exclude starting points (handled separately below)
     end
+
+    nk = sum(1 + length(out[1]) for out in outs) + 1
+    ks_all = similar(initks, nk)
+    Ss_all = similar(initSs, size(initSs)[1], length(τs), nk)
+    i = 1
+    for (initi, out) in enumerate(outs)
+        # left endpoint
+        ks_all[i] = initks[initi]
+        Ss_all[:, :, i] = initSs[:, :, initi]
+        i += 1
+
+        # middle points
+        ks, Ss = out # unpack
+        ks_all[i:i+length(ks)-1] .= ks
+        Ss_all[:, :, i:i+length(ks)-1] .= Ss
+        i += length(ks)
+
+        # right endpoint is next iteration's left endpoint (avoid duplicating it)
+    end
+    i == nk || error("fuck")
+    ks_all[i] = initks[end]
+    Ss_all[:, :, i] = initSs[:, :, end]
 
     # sort according to k
-    ks = ks[1:i]
-    is = sortperm(ks)
-    ks = ks[is]
-    Ss = Ss[:, :, is]
+    is = sortperm(ks_all)
+    ks_all = ks_all[is]
+    Ss_all = Ss_all[:, :, is]
 
-    return ks, Ss
+    return ks_all, Ss_all
 end
