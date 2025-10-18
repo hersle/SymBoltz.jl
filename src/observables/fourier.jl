@@ -205,7 +205,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function Sk(k)
-        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, ptopts...)
+        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, thread = false, ptopts...)
         ptsol = only(ptsols)
         S = transpose(stack(map(getS -> getS(ptsol), getSs)))
         S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
@@ -221,47 +221,55 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
     initi1i2s = [(j, j+1) for j in 1:i-1]
 
-    outs = map(initi1i2s) do initi1i2
+    T = Float64
+    ks_tlv = TaskLocalValue{Vector{T}}(() -> similar(initks, 512))
+    Ss_tlv = TaskLocalValue{Array{T, 3}}(() -> similar(initSs, size(initSs)[1], length(τs), 512))
+    Sint_tlv = TaskLocalValue{Matrix{T}}(() -> similar(initSs, size(initSs)[1], length(τs)))
+
+    outs = tmap(initi1i2s) do initi1i2
+        _ks = ks_tlv[]
+        _Ss = Ss_tlv[]
+        Sint = Sint_tlv[]
+
         initi1, initi2 = initi1i2
         verbose && println("Refining from initial $initi1i2")
-        ks = similar(initks, 1024)
-        ks[1] = initks[initi1]
-        ks[2] = initks[initi2]
-        Ss = similar(initSs, size(initSs)[1], length(τs), length(ks))
-        Ss[:, :, 1] .= initSs[:, :, initi1]
-        Ss[:, :, 2] .= initSs[:, :, initi2]
-        Sint = similar(initSs, size(initSs)[1], length(τs))
+        _ks[1] = initks[initi1]
+        _ks[2] = initks[initi2]
+        _Ss[:, :, 1] .= initSs[:, :, initi1]
+        _Ss[:, :, 2] .= initSs[:, :, initi2]
 
-        i = 2
+        _i = 2
         i1i2s = [(1, 2)]
         while !isempty(i1i2s)
             i1, i2 = pop!(i1i2s)
 
-            k1 = ks[i1]
-            k2 = ks[i2]
-            S1 = @view Ss[:, :, i1]
-            S2 = @view Ss[:, :, i2]
+            k1 = _ks[i1]
+            k2 = _ks[i2]
+            S1 = @view _Ss[:, :, i1]
+            S2 = @view _Ss[:, :, i2]
 
             verbose && println("Refining k-grid between [$k1, $k2]")
 
-            i += 1
-            i > length(ks) && error("fuck")
+            _i += 1
+            _i > length(_ks) && error("fuck")
 
             k = (k1 + k2) / 2
-            Ss[:, :, i] .= Sk(k)
-            ks[i] = k
-            S = @view Ss[:, :, i]
+            _Ss[:, :, _i] .= Sk(k)
+            _ks[_i] = k
+            S = @view _Ss[:, :, _i]
 
             Sint .= (S1 .+ S2) ./ 2 # linear interpolation
 
             # check if interpolation is close enough for all sources
             # (equivalent to finding the source grid of each source separately)
             if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
-                push!(i1i2s, (i, i2), (i1, i)) # refine left and right subintervals
+                push!(i1i2s, (_i, i2), (i1, _i)) # refine left and right subintervals
             end
         end
 
-        return ks[3:i], Ss[:, :, 3:i] # exclude starting points (handled separately below)
+        verbose && println("Finished refining $initi1i2")
+
+        return _ks[3:_i], _Ss[:, :, 3:_i] # exclude starting points (handled separately below)
     end
 
     nk = sum(1 + length(out[1]) for out in outs) + 1
