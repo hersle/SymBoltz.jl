@@ -205,7 +205,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function Sk(k)
-        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, ptopts...)
+        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, thread = false, ptopts...)
         ptsol = only(ptsols)
         S = transpose(stack(map(getS -> getS(ptsol), getSs)))
         S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
@@ -216,40 +216,46 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     i ≥ 2 || error("Initial k-grid must have at least 2 values")
     ks = Vector(ks) # common to input a range
     resize!(ks, 1024)
-    Sint = similar(bgsol, length(Ss), length(τs))
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
-    for j in 1:i
-        Ss[:, :, j] .= Sk(ks[j])
-    end
+
+    savelock = ReentrantLock()
 
     function refine(i1, i2)
         k1 = ks[i1]
         k2 = ks[i2]
-        S1 = @view Ss[:, :, i1]
-        S2 = @view Ss[:, :, i2]
+        S1 = Ss[:, :, i1]
+        S2 = Ss[:, :, i2]
 
-        verbose && println("Refining k-grid between [$k1, $k2]")
-
-        i += 1
-        i > length(ks) && error("fuck")
+        i1 ≤ i && i2 ≤ i || error("crap")
+        i < length(ks) || error("fuck")
+        k2 ≥ k1 || error("shit")
+        verbose && println("Refining k-grid between [$k1, $k2] on thread $(threadid())")
 
         k = (k1 + k2) / 2
-        Ss[:, :, i] .= Sk(k)
-        ks[i] = k
-        S = @view Ss[:, :, i]
+        S = Sk(k)
 
-        Sint .= (S1 .+ S2) ./ 2 # linear interpolation
+        i′ = 0 # define in outer scope, then set inside lock block
+        @lock savelock begin
+            i += 1
+            ks[i] = k
+            Ss[:, :, i] .= S
+            i′ = i # copy, since first refine below can modify i before call to second refine
+        end
+
+        Sint = (S1 .+ S2) ./ 2 # linear interpolation
 
         # check if interpolation is close enough for all sources
         # (equivalent to finding the source grid of each source separately)
-        if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
-            _i = i # copy, since first refine can modify i before call to second refine
-            refine(i1, _i) # refine left subinterval
-            refine(_i, i2) # refine right subinterval
+        @sync if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
+            @spawn refine(i1, i′) # refine left subinterval
+            @spawn refine(i′, i2) # refine right subinterval
         end
     end
 
-    for j in 1:i-1
+    @threads for j in 1:i
+        Ss[:, :, j] .= Sk(ks[j])
+    end
+    @threads for j in 1:i-1
         refine(j, j+1)
     end
 
