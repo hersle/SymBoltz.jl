@@ -198,9 +198,38 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
     return Ss
 end
 
+function source_grid_refine(i1, i2, ks, Ss, Sk, savelock; verbose = false, kwargs...)
+    k1 = ks[i1]
+    k2 = ks[i2]
+    S1 = Ss[:, :, i1]
+    S2 = Ss[:, :, i2]
+
+    k2 ≥ k1 || error("shit")
+
+    k = (k1 + k2) / 2
+    S = Sk(k)
+
+    i = 0 # define in outer scope, then set inside lock block
+    @lock savelock begin
+        push!(ks, k)
+        i = length(ks) # copy, since first refine below can modify i before call to second refine
+        Ss[:, :, i] .= S
+        verbose && println("Refined k-grid between [$k1, $k2] on thread $(threadid()) to $i total points")
+    end
+
+    Sint = (S1 .+ S2) ./ 2 # linear interpolation
+
+    # check if interpolation is close enough for all sources
+    # (equivalent to finding the source grid of each source separately)
+    @sync if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in 1:size(Ss, 1))
+        @spawn source_grid_refine(i1, i, ks, Ss, Sk, savelock; verbose, kwargs...) # refine left subinterval
+        @spawn source_grid_refine(i, i2, ks, Ss, Sk, savelock; verbose, kwargs...) # refine right subinterval
+    end
+end
+
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
@@ -212,55 +241,20 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         return S
     end
 
-    i = length(ks)
-    i ≥ 2 || error("Initial k-grid must have at least 2 values")
+    length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
     ks = Vector(ks) # common to input a range
-    resize!(ks, 1024)
-    Ss = similar(bgsol, length(Ss), length(τs), length(ks))
+    Ss = similar(bgsol, length(Ss), length(τs), 1024)
 
     savelock = ReentrantLock()
 
-    function refine(i1, i2)
-        k1 = ks[i1]
-        k2 = ks[i2]
-        S1 = Ss[:, :, i1]
-        S2 = Ss[:, :, i2]
-
-        i1 ≤ i && i2 ≤ i || error("crap")
-        i < length(ks) || error("fuck")
-        k2 ≥ k1 || error("shit")
-        verbose && println("Refining k-grid between [$k1, $k2] on thread $(threadid())")
-
-        k = (k1 + k2) / 2
-        S = Sk(k)
-
-        i′ = 0 # define in outer scope, then set inside lock block
-        @lock savelock begin
-            i += 1
-            ks[i] = k
-            Ss[:, :, i] .= S
-            i′ = i # copy, since first refine below can modify i before call to second refine
-        end
-
-        Sint = (S1 .+ S2) ./ 2 # linear interpolation
-
-        # check if interpolation is close enough for all sources
-        # (equivalent to finding the source grid of each source separately)
-        @sync if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in eachindex(getSs))
-            @spawn refine(i1, i′) # refine left subinterval
-            @spawn refine(i′, i2) # refine right subinterval
-        end
+    @threads for i in 1:length(ks)
+        Ss[:, :, i] .= Sk(ks[i])
     end
-
-    @threads for j in 1:i
-        Ss[:, :, j] .= Sk(ks[j])
-    end
-    @threads for j in 1:i-1
-        refine(j, j+1)
+    @threads for i in 1:length(ks)-1
+        source_grid_refine(i, i+1, ks, Ss, Sk, savelock; kwargs...)
     end
 
     # sort according to k
-    ks = ks[1:i]
     is = sortperm(ks)
     ks = ks[is]
     Ss = Ss[:, :, is]
