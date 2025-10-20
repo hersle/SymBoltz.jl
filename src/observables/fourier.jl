@@ -187,7 +187,7 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
     bgsol = solvebg(prob.bg; bgopts..., verbose)
     getSs = map(s -> getsym(prob.pt, s), S)
     Ss = similar(bgsol, length(S), length(τs), length(ks))
-    extrema(τs) == extrema(bgsol.t) || error("input τs and computed background solution have different timespans") # TODO: don't rely on
+    minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
     function output_func(sol, ik)
         for iS in eachindex(getSs)
             Ss[iS, :, ik] .= getSs[iS](sol)
