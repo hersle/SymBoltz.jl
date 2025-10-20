@@ -178,3 +178,15 @@ for (i, k) in enumerate(ks)
 end
 p
 ```
+
+## Perturbations time per mode
+
+```@example bench
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+solvemode(k) = solve(ptprobgen(ptprob0, k); alg = SymBoltz.DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8)
+
+ks = 10 .^ range(-2, 5, length = 100)
+times = [minimum(@elapsed solvemode(k) for i in 1:10) for k in ks]
+
+plot(log10.(ks), times .* 1000; xlabel = "lg(k)", ylabel = "time / ms", xticks = range(log10(ks[begin]), log10(ks[end]), step=1), marker = :circle, label = nothing)
+```
