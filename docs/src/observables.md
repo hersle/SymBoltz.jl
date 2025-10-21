@@ -157,6 +157,36 @@ rs = sound_horizon(sol)
 plot(τs, rs; xlabel = "τ / H₀⁻¹", ylabel = "rₛ / (c/H₀)")
 ```
 
+## Source functions
+
+```@docs
+source_grid
+source_grid_adaptive
+```
+
+```@example
+using SymBoltz, Plots, DataInterpolations
+M = ΛCDM(h = nothing, ν = nothing)
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+sol = solve(prob)
+
+τs = sol[M.τ] # conformal times in background solution
+ks = [1.0, 2000.0] # initial coarse grid
+ks, Ss = source_grid_adaptive(prob, [M.ST0], τs, ks; atol = 5.0)
+iτ = argmax(sol[M.b.v]) # index of decoupling time
+iτs = iτ-75:iτ+75 # indices around decoupling
+p1 = surface(ks, τs[iτs], Ss[1, iτs, :]; camera = (45, 25), xlabel = "k", ylabel = "τ", zlabel = "S", colorbar = false)
+
+lgas = -6.0:0.2:0.0
+τs = LinearInterpolation(sol[M.τ], sol[log10(M.g.a)])(lgas) # τ at given lg(a)
+ks = 5.0:5.0:100.0
+Ss = source_grid(prob, [M.g.Ψ], τs, ks)
+p2 = wireframe(ks, lgas, Ss[1, :, :]; camera = (75, 20), xlabel = "k", ylabel = "lg(a)", zlabel = "Φ")
+
+plot(p1, p2)
+```
+
 ## Line-of-sight integration
 
 ```@docs

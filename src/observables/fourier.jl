@@ -152,6 +152,12 @@ end
 # TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
 # TODO: source_grid(prob::CosmologyProblem seemed type-stable?
 # TODO: return getter for (ks, τs)
+"""
+    source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
+
+Evaluate and return source functions ``S(τ,k)`` from the solution `sol`.
+The source functions are given by symbolic expressions `Ss`, and evaluated on a grid with conformal times `τs` and the same wavenumbers as `sol` is solved for.
+"""
 function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
     # Evaluate integrated perturbations on coarse grid
     ks = sol.ks
@@ -165,6 +171,13 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
     return Ss
 end
 
+"""
+    source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
+
+Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wavenumber grid `ks_coarse` to a fine grid `ks_fine`.
+The interpolation is linear in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``.
+Conformal times are unchanged.
+"""
 function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
     size_coarse = size(Ss_coarse)
     size_fine = (size_coarse[1], size_coarse[2], length(ks_fine))
@@ -182,12 +195,18 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
     return Ss_fine
 end
 
-# TODO: take in kτ0s and xs
-function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+"""
+    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+
+Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
+
+The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
+"""
+function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
     bgsol = solvebg(prob.bg; bgopts..., verbose)
-    getSs = map(s -> getsym(prob.pt, s), S)
-    Ss = similar(bgsol, length(S), length(τs), length(ks))
-    extrema(τs) == extrema(bgsol.t) || error("input τs and computed background solution have different timespans") # TODO: don't rely on
+    getSs = map(S -> getsym(prob.pt, S), Ss)
+    Ss = similar(bgsol, length(Ss), length(τs), length(ks))
+    minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
     function output_func(sol, ik)
         for iS in eachindex(getSs)
             Ss[iS, :, ik] .= getSs[iS](sol)
@@ -196,4 +215,88 @@ function source_grid(prob::CosmologyProblem, S::AbstractArray, τs, ks; bgopts =
     end
     solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
+end
+
+# Called internally by source_grid_adaptive
+function source_grid_refine(i1, i2, ks, Ss, Sk, savelock; verbose = false, kwargs...)
+    k1 = ks[i1]
+    k2 = ks[i2]
+    S1 = Ss[:, :, i1]
+    S2 = Ss[:, :, i2]
+
+    k2 ≥ k1 || error("shit")
+
+    k = (k1 + k2) / 2
+    S = Sk(k)
+
+    i = 0 # define in outer scope, then set inside lock block
+    @lock savelock begin
+        push!(ks, k)
+        i = length(ks) # copy, since first refine below can modify i before call to second refine
+        Ss[:, :, i] .= S
+        verbose && println("Refined k-grid between [$k1, $k2] on thread $(threadid()) to $i total points")
+    end
+
+    Sint = (S1 .+ S2) ./ 2 # linear interpolation
+
+    # check if interpolation is close enough for all sources
+    # (equivalent to finding the source grid of each source separately)
+    @sync if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in 1:size(Ss, 1))
+        @spawn source_grid_refine(i1, i, ks, Ss, Sk, savelock; verbose, kwargs...) # refine left subinterval
+        @spawn source_grid_refine(i, i2, ks, Ss, Sk, savelock; verbose, kwargs...) # refine right subinterval
+    end
+end
+
+# TODO: Hermite interpolation
+# TODO: create SourceFunction type that does k and τ interpolation?
+"""
+    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
+
+Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
+The source functions are first evaluated on the (coarse) initial grid `ks`.
+Each subinterval ``(k₁, k₂)`` of `ks` is then adaptively refined until the linear interpolation ``Sᵢ = (S(k₁)+S(k₂))/2`` to the midpoint ``k=(k₁+k₂)/2`` approximates the actual value ``S(k)`` there within some tolerance.
+The comparison ``Sᵢ ≈ S`` is done with `isapprox(Sᵢ, S; kwargs...)`, where `S` and `Sᵢ` are vectors with the (conformal) timeseries of the source function for that wavenumber.
+It receives the keyword arguments `kwargs` passed to this function, so `atol`, `rtol` and/or `norm` can be specified to tune the tolerance.
+
+Returns the refined wavenumbers sorted in ascending order and a grid with the corresponding source function values.
+If not `sort`, the wavenumbers and source function values are instead left in the order in which they were inserted in the refinement process.
+
+The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
+"""
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts...)
+    ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
+
+    getSs = map(S -> getsym(prob.pt, S), Ss)
+    function Sk(k)
+        ptprob = ptprobgen(ptprob0, k)
+        ptsol = solvept(ptprob; saveat = τs, ptopts...)
+        S = transpose(stack(map(getS -> getS(ptsol), getSs)))
+        S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
+        return S
+    end
+
+    length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
+    ks = Vector(ks) # common to input a range
+    Ss = similar(bgsol, length(Ss), length(τs), 1024)
+
+    savelock = ReentrantLock()
+
+    @threads for i in 1:length(ks)
+        Ss[:, :, i] .= Sk(ks[i])
+    end
+    @threads for i in 1:length(ks)-1
+        source_grid_refine(i, i+1, ks, Ss, Sk, savelock; kwargs...)
+    end
+
+    # sort according to k
+    if sort
+        is = sortperm(ks)
+        ks = ks[is]
+        Ss = Ss[:, :, is]
+    else
+        Ss = Ss[:, :, 1:length(ks)]
+    end
+
+    return ks, Ss
 end
