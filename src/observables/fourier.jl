@@ -262,11 +262,12 @@ The options `bgopts` and `ptopts` are passed to the background and perturbation 
 """
 function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
+    ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function Sk(k)
-        ptsols = solvept(prob.pt, bgsol, [k], prob.bgspline; saveat = τs, thread = false, ptopts...)
-        ptsol = only(ptsols)
+        ptprob = ptprobgen(ptprob0, k)
+        ptsol = solvept(ptprob; saveat = τs, ptopts...)
         S = transpose(stack(map(getS -> getS(ptsol), getSs)))
         S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
         return S

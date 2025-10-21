@@ -427,6 +427,27 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsp
     verbose && println()
     return ptsols
 end
+"""
+    solvept(ptprob::ODEProblem; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, kwargs...)
+
+Solve the perturbation problem `ptprob` and return the solution.
+Its wavenumber and background spline must already be initialized, for example with `setuppt`.
+
+# Examples
+
+```julia
+# ...
+prob = CosmologyProblem(M, pars)
+bgsol = solvebg(prob.bg)
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+k = 1.0
+ptprob = ptprobgen(ptprob0, k)
+ptsol = solvept(ptprob)
+```
+"""
+function solvept(ptprob::ODEProblem; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, kwargs...)
+    return solve(ptprob, alg; reltol, abstol, kwargs...)
+end
 
 function time_today(prob::CosmologyProblem)
     getτ0 = SymBoltz.getsym(prob.bg, :τ0)
