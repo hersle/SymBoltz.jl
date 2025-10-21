@@ -250,7 +250,7 @@ end
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
-    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), kwargs...)
+    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
 
 Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
 The source functions are first evaluated on the (coarse) initial grid `ks`.
@@ -258,9 +258,12 @@ Each subinterval ``(k₁, k₂)`` of `ks` is then adaptively refined until the l
 The comparison ``Sᵢ ≈ S`` is done with `isapprox(Sᵢ, S; kwargs...)`, where `S` and `Sᵢ` are vectors with the (conformal) timeseries of the source function for that wavenumber.
 It receives the keyword arguments `kwargs` passed to this function, so `atol`, `rtol` and/or `norm` can be specified to tune the tolerance.
 
+Returns the refined wavenumbers sorted in ascending order and a grid with the corresponding source function values.
+If not `sort`, the wavenumbers and source function values are instead left in the order in which they were inserted in the refinement process.
+
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
     ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
 
@@ -287,9 +290,13 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
 
     # sort according to k
-    is = sortperm(ks)
-    ks = ks[is]
-    Ss = Ss[:, :, is]
+    if sort
+        is = sortperm(ks)
+        ks = ks[is]
+        Ss = Ss[:, :, is]
+    else
+        Ss = Ss[:, :, 1:length(ks)]
+    end
 
     return ks, Ss
 end
