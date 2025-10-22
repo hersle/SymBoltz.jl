@@ -55,7 +55,7 @@ function ΛCDM(;
         ST0_SW(τ, k),
         ST0_ISW(τ, k), ST1_ISW(τ, k),
         ST0_Doppler(τ, k), ST1_Doppler(τ, k),
-        ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k)
+        ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k), SE_kχ²(τ, k)
     end
     defs = Dict(
         C => 1//2,
@@ -100,6 +100,7 @@ function ΛCDM(;
         ST2_polarization ~ 3/16 * b.v*γ.Π / (k*χ)^2
         ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
         ST1 ~ 0
+        SE_kχ² ~ 3/16 * b.v*γ.Π
     ])
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?

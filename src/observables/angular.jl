@@ -207,13 +207,17 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
     iE = 'E' in join(modes) ? iT + 1 : 0
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
-    iE > 0 && push!(Ss, prob.M.ST2_polarization)
+    iE > 0 && push!(Ss, prob.M.SE_kχ²)
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = 2)
     ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, sourceopts...) # TODO: thread flag # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
-    Ss_fine[:, end, :] .= 0.0
+    if iE > 0
+        χs = τs[end] .- τs
+        Ss_fine[iE, :, :] ./= (ks_fine' .* χs) .^ 2
+    end
+    Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
 
     ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
     ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
