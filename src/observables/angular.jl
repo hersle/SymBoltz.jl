@@ -205,27 +205,25 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 
 The lensing line-of-sight integral uses the Limber approximation for `l ≥ l_limber`.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = collect(kτ0s ./ τ0)
+
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
-    τi = τs[begin]
-    if Nlos != 0 # instead choose Nlos time points τ = τ(u) corresponding to uniformly spaced u
-        τmin, τmax = extrema(τs)
-        umin, umax = u(τmin), u(τmax)
-        us = range(umin, umax, length = Nlos)
-        τs = u⁻¹.(us)
-        τs[begin] = τi
-        τs[end] = τ0
+    if !isnothing(xs)
+        # use user's array of x = (τ-τi)/(τ0-τi)
+        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
+        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
+        τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
