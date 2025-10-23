@@ -181,12 +181,12 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (atol = 1e0,), verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
 
 Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (atol = 1e0,), verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
@@ -207,13 +207,17 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
     iE = 'E' in join(modes) ? iT + 1 : 0
     Ss = Num[]
     iT > 0 && push!(Ss, prob.M.ST0)
-    iE > 0 && push!(Ss, prob.M.ST2_polarization)
+    iE > 0 && push!(Ss, prob.M.SE_kχ²)
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = 2)
     ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, sourceopts...) # TODO: thread flag # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
-    Ss_fine[:, end, :] .= 0.0
+    if iE > 0
+        χs = τs[end] .- τs
+        Ss_fine[iE, :, :] ./= (ks_fine' .* χs) .^ 2
+    end
+    Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
 
     ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
     ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing

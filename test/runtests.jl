@@ -452,3 +452,9 @@ using SpecialFunctions: zeta as ζ
         end
     end
 end
+
+@testset "CMB spectra" begin
+    jl = SphericalBesselCache(20:20:3000)
+    DlTT = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
+    DlEE = spectrum_cmb(:EE, prob, jl; normalization = :Dl)
+end
