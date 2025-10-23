@@ -31,7 +31,7 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tb
     bgspline::Tbgspline
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}, Th <: Number}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, AbstractArray{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}, Th <: Number}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
@@ -272,12 +272,14 @@ end
         bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
         ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
         shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
+        adaptiveopts = (rtol = 1e-2,),
         thread = true, verbose = false, kwargs...
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
 The options `bgopts` and `ptopts` are passed to the background and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
+If `adaptiveopts` is something, the wavenumbers `ks` is treated as an initial grid of wavenumbers which is adaptively refined based on `isapprox(...; adaptiveopts...)`.
 If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
@@ -285,6 +287,7 @@ function solve(
     bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
     ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
     shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
+    adaptiveopts = (rtol = 1e-2,),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
@@ -299,7 +302,11 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, h)
-        ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., kwargs...)
+        if !isnothing(adaptiveopts)
+            ks, ptsol = solvept_adaptive(prob.pt, bgsol, ks, prob.bgspline, nothing; verbose, ptopts..., adaptiveopts...)
+        else
+            ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., kwargs...)
+        end
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol, h)
@@ -447,6 +454,66 @@ ptsol = solvept(ptprob)
 """
 function solvept(ptprob::ODEProblem; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, kwargs...)
     return solve(ptprob, alg; reltol, abstol, kwargs...)
+end
+
+function solvept_adaptive(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar, Ss = nothing; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, sort = true, verbose = false, kwargs...)
+    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
+
+    ptprob0, ptprobgen = setuppt(ptprob, bgsol, bgsplinepar)
+    solveptk(k) = solvept(ptprobgen(ptprob0, k))
+
+    Sfunc(ptsol) = ptsol(range(ptsol.t[begin], ptsol.t[end]; length = 200); idxs = Ss).u # TODO: customize N points
+
+    ks = copy(ks) # don't modify input array
+
+    savelock = ReentrantLock()
+    function refine(i1, i2)
+        k1 = ks[i1]
+        k2 = ks[i2]
+        ptsol1 = ptsols[i1]
+        ptsol2 = ptsols[i2]
+
+        k2 ≥ k1 || error("shit")
+
+        k = (k1 + k2) / 2
+        ptsol = solveptk(k)
+        S = Sfunc(ptsol)
+
+        i = 0 # define in outer scope, then set inside lock block
+        @lock savelock begin
+            push!(ks, k)
+            push!(ptsols, ptsol)
+            push!(Scache, S)
+            i = length(ks) # copy, since first refine below can modify i before call to second refine
+            verbose && println("Refined k-grid between [$k1, $k2] on thread $(threadid()) to $i total points")
+        end
+
+        S1 = Scache[i1]
+        S2 = Scache[i2]
+        Sint = (S1 .+ S2) ./ 2 # linear interpolation
+
+        # check if interpolation is close enough for all sources
+        # (equivalent to finding the source grid of each source separately)
+        @sync if !isapprox(S, Sint; kwargs...) # TODO: several S
+            @spawn refine(i1, i) # refine left subinterval
+            @spawn refine(i, i2) # refine right subinterval
+        end
+    end
+
+    ptsols = tmap(solveptk, ks)
+    Scache = tmap(Sfunc, ptsols)
+    @threads for i in 1:length(ks)-1
+        refine(i, i+1)
+    end
+
+    # sort according to k
+    if sort
+        is = sortperm(ks)
+        ks = ks[is]
+        ptsols = ptsols[is]
+    end
+
+    return ks, ptsols
 end
 
 function time_today(prob::CosmologyProblem)

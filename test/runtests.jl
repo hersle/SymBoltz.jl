@@ -458,3 +458,10 @@ end
     DlTT = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
     DlEE = spectrum_cmb(:EE, prob, jl; normalization = :Dl)
 end
+
+@testset "Adaptive k-solving" begin
+    bgsol = solvebg(prob.bg)
+    ks = [1.0, 1000.0]
+    Ss = :Φ
+    ks, ptsols = solvept_adaptive(prob.pt, bgsol, ks, prob.bgspline, Ss; rtol = 1e-1);
+end
