@@ -241,7 +241,7 @@ function source_grid_refine(i1, i2, ks, Ss, Sk, savelock; verbose = false, kwarg
 
     # check if interpolation is close enough for all sources
     # (equivalent to finding the source grid of each source separately)
-    @sync if !all(isapprox(S[iS, :], Sint[iS, :]; kwargs...) for iS in 1:size(Ss, 1))
+    @sync if !all(isapprox(S[iS, begin:end-1], Sint[iS, begin:end-1]; kwargs...) for iS in 1:size(Ss, 1)) # exclude χ = 0 from comparison, where some sources diverge with 1/χ
         @spawn source_grid_refine(i1, i, ks, Ss, Sk, savelock; verbose, kwargs...) # refine left subinterval
         @spawn source_grid_refine(i, i2, ks, Ss, Sk, savelock; verbose, kwargs...) # refine right subinterval
     end
@@ -272,7 +272,6 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         ptprob = ptprobgen(ptprob0, k)
         ptsol = solvept(ptprob; saveat = τs, ptopts...)
         S = transpose(stack(map(getS -> getS(ptsol), getSs)))
-        S[:, end] .= 0.0 # avoid NaN/Infs from 1/χ today; fine in LOS integration, since always weighted by 0-valued Bessel function # TODO: avoid
         return S
     end
 

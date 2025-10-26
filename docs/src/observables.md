@@ -55,18 +55,17 @@ SymBoltz.spectrum_cmb
 
 ```@example
 # TODO: more generic, source functions, ... # hide
-using SymBoltz, Unitful, UnitfulAstro, Plots
+using SymBoltz, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ls = 10:5:1500
 
+ls = 25:25:3000 # 25, 50, ..., 3000
 jl = SphericalBesselCache(ls)
-Dls = spectrum_cmb([:TT, :EE, :TE], prob, jl; normalization = :Dl, unit = u"μK")
-pTT = plot(ls, Dls[:, 1]; ylabel = "Dₗᵀᵀ")
-pEE = plot(ls, Dls[:, 2]; ylabel = "Dₗᴱᴱ")
-pTE = plot(ls, Dls[:, 3]; ylabel = "Dₗᵀᴱ", xlabel = "l")
-plot(pTT, pEE, pTE, layout = (3, 1), size = (600, 700), legend = nothing)
+modes = [:TT, :EE, :TE, :ψψ, :ψT, :ψE]
+Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
+
+Plots.plot(ls, log10.(abs.(Dls)); xlabel = "l", ylabel = "lg(Dₗ)", label = permutedims(String.(modes)))
 ```
 
 ## Two-point correlation function

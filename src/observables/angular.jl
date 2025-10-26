@@ -14,7 +14,7 @@ struct SphericalBesselCache{Tx}
     x::Tx
 end
 
-function SphericalBesselCache(ls::AbstractVector; xmax = 3*ls[end], dx = 2π/48)
+function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
@@ -78,7 +78,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
@@ -86,13 +86,20 @@ Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
 The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
+The limber approximation
+```math
+Iₗ ≈ √(π/(2l+1)) S(k,τ₀-(l+1/2)/k)
+```
+is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss) == (length(τs), length(ks)) "size(Ss) = $(size(Ss)) ≠ $((length(τs), length(ks)))"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     χs = τs[end] .- τs
     Is = similar(Ss, length(ks), length(ls))
+
+    verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
     # TODO: skip and set jl to zero if l ≳ kτ0 or another cutoff?
     @tasks for il in eachindex(ls) # parallellize independent loop iterations
@@ -103,13 +110,30 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         verbose && print("\rLOS integrating with l = $l")
         for ik in eachindex(ks)
             k = ks[ik]
-            for iτ in eachindex(τs)
-                S = Ss[iτ,ik]
-                χ = χs[iτ]
-                kχ = k * χ
-                ∂I_∂τ[iτ] = S * jl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating jl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
+            if l ≥ l_limber
+                χ = (l+1/2) / k
+                if χ > χs[1]
+                    # χ > χini > χrec, so source function is definitely zero
+                    S = 0.0
+                else
+                    # interpolate between two closest points in saved array
+                    iχ₋ = searchsortedfirst(χs, χ; rev = true)
+                    iχ₊ = iχ₋ - 1
+                    χ₋, χ₊ = χs[iχ₋], χs[iχ₊] # now χ₋ < χ < χ₊
+                    S₋, S₊ = Ss[iχ₋,ik], Ss[iχ₊,ik]
+                    S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                end
+                I = √(π/(2l+1)) * S / k
+            else
+                for iτ in eachindex(τs)
+                    S = Ss[iτ,ik]
+                    χ = χs[iτ]
+                    kχ = k * χ
+                    ∂I_∂τ[iτ] = S * jl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
+                end
+                I = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
             end
-            Is[ik,il] = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
+            Is[ik,il] = I
         end
     end
     verbose && println()
@@ -181,46 +205,67 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), verbose = false, kwargs...)
 
-Compute the CMB power spectra `modes` (`:TT`, `:EE`, `:TE` or an array thereof) ``C_l^{AB}``'s at angular wavenumbers `ls` from the cosmological solution `sol`.
+Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
+The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
+Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π`` if `normalization` is `:Dl`.
+
+The lensing line-of-sight integral uses the Limber approximation for `l ≥ l_limber`.
+
+# Examples
+
+```julia
+using SymBoltz, Unitful
+M = ΛCDM()
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+
+ls = 10:10:1000
+jl = SphericalBesselCache(ls)
+modes = [:TT, :TE, :ψψ, :ψT]
+Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
+```
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:2*jl.l[end], u = (τ->tanh(τ)), u⁻¹ = (u->atanh(u)), Nlos = 768, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-2,), verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = collect(kτ0s ./ τ0)
+
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
-    τi = τs[begin]
-    if Nlos != 0 # instead choose Nlos time points τ = τ(u) corresponding to uniformly spaced u
-        τmin, τmax = extrema(τs)
-        umin, umax = u(τmin), u(τmax)
-        us = range(umin, umax, length = Nlos)
-        τs = u⁻¹.(us)
-        τs[begin] = τi
-        τs[end] = τ0
+    if !isnothing(xs)
+        # use user's array of x = (τ-τi)/(τ0-τi)
+        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
+        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
+        τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
-    Ss = Num[]
-    iT > 0 && push!(Ss, prob.M.ST0)
-    iE > 0 && push!(Ss, prob.M.SE_kχ²)
+    iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
+    Ss = [prob.M.ST0, prob.M.SE_kχ², prob.M.Sψ]
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = 2)
     ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, sourceopts...) # TODO: thread flag # TODO: pass kτ0 and x # TODO: pass bgsol
 
     # Interpolate source function to finer k-grid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine)
-    if iE > 0
-        χs = τs[end] .- τs
-        Ss_fine[iE, :, :] ./= (ks_fine' .* χs) .^ 2
-    end
+    χs = τs[end] .- τs
+    Ss_fine[2, :, :] ./= (ks_fine' .* χs) .^ 2
     Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
 
-    ΘlTs = iT > 0 ? los_integrate(@view(Ss_fine[iT, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) : nothing
-    ΘlEs = iE > 0 ? los_integrate(@view(Ss_fine[iE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) : nothing
+    Θls = zeros(eltype(Ss_fine), max(iT, iE, iψ), length(ks_fine), length(ls))
+    if iT > 0
+        Θls[iT, :, :] .= los_integrate(@view(Ss_fine[1, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    end
+    if iE > 0
+        Θls[iE, :, :] .= los_integrate(@view(Ss_fine[2, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+    end
+    if iψ > 0
+        Θls[iψ, :, :] .= los_integrate(@view(Ss_fine[3, :, :]), ls, τs, ks_fine, jl; l_limber, integrator, verbose, kwargs...)
+    end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
@@ -232,17 +277,21 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
         error("Requested unit $unit is not a temperature unit")
     end
 
+    function geti(mode)
+        mode == :T && return iT
+        mode == :E && return iE
+        mode == :ψ && return iψ
+        error("Unknown CMB power spectrum mode $mode")
+    end
+
     spectra = zeros(eltype(Ss_fine[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
-        if mode == :TT
-            spectrum = spectrum_cmb(ΘlTs, ΘlTs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :EE
-            spectrum = spectrum_cmb(ΘlEs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        elseif mode == :TE
-            spectrum = spectrum_cmb(ΘlTs, ΘlEs, P0s, ls, ks_fine; integrator, normalization)
-        else
-            error("Unknown CMB power spectrum mode $mode")
-        end
+        mode = String(mode)
+        iA = geti(Symbol(mode[firstindex(mode)]))
+        iB = geti(Symbol(mode[lastindex(mode)]))
+        ΘlAs = @view(Θls[iA, :, :])
+        ΘlBs = @view(Θls[iB, :, :])
+        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization)
         spectrum *= factor^2 # possibly make dimensionful
         spectra[:, i] .= spectrum
     end

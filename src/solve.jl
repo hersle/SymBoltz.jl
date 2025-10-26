@@ -332,6 +332,10 @@ function solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol 
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
+    if Symbol("τrec") in Symbol.(parameters(bgprob.f.sys))
+        τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
+        bgsol.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
+    end
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
