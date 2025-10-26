@@ -407,25 +407,24 @@ end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
-jl = SphericalBesselCache(l; xmax = 20000)
-Dl2 = Dl_symboltz([:TT, :TE, :EE], jl, pars)
-plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 9e-13)
+jl = SphericalBesselCache(l)
+Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 2e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 6e-15)
+plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 8e-15)
 ```
 ```@example class
-Dl2 = Dl_symboltz([:ψψ, :ψT, :ψE], jl, pars; kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], sourceopts = (atol = 1.0,))
-plot_compare(l, l, Dl1[:, 4], Dl2[:, 1], "l", "Dₗ(ψψ)"; tol = 5e-13)
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 4], "l", "Dₗ(ψψ)"; tol = 5e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 5], Dl2[:, 2], "l", "Dₗ(ψT)"; tol = 3e-13)
+plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 3e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 6], Dl2[:, 3], "l", "Dₗ(ψE)"; tol = 2e-15)
+plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 3e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
