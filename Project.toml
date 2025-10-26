@@ -1,6 +1,6 @@
 name = "SymBoltz"
 uuid = "64c5a815-d72d-4982-8b1f-85a778bbef4e"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Herman Sletmoen"]
 
 [deps]
