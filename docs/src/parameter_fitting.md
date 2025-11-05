@@ -92,12 +92,12 @@ using Turing
     wa ~ Uniform(-1.0, +1.0)
 
     p = [Ωr0, Ωm0, Ωk0, h, w0, wa]
-    μs_pred = μ_pred(p)
-    if isempty(μs_pred)
+    mbs_pred = μ_pred(p)
+    if isempty(mbs_pred)
         Turing.@addlogprob! -Inf
         return nothing
     end
-    mbs_pred = μs_pred .+ Mb
+    mbs_pred .+= Mb
     return mbs ~ MvNormal(mbs_pred, C) # read "measurements sampled from multivariate normal with predictions and covariance matrix"
 
     # equivalently:
