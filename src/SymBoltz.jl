@@ -3,7 +3,8 @@ module SymBoltz
 using Reexport
 import ModelingToolkit: parameters, unknowns # explicitly imported because they are extended
 @reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
-using OrdinaryDiffEq
+using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
+using OrdinaryDiffEqNonlinearSolve: NLNewton
 using NonlinearSolve
 using OhMyThreads
 using Base.Threads

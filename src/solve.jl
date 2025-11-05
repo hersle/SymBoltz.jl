@@ -39,7 +39,6 @@ struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolu
 end
 
 algname(alg) = string(nameof(typeof(alg)))
-algname(alg::CompositeAlgorithm) = join(algname.(alg.algs), "+")
 
 function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     print(io, "Cosmology problem for model ")

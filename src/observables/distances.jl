@@ -15,17 +15,17 @@ function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[s
     r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
     H0 = H100 * sol[M.g.h]
     a = sol(M.g.a, ivs)
-    return @. r / a * SymBoltz.c / H0 # to meters
+    return @. r / a * c / H0 # to meters
 end
 
 # TODO: test @inferred
-function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3))
+function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3))
     isequal(ModelingToolkit.get_iv(M), M.g.a) || error("Independent variable must be $(M.g.a)")
 
     pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
     as = @. 1 / (zs + 1)
     prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
-    probgen = SymBoltz.parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
+    probgen = parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
 
     geta = getsym(prob, M.g.a)
     getτ = getsym(prob, M.τ)
@@ -42,8 +42,8 @@ function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; b
         τ0 = τ[end] # time today
         χ = τ0 .- τ
         r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
-        H0 = SymBoltz.H100 * h
-        return @. r / a * SymBoltz.c / H0 # luminosity distance in meters
+        H0 = H100 * h
+        return @. r / a * c / H0 # luminosity distance in meters
     end
 end
 

@@ -4,7 +4,7 @@
     This page is a work in progress.
 
 ```@example bench
-using MKL, SymBoltz, OrdinaryDiffEq, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, InteractiveUtils
+using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, InteractiveUtils
 M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)

@@ -52,7 +52,7 @@ fig
 
 To predict [luminosity distances](@ref "Luminosity distance") theoretically, we solve the w0waCDM model:
 ```@example fit
-using SymBoltz
+using SymBoltz, OrdinaryDiffEqTsit5
 g = SymBoltz.metric()
 K = SymBoltz.curvature(g)
 X = SymBoltz.w0wa(g; analytical = true)
@@ -68,7 +68,7 @@ dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcm
 
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
-bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3)
+bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3)
 p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
 μs = μ(p0)
 mbs = μs .+ Mb
@@ -238,7 +238,7 @@ pp_fc
 
 ```@setup fit
 #=
-using SymBoltz, OrdinaryDiffEq, Turing
+using SymBoltz, OrdinaryDiffEqTsit5, Turing
 
 function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8, reltol = 1e-8, alg = Tsit5(), maxiters = 1e3)
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
