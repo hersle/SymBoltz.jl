@@ -44,12 +44,7 @@ const EHet2p2s = EHet2p1s - EHet2s1s
 
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
 
-function k_dimensionless(k::Number, h)
-    if unit(k) == NoUnits
-        return k
-    else
-        H₀ = h * H100 # s⁻¹
-        k0 = (H₀ / c) / u"m"
-        return NoUnits(k / k0)
-    end
-end
+k_dimensionless(k::Number, h) = k
+k_dimensionless(k::Quantity, h) = NoUnits(k / (h*H100 / c / u"m"))
+k_dimensionless(k::Number, bgsol::ODESolution) = k
+k_dimensionless(k::Quantity, bgsol::ODESolution) = k_dimensionless(k, getsym(bgsol, :h)(bgsol))

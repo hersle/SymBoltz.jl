@@ -31,12 +31,11 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tb
     bgspline::Tbgspline
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}, Th <: Number}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
     pts::Tpts # perturbation solutions
-    h::Th # reduced Hubble parameter h = H/(100 km/s/Mpc)
 end
 
 algname(alg) = string(nameof(typeof(alg)))
@@ -293,16 +292,15 @@ function solve(
         bgsol = solvebg(prob.bg; verbose, bgopts..., kwargs...)
     end
 
-    h = getsym(bgsol, :h)(bgsol) # TODO: remove symbolic getter
     if isnothing(ks) || isempty(ks)
         ks = nothing
         ptsol = nothing
     else
-        ks = k_dimensionless.(ks, h)
+        ks = k_dimensionless.(ks, Ref(bgsol))
         ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., kwargs...)
     end
 
-    return CosmologySolution(prob, bgsol, ks, ptsol, h)
+    return CosmologySolution(prob, bgsol, ks, ptsol)
 end
 function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
@@ -570,7 +568,7 @@ function getsym(provider::Union{CosmologyProblem, CosmologySolution}, p)
 end
 
 function neighboring_modes_indices(sol::CosmologySolution, k)
-    k = k_dimensionless.(k, sol.h)
+    k = k_dimensionless.(k, Ref(sol.bg))
     if k == sol.ks[begin] # k == kmin
         i1 = i2 = 1
     elseif k == sol.ks[end] # k == kmax
@@ -588,7 +586,7 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     if isnothing(sol.ks) || isempty(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
     end
-    ks = k_dimensionless.(ks, sol.h)
+    ks = k_dimensionless.(ks, Ref(sol.bg))
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
