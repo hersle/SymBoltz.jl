@@ -199,11 +199,23 @@ end
     @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.H])
 end
 
-@testset "Primordial power spectrum pivot scale" begin
+@testset "Wavenumber units and primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
     k = 0.05 / u"Mpc" # ≠ 0.05/(Mpc/h)
     sol = solve(prob, k)
-    @test sol[M.I.kpivot] ≈ SymBoltz.k_dimensionless(k, h)
+    @test sol[M.I.kpivot] ≈ SymBoltz.k_dimensionless(k, sol.bg)
+
+    ks = 1.0:100.0
+    sol = solve(prob, ks)
+    P1 = sol(M.I.P, sol.bg.t[begin], ks)
+    P2 = spectrum_primordial(ks, sol)
+    @test all(isapprox.(P1, P2))
+
+    ks = collect(1.0:100.0) / u"Mpc"
+    sol = solve(prob, ks)
+    P1 = sol(M.I.P, sol.bg.t[begin], ks)
+    P2 = spectrum_primordial(SymBoltz.k_dimensionless.(ks, h), sol)
+    @test all(isapprox.(P1, P2))
 end
 
 @testset "Time and optical depth today" begin

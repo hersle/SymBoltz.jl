@@ -3,7 +3,7 @@ using MatterPower
 using TwoFAST
 
 """
-    spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
+    spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
 
 Compute the primordial power spectrum
 ```math
@@ -11,12 +11,13 @@ P₀(k) = 2π² Aₛ (k/kₚ)^{nₛ-1} / k³
 ```
 with spectral amplitude `As`, spectral index `ns` and pivot scale wavenumber `kp` at the wavenumber(s) `k`.
 """
-function spectrum_primordial(k, h, As, ns=1.0; kp = k_dimensionless(0.05 / u"Mpc", h))
-    P = @. 2*π^2 / k^3 * As
+function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
+    P = 2*π^2 * As ./ k.^3
 
-    # compute k / kpivot with equal wavenumber units
+    # ensure both k and kp to dimensionless wavenumbers k/(H₀/c) before taking ratio
     k = k_dimensionless.(k, h)
-    @. P *= (k/kp)^(ns-1)
+    kp = k_dimensionless(kp, h)
+    P .*= (k./kp).^(ns-1)
 
     return P
 end
@@ -121,7 +122,7 @@ function variance_matter(sol::CosmologySolution, R)
     P = spectrum_matter(sol, k)
     lgPspl = spline(log.(P), log.(k))
     Pf(k) = exp(lgPspl(log(k)))
-    R = 1 / k_dimensionless(1 / R, sol[M.g.h]) # make dimensionless
+    R = 1 / k_dimensionless(1 / R, sol.bg) # make dimensionless
     return MatterPower.sigma2(Pf, R)
 end
 """

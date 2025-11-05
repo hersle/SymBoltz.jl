@@ -11,7 +11,7 @@ function harrison_zeldovich(g; kwargs...)
         P ~ 2*Num(π)^2 / k^3 * As * (k/kpivot)^(ns-1)
     ]
     defaults = [
-        kpivot => 0.05 / (H100*g.h/c) / Mpc # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
+        kpivot => 0.05 / Mpc / (H100/c) / g.h # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
         ln_As1e10 => NaN # keep uninitialized if not needed
         ns => NaN
     ]
