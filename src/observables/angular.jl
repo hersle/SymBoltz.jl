@@ -26,6 +26,7 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
         ys[:, i] .= jl.(l, xs)
     end
 
+    xs = collect(xs)
     return SphericalBesselCache{typeof(xs)}(ls, is, ys, invdx, xs)
 end
 
