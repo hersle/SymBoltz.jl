@@ -384,10 +384,9 @@ end
     Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
     @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
-    Ss = @view Ss[1, :, :]
     Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
-    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
+    Cls = @inferred spectrum_cmb(Θ0s[1, :, :], Θ0s[1, :, :], P0s, ls, ks_fine)
 end
 
 @testset "Background differentiation test" begin

@@ -26,6 +26,7 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
         ys[:, i] .= jl.(l, xs)
     end
 
+    xs = collect(xs)
     return SphericalBesselCache{typeof(xs)}(ls, is, ys, invdx, xs)
 end
 
@@ -78,34 +79,41 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
 Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
-The element `Ss[i,j]` holds the source function value ``S(kᵢ, τⱼ)``.
+The element `Ss[i,j,k]` holds the source function value ``Sᵢ(kⱼ, τₖ)``.
 The limber approximation
 ```math
 Iₗ ≈ √(π/(2l+1)) S(k,τ₀-(l+1/2)/k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
-    @assert size(Ss) == (length(τs), length(ks)) "size(Ss) = $(size(Ss)) ≠ $((length(τs), length(ks)))"
+    @assert size(Ss, 2) == length(τs) "size(Ss, 2) = $(size(Ss, 2)) and length(τs) = $(length(τs)) differ"
+    @assert size(Ss, 3) == length(ks) "size(Ss, 3) = $(size(Ss, 3)) and length(ks) = $(length(ks)) differ"
+    @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
+    @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     χs = τs[end] .- τs
-    Is = similar(Ss, length(ks), length(ls))
+    halfdτs = 0.5 .* (τs[begin+1:end] .- τs[begin:end-1]) # precompute before loops
+    NS = size(Ss, 1)
+    Is = zeros(eltype(Ss), NS, length(ks), length(ls))
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
     # TODO: skip and set jl to zero if l ≳ kτ0 or another cutoff?
     @tasks for il in eachindex(ls) # parallellize independent loop iterations
         @local begin # define task-local values (declared once for all loop iterations)
-            ∂I_∂τ = similar(Ss, length(τs))
+            prevs = similar(Ss, NS)
+            _Is = similar(Ss, NS)
         end
+        @inbounds begin
         l = ls[il]
         verbose && print("\rLOS integrating with l = $l")
         for ik in eachindex(ks)
@@ -114,26 +122,39 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                 χ = (l+1/2) / k
                 if χ > χs[1]
                     # χ > χini > χrec, so source function is definitely zero
-                    S = 0.0
+                    for iS in 1:NS
+                        _Is[iS] = 0.0
+                    end
                 else
                     # interpolate between two closest points in saved array
                     iχ₋ = searchsortedfirst(χs, χ; rev = true)
                     iχ₊ = iχ₋ - 1
                     χ₋, χ₊ = χs[iχ₋], χs[iχ₊] # now χ₋ < χ < χ₊
-                    S₋, S₊ = Ss[iχ₋,ik], Ss[iχ₊,ik]
-                    S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                    @inbounds @simd for iS in 1:NS
+                        S₋, S₊ = Ss[iS, iχ₋, ik], Ss[iS, iχ₊, ik]
+                        S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                        _Is[iS] = √(π/(2l+1)) * S / k
+                    end
                 end
-                I = √(π/(2l+1)) * S / k
             else
-                for iτ in eachindex(τs)
-                    S = Ss[iτ,ik]
+                prevs .= .0 # jl = 0 when χ = 0
+                _Is .= 0.0
+                for iτ in length(τs)-1:-1:1
                     χ = χs[iτ]
-                    kχ = k * χ
-                    ∂I_∂τ[iτ] = S * jl(l, kχ) # TODO: rewrite LOS integral to avoid evaluating Rl with dual numbers? # TODO: rewrite LOS integral with y = kτ0 and x=τ/τ0 to cache jls independent of cosmology
+                    _jl = jl(l, k*χ)
+                    halfdτ = halfdτs[iτ]
+                    @inbounds @simd for iS in 1:NS
+                        prev = prevs[iS]
+                        curr = Ss[iS, iτ, ik] * _jl
+                        _Is[iS] += halfdτ * (curr + prev)
+                        prevs[iS] = curr
+                    end
                 end
-                I = integrate(τs, ∂I_∂τ; integrator) # integrate over τ # TODO: add starting I(τini) to fix small l?
             end
-            Is[ik,il] = I
+            for iS in 1:NS
+                Is[iS, ik, il] = _Is[iS]
+            end
+        end
         end
     end
     verbose && println()
@@ -257,14 +278,15 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
 
     Θls = zeros(eltype(Ss_fine), max(iT, iE, iψ), length(ks_fine), length(ls))
-    if iT > 0
-        Θls[iT, :, :] .= los_integrate(@view(Ss_fine[1, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
+    iTE = max(iT, iE)
+    if iTE > 0
+        Θls[1:iTE, :, :] .= los_integrate(@view(Ss_fine[1:iTE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...)
     end
     if iE > 0
-        Θls[iE, :, :] .= los_integrate(@view(Ss_fine[2, :, :]), ls, τs, ks_fine, jl; integrator, verbose, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
     end
     if iψ > 0
-        Θls[iψ, :, :] .= los_integrate(@view(Ss_fine[3, :, :]), ls, τs, ks_fine, jl; l_limber, integrator, verbose, kwargs...)
+        Θls[iψ:iψ, :, :] .= los_integrate(@view(Ss_fine[3:3, :, :]), ls, τs, ks_fine, jl; l_limber, integrator, verbose, kwargs...)
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
