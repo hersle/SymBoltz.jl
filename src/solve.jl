@@ -267,8 +267,8 @@ end
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
-        ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
+        bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
+        ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
         shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
@@ -280,15 +280,15 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9),
-    ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8),
+    bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
+    ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
     shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
-        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; shootopts, verbose, bgopts..., kwargs...)
+        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
     else
-        bgsol = solvebg(prob.bg; verbose, bgopts..., kwargs...)
+        bgsol = solvebg(prob.bg; verbose, bgopts..., bgextraopts..., kwargs...)
     end
 
     if isnothing(ks) || isempty(ks)
@@ -296,7 +296,7 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
