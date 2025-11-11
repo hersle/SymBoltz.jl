@@ -31,7 +31,7 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tb
     bgspline::Tbgspline
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
