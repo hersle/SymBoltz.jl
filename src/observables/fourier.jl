@@ -80,8 +80,14 @@ end
 Solve the problem `prob` with exact wavenumber(s) `k`, and then compute the power spectrum with the solution `sol`.
 """
 function spectrum_matter(prob::CosmologyProblem, k, τ = nothing; species = [:c, :b, :h], kwargs...)
-    sol = solve(prob, k; kwargs...) # TODO: just save endpoints
-    τ = isnothing(τ) ? sol[prob.M.τ][end] : τ
+    # save only the necessary time(s)
+    if isnothing(τ)
+        ptextraopts = (save_everystep = false, save_start = false, save_end = true)
+    else
+        ptextraopts = (saveat = [τ],)
+    end
+    sol = solve(prob, k; ptextraopts, kwargs...)
+    τ = isnothing(τ) ? sol.bg.t[end] : τ
     return spectrum_matter(sol, k, τ; species)
 end
 
