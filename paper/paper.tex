@@ -1149,7 +1149,7 @@ This is not necessary with a good implicit ODE solver.
 SymBoltz sets $C_\Hy = C_\Hesin = 1$ when $X_\el \gtrsim 0.99$ to avoid numerical instability at early times.
 Atomic calculations are done in SI units and converted to SymBoltz' dimensionless units by factors of $H_0$ in SI units.
 The differential equation for $T_b^\prime$ is very stiff and sensitive to $T_b-T_\gamma$, but $T_b \approx T_\gamma$ in the early universe, so we rewrite it to a more stable differential equation for $\Delta T^\prime = T_b^\prime - T_\gamma^\prime$ instead, initialize $\Delta T = 0$ and observe $T_b = \Delta T + T_\gamma$.
-The optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\tau^\prime) \mathrm{d}\tau^\prime$ is really a line-of-sine integral into the past,
+The optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\tau^\prime) \mathrm{d}\tau^\prime$ is really a line-of-sight integral into the past,
 but is integrated together with the background ODEs by initializing $\kappa(\tau_i) = 0$ to an arbitrary value, integrating the differential equation for $\kappa^\prime$ and subtracting the final value of $\kappa(\tau_0)$ (i.e. $\int_{\tau_0}^{\tau} = \int_{\tau_0}^{\tau_i} + \int_{\tau_i}^{\tau} = \int_{\tau_i}^{\tau} - \int_{\tau_i}^{\tau_0}$).
 There is no tight-coupling approximation.
 
