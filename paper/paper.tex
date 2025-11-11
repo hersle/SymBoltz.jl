@@ -486,51 +486,6 @@ Full support for sparse Jacobians is still ongoing work, however.
 SymBoltz can fall back from symbolic to automatic differentiation for the Jacobian.
 Finite differences can also be used.
 
-\subsubsection{Automatic change of variable (future work)}
-\label{sec:changeivar}
-
-SymBoltz consistently formulates all differential equations with respect to conformal time $\tau$ as the independent variable.
-This is perhaps the most common parametrization in the literature.
-It is very natural because the equations are autonomous with respect to $\tau$ (i.e. $f(\tau,\boldsymbol{u}) \rightarrow f(\boldsymbol{u})$, except some multipole truncation schemes that use $1/(k\tau)$, but these are unphysical).
-
-Some other codes inconsistently use different independent variables in different stages.
-This requires manual translation into cosmic time $t$, redshift $z$, scale factor $a$ or its logarithm $b = \log a$, for example,
-involving differential transformations like $\mathrm{d}t = a(\tau) \, \mathrm{d}\tau$, $\mathrm{d}z = -(a^\prime(\tau)/a(\tau)^2) \, \mathrm{d}\tau$, $\mathrm{d}a=a^\prime(\tau)\,\mathrm{d}\tau$ and $\mathrm{d}b = (a^\prime(\tau)/a(\tau))\,\mathrm{d}\tau$.
-This is another mechanical and error-prone process.
-
-In the future, SymBoltz could automate change to another independent variable (which should be one-to-one with $\tau$) by transforming the symbolic expressions.
-This can be particularly useful to compute observables as a direct function of redshift, although one can invert $z(\tau)$.
-This is common in fits to observations.
-
-\subsubsection{Automatic unit handling (future work)}
-\label{sec:units}
-
-Most variables in SymBoltz are defined in internal dimensionless units (see \cref{sec:implementation}).
-In the future, SymBoltz could use its symbolic pre-processing for more powerful unit features.
-For example, equations could be checked for dimensional validity to catch modeling mistakes.
-Input quantities could be automatically transformed from the user's preferred (dimensionful) units (e.g. $\text{Mpc}$) to internal (dimensionless) units, and then back to the user's units for output.
-
-\subsubsection{Automatic gauge transformation (future work)}
-\label{sec:gauges}
-
-SymBoltz is currently formulated only in the conformal Newtonian gauge.
-In the future, SymBoltz could conveniently transform the symbolic equations to other gauges automatically, such as the synchronous gauge used in CAMB and CLASS.
-
-\subsubsection{Automatic initial conditions (future work)}
-\label{sec:ics}
-
-SymBoltz currently uses adiabatic initial conditions for the perturbations.
-In the future, SymBoltz could generate initial conditions for arbitrary models from the equations.
-This typically involves mechanical procedures like perturbation theory or power series expansion that could be automated.
-
-\subsubsection{Automatic approximation schemes (future work)}
-\label{sec:approximations}
-
-SymBoltz is initially designed to be free of approximation schemes (see \cref{sec:approx-free}).
-In the future, SymBoltz could provide convenience utilities to help derive approximations to the equations.
-For example, it could automatically expand equations in power series of some smallness parameter.
-This could accelerate derivation of approximations for modified models to improve their performance with less effort.
-
 \subsection{Approximation-freeness}
 \label{sec:approx-free}
 
@@ -549,7 +504,7 @@ By default, SymBoltz uses the \texttt{Rodas4P} \citep{steinebachOrderreductionRO
 These are both implicit solvers from DifferentialEquations.jl.
 We discuss this aspect further in \cref{sec:discussion}.
 
-In the long run, SymBoltz could also implement approximation schemes to maximize speed (see \cref{sec:approximations}).
+In the long run, SymBoltz could also implement approximation schemes to maximize speed.
 However, the goal is to keep the code primarily approximation-free and for all approximations to be secondary and optional.
 
 \subsection{Differentiability}
@@ -956,6 +911,35 @@ Of course, automatic differentiation is just an additional feature.
 One can run the code with or without automatic differentiation, or use finite differences instead.
 It does not pose any tradeoff, but robust support for both forward-mode and reverse-mode remains a future goal that would make SymBoltz more powerful for different applications.
 This situation will improve as the differentiable Julia ecosystem continues to evolve.
+
+\section{Future work}
+\label{sec:futurework}
+
+We hope to continue to improve SymBoltz with new features and enable others to build upon it.
+In particular, its symbolic capabilities could be extended with utility methods for:
+\begin{itemize}
+\item gauge transformation of equations, say from the Newtonian gauge in SymBoltz to the synchronous gauge used by default in CAMB and CLASS, as already featured in CAMB\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}};
+\item perturbation theory for deriving initial conditions and approximation schemes for new models;
+%\item initial conditions for perturbations generated with computer-assisted symbolic perturbation theory;
+%\item approximation schemes generated with computer-assisted symbolic perturbation theory, to enable speedups without costly reinvention of approximations with any model change;
+\item transformation of differential equations with respect to conformal time $\tau$ to another (one-to-one) independent variable (e.g. to get observables as direct functions of redshift $z$);
+\item validation of dimensions in symbolic equations to catch modeling mistakes by tagging variables with physical units;
+\item symbolic tensor manipulation to aid work with modified gravity theories (as a standalone package).
+\end{itemize}
+These tasks traditionally involve manual error-prone calculations, so such utilities could ease exploration of extended models.
+
+We also aim to improve performance, particularly of differentiable parameter runs.
+An attractive milestone is efficient reverse-mode automatic differentiation of scalar loss functions, which could enable very powerful gradient-based MCMC sampling.
+Support for sparse (Jacobian) matrices is also on our radar, and could accelerate the solution of large perturbation systems.
+
+It is left for future work to generalize the code from scalar to vector and tensor perturbations, from flat to curved spacetimes, and from adiabatic to other initial conditions.
+Some additional models like quintessence dark energy and Brans-Dicke gravity are in the works, and we invite others to add extended models.
+
+In a larger context, we are hopeful that a Boltzmann solver in Julia can foster growth of modular interoperating add-on packages.
+For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on the output from Boltzmann solvers.
+It is possible to make such existing codes compatible, but supporting automatic differentiation across language barriers is challenging.
+An ecosystem of similar packages in one language with good support for automatic differentiation, like Julia or Python combined with Jax, could open the door to a larger, modular and fully differentiable cosmological modeling toolbox.
+A recent example of the transition to differentiable tools is the impressive end-to-end modeling from linear perturbation theory to non-linear structure formation with a differentiable Boltzmann code coupled to a differentiable $N$-body code by DISCO-DJ \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
 
 \section{Conclusion and future potential}
 \label{sec:conclusion}
