@@ -140,6 +140,13 @@ end
     @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs); atol = 1e-6)) # TODO: make more reliable
 end
 
+@testset "Source grid" begin
+    τs = [1.0, 2.0]
+    ks = [1.0, 10.0, 100.0]
+    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
+    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+end
+
 @testset "Initial conditions" begin
     τini = prob.bg.tspan[1]
     ks = [1e-1, 1e0] / u"Mpc"
