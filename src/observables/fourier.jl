@@ -218,7 +218,7 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
         for iS in eachindex(getSs)
             Ss[iS, :, ik] .= getSs[iS](sol)
         end
-        return nothing, false
+        return nothing
     end
     solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
@@ -288,11 +288,11 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
 
     savelock = ReentrantLock()
 
-    @threads for i in 1:length(ks)
-        Ss[:, :, i] .= Sk(ks[i])
+    @sync for i in 1:length(ks)
+        @spawn Ss[:, :, i] .= Sk(ks[i])
     end
-    @threads for i in 1:length(ks)-1
-        source_grid_refine(i, i+1, ks, Ss, Sk, savelock; kwargs...)
+    @sync for i in 1:length(ks)-1
+        @spawn source_grid_refine(i, i+1, ks, Ss, Sk, savelock; kwargs...)
     end
 
     # sort according to k

@@ -31,7 +31,7 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tb
     bgspline::Tbgspline
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution}, Tks <: Union{Nothing, AbstractVector}}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
     ks::Tks # perturbation wavenumbers
@@ -392,16 +392,15 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, bgsplinepar)
     end
 end
 
-# TODO: use ensemblesolution output func to save e.g. necessary source functions for optimized code paths
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
 A background solution `bgsol` must be passed (see `solvebg`), and a parameter `bgsplinepar` that refers to a spline in the perturbation problem of background unknowns.
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
-The return value is an `EnsembleSolution` over all `ks`.
+The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> (sol, false), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
@@ -423,10 +422,8 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsp
         end
         return output_func(sol, i)
     end
-    prob_func = (ptprob, i, _) -> ptprobgen(ptprob, ks[i])
-    ptprobs = EnsembleProblem(; safetycopy = false, prob = ptprob, prob_func = prob_func, output_func = output_func_warn)
-    ensemblealg = thread ? EnsembleThreads() : EnsembleSerial()
-    ptsols = solve(ptprobs, alg, ensemblealg; trajectories = length(ks), verbose, reltol, abstol, kwargs...) # TODO: test GPU parallellization
+    ptsols = [@spawn output_func_warn(solve(ptprobgen(ptprob, ks[i]), alg; verbose, reltol, abstol, kwargs...), i) for i in eachindex(ks)]
+    ptsols = fetch.(ptsols)
     verbose && println()
     return ptsols
 end

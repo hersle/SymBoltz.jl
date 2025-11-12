@@ -140,6 +140,13 @@ end
     @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs); atol = 1e-6)) # TODO: make more reliable
 end
 
+@testset "Source grid" begin
+    τs = [1.0, 2.0]
+    ks = [1.0, 10.0, 100.0]
+    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
+    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+end
+
 @testset "Initial conditions" begin
     τini = prob.bg.tspan[1]
     ks = [1e-1, 1e0] / u"Mpc"
@@ -348,7 +355,7 @@ end
 
     ks = 1.0:1.0:10.0
     ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline) # TODO: @inferred
-    @test ptsol isa SymBoltz.EnsembleSolution
+    @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
     getS = SymBoltz.getsym(prob.pt, M.ST0)
@@ -356,8 +363,8 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> (getS(ptsol), false))
-    Ss = stack(ptsol.u)
+    Ss = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
 
