@@ -348,7 +348,7 @@ end
 
     ks = 1.0:1.0:10.0
     ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline) # TODO: @inferred
-    @test ptsol isa SymBoltz.EnsembleSolution
+    @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
     getS = SymBoltz.getsym(prob.pt, M.ST0)
@@ -356,8 +356,8 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> (getS(ptsol), false))
-    Ss = stack(ptsol.u)
+    Ss = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
 
