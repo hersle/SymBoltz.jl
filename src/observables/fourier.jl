@@ -240,9 +240,9 @@ function source_grid_refine(i1, i2, ks, Ss, Sk, savelock; verbose = false, kwarg
     @lock savelock begin
         push!(ks, k)
         i = length(ks) # copy, since first refine below can modify i before call to second refine
-        Ss[:, :, i] .= S
         verbose && println("Refined k-grid between [$k1, $k2] on thread $(threadid()) to $i total points")
     end
+    Ss[:, :, i] .= S
 
     Sint = (S1 .+ S2) ./ 2 # linear interpolation
 
@@ -283,16 +283,21 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
 
     length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
-    ks = Vector(ks) # common to input a range
+    ks = collect(ks) # common to input a range
     Ss = similar(bgsol, length(Ss), length(τs), 1024)
 
     savelock = ReentrantLock()
 
+    tasks = Vector{Task}(undef, length(ks))
     @sync for i in 1:length(ks)
-        @spawn Ss[:, :, i] .= Sk(ks[i])
-    end
-    @sync for i in 1:length(ks)-1
-        @spawn source_grid_refine(i, i+1, ks, Ss, Sk, savelock; kwargs...)
+        task = @spawn begin
+        Ss[:, :, i] .= Sk(ks[i])
+        if i > 1
+            wait(tasks[i-1]) # ensure task for previous k has finished
+            @spawn source_grid_refine(i-1, i, ks, Ss, Sk, savelock; kwargs...)
+        end
+        end
+        tasks[i] = task
     end
 
     # sort according to k
