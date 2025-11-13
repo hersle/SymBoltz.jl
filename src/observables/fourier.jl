@@ -224,36 +224,6 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
     return Ss
 end
 
-# Called internally by source_grid_adaptive
-function source_grid_refine(i1, i2, ks, Ss, Sk, savelock; verbose = false, kwargs...)
-    k1 = ks[i1]
-    k2 = ks[i2]
-    S1 = Ss[:, :, i1]
-    S2 = Ss[:, :, i2]
-
-    k2 ≥ k1 || error("shit")
-
-    k = (k1 + k2) / 2
-    S = Sk(k)
-
-    i = 0 # define in outer scope, then set inside lock block
-    @lock savelock begin
-        push!(ks, k)
-        i = length(ks) # copy, since first refine below can modify i before call to second refine
-        verbose && println("Refined k-grid between [$k1, $k2] on thread $(threadid()) to $i total points")
-    end
-    Ss[:, :, i] .= S
-
-    Sint = (S1 .+ S2) ./ 2 # linear interpolation
-
-    # check if interpolation is close enough for all sources
-    # (equivalent to finding the source grid of each source separately)
-    @sync if !all(isapprox(S[iS, begin:end-1], Sint[iS, begin:end-1]; kwargs...) for iS in 1:size(Ss, 1)) # exclude χ = 0 from comparison, where some sources diverge with 1/χ
-        @spawn source_grid_refine(i1, i, ks, Ss, Sk, savelock; verbose, kwargs...) # refine left subinterval
-        @spawn source_grid_refine(i, i2, ks, Ss, Sk, savelock; verbose, kwargs...) # refine right subinterval
-    end
-end
-
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
@@ -270,37 +240,64 @@ If not `sort`, the wavenumbers and source function values are instead left in th
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
     ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
-    function Sk(k)
+    function sourcek!(k, ik, Ss)
         ptprob = ptprobgen(ptprob0, k)
         ptsol = solvept(ptprob; saveat = τs, ptopts...)
-        S = transpose(stack(map(getS -> getS(ptsol), getSs)))
-        return S
+        for iS in eachindex(getSs)
+            Ss[iS, :, ik] .= getSs[iS](ptsol)
+        end
+        return nothing
     end
 
+    counter = Atomic{Int}(length(ks)-1)
+    idx = Atomic{Int}(length(ks))
+
     length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
-    ks = collect(ks) # common to input a range
+    ninitks = length(ks)
     Ss = similar(bgsol, length(Ss), length(τs), 1024)
+    ks = resize!(collect(ks), 1024)
 
-    savelock = ReentrantLock()
+    @sync begin
+    queue = Channel{Tuple{Int, Int}}(1024)
+    for i in 1:ninitks
+        @spawn begin
+        sourcek!(ks[i], i, Ss)
+        i ≥ 2 && put!(queue, (i-1, i))
+        end
+    end
 
-    tasks = Vector{Task}(undef, length(ks))
-    @sync for i in 1:length(ks)
-        task = @spawn begin
-        Ss[:, :, i] .= Sk(ks[i])
-        if i > 1
-            wait(tasks[i-1]) # ensure task for previous k has finished
-            @spawn source_grid_refine(i-1, i, ks, Ss, Sk, savelock; kwargs...)
+    for (i1, i2) in queue # equivalent to "while true" with "try take!(queue) catch break end"
+        @spawn begin
+        i = atomic_add!(idx, +1) + 1 # atomic_add! returns old value of idx
+        k = (ks[i1] + ks[i2]) / 2
+        ks[i] = k
+        sourcek!(k, i, Ss)
+
+        verbose && println("Refined k-grid between [$(ks[i1]), $(ks[i2])] on thread $(threadid()) to $i total points")
+
+        # check if interpolation is close enough for all sources
+        # (equivalent to finding the source grid of each source separately)
+        Sint = (Ss[:, :, i1] .+ Ss[:, :, i2]) ./ 2 # linear interpolation
+        if !all(isapprox(Ss[iS, begin:end-1, i], Sint[iS, begin:end-1]; kwargs...) for iS in 1:size(Ss, 1)) # exclude χ = 0 from comparison, where some sources diverge with 1/χ
+            atomic_add!(counter, +2)
+            put!(queue, (i, i2))
+            put!(queue, (i1, i))
         end
+
+        atomic_add!(counter, -1) # finished processing
+
+        counter[] == 0 && close(queue) # close channel when all tasks are done
         end
-        tasks[i] = task
+    end
     end
 
     # sort according to k
+    ks = ks[1:idx[]]
     if sort
         is = sortperm(ks)
         ks = ks[is]
