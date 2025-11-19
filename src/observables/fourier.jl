@@ -160,17 +160,18 @@ end
 # TODO: source_grid(prob::CosmologyProblem seemed type-stable?
 # TODO: return getter for (ks, τs)
 """
-    source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
+    source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
 
 Evaluate and return source functions ``S(τ,k)`` from the solution `sol`.
 The source functions are given by symbolic expressions `Ss`, and evaluated on a grid with conformal times `τs` and the same wavenumbers as `sol` is solved for.
 """
-function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
+function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
     # Evaluate integrated perturbations on coarse grid
     ks = sol.ks
     getSs = map(S -> getsym(sol.prob.pt, S), Ss)
     Ss = similar(sol.bg, length(Ss), length(τs), length(ks))
     @tasks for ik in eachindex(ks)
+        @set scheduler = thread ? :dynamic : :static
         for iS in eachindex(getSs)
             Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik])) # TODO: type infer getS?
         end
@@ -179,13 +180,13 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs)
 end
 
 """
-    source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
+    source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
 Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wavenumber grid `ks_coarse` to a fine grid `ks_fine`.
 The interpolation is linear in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``.
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity)
+function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity, thread = true)
     size_coarse = size(Ss_coarse)
     size_fine = (size_coarse[1], size_coarse[2], length(ks_fine))
     Ns, Nτ, _ = size(Ss_coarse)
@@ -194,6 +195,7 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
     xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
+        @set scheduler = thread ? :dynamic : :static
         for iS in 1:Ns
             interp = LinearInterpolation(@view(Ss_coarse[iS, iτ, :]), xs_coarse)
             Ss_fine[iS, iτ, :] .= interp.(xs_fine)
@@ -227,7 +229,7 @@ end
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
-    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, kwargs...)
+    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, thread = true, verbose = false, kwargs...)
 
 Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
 The source functions are first evaluated on the (coarse) initial grid `ks`.
@@ -240,7 +242,7 @@ If not `sort`, the wavenumbers and source function values are instead left in th
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), sort = true, thread = true, verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
     ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
 
@@ -265,14 +267,14 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     @sync begin
     queue = Channel{Tuple{Int, Int}}(1024)
     for i in 1:ninitks
-        @spawn begin
+        @spawnif begin
         sourcek!(ks[i], i, Ss)
         i ≥ 2 && put!(queue, (i-1, i))
-        end
+        end thread
     end
 
     for (i1, i2) in queue # equivalent to "while true" with "try take!(queue) catch break end"
-        @spawn begin
+        @spawnif begin
         i = atomic_add!(idx, +1) + 1 # atomic_add! returns old value of idx
         k = (ks[i1] + ks[i2]) / 2
         ks[i] = k
@@ -292,7 +294,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         atomic_add!(counter, -1) # finished processing
 
         counter[] == 0 && close(queue) # close channel when all tasks are done
-        end
+        end thread
     end
     end
 

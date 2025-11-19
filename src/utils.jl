@@ -210,3 +210,29 @@ function remove_initial_conditions!(ics::Dict, vars; maxorder=2)
     end
     return ics
 end
+
+# https://github.com/JuliaQuantumControl/QuantumControlBase.jl/blob/master/src/conditionalthreads.jl
+# https://discourse.julialang.org/t/toggle-threads-threads-with-a-variable/71818/3
+"""
+    @spawnif code [thread=true]
+
+Like `@spawn code`, but run `code` normally (without multithreading) if `thread` is false.
+"""
+macro spawnif(args...)
+    if length(args) == 1
+        code = only(args)
+        thread = true
+    elseif length(args) == 2
+        code = args[1]
+        thread = args[2]
+    else
+        error("@spawnif did not receive 1 or 2 arguments")
+    end
+    return quote
+        if $(esc(thread))
+            @spawn $(esc(code))
+        else
+            $(esc(code))
+        end
+    end
+end
