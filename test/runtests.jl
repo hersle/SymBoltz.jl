@@ -1,4 +1,12 @@
-using Test, SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, FiniteDiff, BenchmarkTools
+using Test
+using SymBoltz
+using ModelingToolkit
+using Unitful
+using UnitfulAstro
+using ForwardDiff
+using FiniteDiff
+using BenchmarkTools
+using Base.Threads
 
 M = ΛCDM(K = nothing) # flat
 pars = SymBoltz.parameters_Planck18(M)
@@ -475,4 +483,9 @@ end
     jl = SphericalBesselCache(20:20:3000)
     DlTT = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
     DlEE = spectrum_cmb(:EE, prob, jl; normalization = :Dl)
+end
+
+@testset "Toggle threading" begin
+    @test length(unique(fetch.([SymBoltz.@spawnif threadid() true for i in 1:10 ]))) > 1
+    @test only(unique(fetch.([SymBoltz.@spawnif threadid() false for i in 1:10 ]))) == 1
 end

@@ -422,7 +422,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsp
         end
         return output_func(sol, i)
     end
-    ptsols = [@spawn output_func_warn(solve(ptprobgen(ptprob, ks[i]), alg; verbose, reltol, abstol, kwargs...), i) for i in eachindex(ks)]
+    ptsols = [@spawnif output_func_warn(solve(ptprobgen(ptprob, ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)]
     ptsols = fetch.(ptsols)
     verbose && println()
     return ptsols
