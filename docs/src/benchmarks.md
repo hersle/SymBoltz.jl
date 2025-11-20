@@ -4,16 +4,18 @@
     This page is a work in progress.
 
 ```@example bench
-using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, InteractiveUtils
+using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
 M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-1, 4, length = 100)
 benchmarks = BenchmarkGroup()
 
-using Dates
-println("Current time: ", now())
-print(sprint(InteractiveUtils.versioninfo)) # show computer information
+using Dates, InteractiveUtils, LinearAlgebra
+println("Current time: ", now(), "\n")
+println(sprint(InteractiveUtils.versioninfo)) # show computer information
+println(LinearAlgebra.BLAS.get_config())
+println("BLAS threads: ", LinearAlgebra.BLAS.get_num_threads())
 nothing # hide
 ```
 
