@@ -489,3 +489,23 @@ end
     @test length(unique(fetch.([SymBoltz.@spawnif threadid() true for i in 1:10 ]))) > 1
     @test only(unique(fetch.([SymBoltz.@spawnif threadid() false for i in 1:10 ]))) == 1
 end
+
+@testset "Sparse Jacobian" begin
+    # with ΛCDM model
+    M1 = M
+    pars1 = pars
+    prob1 = CosmologyProblem(M1, pars1; jac = true, sparse = true) # TODO: make sparse background work (although it won't impact performance)
+    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),)
+    ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
+    k = [1e0, 1e1, 1e2, 1e3]
+    sol = solve(prob1, k; bgopts, ptopts)
+    @test issuccess(sol)
+
+    M2 = RMΛ()
+    pars2 = Dict(M2.m.Ω₀ => 0.3, M2.r.Ω₀ => 1e-5, M2.g.h => NaN, M2.r.T₀ => NaN)
+    prob2 = CosmologyProblem(M2, pars2; jac = true, sparse = true, bgopts = (sparse = true,)) # demand sparse background
+    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.KLUFactorization()),)
+    ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
+    sol = solve(prob2, k; bgopts, ptopts)
+    @test issuccess(sol)
+end
