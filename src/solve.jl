@@ -10,6 +10,7 @@ import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
 import NumericalIntegration: cumul_integrate
+using SparseArrays
 
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
@@ -106,7 +107,8 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+        bgopts = (), ptopts = (), kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -118,7 +120,8 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+    bgopts = (), ptopts = (), kwargs...
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
     parsk = merge(pars, Dict(:k => NaN)) # k is unused, but must be set
@@ -163,7 +166,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true
     else
         bg = nothing
     end
@@ -183,7 +186,7 @@ function CosmologyProblem(
         end
         # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
     else
         pt = nothing
         bgspline = nothing
@@ -746,4 +749,19 @@ function statspt(sol::CosmologySolution)
         @eval $stats.$field = sum(ptsol.stats.$field for ptsol in $sol.pts)
     end
     return stats
+end
+
+function sparsity_fraction(J::SparseMatrixCSC)
+    nall = length(J)
+    nnonzeros = nnz(J)
+    nzeros = nall - nnonzeros
+    return nzeros / nall
+end
+function sparsity_fraction(prob::ODEProblem)
+    J = prob.f.jac_prototype
+    if isnothing(J)
+        return 0.0 # matrix is dense
+    else
+        return sparsity_fraction(J)
+    end
 end
