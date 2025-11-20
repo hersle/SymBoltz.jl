@@ -4,7 +4,7 @@
     This page is a work in progress.
 
 ```@example bench
-using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
+using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, LinearSolve
 M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
@@ -191,4 +191,63 @@ ks = 10 .^ range(-2, 5, length = 100)
 times = [minimum(@elapsed solvemode(k) for i in 1:10) for k in ks]
 
 plot(log10.(ks), times .* 1000; xlabel = "lg(k)", ylabel = "time / ms", xticks = range(log10(ks[begin]), log10(ks[end]), step=1), marker = :circle, label = nothing)
+```
+
+## Perturbations sparsity
+
+```@example bench
+# TODO: merge with Linear algebra backend section? # hide
+lmaxs = [4, 8, 16, 32, 64]
+Ms = [ΛCDM(ν = nothing, K = nothing, h = nothing; lmax) for lmax in lmaxs]
+
+# TODO: problem generation is very slow.. (multithreading here is dangerous)
+probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
+probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
+
+probs_sparse[end].pt.f.jac_prototype # example of sparse Jacobian
+```
+
+```@example bench
+#import Sparspak # SparspakFactorization crashes
+#import Pardiso
+#using LinearSolve: SparspakFactorization
+#using LinearSolve: MKLPardisoFactorize
+
+ks = 10 .^ range(0, 3, length=100) # TODO: -2, 5
+ptopts_dense = (alg = KenCarp4(linsolve = RFLUFactorization()),)
+ptopts_sparse1 = (alg = KenCarp4(linsolve = LUFactorization()),) # Base dispatch on SparseMatrixCSC
+ptopts_sparse2 = (alg = KenCarp4(linsolve = KLUFactorization()),)
+ptopts_sparse3 = (alg = KenCarp4(linsolve = UMFPACKFactorization()),)
+#ptopts_sparse4 = (alg = KenCarp4(linsolve = MKLPardisoFactorize(cache_analysis = true)),) # SLOW
+#ptopts_sparse5 = (alg = KenCarp4(linsolve = QRFactorization()),) # SLOW
+#ptopts_sparse6 = (alg = KenCarp4(linsolve = SparspakFactorization()),) # FAILS
+ts_dense = [@belapsed solve($prob, $ks; ptopts = $ptopts_dense) samples=1 evals=3 for prob in probs_dense]
+ts_sparse1 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse1) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse2 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse2) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse3 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse3) samples=1 evals=3 for prob in probs_sparse]
+
+p1 = plot(ylabel = "time / s", xticks = (lmaxs, ""), ylims = (0.0, ceil(maximum(ts_dense))))
+marker = :circle
+plot!(p1, lmaxs, ts_sparse1; label = "sparse $(nameof(typeof(ptopts_sparse1.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_sparse2; label = "sparse $(nameof(typeof(ptopts_sparse2.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_sparse3; label = "sparse $(nameof(typeof(ptopts_sparse3.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_dense; label = "dense $(nameof(typeof(ptopts_dense.alg.linsolve))), $(length(ks))×k", marker)
+text(prob::CosmologyProblem) = "$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse"
+annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
+
+speedups1 = [ts_dense[i]/ts_sparse1[i] for i in eachindex(lmaxs)]
+speedups2 = [ts_dense[i]/ts_sparse2[i] for i in eachindex(lmaxs)]
+speedups3 = [ts_dense[i]/ts_sparse3[i] for i in eachindex(lmaxs)]
+speedups0 = [ts_dense[i]/ts_dense[i] for i in eachindex(lmaxs)]
+ymax = Int(ceil(maximum(maximum.([speedups1, speedups2, speedups3, speedups0]))))
+ylims = (0, ymax)
+yticks = 0:1:ymax
+yticks = (collect(yticks), collect("$y×" for y in yticks))
+p2 = plot(; xlabel = "ℓmax", ylabel = "speedup", xticks = lmaxs, yticks, ylims, marker)
+plot!(p2, lmaxs, speedups1; marker, label = nothing)
+plot!(p2, lmaxs, speedups2; marker, label = nothing)
+plot!(p2, lmaxs, speedups3; marker, label = nothing)
+plot!(p2, lmaxs, speedups0; marker, label = nothing)
+
+plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(4//5, 1//5)))
 ```
