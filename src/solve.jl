@@ -50,11 +50,13 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
         print(io, '\n', indent, "Background")
         print(io, ": ", length(unknowns(prob.bg.f.sys)), " unknowns")
         print(io, ", ", 0, " splines")
+        print(io, ", ", issparse(prob.bg) ? "$(round(sparsity_fraction(prob.bg)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
         print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
         print(io, ", ", isnothing(prob.bgspline) ? 0 : length(unknowns(prob.bg.f.sys)), " splines")
+        print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
     printstyled(io, "\nParameters & initial conditions:"; bold = true)
@@ -117,6 +119,8 @@ Optionally, the shooting method determines the parameters `shoot_pars` (mapped t
 If `bg` and `pt`, the model is split into the background and perturbations stages.
 If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
+If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
+If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
@@ -265,6 +269,10 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
 
     return updater
 end
+
+issparse(M::Nothing) = false
+issparse(x) = SparseArrays.issparse(x)
+issparse(prob::ODEProblem) = issparse(prob.f.jac_prototype)
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
