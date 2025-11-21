@@ -13,8 +13,9 @@ Once the symbolic [cosmological model](@ref "Cosmologies (full models)") `M` has
 For example:
 ```@example sol
 pars = SymBoltz.parameters_Planck18(M)
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; jac = true, sparse = true)
 ```
+The keyword arguments generate a analytical and sparse Jacobian matrix, so solving large perturbation systems is efficient.
 
 ```@docs
 CosmologyProblem
