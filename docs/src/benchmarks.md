@@ -185,7 +185,8 @@ p
 
 ```@example bench
 ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
-solvemode(k) = solve(ptprobgen(ptprob0, k); alg = SymBoltz.DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8)
+ptalg = SymBoltz.ptalg(ptprob0)
+solvemode(k) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-8, abstol = 1e-8)
 
 ks = 10 .^ range(-2, 5, length = 100)
 times = [minimum(@elapsed solvemode(k) for i in 1:10) for k in ks]
