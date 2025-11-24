@@ -300,6 +300,8 @@ function ptalg(prob::ODEProblem; accuracy = 1)
     end
 end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
+ptalg(prob::Nothing) = nothing
+
 shootalg(args...) = NewtonRaphson()
 
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
