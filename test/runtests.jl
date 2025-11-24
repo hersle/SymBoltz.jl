@@ -393,7 +393,7 @@ end
     τs = range(τi, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST0)
-    ptopts = (alg = SymBoltz.DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8)
+    ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-8, abstol = 1e-8)
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
     Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
@@ -488,4 +488,24 @@ end
 @testset "Toggle threading" begin
     @test length(unique(fetch.([SymBoltz.@spawnif threadid() true for i in 1:10 ]))) > 1
     @test only(unique(fetch.([SymBoltz.@spawnif threadid() false for i in 1:10 ]))) == 1
+end
+
+@testset "Sparse Jacobian" begin
+    # with ΛCDM model
+    M1 = M
+    pars1 = pars
+    prob1 = CosmologyProblem(M1, pars1; jac = true, sparse = true) # TODO: make sparse background work (although it won't impact performance)
+    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),)
+    ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
+    k = [1e0, 1e1, 1e2, 1e3]
+    sol = solve(prob1, k; bgopts, ptopts)
+    @test issuccess(sol)
+
+    M2 = RMΛ()
+    pars2 = Dict(M2.m.Ω₀ => 0.3, M2.r.Ω₀ => 1e-5, M2.g.h => NaN, M2.r.T₀ => NaN)
+    prob2 = CosmologyProblem(M2, pars2; jac = true, sparse = true, bgopts = (sparse = true,)) # demand sparse background
+    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.KLUFactorization()),)
+    ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
+    sol = solve(prob2, k; bgopts, ptopts)
+    @test issuccess(sol)
 end

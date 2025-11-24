@@ -1,63 +1,26 @@
 # Performance and benchmarks
 
-!!! note
-    This page is a work in progress.
+Model setup and hardware information:
 
 ```@example bench
-using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, InteractiveUtils
+using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, LinearSolve
 M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-1, 4, length = 100)
 benchmarks = BenchmarkGroup()
 
-using Dates
-println("Current time: ", now())
-print(sprint(InteractiveUtils.versioninfo)) # show computer information
+using Dates, InteractiveUtils, LinearAlgebra
+LinearAlgebra.BLAS.set_num_threads(1)
+println("Current time: ", now(), "\n")
+println(sprint(InteractiveUtils.versioninfo)) # show computer information
+println(LinearAlgebra.BLAS.get_config())
+println("BLAS threads: ", LinearAlgebra.BLAS.get_num_threads())
 nothing # hide
 ```
 
-## Parallelize perturbations
+## Background: ODE solver
 
-By default, SymBoltz parallelizes integration of different perturbation modes $k$ with multithreading.
-This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent.
-It leads to a performance improvement depending on the number of threads available, but [can be turned off](@ref "Solving models"), for example if your application permits parallelization at a higher level:
-```@example bench
-using Base.Threads
-for thread in [true, false]
-    label = thread ? "$(nthreads()) threads" : "1 thread"
-    benchmarks["thread"][label] = @benchmarkable $solve($prob, $ks; thread = $thread)
-end
-results = run(benchmarks["thread"]; verbose = true)
-plot(results; size = (800, 400))
-```
-
-## Linear algebra backend
-
-By default, SymBoltz uses implicit ODE solvers to integrate approximation-free stiff equations.
-Unlike explicit solvers (used in Boltzmann solvers with approximations), they are often bottlenecked by linear algebra operations on the Jacobian matrix at every time step.
-[Choosing an optimal linear matrix solver](https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/) and/or [switching to an alternative BLAS library](https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra) (such as [MKL](https://github.com/JuliaLinearAlgebra/MKL.jl) or [AppleAccelerate](https://github.com/JuliaLinearAlgebra/AppleAccelerate.jl) over Julia's default OpenBLAS backend) can therefore improve performance.
-**This is dependent on your hardware!**
-
-Moreover, both BLAS and SymBoltz use multi-threading to parallellize linear algebra operations and integration of indendent perturbation modes, respectively.
-These can conflict. For best multi-threading performance [it is recommended to restrict BLAS to a single thread](https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra) and parallellize only the integration of perturbations.
-
-```@example bench
-linsolves = [
-    SymBoltz.LUFactorization()
-    SymBoltz.RFLUFactorization()
-    #SymBoltz.MKLLUFactorization() # fails/hangs/segfaults # TODO: restore
-    SymBoltz.KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)
-]
-for linsolve in linsolves
-    ptopts = (alg = KenCarp4(; linsolve), reltol = 1e-8)
-    benchmarks["linsolve"][nameof(typeof(linsolve))] = @benchmarkable $solve($prob, $ks; ptopts = $ptopts)
-end
-results = run(benchmarks["linsolve"]; verbose = true)
-plot(results; size = (800, 400))
-```
-
-## Background solver options
+This plot shows the time to solve the background using different (implicit) Rosenbrock methods with a fixed tolerance.
 
 ```@example bench
 bgalgs = [
@@ -65,8 +28,8 @@ bgalgs = [
     Rodas5()
     Rodas4P()
     Rodas5P()
-    #FBDF() # does not work with lower tolerances
-    #QNDF()
+    FBDF() # unstable for some tolerances
+    QNDF() # unstable for some tolerances
 ]
 for alg in bgalgs
     bgopts = (alg = alg, reltol = 1e-9)
@@ -76,15 +39,34 @@ results = run(benchmarks["bgsolver"]; verbose = true)
 plot(results; size = (800, 400))
 ```
 
-## Perturbation ODE solver
+## Background: precision-work diagram
+
+This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances.
+The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
-# TODO: test accuracy; work-precision diagram? # hide
+# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
+using DiffEqDevTools
+
+refalg = Rodas4P()
+bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+
+abstols = 1 ./ 10 .^ (5:9)
+reltols = 1 ./ 10 .^ (5:9)
+setups = [Dict(:alg => alg) for alg in bgalgs]
+wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
+plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
+```
+
+## Perturbations: ODE solver
+
+This plot shows the time to solve several perturbation $k$-modes using different implicit ODE solvers with fixed tolerance.
+
+```@example bench
 # TODO: test different nlsolve # hide
-# TODO: use BenchmarkTools.BenchmarkGroup # hide
+ks = 10 .^ range(-1, 4, length = 100)
 ptalgs = [
     TRBDF2()
-    #Rosenbrock23() # disabled; causes MaxIters with default tolerances
     KenCarp4()
     KenCarp47()
     Kvaerno5()
@@ -103,60 +85,11 @@ results = run(benchmarks["ptsolver"]; verbose = true)
 plot(results; size = (800, 400))
 ```
 
-## Perturbations Jacobian method
+## Perturbations: precision-work diagram
 
-```@example bench
-probs = [
-    CosmologyProblem(M, pars; jac = false)
-    CosmologyProblem(M, pars; jac = true)
-]
-for prob in probs
-    for autodiff in (true, false)
-        numerical = isnothing(prob.bg.f.jac)
-        numerical && !autodiff && continue # finite difference Jacobian fails # TODO: make work?
-        name = numerical ? "Numerical" : "Symbolic"
-        name *= autodiff ? " (auto. diff.)" : " (fin. diff.)"
-        bgopts = (alg = SymBoltz.Rodas4P(autodiff = autodiff), reltol = 1e-9)
-        ptopts = (alg = SymBoltz.KenCarp4(autodiff = autodiff), reltol = 1e-8)
-        benchmarks["jacobian"][name] = @benchmarkable $solve($prob, $ks; bgopts = $bgopts, ptopts = $ptopts)
-    end
-end
-results = run(benchmarks["jacobian"]; verbose = true)
-plot(results; size = (800, 400))
-```
-
-```@setup
-# TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
-# TODO: KenCarp47(linsolve, precs = incompletelu) # hide
-#ptsol = @btime solvept(prob.pt, bgsol, ks, prob.bgspline; alg = SymBoltz.KenCarp47(linsolve = SymBoltz.KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
-# TODO: make linsolve work with sparse Jacobian (jac = true, sparse = true)
-# TODO: thread = true is not helping as much as it should!
-# TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
-# TODO: https://docs.sciml.ai/DiffEqDocs/stable/tutorials/advanced_ode_example/
-# TODO: https://docs.sciml.ai/ModelingToolkit/stable/examples/sparse_jacobians/
-# TODO: set 1 BLAS thread because using implicit ode method
-# TODO: 100% CPU usage with threads = false?
-# TODO: why is it solvept() slower than solvept(; output_func = (sol, i) -> (sol, false) ???
-nothing # hide
-```
-
-## Background precision-work diagram
-
-```@example bench
-# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
-using DiffEqDevTools
-
-refalg = Rodas4P()
-bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
-
-abstols = 1 ./ 10 .^ (5:9)
-reltols = 1 ./ 10 .^ (5:9)
-setups = [Dict(:alg => alg) for alg in bgalgs]
-wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
-plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
-```
-
-## Perturbations precision-work diagram
+This plot compares the time to solve a perturbation $k$-mode vs. accuracy of the solution using different ODE solvers and tolerances.
+Each subplot corresponds to a different $k$-mode.
+The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
 ks = [1e0, 1e1, 1e2, 1e3]
@@ -179,14 +112,148 @@ end
 p
 ```
 
-## Perturbations time per mode
+## Perturbations: time per mode
+
+This plot shows the time spent solving individual perturbation $k$-modes using different ODE solvers with fixed tolerance.
 
 ```@example bench
 ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
-solvemode(k) = solve(ptprobgen(ptprob0, k); alg = SymBoltz.DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8)
+solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-7, abstol = 1e-7)
 
-ks = 10 .^ range(-2, 5, length = 100)
-times = [minimum(@elapsed solvemode(k) for i in 1:10) for k in ks]
+ks = 10 .^ range(-2, 5, length = 50)
+times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
 
-plot(log10.(ks), times .* 1000; xlabel = "lg(k)", ylabel = "time / ms", xticks = range(log10(ks[begin]), log10(ks[end]), step=1), marker = :circle, label = nothing)
+plot(
+    log10.(ks), map(ts -> log10.(ts), times); marker = :circle, markersize = 3,
+    xlabel = "lg(k)", ylabel = "lg(time / s)", xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
+    label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft
+)
+```
+
+## Perturbations: Jacobian method
+
+The Jacobian of the perturbation ODEs can be computed automatically with an explicit symbolically generated function, or numerically using forward-mode dual numbers or finite differences.
+This plot shows the time to solve several perturbation $k$-modes for each such method.
+
+```@example bench
+ks = 10 .^ range(-2, 5, length = 200)
+prob_nojac = CosmologyProblem(M, pars; jac = false)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(),), reltol = 1e-9)
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(),), reltol = 1e-8) # generate function for J symbolically
+benchmarks["jacobian"]["symbolic"] = @benchmarkable $solve($prob, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-9)
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-8) # compute J with forward-mode AD
+benchmarks["jacobian"]["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-9) # fails with finite diff background J
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(), autodiff = false), reltol = 1e-8) # compute J with finite differences
+benchmarks["jacobian"]["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+results = run(benchmarks["jacobian"]; verbose = true)
+plot(results; size = (800, 400))
+```
+
+## Perturbations: linear system solver
+
+At every time step, the implicit perturbation ODE solver solves a system of (nonlinear) equations with Newton's method.
+In turn, Newton's method involves iteratively solving several linear systems $Ax = b$, where $A$ involves the ODE Jacobian matrix $J$.
+This can be a bottleneck, so it is very important to use a linear solver that does this as fast as possible!
+
+**Note that the optimal linear solver depends on both the model and your hardware.**
+See [this tutorial on accelerating linear solves](https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/).
+Also run Julia with the [optimal BLAS backend for your platform](https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra),
+such as [MKL.jl](https://github.com/JuliaLinearAlgebra/MKL.jl) for Intel or [AppleAccelerate.jl](https://github.com/JuliaLinearAlgebra/AppleAccelerate.jl) for Macs,
+instead of Julia's default OpenBLAS backend.
+
+In particular, for large models the ODE Jacobian can have lots of zeros.
+Here is an example for a model with many perturbation equations.
+
+```@example bench
+lmaxs = [4, 8, 16, 32, 64]
+Ms = [ΛCDM(ν = nothing, K = nothing, h = nothing; lmax) for lmax in lmaxs]
+
+# TODO: problem generation is very slow.. (multithreading here is dangerous) # hide
+probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
+probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
+
+probs_sparse[end].pt.f.jac_prototype # example of sparse Jacobian
+```
+
+Sparse matrix methods is therefore very important to speed up the solution of large perturbation systems.
+This plot compares the time to solve several perturbation modes with different dense and sparse linear matrix solvers.
+
+```@example bench
+#import Sparspak # SparspakFactorization crashes # hide
+#import Pardiso # hide
+#using LinearSolve: SparspakFactorization # hide
+#using LinearSolve: MKLPardisoFactorize # hide
+# hide
+ks = 10 .^ range(-2, 5, length=200)
+ptopts_dense1 = (alg = KenCarp4(linsolve = LUFactorization()),)
+ptopts_dense2 = (alg = KenCarp4(linsolve = RFLUFactorization()),)
+ptopts_sparse1 = (alg = KenCarp4(linsolve = LUFactorization()),) # Base dispatch on SparseMatrixCSC
+ptopts_sparse2 = (alg = KenCarp4(linsolve = KLUFactorization()),)
+ptopts_sparse3 = (alg = KenCarp4(linsolve = UMFPACKFactorization()),)
+ts_dense1 = [@belapsed solve($prob, $ks; ptopts = $ptopts_dense1) samples=1 evals=3 for prob in probs_dense]
+ts_dense2 = [@belapsed solve($prob, $ks; ptopts = $ptopts_dense2) samples=1 evals=3 for prob in probs_dense]
+ts_sparse1 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse1) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse2 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse2) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse3 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse3) samples=1 evals=3 for prob in probs_sparse]
+
+p1 = plot(ylabel = "time / s", xticks = (lmaxs, ""), ylims = (0.0, ceil(max(maximum(ts_dense1), maximum(ts_dense2)))))
+marker = :circle
+plot!(p1, lmaxs, ts_sparse1; label = "sparse $(nameof(typeof(ptopts_sparse1.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_sparse2; label = "sparse $(nameof(typeof(ptopts_sparse2.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_sparse3; label = "sparse $(nameof(typeof(ptopts_sparse3.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_dense1; label = "dense $(nameof(typeof(ptopts_dense1.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts_dense2; label = "dense $(nameof(typeof(ptopts_dense2.alg.linsolve))), $(length(ks))×k", marker)
+text(prob::CosmologyProblem) = "$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse"
+annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
+
+speedups1 = [ts_dense2[i]/ts_sparse1[i] for i in eachindex(lmaxs)]
+speedups2 = [ts_dense2[i]/ts_sparse2[i] for i in eachindex(lmaxs)]
+speedups3 = [ts_dense2[i]/ts_sparse3[i] for i in eachindex(lmaxs)]
+speedups4 = [ts_dense2[i]/ts_dense1[i] for i in eachindex(lmaxs)]
+speedups5 = [ts_dense2[i]/ts_dense2[i] for i in eachindex(lmaxs)]
+ymax = Int(ceil(maximum(maximum.([speedups1, speedups2, speedups3, speedups4, speedups5]))))
+ylims = (0, ymax)
+yticks = 0:1:ymax
+yticks = (collect(yticks), collect("$y×" for y in yticks))
+p2 = plot(; xlabel = "ℓmax", ylabel = "speedup", xticks = lmaxs, yticks, ylims, marker)
+plot!(p2, lmaxs, speedups1; marker, label = nothing)
+plot!(p2, lmaxs, speedups2; marker, label = nothing)
+plot!(p2, lmaxs, speedups3; marker, label = nothing)
+plot!(p2, lmaxs, speedups4; marker, label = nothing)
+plot!(p2, lmaxs, speedups5; marker, label = nothing)
+
+plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(3//4, 1//4)))
+```
+
+## Perturbations: parallelization
+
+SymBoltz parallelizes integration of different perturbation modes $k$ with multithreading by default.
+Make sure you [run Julia with multiple threads](https://docs.julialang.org/en/v1/manual/multi-threading/).
+This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent.
+It leads to a performance improvement depending on the number of threads available, but [can be turned off](@ref "Solving models"), for example if your application permits parallelization at a higher level.
+
+```@example bench
+using Base.Threads
+ks = 10 .^ range(-1, 4, length = 100)
+for thread in [true, false]
+    label = thread ? "$(nthreads()) threads" : "1 thread"
+    benchmarks["thread"][label] = @benchmarkable $solve($prob, $ks; thread = $thread)
+end
+results = run(benchmarks["thread"]; verbose = true)
+plot(results; size = (800, 400))
+```
+
+```@setup
+# TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
+# TODO: KenCarp47(linsolve, precs = incompletelu) # hide
+#ptsol = @btime solvept(prob.pt, bgsol, ks, prob.bgspline; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
+# TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
+# TODO: why is it solvept() slower than solvept(; output_func = (sol, i) -> (sol, false) ???
+nothing # hide
 ```

@@ -10,13 +10,10 @@ import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
 import NumericalIntegration: cumul_integrate
+using SparseArrays
 
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
-
-const DEFAULT_BGALG = Rodas4P(linsolve = RFLUFactorization(throwerror = true))
-const DEFAULT_PTALG = KenCarp4(linsolve = RFLUFactorization(throwerror = true), nlsolve = NLNewton(fast_convergence_cutoff = 0, κ = 1))
-const DEFAULT_SHOOTALG = NewtonRaphson()
 
 struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tbgspline}
     M::System
@@ -49,11 +46,13 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
         print(io, '\n', indent, "Background")
         print(io, ": ", length(unknowns(prob.bg.f.sys)), " unknowns")
         print(io, ", ", 0, " splines")
+        print(io, ", ", issparse(prob.bg) ? "$(round(sparsity_fraction(prob.bg)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
         print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
         print(io, ", ", isnothing(prob.bgspline) ? 0 : length(unknowns(prob.bg.f.sys)), " splines")
+        print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
     printstyled(io, "\nParameters & initial conditions:"; bold = true)
@@ -106,7 +105,8 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+        bgopts = (), ptopts = (), kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -115,10 +115,13 @@ Optionally, the shooting method determines the parameters `shoot_pars` (mapped t
 If `bg` and `pt`, the model is split into the background and perturbations stages.
 If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
+If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
+If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, kwargs...
+    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+    bgopts = (), ptopts = (), kwargs...
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
     parsk = merge(pars, Dict(:k => NaN)) # k is unused, but must be set
@@ -163,7 +166,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true
     else
         bg = nothing
     end
@@ -183,7 +186,7 @@ function CosmologyProblem(
         end
         # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
-        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, kwargs...) # TODO: hangs with jac = true, sparse = true
+        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
     else
         pt = nothing
         bgspline = nothing
@@ -263,13 +266,51 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     return updater
 end
 
+issparse(M::Nothing) = false
+issparse(x) = SparseArrays.issparse(x)
+issparse(prob::ODEProblem) = issparse(prob.f.jac_prototype)
+
+function bgalg(prob::ODEProblem; stiff = true)
+    if issparse(prob)
+        linsolve = KLUFactorization()
+    else
+        linsolve = RFLUFactorization(throwerror = true)
+    end
+    if stiff
+        return Rodas4P(; linsolve)
+    else
+        return Tsit5(; linsolve)
+    end
+end
+bgalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.bg; kwargs...)
+
+function ptalg(prob::ODEProblem; accuracy = 1)
+    if issparse(prob)
+        linsolve = KLUFactorization()
+    else
+        linsolve = RFLUFactorization(throwerror = true)
+    end
+    nlsolve = NLNewton(fast_convergence_cutoff = 0, κ = 1)
+    if accuracy == 0
+        return TRBDF2(; linsolve, nlsolve)
+    elseif accuracy == 1
+        return KenCarp4(; linsolve, nlsolve)
+    else
+        return Rodas5P(; linsolve, nlsolve)
+    end
+end
+ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
+ptalg(prob::Nothing) = nothing
+
+shootalg(args...) = NewtonRaphson()
+
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     function solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-        ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
-        shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
+        bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
+        ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+        shootopts = (alg = shootalg(prob), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
 
@@ -280,9 +321,9 @@ If `threads`, integration over independent perturbation modes are parallellized.
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
-    ptopts = (alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
-    shootopts = (alg = DEFAULT_SHOOTALG, abstol = 1e-5),
+    bgopts = (alg = bgalg(prob), reltol = 1e-9, abstol = 1e-9), bgextraopts = (),
+    ptopts = (alg = ptalg(prob), reltol = 1e-8, abstol = 1e-8), ptextraopts = (),
+    shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
@@ -320,11 +361,11 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 """
-function solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
     bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
@@ -338,7 +379,7 @@ function solvebg(bgprob::ODEProblem; alg = DEFAULT_BGALG, reltol = 1e-9, abstol 
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = DEFAULT_BGALG, reltol = 1e-9, abstol = 1e-9, shootopts = (alg = DEFAULT_SHOOTALG, reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
@@ -393,14 +434,14 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, bgsplinepar)
 end
 
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
 A background solution `bgsol` must be passed (see `solvebg`), and a parameter `bgsplinepar` that refers to a spline in the perturbation problem of background unknowns.
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
@@ -428,7 +469,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsp
     return ptsols
 end
 """
-    solvept(ptprob::ODEProblem; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, kwargs...)
+    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
 
 Solve the perturbation problem `ptprob` and return the solution.
 Its wavenumber and background spline must already be initialized, for example with `setuppt`.
@@ -445,7 +486,7 @@ ptprob = ptprobgen(ptprob0, k)
 ptsol = solvept(ptprob)
 ```
 """
-function solvept(ptprob::ODEProblem; alg = DEFAULT_PTALG, reltol = 1e-8, abstol = 1e-8, kwargs...)
+function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, kwargs...)
     return solve(ptprob, alg; reltol, abstol, kwargs...)
 end
 
@@ -746,4 +787,19 @@ function statspt(sol::CosmologySolution)
         @eval $stats.$field = sum(ptsol.stats.$field for ptsol in $sol.pts)
     end
     return stats
+end
+
+function sparsity_fraction(J::SparseMatrixCSC)
+    nall = length(J)
+    nnonzeros = nnz(J)
+    nzeros = nall - nnonzeros
+    return nzeros / nall
+end
+function sparsity_fraction(prob::ODEProblem)
+    J = prob.f.jac_prototype
+    if isnothing(J)
+        return 0.0 # matrix is dense
+    else
+        return sparsity_fraction(J)
+    end
 end
