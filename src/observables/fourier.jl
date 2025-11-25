@@ -263,6 +263,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     ninitks = length(ks)
     Ss = similar(bgsol, length(Ss), length(τs), 1024)
     ks = resize!(collect(ks), 1024)
+    iτs = 1 : max(size(Ss, 2) - 1, 1) # exclude χ=0 from refinement comparison (where some CMB sources with 1/χ diverge); except if it is the only point (e.g. matter power spectrum is well-defined)
 
     @sync begin
     queue = Channel{Tuple{Int, Int}}(1024)
@@ -285,7 +286,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         # check if interpolation is close enough for all sources
         # (equivalent to finding the source grid of each source separately)
         Sint = (Ss[:, :, i1] .+ Ss[:, :, i2]) ./ 2 # linear interpolation
-        if !all(isapprox(Ss[iS, begin:end-1, i], Sint[iS, begin:end-1]; kwargs...) for iS in 1:size(Ss, 1)) # exclude χ = 0 from comparison, where some sources diverge with 1/χ
+        if !all(isapprox(Ss[iS, iτs, i], Sint[iS, iτs]; kwargs...) for iS in 1:size(Ss, 1))
             atomic_add!(counter, +2)
             put!(queue, (i, i2))
             put!(queue, (i1, i))
