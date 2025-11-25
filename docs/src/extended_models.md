@@ -104,7 +104,7 @@ equations(M2.X)
 To test, let us set some parameters and solve both models with one perturbation mode.
 For the ΛCDM model:
 ```@example ext
-θ1 = SymBoltz.parameters_Planck18(M1)
+θ1 = parameters_Planck18(M1)
 prob1 = CosmologyProblem(M1, θ1)
 ks = 1.0
 sol1 = solve(prob1, ks)

@@ -4,8 +4,8 @@ Model setup and hardware information:
 
 ```@example bench
 using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, LinearSolve
-M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM(ν = nothing, K = nothing, h = nothing)
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 benchmarks = BenchmarkGroup()
 

@@ -46,7 +46,7 @@ export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyProblem, CosmologySolution
 export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, SphericalBesselCache
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, distance_luminosity, SphericalBesselCache
 export express_derivatives
 
 end

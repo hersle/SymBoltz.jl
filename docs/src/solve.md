@@ -3,7 +3,7 @@
 First create a symbolic cosmological model:
 ```@example sol
 using SymBoltz
-M = SymBoltz.ΛCDM()
+M = ΛCDM()
 nothing # hide
 ```
 
@@ -12,7 +12,7 @@ nothing # hide
 Once the symbolic [cosmological model](@ref "Cosmologies (full models)") `M` has been constructed, it can be turned into a numerical problem:
 For example:
 ```@example sol
-pars = SymBoltz.parameters_Planck18(M)
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars; jac = true, sparse = true)
 ```
 The keyword arguments generate a analytical and sparse Jacobian matrix, so solving large perturbation systems is efficient.
