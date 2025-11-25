@@ -28,21 +28,30 @@ SymBoltz.spectrum_matter_nonlinear
 
 #### Example
 
-```@example
+With explicitly chosen wavenumbers:
+
+```@example matter
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = SymBoltz.ΛCDM()
 pars = SymBoltz.parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
+ks = 10 .^ range(-5, +2, length=100) / u"Mpc"
 sol = solve(prob, ks)
 
 # Linear power spectrum
 Ps = spectrum_matter(sol, ks)
-plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)")
+Plots.plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)", marker = :circle, markersize = 2)
 
 # Nonlinear power spectrum (from halofit)
 Ps = spectrum_matter_nonlinear(sol, ks)
-plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", legend_position = :bottomleft)
+Plots.plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", marker = :circle, markersize = 2, legend_position = :bottomleft)
+```
+
+With adaptively chosen wavenumbers on an interval:
+
+```@example matter
+ks, Ps = spectrum_matter(prob, (1e0, 1e3))
+plot(log10.(ks), log10.(Ps); xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³", label = "$(length(ks)) × k (adaptive)", marker = :circle, markersize = 2)
 ```
 
 ## CMB power spectra
