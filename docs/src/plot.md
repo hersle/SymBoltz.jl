@@ -6,8 +6,8 @@
 First, set up a cosmological problem to solve:
 ```@example plot
 using SymBoltz, Unitful, UnitfulAstro
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ```
 

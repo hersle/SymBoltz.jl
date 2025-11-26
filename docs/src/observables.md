@@ -12,7 +12,7 @@ SymBoltz.spectrum_primordial
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM()
+M = ΛCDM()
 pars = Dict(M.g.h => 0.7, M.I.As => 2e-9, M.I.ns => 0.95)
 ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
 Ps = spectrum_primordial(ks, M, pars)
@@ -28,21 +28,30 @@ SymBoltz.spectrum_matter_nonlinear
 
 #### Example
 
-```@example
+With explicitly chosen wavenumbers:
+
+```@example matter
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-5, +2, length=200) / u"Mpc"
+ks = 10 .^ range(-5, +2, length=100) / u"Mpc"
 sol = solve(prob, ks)
 
 # Linear power spectrum
 Ps = spectrum_matter(sol, ks)
-plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)")
+Plots.plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)", marker = :circle, markersize = 2)
 
 # Nonlinear power spectrum (from halofit)
 Ps = spectrum_matter_nonlinear(sol, ks)
-plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", legend_position = :bottomleft)
+Plots.plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", marker = :circle, markersize = 2, legend_position = :bottomleft)
+```
+
+With adaptively chosen wavenumbers on an interval:
+
+```@example matter
+ks, Ps = spectrum_matter(prob, (1e0, 1e3))
+plot(log10.(ks), log10.(Ps); xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³", label = "$(length(ks)) × k (adaptive)", marker = :circle, markersize = 2)
 ```
 
 ## CMB power spectra
@@ -56,8 +65,8 @@ SymBoltz.spectrum_cmb
 ```@example
 # TODO: more generic, source functions, ... # hide
 using SymBoltz, Plots
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 
 ls = 25:25:3000 # 25, 50, ..., 3000
@@ -78,8 +87,8 @@ SymBoltz.correlation_function
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(prob, ks)
@@ -97,8 +106,8 @@ SymBoltz.stddev_matter
 
 ```@example
 using SymBoltz, Unitful, UnitfulAstro, Plots
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
 sol = solve(prob, ks)
@@ -121,7 +130,7 @@ SymBoltz.distance_luminosity
 
 ```@example
 using SymBoltz, Plots
-M = SymBoltz.RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
+M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
 pars = Dict(
     M.r.Ω₀ => 5e-5,
     M.m.Ω₀ => 0.3,
@@ -134,7 +143,7 @@ sol = solve(prob)
 
 zs = 0.0:1.0:10.0
 τs = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
-dLs = SymBoltz.distance_luminosity(sol, τs) / SymBoltz.Gpc
+dLs = distance_luminosity(sol, τs) / SymBoltz.Gpc
 @assert isapprox(dLs[begin], 0.0; atol = 1e-14) || zs[begin] != 0.0 # ensure bug does not reappear # hide
 plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
 ```
@@ -147,8 +156,8 @@ sound_horizon
 
 ```@example
 using SymBoltz, Plots
-M = SymBoltz.ΛCDM()
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 sol = solve(prob)
 τs = sol[M.τ]

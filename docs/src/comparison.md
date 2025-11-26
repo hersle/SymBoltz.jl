@@ -233,7 +233,7 @@ plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 2e-2)
 ### Luminosity distance
 ```@example class
 dL1 = sol1["background"][:,"lum. dist."]
-dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
+dL2 = distance_luminosity(sol2) / SymBoltz.Mpc
 plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 2e6)
 ```
 

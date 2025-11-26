@@ -4,8 +4,8 @@ Model setup and hardware information:
 
 ```@example bench
 using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, LinearSolve
-M = SymBoltz.ΛCDM(ν = nothing, K = nothing, h = nothing)
-pars = SymBoltz.parameters_Planck18(M)
+M = ΛCDM(ν = nothing, K = nothing, h = nothing)
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 benchmarks = BenchmarkGroup()
 
@@ -42,6 +42,7 @@ plot(results; size = (800, 400))
 ## Background: precision-work diagram
 
 This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances.
+Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
@@ -89,6 +90,7 @@ plot(results; size = (800, 400))
 
 This plot compares the time to solve a perturbation $k$-mode vs. accuracy of the solution using different ODE solvers and tolerances.
 Each subplot corresponds to a different $k$-mode.
+Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
@@ -107,7 +109,7 @@ end
 p = plot(layout = (length(ks), 1), size = (800, 500*length(ks)))
 for (i, k) in enumerate(ks)
     wp = wps[i]
-    plot!(p[i,1], wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
+    plot!(p[i,1], wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
 end
 p
 ```
@@ -124,7 +126,7 @@ ks = 10 .^ range(-2, 5, length = 50)
 times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
 
 plot(
-    log10.(ks), map(ts -> log10.(ts), times); marker = :circle, markersize = 3,
+    log10.(ks), map(ts -> log10.(ts), times); marker = :auto, markersize = 2,
     xlabel = "lg(k)", ylabel = "lg(time / s)", xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
     label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft
 )
@@ -132,7 +134,12 @@ plot(
 
 ## Perturbations: Jacobian method
 
-The Jacobian of the perturbation ODEs can be computed automatically with an explicit symbolically generated function, or numerically using forward-mode dual numbers or finite differences.
+The Jacobian of the perturbation ODEs can be computed in three ways:
+
+1. explicitly from a symbolically generated function,
+2. numerically using forward-mode dual numbers, or
+3. numerically using finite differences.
+
 This plot shows the time to solve several perturbation $k$-modes for each such method.
 
 ```@example bench
@@ -181,8 +188,8 @@ probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) 
 probs_sparse[end].pt.f.jac_prototype # example of sparse Jacobian
 ```
 
-Sparse matrix methods is therefore very important to speed up the solution of large perturbation systems.
-This plot compares the time to solve several perturbation modes with different dense and sparse linear matrix solvers.
+Sparse matrix methods are therefore very important to speed up the solution of large perturbation systems.
+This plot compares the time to solve several perturbation $k$-modes with different dense and sparse linear matrix solvers.
 
 ```@example bench
 #import Sparspak # SparspakFactorization crashes # hide
@@ -231,12 +238,15 @@ plot!(p2, lmaxs, speedups5; marker, label = nothing)
 plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(3//4, 1//4)))
 ```
 
+Except for models with a very small perturbation system, it is a good idea to generate the sparse Jacobian and use the sparse `KLUFactorization` linear solver.
+
 ## Perturbations: parallelization
 
-SymBoltz parallelizes integration of different perturbation modes $k$ with multithreading by default.
+SymBoltz parallelizes integration of different perturbation $k$-modes with multithreading by default.
 Make sure you [run Julia with multiple threads](https://docs.julialang.org/en/v1/manual/multi-threading/).
 This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent.
-It leads to a performance improvement depending on the number of threads available, but [can be turned off](@ref "Solving models"), for example if your application permits parallelization at a higher level.
+It leads to a performance improvement depending on the number of threads available.
+It [can be disabled](@ref "Solving models"), for example if your application permits parallelization at a higher level.
 
 ```@example bench
 using Base.Threads
