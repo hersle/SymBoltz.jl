@@ -181,7 +181,7 @@ sol = solve(prob)
 
 τs = sol[M.τ] # conformal times in background solution
 ks = [1.0, 2000.0] # initial coarse grid
-ks, Ss = source_grid_adaptive(prob, [M.ST0], τs, ks; atol = 5.0)
+ks, Ss = source_grid_adaptive(prob, [M.ST], τs, ks; atol = 5.0)
 iτ = argmax(sol[M.b.v]) # index of decoupling time
 iτs = iτ-75:iτ+75 # indices around decoupling
 p1 = surface(ks, τs[iτs], Ss[1, iτs, :]; camera = (45, 25), xlabel = "k", ylabel = "τ", zlabel = "S", colorbar = false)

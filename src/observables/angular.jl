@@ -171,24 +171,6 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
     return los_integrate(Ss, ls, τs, ks, jl; kwargs...)
 end
 
-"""
-    los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-
-Calculate photon temperature multipoles today by line-of-sight integration.
-"""
-function los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST0, jl; ktransform, kwargs...)
-end
-
-"""
-    los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-
-Calculate photon E-mode polarization multipoles today by line-of-sight integration.
-"""
-function los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl; ktransform, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
-end
-
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 # TODO: better name?
 @doc raw"""
@@ -272,7 +254,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
-    Ss = [prob.M.ST0, prob.M.SE_kχ², prob.M.Sψ]
+    Ss = [prob.M.ST, prob.M.SE_kχ², prob.M.Sψ]
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
     ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x # TODO: pass bgsol
 

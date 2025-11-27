@@ -366,7 +366,7 @@ end
     @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
-    getS = SymBoltz.getsym(prob.pt, M.ST0)
+    getS = SymBoltz.getsym(prob.pt, M.ST)
     τi = bgsol.t[begin]
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
@@ -392,12 +392,12 @@ end
     ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
     τs = range(τi, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
-    #Ss = sol(ks_fine, τs, M.ST0)
+    #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-8, abstol = 1e-8)
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
-    Sgetter = SymBoltz.getsym(prob.pt, M.ST0)
-    Ss = @inferred source_grid(sol, [M.ST0], τs) # TODO: save allocation time with out-of-place version?
-    @test Ss == source_grid(prob, [M.ST0], τs, ks_coarse; ptopts)
+    Sgetter = SymBoltz.getsym(prob.pt, M.ST)
+    Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
+    @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])

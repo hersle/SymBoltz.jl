@@ -43,7 +43,7 @@ sol = solve(prob, ks)
 
 xs = τs
 ys = ks*u"Mpc"
-zs = sol(M.ST0, τs, ks)
+zs = sol(M.ST, τs, ks)
 
 fig = Figure()
 ax = Axis3(fig[1,1], azimuth = π/4, xlabel = "k/Mpc⁻¹", ylabel = "τ/H₀⁻¹", zlabel = "S₀(τ,k)")

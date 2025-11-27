@@ -51,12 +51,12 @@ function ΛCDM(;
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
-        ST0(τ, k), [description = "Temperature source function weighted against spherical Bessel function"]
-        ST1(τ, k), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
-        ST0_SW(τ, k),
-        ST0_ISW(τ, k), ST1_ISW(τ, k),
-        ST0_Doppler(τ, k), ST1_Doppler(τ, k),
-        ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k), SE_kχ²(τ, k)
+        ST(τ, k), [description = "Temperature source function"]
+        ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
+        ST_ISW(τ, k), [description = "Integrated Sachs-Wolfe contribution to ST"]
+        ST_Doppler(τ, k), [description = "Doppler contribution to ST"]
+        ST_polarization(τ, k), [description = "Polarization contribution to ST"]
+        SE_kχ²(τ, k), [description = "E-mode polarization source function"]
         Sψ(τ, k), [description = "Lensing source function"]
     end
     defs = Dict(
@@ -94,15 +94,11 @@ function ΛCDM(;
         γ.κ̇ ~ b.κ̇
         γ.θb ~ b.θ
 
-        ST0_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
-        ST0_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
-        ST0_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
-        ST1_Doppler ~ b.v*b.u
-        ST0_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
-        ST1_polarization ~ 3/(16*k) * D(b.v*γ.Π) |> expand_derivatives
-        ST2_polarization ~ 3/16 * b.v*γ.Π / (k*χ)^2
-        ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
-        ST1 ~ 0
+        ST_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
+        ST_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
+        ST_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
+        ST_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
+        ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
         SE_kχ² ~ 3/16 * b.v*γ.Π
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
     ])
