@@ -96,7 +96,7 @@ function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing
 end
 
 """
-    spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 7, kwargs...)
+    spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
 
 Compute the matter power spectrum on the interval ``k`` with adaptively chosen wavenumbers.
 Returns wavenumbers and power spectrum values.
@@ -104,7 +104,7 @@ Returns wavenumbers and power spectrum values.
 The interval is first divided into a grid with `coarse_length` logarithmically spaced wavenumbers.
 It is then adaptively refined with tolerances `atol` and `rtol`.
 """
-function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 7, kwargs...)
+function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
     M = prob.M
     species = getproperty.(M, filter(s -> have(M, s), species))
     δρ = sum(s.ρ*s.δ for s in species)
