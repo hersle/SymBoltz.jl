@@ -367,7 +367,7 @@ end
 Solve the background cosmology problem `bgprob`.
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
-    bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
+    bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
