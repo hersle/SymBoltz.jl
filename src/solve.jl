@@ -105,7 +105,8 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+        ivspan = (1e-6, 100.0), terminate_today = true,
+        bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
         bgopts = (), ptopts = (), kwargs...
     )
 
@@ -120,7 +121,8 @@ If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+    ivspan = (1e-6, 100.0), terminate_today = true,
+    bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
     bgopts = (), ptopts = (), kwargs...
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
@@ -135,7 +137,6 @@ function CosmologyProblem(
         end
 
         # Set up callback for today # TODO: specify callbacks symbolically?
-        terminate = !isnothing(term)
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
             aidx = ModelingToolkit.variable_index(bg, :a)
@@ -158,7 +159,7 @@ function CosmologyProblem(
             if haveκ0
                 integrator.ps[κ0idx] = integrator.u[_κidx]
             end
-            terminate && terminate!(integrator) # stop integration if desired
+            terminate_today && terminate!(integrator) # stop integration if desired
         end
         callback = ContinuousCallback(
             f, affect!;
