@@ -20,8 +20,8 @@ prob = CosmologyProblem(M, pars)
     prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
     bgsol = @test_nowarn solvebg(prob.bg)
 
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN], prob.bgspline; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0], prob.bgspline; thread = false)
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN]; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0]; thread = false)
 end
 
 @testset "Solution accessing" begin
@@ -362,7 +362,7 @@ end
     @test bgsol isa SymBoltz.ODESolution
 
     ks = 1.0:1.0:10.0
-    ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline) # TODO: @inferred
+    ptsol = solvept(prob.pt, bgsol, ks) # TODO: @inferred
     @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
@@ -371,7 +371,7 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    Ss = solvept(prob.pt, bgsol, ks, prob.bgspline; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = solvept(prob.pt, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
     Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
@@ -394,7 +394,9 @@ end
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-8, abstol = 1e-8)
+    @test !isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
+    @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
     Sgetter = SymBoltz.getsym(prob.pt, M.ST)
     Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
     @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)

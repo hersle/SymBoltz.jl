@@ -260,7 +260,7 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
         end
         return nothing
     end
-    solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
+    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
 
@@ -294,7 +294,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
 
     bgsol = solvebg(prob.bg; bgopts...)
-    ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
+    ptprob0, ptprobgen = setuppt(prob.pt, bgsol)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function sourcek!(k, ik, Ss)
