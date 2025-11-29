@@ -185,7 +185,10 @@ function CosmologyProblem(
         end
         # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
+        ts = ModelingToolkit.get_tearing_state(pt)
+        @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
+        @set! pt.f.sys.tearing_state = ts # restore
     else
         pt = nothing
     end
