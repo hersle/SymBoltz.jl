@@ -95,7 +95,7 @@ The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
 ks = [1e0, 1e1, 1e2, 1e3]
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 
 refalg = Rodas4P()
 setups = [Dict(:alg => alg) for alg in ptalgs]
@@ -119,7 +119,7 @@ p
 This plot shows the time spent solving individual perturbation $k$-modes using different ODE solvers with fixed tolerance.
 
 ```@example bench
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-7, abstol = 1e-7)
 
 ks = 10 .^ range(-2, 5, length = 50)
@@ -262,7 +262,7 @@ plot(results; size = (800, 400))
 ```@setup
 # TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
 # TODO: KenCarp47(linsolve, precs = incompletelu) # hide
-#ptsol = @btime solvept(prob.pt, bgsol, ks, prob.bgspline; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
+#ptsol = @btime solvept(prob.pt, bgsol, ks; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
 # TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
 # TODO: why is it solvept() slower than solvept(; output_func = (sol, i) -> (sol, false) ???
 nothing # hide
