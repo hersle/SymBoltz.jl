@@ -33,7 +33,8 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         w(τ), [description = "Equation of state"]
         ẇ(τ), [description = "Equation of state derivative"]
         cₐ²(τ), [description = "Adiabatic speed of sound squared"]
-        δ(τ, k), [description = "Overdensity"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
         σ(τ, k), [description = "Shear stress"]
     end
@@ -54,6 +55,7 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         cₐ² ~ w - ẇ/(3*g.ℋ*(1+w))
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ - 9*(g.ℋ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
         D(θ) ~ -g.ℋ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
+        Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         σ ~ 0
     ])
     ics = [
