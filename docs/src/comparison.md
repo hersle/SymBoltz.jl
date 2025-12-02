@@ -84,6 +84,7 @@ function solve_class(pars, k = nothing)
         "Omega_dcdmdr" => 0.0,
 
         # approximations (see include/precisions.h)
+        "tight_coupling_approximation" => 5, # compromise_CLASS; cannot turn off, and more accurate second_order_CLASS is incompatible with newtonian gauge
         "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off?
         "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
         "radiation_streaming_approximation" => 3, # turns off RSA
