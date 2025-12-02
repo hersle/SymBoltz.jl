@@ -84,15 +84,15 @@ function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::Abs
 end
 
 """
-    spectrum_matter([species,] prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
+    spectrum_matter([species,] prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
 
 Compute the matter power spectrum on the interval ``k`` with adaptively chosen wavenumbers.
 Returns wavenumbers and power spectrum values.
 
 The interval is first divided into a grid with `coarse_length` logarithmically spaced wavenumbers.
-It is then adaptively refined with tolerances `atol` and `rtol`.
+It is then adaptively refined with the absolute and relative tolerances in `sourceopts`.
 """
-function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
+function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
     # Initial coarse k-grid
     kmin, kmax = k
     ks = exp.(range(log(kmin), log(kmax), length = coarse_length))
@@ -101,7 +101,7 @@ function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTu
 
     ktransform = (log, exp)
     Ss = [getproperty(prob.M, s).Δ for s in species]
-    ks, Δs = source_grid_adaptive(prob, Ss, τs, ks; ktransform, atol, rtol, kwargs...)
+    ks, Δs = source_grid_adaptive(prob, Ss, τs, ks; ktransform, sourceopts..., kwargs...)
     Ps = Δs[:, 1, :] .^ 2
     P0s = spectrum_primordial(ks, prob)
     for iS in eachindex(Ss)
