@@ -261,7 +261,7 @@ end
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
-    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks[, bgsol]; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
 
 Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
 The source functions are first evaluated on the (coarse) initial grid `ks`.
@@ -276,7 +276,7 @@ If not `sort`, the wavenumbers and source function values are instead left in th
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol::ODESolution; ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
     length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
 
     if isnothing(τs)
@@ -287,7 +287,6 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         ptsaveopts = (saveat = τs,)
     end
 
-    bgsol = solvebg(prob.bg; bgopts...)
     ptprob0, ptprobgen = setuppt(prob.pt, bgsol)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
@@ -362,4 +361,10 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
 
     return ks, Ss
+end
+
+# Dispatch without background solution
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), kwargs...)
+    bgsol = solvebg(prob.bg; bgopts...)
+    return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end

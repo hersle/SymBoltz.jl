@@ -254,7 +254,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
     Ss = [prob.M.ST, prob.M.SE_kχ², prob.M.Sψ]
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
-    ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x # TODO: pass bgsol
+    ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
 
     # Interpolate source function to finer k-grid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine; thread)
