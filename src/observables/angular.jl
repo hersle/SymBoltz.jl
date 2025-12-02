@@ -47,7 +47,6 @@ jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analyti
 
 # In-place spherical Bessel function variants
 # TODO: contribute back to Bessels.jl
-# TODO: update with chain rules, reuse jl(x) vector for computing jl′(x) vector
 function jl!(out, l::AbstractRange, x::Number)
     besselj!(out, l .+ 0.5, x)
     if x == 0.0 && l[begin] == 0
@@ -172,7 +171,6 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
 end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-# TODO: better name?
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, thread = true)
 

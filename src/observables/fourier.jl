@@ -191,8 +191,6 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
 end
 
 # TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
-# TODO: source_grid(prob::CosmologyProblem seemed type-stable?
-# TODO: return getter for (ks, τs)
 """
     source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
 
@@ -207,7 +205,7 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = t
     @tasks for ik in eachindex(ks)
         @set scheduler = thread ? :dynamic : :static
         for iS in eachindex(getSs)
-            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik])) # TODO: type infer getS?
+            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik]))
         end
     end
     return Ss

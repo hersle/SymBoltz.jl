@@ -73,7 +73,6 @@ SymBoltz.spectrum_cmb
 #### Example
 
 ```@example
-# TODO: more generic, source functions, ... # hide
 using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)

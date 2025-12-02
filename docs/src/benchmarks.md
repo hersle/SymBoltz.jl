@@ -181,7 +181,6 @@ Here is an example for a model with many perturbation equations.
 lmaxs = [4, 8, 16, 32, 64]
 Ms = [ΛCDM(ν = nothing, K = nothing, h = nothing; lmax) for lmax in lmaxs]
 
-# TODO: problem generation is very slow.. (multithreading here is dangerous) # hide
 probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
 probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
 

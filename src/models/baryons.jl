@@ -162,7 +162,7 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
         v̇(τ), [description = "Visibility function derivative"]
-        cₛ²(τ), [description = "Thermal speed of sound squared"] # TODO: function only of τ
+        cₛ²(τ), [description = "Thermal speed of sound squared"]
         T(τ), [description = "Baryon temperature"]
         Tγ(τ), [description = "Photon temperature"]
         ΔT(τ) = 0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times

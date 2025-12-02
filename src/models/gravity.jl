@@ -104,5 +104,5 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     ])
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
-    return System(eqs, τ, vars, pars; name, description, initialization_eqs = ics, guesses, kwargs...) # TODO: don't pass vars and pars
+    return System(eqs, τ, vars, pars; name, description, initialization_eqs = ics, guesses, kwargs...)
 end
