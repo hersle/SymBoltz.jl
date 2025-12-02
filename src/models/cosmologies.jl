@@ -16,6 +16,7 @@
         K = nothing,
         Λ = cosmological_constant(g),
         I = harrison_zeldovich(g; name = :I),
+        matter_species = [:c, :b, :h],
         name = :ΛCDM,
         kwargs...
     )
@@ -39,6 +40,7 @@ function ΛCDM(;
     K = nothing,
     Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),
+    matter_species = [:c, :b, :h],
     name = :ΛCDM,
     kwargs...
 )
@@ -102,11 +104,13 @@ function ΛCDM(;
         SE_kχ² ~ 3/16 * b.v*γ.Π
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
     ])
+    matter_species = filter(s -> nameof(s) in matter_species, species)
+    @named m = effective_species(g, matter_species; effective_name = "Late-time matter")
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, guesses, name, description)
-    components = filter(!isnothing, [g; G; species; I])
+    components = filter(!isnothing, [g; G; species; I; m])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
 end

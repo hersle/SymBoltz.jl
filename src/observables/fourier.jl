@@ -34,7 +34,7 @@ function spectrum_primordial(k, prob::CosmologyProblem)
 end
 
 """
-    spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
+    spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = :m)
 
 Compute the power spectrum
 ```math
@@ -45,21 +45,8 @@ of the total gauge-invariant overdensity
 Δ = δ + (3ℋ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℋ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
 ```
 for the given `species` at wavenumber(s) `k` and conformal time(s) `tau` (final, if omitted) from the solution `sol`.
-By default, the species are cold dark matter, baryons and massive neutrinos, which are matter-like at late times in the ΛCDM model.
 """
-function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
-    M = sol.prob.M
-    species = getproperty.(M, filter(s -> have(M, s), species))
-
-    δρ = sum(s.ρ*s.δ for s in species)
-    ρ = sum(s.ρ for s in species)
-    δ = δρ / ρ # total gauge-dependent overdensity
-
-    ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
-    ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
-    θ = ρ_plus_P_θ / ρ_plus_P
-    Δ = δ + 3*M.g.ℋ*θ/M.k^2 # total gauge-independent overdensity
-
+function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = :m)
     # convert P (through P0) to same units as 1/k^3
     #=
     P0 = sol(k, τ, M.I.P)
@@ -72,18 +59,19 @@ function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species =
     end
     =#
 
+    s = getproperty(sol.prob.M, species)
     P0 = spectrum_primordial(k, sol)
-    P = P0 .* sol(Δ^2, τ, k) # Baumann (4.4.172)
+    P = P0 .* sol(s.Δ^2, τ, k) # Baumann (4.4.172)
 
     return P
 end
 
 """
-    spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = [:c, :b, :h], kwargs...)
+    spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = :m, kwargs...)
 
 Solve the problem `prob` with exact wavenumber(s) `k`, and then compute the power spectrum with the solution `sol`.
 """
-function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = [:c, :b, :h], kwargs...)
+function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = :m, kwargs...)
     # save only the necessary time(s)
     if isnothing(τ)
         ptextraopts = (save_everystep = false, save_start = false, save_end = true)
@@ -96,7 +84,7 @@ function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing
 end
 
 """
-    spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
+    spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = :m, atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
 
 Compute the matter power spectrum on the interval ``k`` with adaptively chosen wavenumbers.
 Returns wavenumbers and power spectrum values.
@@ -104,17 +92,7 @@ Returns wavenumbers and power spectrum values.
 The interval is first divided into a grid with `coarse_length` logarithmically spaced wavenumbers.
 It is then adaptively refined with tolerances `atol` and `rtol`.
 """
-function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
-    M = prob.M
-    species = getproperty.(M, filter(s -> have(M, s), species))
-    δρ = sum(s.ρ*s.δ for s in species)
-    ρ = sum(s.ρ for s in species)
-    δ = δρ / ρ # total gauge-dependent overdensity
-    ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
-    ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
-    θ = ρ_plus_P_θ / ρ_plus_P
-    Δ = δ + 3*M.g.ℋ*θ/M.k^2 # total gauge-independent overdensity
-
+function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = :m, atol = 4.0, rtol = 4e-3, coarse_length = 9, kwargs...)
     # Initial coarse k-grid
     kmin, kmax = k
     ks = exp.(range(log(kmin), log(kmax), length = coarse_length))
@@ -122,7 +100,8 @@ function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = not
     ks[end] = kmax # exp(log(k)) ≠ k with floats; ensure ends are exactly what the user passed
 
     ktransform = (log, exp)
-    ks, Δs = source_grid_adaptive(prob, [Δ], τs, ks; ktransform, atol, rtol, kwargs...)
+    s = getproperty(prob.M, species)
+    ks, Δs = source_grid_adaptive(prob, [s.Δ], τs, ks; ktransform, atol, rtol, kwargs...)
     Δs = Δs[1, 1, :]
     P0s = spectrum_primordial(ks, prob)
     Ps = P0s .* Δs .^ 2
@@ -140,7 +119,7 @@ function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
     M = sol.prob.M
-    Ωm0 = sol[M.c.Ω₀ + M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
+    Ωm0 = sol[M.m.Ω₀]
     Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
     PNL = Pf_halofit.(k)
 

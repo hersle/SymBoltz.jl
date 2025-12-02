@@ -84,3 +84,38 @@ function radiation(g; name = :r, kwargs...)
     description = "Radiation"
     return extend(r, System(eqs, τ, vars, pars; name); description)
 end
+
+"""
+    effective_species(g, species; effective_name = "", kwargs...)
+
+Create an effective "read-only" species for several given `species` with metric `g`.
+Additive properties (like ``ρ``, ``P`` and ``δρ``) are summed, and used to express non-additive properties (like ``w`` and ``δ``).
+"""
+function effective_species(g, species; effective_name = "", kwargs...)
+    pars = @parameters begin
+        Ω₀, [description = "Reduced background density today"]
+    end
+    vars = @variables begin
+        w(τ), [description = "Equation of state"]
+        ρ(τ), [description = "Background density"]
+        P(τ), [description = "Background pressure"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
+        θ(τ, k), [description = "Velocity divergence"]
+    end
+    scope = ParentScope
+    eqs = [
+        Ω₀ ~ scope(sum(s.Ω₀ for s in species))
+        ρ ~ scope(sum(s.ρ for s in species))
+        P ~ scope(sum(s.P for s in species))
+        w ~ P / ρ
+        δ ~ scope(sum(s.δ*s.ρ for s in species)) / ρ
+        θ ~ scope(sum((1+s.w)*s.ρ*s.θ for s in species)) / (ρ + P)
+        Δ ~ δ + 3*g.ℋ*θ/k^2 # total gauge-independent overdensity
+    ]
+    description = "Effective species for " * join(nameof.(species), '+')
+    if !isempty(effective_name)
+        description = "$effective_name ($(lowercasefirst(description)))"
+    end
+    return System(eqs, τ, vars, pars; description, kwargs...)
+end
