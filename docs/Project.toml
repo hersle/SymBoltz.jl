@@ -36,5 +36,8 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
+[sources]
+SymBoltz = {path = ".."}
+
 [preferences.LinearSolve]
 LoadMKL_JLL = true
