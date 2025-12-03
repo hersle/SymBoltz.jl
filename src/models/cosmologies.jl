@@ -17,6 +17,7 @@
         Λ = cosmological_constant(g),
         I = harrison_zeldovich(g; name = :I),
         matter_species = [:c, :b, :h],
+        radiation_species = [:γ, :ν, :h],
         name = :ΛCDM,
         kwargs...
     )
@@ -41,10 +42,15 @@ function ΛCDM(;
     Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),
     matter_species = [:c, :b, :h],
+    radiation_species = [:γ, :ν, :h],
     name = :ΛCDM,
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
+    matter_species = filter(s -> nameof(s) in matter_species, species)
+    @named m = effective_species(g, matter_species; effective_name = "Late-time matter")
+    radiation_species = filter(s -> nameof(s) in radiation_species, species)
+    @named r = effective_species(g, radiation_species; effective_name = "Early-time radiation")
     pars = @parameters begin
         C, [description = "Initial conditions integration constant"]
         τ0, [description = "Conformal time today"]
@@ -85,7 +91,7 @@ function ΛCDM(;
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         b.Tγ ~ γ.T
-        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
+        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
         χ ~ τ0 - τ
     ])
     append!(eqs, [
@@ -104,13 +110,11 @@ function ΛCDM(;
         SE_kχ² ~ 3/16 * b.v*γ.Π
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
     ])
-    matter_species = filter(s -> nameof(s) in matter_species, species)
-    @named m = effective_species(g, matter_species; effective_name = "Late-time matter")
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, guesses, name, description)
-    components = filter(!isnothing, [g; G; species; I; m])
+    components = filter(!isnothing, [g; G; species; I; m; r])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
 end
