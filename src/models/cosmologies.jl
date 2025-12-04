@@ -16,6 +16,8 @@
         K = nothing,
         Λ = cosmological_constant(g),
         I = harrison_zeldovich(g; name = :I),
+        matter_species = [:c, :b, :h],
+        radiation_species = [:γ, :ν, :h],
         name = :ΛCDM,
         kwargs...
     )
@@ -39,10 +41,16 @@ function ΛCDM(;
     K = nothing,
     Λ = cosmological_constant(g),
     I = harrison_zeldovich(g; name = :I),
+    matter_species = [:c, :b, :h],
+    radiation_species = [:γ, :ν, :h],
     name = :ΛCDM,
     kwargs...
 )
     species = filter(have, [γ, ν, c, b, h, K, Λ])
+    matter_species = filter(s -> nameof(s) in matter_species, species)
+    @named m = effective_species(g, matter_species; effective_name = "Late-time matter")
+    radiation_species = filter(s -> nameof(s) in radiation_species, species)
+    @named r = effective_species(g, radiation_species; effective_name = "Early-time radiation")
     pars = @parameters begin
         C, [description = "Initial conditions integration constant"]
         τ0, [description = "Conformal time today"]
@@ -51,12 +59,12 @@ function ΛCDM(;
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
-        ST0(τ, k), [description = "Temperature source function weighted against spherical Bessel function"]
-        ST1(τ, k), [description = "Temperature source function weighted against spherical Bessel function 1st derivative"]
-        ST0_SW(τ, k),
-        ST0_ISW(τ, k), ST1_ISW(τ, k),
-        ST0_Doppler(τ, k), ST1_Doppler(τ, k),
-        ST0_polarization(τ, k), ST1_polarization(τ, k), ST2_polarization(τ, k), SE_kχ²(τ, k)
+        ST(τ, k), [description = "Temperature source function"]
+        ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
+        ST_ISW(τ, k), [description = "Integrated Sachs-Wolfe contribution to ST"]
+        ST_Doppler(τ, k), [description = "Doppler contribution to ST"]
+        ST_polarization(τ, k), [description = "Polarization contribution to ST"]
+        SE_kχ²(τ, k), [description = "E-mode polarization source function"]
         Sψ(τ, k), [description = "Lensing source function"]
     end
     defs = Dict(
@@ -83,7 +91,7 @@ function ΛCDM(;
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         b.Tγ ~ γ.T
-        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / sum(s.ρ for s in [ν, h, γ] if have(s))
+        fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
         χ ~ τ0 - τ
     ])
     append!(eqs, [
@@ -94,15 +102,11 @@ function ΛCDM(;
         γ.κ̇ ~ b.κ̇
         γ.θb ~ b.θ
 
-        ST0_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
-        ST0_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
-        ST0_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
-        ST1_Doppler ~ b.v*b.u
-        ST0_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
-        ST1_polarization ~ 3/(16*k) * D(b.v*γ.Π) |> expand_derivatives
-        ST2_polarization ~ 3/16 * b.v*γ.Π / (k*χ)^2
-        ST0 ~ ST0_SW + ST0_ISW + ST0_Doppler + ST0_polarization
-        ST1 ~ 0
+        ST_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
+        ST_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
+        ST_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
+        ST_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
+        ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
         SE_kχ² ~ 3/16 * b.v*γ.Π
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
     ])
@@ -110,7 +114,7 @@ function ΛCDM(;
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
     connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, guesses, name, description)
-    components = filter(!isnothing, [g; G; species; I])
+    components = filter(!isnothing, [g; G; species; I; m; r])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
 end

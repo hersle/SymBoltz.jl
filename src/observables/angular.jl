@@ -47,7 +47,6 @@ jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analyti
 
 # In-place spherical Bessel function variants
 # TODO: contribute back to Bessels.jl
-# TODO: update with chain rules, reuse jl(x) vector for computing jl′(x) vector
 function jl!(out, l::AbstractRange, x::Number)
     besselj!(out, l .+ 0.5, x)
     if x == 0.0 && l[begin] == 0
@@ -171,26 +170,7 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
     return los_integrate(Ss, ls, τs, ks, jl; kwargs...)
 end
 
-"""
-    los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-
-Calculate photon temperature multipoles today by line-of-sight integration.
-"""
-function los_temperature(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST0, jl; ktransform, kwargs...)
-end
-
-"""
-    los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-
-Calculate photon E-mode polarization multipoles today by line-of-sight integration.
-"""
-function los_polarization(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; ktransform = identity, kwargs...)
-    return los_integrate(sol, ls, τs, ks, sol.prob.M.ST2_polarization, jl; ktransform, kwargs...) .* transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
-end
-
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
-# TODO: better name?
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, thread = true)
 
@@ -228,7 +208,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -236,6 +216,9 @@ If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations
 Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π`` if `normalization` is `:Dl`.
 
 The lensing line-of-sight integral uses the Limber approximation for `l ≥ l_limber`.
+
+Source functions are computed on a ``k``-grid that is adaptively refined from an initial grid with size `coarse_length`.
+The refinement criterion is controlled with `sourceopts`.
 
 # Examples
 
@@ -251,7 +234,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = KenCarp4(), reltol = 1e-8, abstol = 1e-8), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
@@ -269,9 +252,9 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
-    Ss = [prob.M.ST0, prob.M.SE_kχ², prob.M.Sψ]
-    ks_coarse = range(ks_fine[begin], ks_fine[end]; length = 2)
-    ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse; bgopts, ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x # TODO: pass bgsol
+    Ss = [prob.M.ST, prob.M.SE_kχ², prob.M.Sψ]
+    ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
+    ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
 
     # Interpolate source function to finer k-grid
     Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine; thread)

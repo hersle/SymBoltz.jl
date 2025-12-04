@@ -34,7 +34,7 @@ function spectrum_primordial(k, prob::CosmologyProblem)
 end
 
 """
-    spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
+    spectrum_matter([species,] sol::CosmologySolution, k, τ = sol[τ][end])
 
 Compute the power spectrum
 ```math
@@ -44,22 +44,9 @@ of the total gauge-invariant overdensity
 ```math
 Δ = δ + (3ℋ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℋ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
 ```
-for the given `species` at wavenumber(s) `k` and conformal time(s) `tau` (final, if omitted) from the solution `sol`.
-By default, the species are cold dark matter, baryons and massive neutrinos, which are matter-like at late times in the ΛCDM model.
+for one or more `species` (default: `m` for matter) at wavenumber(s) `k` and conformal time(s) `τ` (final, if omitted) from the solution `sol`.
 """
-function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species = [:c, :b, :h])
-    M = sol.prob.M
-    species = getproperty.(M, filter(s -> have(M, s), species))
-
-    δρ = sum(s.ρ*s.δ for s in species)
-    ρ = sum(s.ρ for s in species)
-    δ = δρ / ρ # total gauge-dependent overdensity
-
-    ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
-    ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
-    θ = ρ_plus_P_θ / ρ_plus_P
-    Δ = δ + 3*M.g.ℋ*θ/M.k^2 # total gauge-independent overdensity
-
+function spectrum_matter(species::AbstractVector, sol::CosmologySolution, k, τ = sol[τ][end])
     # convert P (through P0) to same units as 1/k^3
     #=
     P0 = sol(k, τ, M.I.P)
@@ -72,18 +59,19 @@ function spectrum_matter(sol::CosmologySolution, k, τ = sol[τ][end]; species =
     end
     =#
 
+    S = [getproperty(sol.prob.M, s).Δ for s in species]
     P0 = spectrum_primordial(k, sol)
-    P = P0 .* sol(Δ^2, τ, k) # Baumann (4.4.172)
+    P = transpose(P0) .* sol(S, τ, k) .^ 2
 
     return P
 end
 
 """
-    spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = [:c, :b, :h], kwargs...)
+    spectrum_matter([species,] prob::CosmologyProblem, k::AbstractVector, τ = nothing; kwargs...)
 
 Solve the problem `prob` with exact wavenumber(s) `k`, and then compute the power spectrum with the solution `sol`.
 """
-function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing; species = [:c, :b, :h], kwargs...)
+function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::AbstractVector, τ = nothing; kwargs...)
     # save only the necessary time(s)
     if isnothing(τ)
         ptextraopts = (save_everystep = false, save_start = false, save_end = true)
@@ -92,42 +80,49 @@ function spectrum_matter(prob::CosmologyProblem, k::AbstractVector, τ = nothing
     end
     sol = solve(prob, k; ptextraopts, kwargs...)
     τ = isnothing(τ) ? sol.bg.t[end] : τ
-    return spectrum_matter(sol, k, τ; species)
+    return spectrum_matter(species, sol, k, τ)
 end
 
 """
-    spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 7, kwargs...)
+    spectrum_matter([species,] prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
 
 Compute the matter power spectrum on the interval ``k`` with adaptively chosen wavenumbers.
 Returns wavenumbers and power spectrum values.
 
 The interval is first divided into a grid with `coarse_length` logarithmically spaced wavenumbers.
-It is then adaptively refined with tolerances `atol` and `rtol`.
+It is then adaptively refined with the absolute and relative tolerances in `sourceopts`.
 """
-function spectrum_matter(prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; species = [:c, :b, :h], atol = 4.0, rtol = 4e-3, coarse_length = 7, kwargs...)
-    M = prob.M
-    species = getproperty.(M, filter(s -> have(M, s), species))
-    δρ = sum(s.ρ*s.δ for s in species)
-    ρ = sum(s.ρ for s in species)
-    δ = δρ / ρ # total gauge-dependent overdensity
-    ρ_plus_P_θ = sum((1+s.w)*s.ρ*s.θ for s in species) # this is the additive perturbation of the energy-momentum tensor
-    ρ_plus_P = sum((1+s.w)*s.ρ for s in species) # additive # TODO: meaningful varname for this property?
-    θ = ρ_plus_P_θ / ρ_plus_P
-    Δ = δ + 3*M.g.ℋ*θ/M.k^2 # total gauge-independent overdensity
-
+function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
     # Initial coarse k-grid
-    coarse_length ≥ 2 && isinteger(coarse_length) || error("Coarse must be an integer greater than or equal to 2")
     kmin, kmax = k
     ks = exp.(range(log(kmin), log(kmax), length = coarse_length))
     ks[begin] = kmin # exp(log(k)) ≠ k with floats; ensure ends are exactly what the user passed
     ks[end] = kmax # exp(log(k)) ≠ k with floats; ensure ends are exactly what the user passed
 
     ktransform = (log, exp)
-    ks, Δs = source_grid_adaptive(prob, [Δ], τs, ks; ktransform, atol, rtol, kwargs...)
-    Δs = Δs[1, 1, :]
+    Ss = [getproperty(prob.M, s).Δ for s in species]
+    ks, Δs = source_grid_adaptive(prob, Ss, τs, ks; ktransform, sourceopts..., kwargs...)
+    Ps = Δs[:, 1, :] .^ 2
     P0s = spectrum_primordial(ks, prob)
-    Ps = P0s .* Δs .^ 2
+    for iS in eachindex(Ss)
+        Ps[iS, :] .*= P0s
+    end
     return ks, Ps
+end
+
+# Fallback dispatches for single species and default matter species
+function spectrum_matter(species::Symbol, prob::CosmologyProblem, k::Tuple; kwargs...)
+    k, P = spectrum_matter([species], prob, k; kwargs...)
+    P = P[1, :]
+    return k, P
+end
+function spectrum_matter(species::Symbol, probsol::Union{CosmologyProblem, CosmologySolution}, k::AbstractVector; kwargs...)
+    P = spectrum_matter([species], probsol, k; kwargs...)
+    P = P[1, :]
+    return P
+end
+function spectrum_matter(solprob::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...)
+    return spectrum_matter(:m, solprob, args...; kwargs...)
 end
 
 """
@@ -141,7 +136,7 @@ function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
     M = sol.prob.M
-    Ωm0 = sol[M.c.Ω₀ + M.b.Ω₀] # TODO: generalize to massive neutrinos, redshift etc.
+    Ωm0 = sol[M.m.Ω₀]
     Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
     PNL = Pf_halofit.(k)
 
@@ -196,8 +191,6 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
 end
 
 # TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
-# TODO: source_grid(prob::CosmologyProblem seemed type-stable?
-# TODO: return getter for (ks, τs)
 """
     source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
 
@@ -212,7 +205,7 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = t
     @tasks for ik in eachindex(ks)
         @set scheduler = thread ? :dynamic : :static
         for iS in eachindex(getSs)
-            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik])) # TODO: type infer getS?
+            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik]))
         end
     end
     return Ss
@@ -261,14 +254,14 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
         end
         return nothing
     end
-    solvept(prob.pt, bgsol, ks, prob.bgspline; output_func, saveat = τs, ptopts..., thread, verbose)
+    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
 
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
-    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks[, bgsol]; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
 
 Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
 The source functions are first evaluated on the (coarse) initial grid `ks`.
@@ -283,7 +276,9 @@ If not `sort`, the wavenumbers and source function values are instead left in th
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol::ODESolution; ptopts = (), ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+    length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
+
     if isnothing(τs)
         Nτs = 1
         ptsaveopts = (save_everystep = false, save_start = false, save_end = true)
@@ -292,8 +287,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         ptsaveopts = (saveat = τs,)
     end
 
-    bgsol = solvebg(prob.bg; bgopts...)
-    ptprob0, ptprobgen = setuppt(prob.pt, bgsol, prob.bgspline)
+    ptprob0, ptprobgen = setuppt(prob.pt, bgsol)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function sourcek!(k, ik, Ss)
@@ -313,7 +307,6 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     counter = Atomic{Int}(length(ks)-1)
     idx = Atomic{Int}(length(ks))
 
-    length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
     ninitks = length(ks)
     Ss = similar(bgsol, length(Ss), Nτs, 1024)
     ks = resize!(collect(ks), 1024)
@@ -368,4 +361,10 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     end
 
     return ks, Ss
+end
+
+# Dispatch without background solution
+function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), kwargs...)
+    bgsol = solvebg(prob.bg; bgopts...)
+    return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end

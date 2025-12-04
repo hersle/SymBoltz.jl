@@ -18,7 +18,8 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         P(τ), [description = "Background pressure"]
         Ω(τ), [description = "Reduced background density"]
         cₛ²(τ), [description = "Speed of sound squared"]
-        δ(τ, k), [description = "Overdensity"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
         θinteraction(τ, k), [description = "Velocity divergence interaction"]
         σ(τ, k), [description = "Shear stress"]
@@ -44,6 +45,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
 
         D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
         D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
+        Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
@@ -83,4 +85,39 @@ function radiation(g; name = :r, kwargs...)
     eqs = [T ~ T₀ / g.a]
     description = "Radiation"
     return extend(r, System(eqs, τ, vars, pars; name); description)
+end
+
+"""
+    effective_species(g, species; effective_name = "", kwargs...)
+
+Create an effective "read-only" species for several given `species` with metric `g`.
+Additive properties (like ``ρ``, ``P`` and ``δρ``) are summed, and used to express non-additive properties (like ``w`` and ``δ``).
+"""
+function effective_species(g, species; effective_name = "", kwargs...)
+    pars = @parameters begin
+        Ω₀, [description = "Reduced background density today"]
+    end
+    vars = @variables begin
+        w(τ), [description = "Equation of state"]
+        ρ(τ), [description = "Background density"]
+        P(τ), [description = "Background pressure"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
+        θ(τ, k), [description = "Velocity divergence"]
+    end
+    scope = ParentScope
+    eqs = [
+        Ω₀ ~ scope(sum(s.Ω₀ for s in species))
+        ρ ~ scope(sum(s.ρ for s in species))
+        P ~ scope(sum(s.P for s in species))
+        w ~ P / ρ
+        δ ~ scope(sum(s.δ*s.ρ for s in species)) / ρ
+        θ ~ scope(sum((1+s.w)*s.ρ*s.θ for s in species)) / (ρ + P)
+        Δ ~ scope(sum(s.ρ*s.Δ for s in species)) / ρ
+    ]
+    description = "Effective species for " * join(nameof.(species), '+')
+    if !isempty(effective_name)
+        description = "$effective_name ($(lowercasefirst(description)))"
+    end
+    return System(eqs, τ, vars, pars; description, kwargs...)
 end

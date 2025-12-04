@@ -15,7 +15,7 @@ using SparseArrays
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
-struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tbgspline}
+struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     M::System
 
     bg::Tbg
@@ -24,8 +24,6 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tb
     pars::Base.KeySet
     shoot::Base.KeySet
     conditions::AbstractArray
-
-    bgspline::Tbgspline
 end
 
 struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
@@ -51,7 +49,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
         print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
-        print(io, ", ", isnothing(prob.bgspline) ? 0 : length(unknowns(prob.bg.f.sys)), " splines")
+        print(io, ", ", isempty(prob.pt.p.nonnumeric) ? 0 : length(unknowns(prob.bg.f.sys)), " splines")
         print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
@@ -105,7 +103,8 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+        ivspan = (1e-6, 100.0), terminate_today = true,
+        bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
         bgopts = (), ptopts = (), kwargs...
     )
 
@@ -120,7 +119,8 @@ If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+    ivspan = (1e-6, 100.0), terminate_today = true,
+    bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
     bgopts = (), ptopts = (), kwargs...
 )
     pars = merge(pars, shoot_pars) # save full dictionary for constructor
@@ -135,7 +135,6 @@ function CosmologyProblem(
         end
 
         # Set up callback for today # TODO: specify callbacks symbolically?
-        terminate = !isnothing(term)
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
             aidx = ModelingToolkit.variable_index(bg, :a)
@@ -158,7 +157,7 @@ function CosmologyProblem(
             if haveκ0
                 integrator.ps[κ0idx] = integrator.u[_κidx]
             end
-            terminate && terminate!(integrator) # stop integration if desired
+            terminate_today && terminate!(integrator) # stop integration if desired
         end
         callback = ContinuousCallback(
             f, affect!;
@@ -166,7 +165,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true
+        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
     else
         bg = nothing
     end
@@ -180,19 +179,21 @@ function CosmologyProblem(
             # then spline should already be a vector of variables, so leave it unmodified
         end
         pt = perturbations(M)
-        pt, bgspline = mtkcompile_spline(pt, spline)
+        pt, _ = mtkcompile_spline(pt, spline)
         if debug
             pt = debug_system(pt)
         end
         # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
+        ts = ModelingToolkit.get_tearing_state(pt)
+        @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
+        @set! pt.f.sys.tearing_state = ts # restore
     else
         pt = nothing
-        bgspline = nothing
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars), shoot_pars, shoot_conditions, bgspline)
+    return CosmologyProblem(M, bg, pt, keys(pars), shoot_pars, shoot_conditions)
 end
 
 """
@@ -220,7 +221,7 @@ function remake(
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions, prob.bgspline)
+    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions)
 end
 
 """
@@ -256,7 +257,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.bgspline)
+        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions)
     end
     function updater(p::Dict)
         p = [p[var] for var in idxs]
@@ -337,7 +338,7 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, prob.bgspline; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsol, ks; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
@@ -366,7 +367,7 @@ end
 Solve the background cosmology problem `bgprob`.
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
-    bgsol = solve(bgprob, alg; verbose, reltol, kwargs...)
+    bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
@@ -409,39 +410,32 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
 end
 
-function setuppt(ptprob::ODEProblem, bgsol::ODESolution, bgsplinepar)
-    splset! = ModelingToolkit.setsym_oop(ptprob, [bgsplinepar])
-    kset! = ModelingToolkit.setp(ptprob, k)
-
+function setuppt(ptprob::ODEProblem, bgsol::ODESolution)
     ivspan = (bgsol.t[begin], bgsol.t[end])
     bgspline = spline(bgsol)
-    newu0, newp = splset!(ptprob, Any[bgspline]) # TODO: why Vector{Any} needed to make solve() inferred?
-    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy background parameters to perturbations (e.g. τ0 and κ0)
-    ptprob = remake(ptprob; tspan = ivspan, u0 = newu0, p = newp)
+    newp = ptprob.p # has abstractly typed nonnumeric spline parameter
+    @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
+    ptprob = remake(ptprob; tspan = ivspan, p = newp)
 
-    #ptprob_tlv = TaskLocalValue{ODEProblem}(() -> remake(ptprob0; u0 = copy(ptprob0.u0) #= p is copied below =#)) # prevent conflicts where different tasks modify same problem: https://discourse.julialang.org/t/solving-ensembleproblem-efficiently-for-large-systems-memory-issues/116146/11 (alternatively copy just p and u0: https://github.com/SciML/ModelingToolkit.jl/issues/3056) # TODO: copy u0, p only?
-
+    kset! = ModelingToolkit.setp(ptprob, k)
     return ptprob, (ptprob, k) -> begin
-        #ptprob = ptprob_tlv[]
         p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        #p = copy(ptprob0.p) # see https://github.com/SciML/ModelingToolkit.jl/issues/3346 and https://github.com/SciML/ModelingToolkit.jl/issues/3056 # TODO: copy only Tunables
         kset!(p, k)
-        ptprob = remake(ptprob; u0 = newu0, p = p, build_initializeprob = true) # solve for u0 # TODO: separate function?
+        ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = true) # solve for u0 # TODO: separate function?
         ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        #println("Parameter type: ", typeof(ptprob.p))
         return ptprob
     end
 end
 
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
-Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks`.
-A background solution `bgsol` must be passed (see `solvebg`), and a parameter `bgsplinepar` that refers to a spline in the perturbation problem of background unknowns.
+Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the background solution `bgsol` (see `solvebg`).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsplinepar; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
@@ -453,7 +447,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, bgsp
     end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprob, ptprobgen = setuppt(ptprob, bgsol, bgsplinepar)
+    ptprob, ptprobgen = setuppt(ptprob, bgsol)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
@@ -480,7 +474,7 @@ Its wavenumber and background spline must already be initialized, for example wi
 # ...
 prob = CosmologyProblem(M, pars)
 bgsol = solvebg(prob.bg)
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 k = 1.0
 ptprob = ptprobgen(ptprob0, k)
 ptsol = solvept(ptprob)
@@ -752,15 +746,15 @@ function unknowns(prob::CosmologyProblem)
 end
 
 """
-    parameters(prob::CosmologyProblem; bg = true, pt = true, spline = false)
+    parameters(prob::CosmologyProblem; bg = true, pt = true, nonnumeric = false)
 
 Get all parameter values of the cosmological problem `prob`.
 """
-function parameters(prob::CosmologyProblem; bg = true, pt = true, spline = false)
+function parameters(prob::CosmologyProblem; bg = true, pt = true, nonnumeric = false)
     bg = bg && !isnothing(prob.bg) ? parameters(prob.bg) : Dict()
     pt = pt && !isnothing(prob.pt) ? parameters(prob.pt) : Dict()
     pars = merge(bg, pt)
-    !spline && delete!.(Ref(pars), values(prob.bgspline))
+    !nonnumeric && filter!(par_val -> par_val[2] isa Number, pars)
     return pars
 end
 function parameters(prob::ODEProblem)

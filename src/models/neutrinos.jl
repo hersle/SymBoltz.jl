@@ -10,7 +10,8 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
     vars = @variables begin
         F0(τ, k), [description = "Distribution function monopole"]
         F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
-        δ(τ, k), [description = "Overdensity"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shear stress"]
@@ -24,6 +25,7 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax]
         δ ~ F0
+        Δ ~ δ + 3*g.ℋ*(1+ν.w)*θ/k^2
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         u ~ θ / k
@@ -56,7 +58,6 @@ function momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, d
     return xs, Ws
 end
 
-# TODO: use vector equations and simplify loops
 """
     massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
@@ -74,7 +75,7 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
     pars = @parameters begin
         m, [description = "Individual neutrino mass (in kg)"]
-        m_eV, [description = "Individual neutrino mass (in eV/c^2)"] # TODO: only one m?
+        m_eV, [description = "Individual neutrino mass (in eV/c²)"] # TODO: only one m?
         N, [description = "Number of degenerate neutrino masses"]
         T₀, [description = "Temperature today (in K)"]
         Ω₀, [description = "Reduced background density today"]
@@ -89,7 +90,8 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         y(τ), [description = "Temperature-deuced mass"]
         w(τ), [description = "Equation of state"]
         cₛ²(τ, k), [description = "Speed of sound squared"]
-        δ(τ, k), [description = "Overdensity"]
+        δ(τ, k), [description = "Overdensity (gauge-dependent)"]
+        Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         σ(τ, k), [description = "Shear stress"]
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
@@ -104,7 +106,7 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
     eqs = [
         # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
-        m ~ m_eV * SymBoltz.eV/SymBoltz.c^2
+        m ~ m_eV * eV/c^2
         y₀ ~ m*c^2 / (kB*T₀)
         Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
         Ω₀ ~ N * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
@@ -121,27 +123,24 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
 
         Iδρ ~ ∫dx_x²_f₀(E .* ψ0)
         δ ~ Iδρ / Iρ
+        Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
         cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
+
+        [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
+        [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for i in 1:nx, l in 2:lmax-1]...
+        [D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*τ) - ψ[i,lmax-1])) for i in 1:nx]... # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
     ]
-    ics = []
-    for i in 1:nx
-        push!(eqs, E[i] ~ √(x[i]^2 + y^2))
-        append!(eqs, [
-            D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i])
-            D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i])
-            [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for l in 2:lmax-1]...
-            D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*τ) - ψ[i,lmax-1])) # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
-        ])
-        append!(ics, [
-            ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i])
-            ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * dlnf₀_dlnx(x[i])
-            ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * dlnf₀_dlnx(x[i])
-            [ψ[i,l] ~ 0 for l in 3:lmax] # TODO: full ICs
-        ])
-    end
+    ics = [
+        [ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [ψ[i,l] ~ 0 for i in 1:nx, l in 3:lmax]... # TODO: full ICs
+    ]
     defaults = [N => 3] # 3 degenerate neutrinos with equal mass
     description = "Massive neutrino"
     pars = [m, m_eV, N, T₀, Ω₀, y₀, T₀, Iρ₀]

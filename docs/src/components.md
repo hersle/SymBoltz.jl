@@ -408,3 +408,31 @@ initialization_equations(K)
 ```@raw html
 </details>
 ```
+
+### Effective
+
+```@docs
+SymBoltz.effective_species
+```
+```@example components
+@named m = SymBoltz.effective_species(g, [c, b, h]; effective_name = "Late-time matter")
+nothing # hide
+```
+```@raw html
+<details>
+<summary><h4 style="display: inline-block">Equations</h4></summary>
+```
+```@example components
+equations(m)
+```
+```@raw html
+</details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary>
+```
+```@example components
+initialization_equations(m)
+```
+```@raw html
+</details>
+```

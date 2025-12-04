@@ -39,19 +39,29 @@ ks = 10 .^ range(-5, +2, length=100) / u"Mpc"
 sol = solve(prob, ks)
 
 # Linear power spectrum
-Ps = spectrum_matter(sol, ks)
-Plots.plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label = "linear (SymBoltz)", marker = :circle, markersize = 2)
+species = [:m, :c, :b]
+Ps = spectrum_matter(species, sol, ks)
+
+Ps = transpose(Ps)
+label = permutedims("linear (SymBoltz), " .* ["matter", "cold dark matter", "baryons"])
+linewidth = 2
+linestyle = [:solid :dash :dot]
+legend_position = :bottomleft
+plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)", label, linestyle, linewidth, legend_position)
 
 # Nonlinear power spectrum (from halofit)
 Ps = spectrum_matter_nonlinear(sol, ks)
-Plots.plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit)", marker = :circle, markersize = 2, legend_position = :bottomleft)
+
+plot!(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); label = "non-linear (halofit), matter", linewidth, legend_position)
 ```
 
 With adaptively chosen wavenumbers on an interval:
 
 ```@example matter
-ks, Ps = spectrum_matter(prob, (1e0, 1e3))
-plot(log10.(ks), log10.(Ps); xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³", label = "$(length(ks)) × k (adaptive)", marker = :circle, markersize = 2)
+ks, Ps = spectrum_matter(species, prob, (1e0, 1e3))
+
+label = "$(length(ks)) × k (adaptive), " .* label
+plot(log10.(ks), transpose(log10.(Ps)); xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³", label, linestyle, linewidth, legend_position)
 ```
 
 ## CMB power spectra
@@ -63,7 +73,6 @@ SymBoltz.spectrum_cmb
 #### Example
 
 ```@example
-# TODO: more generic, source functions, ... # hide
 using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
@@ -74,7 +83,7 @@ jl = SphericalBesselCache(ls)
 modes = [:TT, :EE, :TE, :ψψ, :ψT, :ψE]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 
-Plots.plot(ls, log10.(abs.(Dls)); xlabel = "l", ylabel = "lg(Dₗ)", label = permutedims(String.(modes)))
+plot(ls, log10.(abs.(Dls)); xlabel = "l", ylabel = "lg(Dₗ)", label = permutedims(String.(modes)))
 ```
 
 ## Two-point correlation function
@@ -181,7 +190,7 @@ sol = solve(prob)
 
 τs = sol[M.τ] # conformal times in background solution
 ks = [1.0, 2000.0] # initial coarse grid
-ks, Ss = source_grid_adaptive(prob, [M.ST0], τs, ks; atol = 5.0)
+ks, Ss = source_grid_adaptive(prob, [M.ST], τs, ks; atol = 5.0)
 iτ = argmax(sol[M.b.v]) # index of decoupling time
 iτs = iτ-75:iτ+75 # indices around decoupling
 p1 = surface(ks, τs[iτs], Ss[1, iτs, :]; camera = (45, 25), xlabel = "k", ylabel = "τ", zlabel = "S", colorbar = false)

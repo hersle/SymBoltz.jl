@@ -101,7 +101,6 @@ function spline(sol::ODESolution)
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
-# TODO: takes up a lot of time in solvept; refactor so all splines are computed simultaneously for the same ODE time t
 value(s::AbstractInterpolation, t, N) = s(t)
 @register_array_symbolic value(s::AbstractInterpolation, t, N) begin
     size = (N,)
@@ -149,7 +148,6 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
     end
 end
 
-# TODO: generate_jacobian fails on systems returned from this function
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
 function mtkcompile_spline(sys::System, vars)
     vars = ModelingToolkit.unwrap.(vars)
