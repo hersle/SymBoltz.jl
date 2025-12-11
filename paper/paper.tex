@@ -849,6 +849,23 @@ But SymBoltz disentangles the expensive symbolic operations in \cref{sec:symboli
 We hope the design of SymBoltz provides a platform for easy exploration of alternative models, regardless of which sector of the equations one is interested in modifying.
 
 \subsection{Approximation-freeness vs. performance}
+\label{sec:performance}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.43]{figures/work_precision.pdf}
+    \caption{%
+        Work versus precision for computing the matter power spectrum $P(k)$ with SymBoltz and CLASS.
+        SymBoltz is approximation-free and run with the implicit ODE solvers \texttt{TRBDF2}/\texttt{KenCarp4}/\texttt{Kvaerno5}/\texttt{FBDF}.
+        CLASS is run with approximations on/off and its implicit/explicit evolvers \texttt{ndf15}/\texttt{rk}, but tight coupling is always approximated.
+        For each setup, $P(k)$ is computed by integrating perturbation $k$-modes with ODE solver tolerances $10^{-2}$-$10^{-9}$ that controls the adaptive time stepping.
+        For each tolerance, we record the best of 3 runtimes and the $L_2$-compressed error $\smash{\big(\sum_{i=1}^N \big(P(k_i)/\bar{P}(k_i)-1\big)^2/N\big)^{1/2}}$ relative to high-precision spectra $\bar{P}(k)$ from both codes with approximations off, tolerance $10^{-10}$ and \texttt{FBDF}/\texttt{ndf15}.
+        Both codes solve the same $w_0 w_a \text{CDM}$ model with equal parameters, $N=114$ identical wavenumbers $k_i$, multipole cutoff $\lmax=16$ for all species, sample massive neutrino momenta with default settings and parallelize over $k$.
+        The timings are from a Linux laptop with an Intel i7-12800H CPU.
+        See \cref{sec:performance} and \cref{sec:precision} for more details.
+    }
+    \label{fig:workprec}
+\end{figure}
 
 As seen in \cref{sec:intro_approximations}, traditional codes reduce stiffness by approximating the equations for explicit integrators,
 while SymBoltz solves the full stiff system with implicit methods.
@@ -890,6 +907,38 @@ Support for this is still ongoing work.
 Although SymBoltz sacrifices some performance to get rid of approximations, these countermeasures make the impact less severe than one might fear.
 In return, the approximation-free structure is a major simplification and pairs well with the high-level interface for simple symbolic equations.
 There is still room to improve performance without resorting to approximations by tuning precision tolerances, supporting sparse matrix methods, exploring implicit-explicit (IMEX) solvers (e.g. \cite{kennedyAdditiveRungeKutta2003}) and smarter sampling of $k$ and $l$, for example.
+
+\Cref{fig:workprec} compares performance versus precision of the matter power spectrum $P(k)$ computed with SymBoltz and CLASS.
+%Boltzmann solvers have a great deal of optimizations and tricks that are controlled by several hyperparameters, so such a comparison only makes sense in an apples-to-apples configuration.
+This computation solves the background, thermodynamics and perturbations for several $k$ and reads off $P(k)$ at the final time.
+The work is dominated by the perturbations, so this is a relevant test of SymBoltz' approximation-free treatment of perturbations.
+
+The comparison shows how approximations and the choice of ODE method affects integration of the Einstein-Boltzmann equations.
+Without approximations, SymBoltz with \texttt{Rodas5P} is more than $10\times$ faster than CLASS with its implicit \texttt{ndf15} evolver at comparable precision.
+When CLASS uses its approximation schemes and explicit evolver, SymBoltz is about as fast for most precision requirements while remaining approximation-free.
+%CLASS' performance could improve with more efficient $q$-sampling, and SymBoltz' speed could likewise improve with implementation of approximation schemes at the cost of code complexity.
+
+\TODO{Rosenbrock vs. BDF vs. SDIRK}
+\TODO{emphasize NDF in CLASS, TRBDF2 in PyCosmo, Kvaerno5 in DISCO-DJ}
+\TODO{first comprehensive solver comparison}
+
+To make this comparison as apples-to-apples as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use the same multipole cutoff $\lmax$ for all species.
+However, the codes sample massive neutrino momenta $q$ differently.
+This has a major impact on the number of perturbation equations and the work needed to solve them (see \cref{sec:massiveneutrinos}).
+SymBoltz defaults to 4 momenta and gives 127 perturbation equations in total.
+CLASS' default $\texttt{tol\_ncdm\_newtonian} = 10^{-5}$ gives 11 momenta and 245 equations (before approximations).
+Increasing this tolerance to $10^{-3}$ gives 5 momentum bins, 143 equations and is around $245/143 \approx 1.7$ times faster, but introduces errors beyond $1\%$ in $P(k)$ in \cref{fig:spectra}.
+We therefore leave both codes with default $q$-sampling, but note that we think CLASS could be up to $2\times$ faster at unchanged precision with more efficient $q$-sampling.
+This would shift the curves in \cref{fig:workprec} down by $\lg 2 \approx 0.3$.
+Similarly, \cite[appendix A]{howlettCMBPowerSpectrum2012} find a precise 3-4 point scheme in CAMB, and \cite{leeEfficientAnalyticApproximation2025} speed up CLASS with an integral equation approach for massive neutrinos in the fork CLASSIER\footnote{\url{https://github.com/nanoomlee/CLASSIER}}.
+% https://github.com/cmbant/CAMB/blob/06a0845/fortran/massive_neutrinos.f90#L84-L97
+
+SymBoltz is currently slower than CAMB and CLASS for computing CMB power spectra $C_l$.
+This is subject to more optimizations than $P(k)$, such as sampling of the source function $S(\tau,k)$, interpolation in $\tau$, $k$, and $l$, evaluation of spherical Bessel functions $j_l(x)$ and optimized line-of-sight quadrature.
+These optimizations are very well polished by CAMB and CLASS, and unmatched by SymBoltz at this time.
+A similar detailed performance analysis for $C_l$ is therefore not meaningful now.
+It would also blur the impact and viability of approximation-free perturbations, which is SymBoltz' first design milestone.
+With more work, the $C_l$ optimizations can be implemented in SymBoltz.
 
 Further performance optimizations and comparisons are left for future work.
 SymBoltz is fast enough for single runs and interactive usage, but not yet for MCMC analyses with perturbation-derived quantities.
