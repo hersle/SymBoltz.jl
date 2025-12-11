@@ -4,6 +4,7 @@
 \usepackage{amsmath}
 \usepackage{mathrsfs} % for \mathscr
 \usepackage{cleveref}
+\usepackage{tabularx}
 \usepackage{booktabs}
 \usepackage[english]{babel} 
 \usepackage[autostyle, english = american]{csquotes}
@@ -652,6 +653,21 @@ We proceed with this new model and problem.
 
 \subsection{Computing power spectra}
 
+\begin{table}[b]
+\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra}. \TODO{class no appr}}
+%\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+%\begin{tabularx}{\linewidth}{Xrr}
+\begin{tabularx}{\linewidth}{X r r}
+\toprule
+Code (approximations) & $P(k)$ & $C_l$ \\
+\midrule
+SymBoltz (no approximations) & 0.5 s & 7.3 s \\
+CLASS (only tight-coupling approximation) & 8.7 s & 15.9 s \\
+CLASS (all approximations) & 0.7 s & 2.9 s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 SymBoltz can compute the matter power spectrum $P(k)$ and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{TE}$ and $C_l^\text{EE}$:
 \begin{codebox}
 \begin{Verbatim}
@@ -666,6 +682,10 @@ Calling \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} with \texttt{prob} 
 This is a common interpolation trick in Boltzmann solvers to integrate fewer perturbation modes.
 The functions can be called with the solution \texttt{sol} instead, but will then interpolate only between the $k$ that \texttt{sol} was solved for, leaving it to the user to ensure sufficient sampling density.
 \Cref{fig:spectra} shows that the spectra agree with CLASS to $1$\textperthousand{}-$1$\% or better for the chosen parameters.
+
+\Cref{tab:timings} shows the time to compute the spectra.
+We note that SymBoltz computes $P(k)$ quite fast, but the extra steps needed for $C_l$ it is not yet as optimized as in CLASS.
+\Cref{sec:performance} analyzes performance in greater detail.
 
 \subsection{Differentiable Fisher forecasting}
 \label{sec:fisher}
