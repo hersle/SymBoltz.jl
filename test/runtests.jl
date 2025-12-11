@@ -11,6 +11,7 @@ using Base.Threads
 M = ΛCDM(K = nothing) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
+prob_sparse = CosmologyProblem(M, pars; jac = true, sparse = true) # TODO: make sparse background work (although it won't impact performance)
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -494,13 +495,8 @@ end
 
 @testset "Sparse Jacobian" begin
     # with ΛCDM model
-    M1 = M
-    pars1 = pars
-    prob1 = CosmologyProblem(M1, pars1; jac = true, sparse = true) # TODO: make sparse background work (although it won't impact performance)
-    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),)
-    ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
     k = [1e0, 1e1, 1e2, 1e3]
-    sol = solve(prob1, k; bgopts, ptopts)
+    sol = solve(prob_sparse, k; bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),))
     @test issuccess(sol)
 
     M2 = RMΛ()
@@ -510,4 +506,13 @@ end
     ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),)
     sol = solve(prob2, k; bgopts, ptopts)
     @test issuccess(sol)
+end
+
+@testset "Check compatibility between dense/sparse Jacobian and linear solver" begin
+    @test !issuccess(solve(prob; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
+    @test issuccess(solve(prob, 1.0)) # should automatically find compatible linsolves
+    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
+    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
+    @test_throws "dense Jacobian must be solved with dense" solve(prob_sparse; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.KLUFactorization()),)) # has dense background
+    @test_throws "sparse Jacobian must be solved with sparse" solve(prob_sparse, 1.0; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()),)) # has sparse perturbations
 end

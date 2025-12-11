@@ -305,6 +305,13 @@ ptalg(prob::Nothing) = nothing
 
 shootalg(args...) = NewtonRaphson()
 
+function check_solve_args(prob::ODEProblem, alg)
+    if hasproperty(alg, :linsolve) && !isnothing(alg.linsolve) # if nothing, OrdinaryDiffEq automatically finds a compatible linear solver
+        issparse(prob) && !(alg.linsolve isa LinearSolve.AbstractSparseFactorization) && error("ODE with sparse Jacobian must be solved with sparse linear solver")
+        !issparse(prob) && alg.linsolve isa LinearSolve.AbstractSparseFactorization && error("ODE with dense Jacobian must be solved with dense linear solver")
+    end
+end
+
 # TODO: want to use ODESolution's solver-specific interpolator instead of error-prone spline
 """
     function solve(
@@ -367,6 +374,7 @@ end
 Solve the background cosmology problem `bgprob`.
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-9, abstol = 1e-9, verbose = false, kwargs...)
+    check_solve_args(bgprob, alg)
     bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
@@ -436,6 +444,7 @@ If `thread` and Julia is running with multiple threads, the solution of independ
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
 function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-8, abstol = 1e-8, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    check_solve_args(ptprob, alg)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
