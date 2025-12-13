@@ -643,9 +643,7 @@ A full $w_0 w_a \text{CDM}$ model and problem can now be built by replacing the 
 \begin{codebox}
 \begin{Verbatim}
 M = ΛCDM(Λ = X, name = :w₀wₐCDM)
-pars[M.X.w₀] = -0.9
-pars[M.X.wₐ] = 0.2
-pars[M.X.cₛ²] = 1.0
+push!(pars, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
 prob = CosmologyProblem(M, pars)
 \end{Verbatim}
 \end{codebox}
@@ -661,9 +659,9 @@ We proceed with this new model and problem.
 \toprule
 Code (approximations) & $P(k)$ & $C_l$ \\
 \midrule
-SymBoltz (no approximations) & 0.5 s & 7.3 s \\
-CLASS (only tight-coupling approximation) & 8.7 s & 15.9 s \\
-CLASS (all approximations) & 0.7 s & 2.9 s \\
+SymBoltz (no approximations) & 0.3 s & 4.3 s \\
+CLASS (only tight-coupling approximation) & 7.6 s & 14.1 s \\
+CLASS (all approximations) & 0.6 s & 2.4 s \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -671,21 +669,24 @@ CLASS (all approximations) & 0.7 s & 2.9 s \\
 SymBoltz can compute the matter power spectrum $P(k)$ and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{TE}$ and $C_l^\text{EE}$:
 \begin{codebox}
 \begin{Verbatim}
-using Unitful, UnitfulAstro # for Mpc unit
-ks = 10 .^ range(-4, 1, length=200) / u"Mpc"
+ks = 10 .^ range(-1, 4, length = 100)
 Ps = spectrum_matter(prob, ks)
-ls = 10:10:2000
-Cls = spectrum_cmb([:TT, :TE, :EE], prob, ls)
+ls = vcat([2,3,5,10], 20:20:2500)
+jl = SphericalBesselCache(ls)
+Cls = spectrum_cmb([:TT, :TE, :EE], prob, jl)
 \end{Verbatim}
 \end{codebox}
-Calling \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} with \texttt{prob} will automatically select a grid of $k$ to solve the perturbations for, and interpolate between them when computing the spectra.
-This is a common interpolation trick in Boltzmann solvers to integrate fewer perturbation modes.
-The functions can be called with the solution \texttt{sol} instead, but will then interpolate only between the $k$ that \texttt{sol} was solved for, leaving it to the user to ensure sufficient sampling density.
-\Cref{fig:spectra} shows that the spectra agree with CLASS to $1$\textperthousand{}-$1$\% or better for the chosen parameters.
+Calling \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} with \texttt{prob} automatically selects a coarse $k$-grid to solve the perturbations for and interpolates to a finer $k$-grid.
+This is a common trick in Boltzmann solvers to integrate fewer perturbation modes.
+Output spectra and their computation time are shown in \cref{fig:spectra,tab:timings}.
 
-\Cref{tab:timings} shows the time to compute the spectra.
-We note that SymBoltz computes $P(k)$ quite fast, but the extra steps needed for $C_l$ it is not yet as optimized as in CLASS.
-\Cref{sec:performance} analyzes performance in greater detail.
+SymBoltz and CLASS agree to around $0.1\%$ or better.
+The $P(k)$ agree to $0.1\%$ for all $k$ and $0.01\%$ for linear $k$.
+The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for very low $l$ (dominated by cosmic variance) and very large $l$ in $C_l^\text{TE}$.
+This is the level of accuracy needed to fit current-generation data \TODO{ref}.
+
+SymBoltz computes $P(k)$ quickly, but the extra steps needed for $C_l$ are not yet as optimized as they are in CLASS.
+A more thorough comparison of performance vs. precision for computing $P(k)$ with SymBoltz vs. CLASS is given in \cref{sec:performance}.
 
 \subsection{Differentiable Fisher forecasting}
 \label{sec:fisher}
