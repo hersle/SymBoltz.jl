@@ -222,6 +222,7 @@ in the equations (e.g. \cite{doranSpeedingCosmologicalBoltzmann2005,blasCosmicLi
 \item tight-coupling approximation (TCA),
 \item ultra-relativistic fluid approximation (UFA),
 \item radiation streaming approximation (RSA),
+\item non-cold dark matter fluid approximation (NCDMFA),
 \item Saha approximation.
 \end{itemize}
 These usually involve switching from one set of equations to another when some control variable that measures the applicability of the approximation crosses a threshold.
@@ -469,44 +470,44 @@ The solution interpolation is also incorporated into convenient plot recipes for
 \subsubsection{Automatic Jacobian generation and sparsity detection}
 \label{sec:jacobian}
 
-Just like SymBoltz generates code for $\boldsymbol{f}$ in the ODE \eqref{eq:ode}, it can use the same symbolic equations to generate its Jacobian
+Just like SymBoltz generates code for $\boldsymbol{f}$ in the ODE \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with values
 \begin{equation}
     J_{ij} = \frac{\partial f_i}{\partial u_j}.
 \label{eq:jacobian}
 \end{equation}
-Jacobians are \emph{crucial} for solving stiff ODEs accurately and efficiently with implicit solvers (see \cref{sec:approx-free})!
-Manually coding them is an extremely tiresome and error-prone undertaking that must be repeated for model modifications.
-Evaluating them numerically with finite differences is approximate and expensive.
-Automation of this procedure is a powerful feature that again enables the modeler to focus solely on the main equations.
+Jacobians are crucial for solving stiff ODEs with implicit solvers.
+Manually coding them is tiresome, error-prone, and must be repeated for new models.
+Numerical evaluation with finite differences is both approximate and slow.
+It can also be computed with automatic differentiation, but we find this slower and overkill compared to the analytical $\boldsymbol{J}$.
+Analytical Jacobians are as fast and stable as possible, and automatic generation of it lets the modeler enjoy its benefits while focusing only on the high-level equations.
 
-Another benefit is that analytical knowledge of the Jacobian lets one find its exact sparsity pattern.
-Numerical approaches to this are less robust and can mistake local zeros for global zeros.
-This permits constant factorization of sparse Jacobians, which improves performance of implicit solvers (see \cref{sec:approx-free}).
-Full support for sparse Jacobians is still ongoing work, however.
+SymBoltz stores the Jacobian in sparse form to boost performance when it has many zeros.
+From the analytical $\boldsymbol{J}$, SymBoltz precomputes its exact sparsity pattern (where $J_{ij} = 0$).
+Manual and numerical approaches to this are again neither as friendly nor robust.
+Without approximations, it then reuses the sparsity structure throughout the integration, computes the nonzero $J_{ij}$ analytically and stores them directly in the sparse $\boldsymbol{J}$ with no extra cost from looking up sparse matrix indices.
 
-SymBoltz can fall back from symbolic to automatic differentiation for the Jacobian.
-Finite differences can also be used.
+Easy, accurate and fast Jacobians are very important for SymBoltz to remain fast without approximations!
+\Cref{sec:performance} discusses implications for performance in more technical detail and relates the Jacobian handling to that in other Boltzmann solvers.
 
 \subsection{Approximation-freeness}
 \label{sec:approx-free}
 
 SymBoltz treats stiffness in the Einstein-Boltzmann equations with modern implicit ODE solvers that integrate the full equations at all times.
-It is therefore free of approximation schemes, such as the TCA, UFA, RSA and Saha approximation.
-This is much friendlier to the modeler, who now simply has to provide a single set of equations instead of deriving approximations, validating them and dealing with related chores.
+It is therefore free of approximation schemes, such as the TCA, UFA, RSA, NCDMFA and Saha approximation.
+This is friendlier to the modeler, who now simply has to provide a single set of equations instead of deriving approximations, validating them and dealing with related chores.
 
-However, implicit ODE solvers are more expensive than explicit methods.
-In particular, at every time step they must solve a nonlinear system of equations for the next unknowns.
-This is usually done with Newton's method that requires the Jacobian of the nonlinear system, which in turn involves the ODE Jacobian \eqref{eq:jacobian}.
-Automatic, accurate and efficient computation of the Jacobian (see \cref{sec:jacobian}) makes this less of a problem.
+Implicit ODE solvers take more expensive but longer steps than explicit methods on stiff problems.
+Every time step solves a possibly nonlinear system of equations, which involves the Jacobian of the system and in turn the ODE Jacobian \eqref{eq:jacobian}.
+This can become a bottleneck as the number of equations increases (e.g. with larger $\lmax$).
+Automatic, analytic and efficient computation of the Jacobian in sparse form significantly mitigates this.
 
-As the size of the ODE and its Jacobian increases (e.g. larger $\lmax$), solving the large system of equations at every time step becomes a bottleneck.
-One should then transition from dense to sparse matrix methods (this is still ongoing work) and use performant matrix methods when solving the nonlinear system.
-By default, SymBoltz uses the \texttt{Rodas4P} \citep{steinebachOrderreductionROWmethodsDAEs1995} solver for the background (stiff when thermodynamics is included) and \texttt{KenCarp4} \citep{kennedyAdditiveRungeKutta2003} for the perturbations.
-These are both implicit solvers from DifferentialEquations.jl.
-We discuss this aspect further in \cref{sec:discussion}.
+SymBoltz supports all implicit solvers in the OrdinaryDiffEq.jl package.
+These have different performance and stability characteristics.
+In particular, we find that the \texttt{Rodas5P} solver \TODO{cite} performs well on both the background and perturbations of the stiff Einstein-Boltzmann equations.
+\TODO{app}
 
-In the long run, SymBoltz could also implement approximation schemes to maximize speed.
-However, the goal is to keep the code primarily approximation-free and for all approximations to be secondary and optional.
+In the long run, SymBoltz could also implement approximation schemes as a secondary and optional way to maximize speed.
+But the goal is to keep the code primarily approximation-free.
 
 \subsection{Differentiability}
 \label{sec:diff}
