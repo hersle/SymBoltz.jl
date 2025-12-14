@@ -652,7 +652,7 @@ We proceed with this new model and problem.
 \subsection{Computing power spectra}
 
 \begin{table}[b]
-\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra}. \TODO{class no appr}}
+\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra}.}
 %\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
 %\begin{tabularx}{\linewidth}{Xrr}
 \begin{tabularx}{\linewidth}{X r r}
@@ -1465,24 +1465,33 @@ Both grids range between $0.1 l_\text{min}/\tau_0 \leq k \leq 3 l_\text{max}/\ta
 \section{Precision parameters for CLASS}
 \label{sec:precision}
 
-When comparing results to CLASS in \cref{sec:examples}, CLASS is configured with the following non-default precision parameters:
+When comparing results to CLASS in \cref{sec:examples}, we use CLASS version 3.3.4 with the following precision parameters:
 \begin{codebox}
 \begin{Verbatim}
-background_Nloga = 6000
-tight_coupling_trigger_tau_c_over_tau_h = 1e-2
-tight_coupling_trigger_tau_c_over_tau_k = 1e-3
-radiation_streaming_approximation = 3
-ur_fluid_approximation = 3
-ncdm_fluid_approximation = 3
+tight_coupling_approximation = 5 # compromise_CLASS; cannot disable TCA
+tight_coupling_trigger_tau_c_over_tau_h = 0.01 # turn off TCA earlier
+tight_coupling_trigger_tau_c_over_tau_k = 0.001 # turn off TCA earlier
+radiation_streaming_approximation = 3 # turn off RSA
+ncdm_fluid_approximation = 3 # turn off NCDMFA
+ur_fluid_approximation = 3 # turn off UFA
+
+evolver = 1 # for implicit ndf15; 0 for explicit rk
+tol_perturbations_integration = 1.0e-6 # less noise; varied in work-precision diagram
+tol_ncdm_newtonian = 1.0e-5 # default sampling of massive neutrino momenta
+background_Nloga = 6000 # for stable derivatives
 \end{Verbatim}
 \end{codebox}
-We also set \texttt{l\_max\_g}, \texttt{l\_max\_pol\_g}, \texttt{l\_max\_ur}, \texttt{l\_max\_ncdm} to the same $\lmax$ used by SymBoltz' model.
-These settings disable as many approximations as possible and reduces the impact of the tight-coupling approximation, which cannot be disabled.
-Oddly, we find that the parameter \verb|background_Nloga| must be \emph{decreased} from the default value 40000 to make the derivatives in \cref{fig:derivatives} stable.
+We run CLASS with \verb|output = mPk| to compute only $P(k)$, and \verb|output = tCl, pCl| to compute only $C_l^\text{TT}$, $C_l^\text{EE}$ and $C_l^\text{TE}$ with the code's most specialized and optimized paths.
+CLASS and SymBoltz are configured to use the same Newtonian gauge, $\lmax$ for all species, RECFAST recombination model, $\tanh$-like reionization parametrization, $w_0 w_a$ dark energy equations and cosmological parameter values.
+The settings above disable as many approximations as possible and reduce the impact of the tight-coupling approximation, which cannot be disabled.
+We had to decrease the parameter \verb|background_Nloga| from the default value 40000 to make the derivatives in \cref{fig:derivatives} stable.
 This parameter controls the number of points used for splining background functions in the perturbations.
-The default value of this parameter was changed from 3000 to 40000 in 2023, but we suspect that the increased density in points makes the splines susceptible to oscillations from numerical noise. % https://github.com/lesgourg/class_public/commit/4e1788ddfcb80db3097cddd02ddf332c51cc15e7
-These settings are important for good agreement between the Fisher forecasts in \cref{sec:fisher}.
-We used CLASS version 3.3.1.
+Its default value was changed from 3000 to 40000 in 2023, but we suspect that the increased density in points makes the splines oscillate from numerical noise. % https://github.com/lesgourg/class_public/commit/4e1788ddfcb80db3097cddd02ddf332c51cc15e7
+Likewise, the tolerance for the perturbations ODEs is set one notch smaller than the default $10^{-5}$ to make the output stable.
+We use CLASS' default sampling of massive neutrino momenta, as discussed in \cref{sec:performance}.
+
+When running CLASS with all approximations on in \cref{tab:timings,fig:workprec}, the first block of parameters above are not used.
+In the work-precision comparison in \cref{fig:workprec}, we also vary \verb|tol_perturbations_integration| and \verb|evolver| as described in the figure.
 
 \section{Testing and comparison to CLASS}
 \label{sec:testing}
