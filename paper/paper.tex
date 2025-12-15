@@ -361,36 +361,64 @@ Other minor implementation details are given in \cref{sec:implementation}.
 \subsection{Symbolic-numeric interface}
 \label{sec:symbolicnumeric}
 
-The core of SymBoltz is built around a symbolic-numeric interface shown in \cref{fig:components}.
-Variables and equations are specified in a high-level user-friendly symbolic modeling language, then ultimately compiled down to efficient low-level numerical functions that are integrated by ODE solvers.
-This fits the interactive and just-in-time compiled nature of Julia.
-A key realization is that knowledge of \emph{symbolic} equations makes it possible to analyze their structure programmatically, enabling powerful transformations of the equations and automation of chores.
+The core of SymBoltz is built around a symbolic-numeric interface illustrated in \cref{fig:components}.
+Variables and equations are specified in a high-level user-friendly symbolic modeling language, then compiled down to low-level numerical code that is integrated by ODE solvers.
+With knowledge of the symbolic equations, SymBoltz can analyze their structure programmatically to ease model specification, automate manual chores related to solving them and generate fast and stable code that avoids approximations.
 
-SymBoltz turns the layout of traditional Boltzmann solvers inside-out.
-While other codes are built like rigid pipelines following \emph{computational stages} like the background and perturbations,
-SymBoltz is primarily structured around \emph{physical components} of the Einstein-Boltzmann system.
-Full cosmological models are built by joining submodels for the metric, gravitational theory, photons, baryons, dark matter, dark energy, neutrinos and other species.
-Each component is a chunk of related variables and internal equations, and is unaware of other components.
-Interactions (e.g. Compton scattering or sourcing of gravity) are equations that connect components.
-This structure is made possible by the symbolic interface and would slow a purely numerical code.
+We think three properties motivate some kind of symbolic abstraction layer around the Einstein-Boltzmann equations.
 
-Separation of computational stages is secondary and done automatically (see \cref{sec:splining}).
-This makes it possible to write everything related to one component \emph{in one place}, instead of scattering it across separate modules for input, background, perturbations and so on.
-One component can be replaced by another to construct a different cosmological model without polluting a big global model.
-A large part of SymBoltz is thus simply devoted to building a well-organized library of such physical components.
+First, the equations are most easily written as one large ODE, but optimally solved as several ODEs in stages like the background, perturbations and line-of-sight integration.
+Mathematically, the Jacobian matrix of this single ODE encodes which variables are independent and belong to which stages.
+It is easiest for modelers to specify equations in one common system, where the perturbations can refer to variables in the background, for example.
+The separation into computational stages can be automated.
 
-This modular structure scales better in model space and makes it easier to assemble both extended and reduced models.
-While many Boltzmann solvers hardcode baryons and photons because they are fundamental to the code, SymBoltz works naturally even with pure models with non-interacting radiation, matter and dark energy.
-For example, this can help understand how a modified gravity theory responds to different species without complex interactions or thermodynamics cluttering the picture.
+Second, solving each stage is hard due to stiffness, performance requirements and its dependence on previous stages.
+To overcome this, it is helpful to automatically generate low-level code for the ODE that is optimal in speed, accuracy and stability.
+This can be extended to generate the ODE Jacobian, which is nontrivial to derive manually but crucial for implicit solvers to solve stiff ODEs.
+Modelers should not have to worry about this.
 
-Maybe this structure is unfamiliar to some.
-As a compromise, SymBoltz also provides an \enquote{unstructured} version of the \LCDM{} model with all equations and variables in one big system.
-This makes it easy-peasy to change anything in the model, and really shows the power of the symbolic interface:
-SymBoltz defines the full \LCDM{} model (with GR, baryons, RECFAST recombination, photons, cosmological constant, massive and massless neutrinos) in just 277 lines of code, while the equivalent code that one must realistically browse in CLASS is spread over 10 files with 27721 lines!%
+Third, the equations are often modified because the true cosmological model is unknown.
+This can be made easier by organizing the equations in a way that reflects the physical structure of the model, so it is easy to replace a subset of equations with another without duplicating the entire model.
+This could be slow to do at the numerical level, but can be done with no runtime penalty in an intermediate symbolic representation of the equations.
+
+Inspired by this, SymBoltz inverts the traditional layout of Boltzmann solvers.
+While other codes are built as pipelines to follow the background, perturbations and other stages of the equations,
+SymBoltz is primarily structured around the physical components that it consists of.
+Related variables and equations are grouped into distinct components for the metric, gravitational theory, photons, baryons, dark matter, dark energy, neutrinos and other species.
+This isolates everything related to one submodel to one place.
+Any set of such submodels are joined into a full cosmological model, like \LCDM{}.
+Interactions (e.g. Compton scattering or sourcing of gravity) are equations between several components.
+Adding new submodels is easy, and SymBoltz is largely devoted to simply building a well-organized library of them.
+
+SymBoltz then takes a full cosmological model, separates it into stages and generates numerical code to solve each stage with ODE methods.
+This preprocessing does not slow the code at runtime; to the contrary the symbolic equations give extra information that is used to enhance speed and stability.
+Modifications automatically enjoy these benefits without extra user input.
+
+The modular component-based structure scales well in model space.
+%It makes it easier to assemble both reduced and extended cosmological models.
+For example, modified gravity or dark energy models can be written down as self-contained submodels and combined with other components to create many different extended cosmological models.
+The generic symbolic framework can also be used to build reduced models with non-interacting radiation, matter and dark energy species.
+When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons. % e.g. https://github.com/lesgourg/class_public/issues/246
+
+In contrast, the monolithic layout of other codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
+As more and more submodels are added, their code is increasingly intertwined and the fragmentation is amplified.
+%Adding new submodels then effectively duplicates one big monolithic model and leads to many forked versions of a Boltzmann code with different extensions that are incompatible with each other.
+They are also not flexible enough to test simpler toy models, as baryons and photons are hardcoded as fundamental to the structure of the code.
+This design fits the computational structure better than the physical one.
+It can result in an overwhelming code that becomes hard to read and modify, and whose complexity scales poorly in model space.
+%\TODO{e.g. implementing many different gravity models that do not have the same limit}
+
+As an alternative to the component-based modeling,
+SymBoltz also includes a version of the default \LCDM{} model with all equations packed into one big \enquote{unstructured} system.
+This makes it trivial to change absolutely anything in the equations, but sacrifices modularity.
+The powerful symbolic interface makes it very compact:
+SymBoltz defines the full \LCDM{} model (with GR, baryons, RECFAST recombination, photons, cosmological constant, massive and massless neutrinos) in just 277 straightforward lines of code, while the equivalent code to browse in CLASS is spread over 10 files with 27721 lines.%
 \footnote{Counting \texttt{input.\{h,c\}}, \texttt{background.\{h,c\}}, \texttt{thermodynamics.\{h,c\}}, \texttt{perturbations.\{h,c\}} and \texttt{wrap\_recfast.\{h,c\}} with \texttt{wc -l}.}
-SymBoltz has less features than CLASS, but this is not even remotely close to making up for the $100\times$ simplification.
+CLASS' greater number of features does not make up for the $100\times$ simplification.
 
-Let us see which helpful features this interface provides.
+SymBoltz' powerful symbolic-numeric interface aims to make it as easy as possible to solve and modify the Einstein-Boltzmann equations.
+It gives maximal speed, stability and convenience from minimal user input.
+The next sections go into detail on how these overarching features are implemented.
 
 \subsubsection{Automatic numerical code generation}
 \label{sec:codegen}
@@ -829,46 +857,6 @@ Like any Boltzmann solver, SymBoltz makes some tradeoffs in its design.
     \label{fig:synergy}
 \end{figure}
 
-\subsection{Symbolic vs. numeric interface}
-\label{sec:symbolic_vs_numeric}
-
-As explained in \cref{sec:intro_structure,sec:symbolicnumeric}, modifications to most Boltzmann solvers are made by editing the low-level numerical source code directly, while changes to SymBoltz are made in a high-level symbolic interface that abstracts away internal details.
-
-We think three properties make the linearized Einstein-Boltzmann equations particularly attractive for symbolic abstraction.
-First, on the \enquote{outside}, they are fundamentally \emph{one} (large) system of equations with a predictable general structure.
-Second, on the \enquote{inside}, they are complicated to solve in multiple stages due to their structure, stiffness and need for speed.
-Third, they are heavily subject to modifications as the true cosmological model is unknown.
-To simplify the modeling process, these aspects make it valuable to abstract the \enquote{inside} from the \enquote{outside}.
-
-Purely numerical codes generally put the \emph{programmer} first.
-They are adapted to the \emph{computational} structure of the problem.
-Users have full freedom to tweak problem-specific details, such as implementing complex approximation schemes.
-Without abstraction layers, the code says exactly what it does.
-This can be worthwhile for custom-tailoring codes to \enquote{workhorse} cosmological models like \LCDM{} for maximum performance and demanding MCMC analyses.
-However, it can result in an overwhelming monolithic design that is hard to read and modify.
-
-The symbolic interface in SymBoltz prioritizes the \emph{modeler}.
-Its design matches the \emph{physical} structure of the model.
-Manual chores are automated with compile-time logic on the equations.
-Users can more easily change equations without understanding internals \emph{provided that} they can be written in a straightforward form that is compatible with the symbolic interface.
-This is not a major restriction for the Einstein-Boltzmann equations, as they have a plain and predictable structure when linearized and free of approximations.
-Nevertheless, to bridge this gap, SymBoltz lets users call arbitrary numerical functions that escape the symbolic-to-numeric compilation, if necessary.
-
-This abstraction layer works only if fits the structure of the underlying equations.
-A key to envision the design was to look past the \emph{computational} pipeline structure of Boltzmann solvers (e.g. background $\rightarrow$ perturbations $\rightarrow \ldots$), and rather organize the code primarily by \emph{physical} components like the metric, gravitational theory and particle species.
-Components are self-contained and joined into full cosmological models.
-As more models are added, the complexity of this modular design stays constant, while monolithic \enquote{all-in-one} codes become complicated.
-
-This structure can be unfamiliar to those used to the layout of other codes.
-The modular structure scales best with a growing number of submodels for individual physical components.
-But SymBoltz also provides a full unstructured \LCDM{} model where everything is merged into one large system, which is easier to work with if one wants to modify arbitrary small parts of the equations.
-This leaves the choice to the user, who can select between the best of both worlds.
-
-Mixing symbolic and numerical computing can be susceptible to performance problems.
-Numerics should be fast and symbolics is usually slow, so \enquote{perceived performance} suffers if the two are interleaved.
-But SymBoltz disentangles the expensive symbolic operations in \cref{sec:symbolicnumeric} from numerics, so they are performed only before and after performance-critical tasks.
-
-We hope the design of SymBoltz provides a platform for easy exploration of alternative models, regardless of which sector of the equations one is interested in modifying.
 
 \subsection{Approximation-freeness vs. performance}
 \label{sec:performance}
