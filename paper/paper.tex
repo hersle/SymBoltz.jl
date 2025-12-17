@@ -607,11 +607,17 @@ In the long run, approximation schemes can of course be explored as a secondary 
 \label{sec:diff}
 
 SymBoltz is compatible with automatic differentiation.
-One can obtain the derivative of any output quantity, such as all ODE variables and derived spectra, with respect to any combination of input parameters, like the reduced Hubble parameter $h$ or cold dark matter density parameter $\Omega_{c0}$.
-Automatic differentiation is also used several places internally, such as for computing the Jacobian for implicit ODE solvers (as an alternative to the fully symbolic approach) and in the shooting method (which is a nonlinear equation solver that wraps around the ODE solver).
+It can compute derivatives of any output quantity, like ODE variables and derived spectra, with respect to any input parameters, like the Hubble parameter $h$ or cold dark matter density parameter $\Omega_{c0}$.
+For example, it can be used to learn the output's sensitivity to the input, perform Fisher forecasts or guide the shooting method when parametrizing cosmological models with integrated variables.
+It can also compute the ODE Jacobian, but we do this symbolically to get it analytically and find its sparsity pattern.
 
-Currently SymBoltz is only well-tested with forward-mode dual numbers through ForwardDiff.jl.
-In particular, support for reverse-mode is very attractive for scalar loss applications (e.g. likelihoods), but left for future work (see \cref{sec:forwardreverse}).
+Currently SymBoltz is well-tested with forward-mode dual numbers through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}}.
+This is most appropriate for applications with more outputs than inputs, such as analyzing sensitivity of $\mathcal{O}(100)$ values of $P(k)$ or $C_l$ as a function of $\mathcal{O}(10)$ cosmological parameters.
+Support for reverse-mode would be ideal when there are fewer outputs.
+This is very attractive for like MCMCs or training neural network emulators, where prediction-data errors are compressed to a scalar loss value.
+Cheap reverse-mode gradients could accelerate sampling of $O(100)$-dimensional parameter spaces with more experimental nuisance parameters in next-generation surveys.
+Emulators have become popular \enquote{workarounds} to do this cheaply and with existing theory codes, instead of adapting codes to be differentiable.
+Unfortunately, reverse-mode is left for future work.
 
 \begin{figure*}
     \centering
@@ -971,22 +977,6 @@ These optimizations are very well polished by CAMB and CLASS, and unmatched by S
 A similar detailed performance analysis for $C_l$ is therefore not meaningful now.
 It would also blur the impact and viability of approximation-free perturbations, which is SymBoltz' first design milestone.
 With more work, the $C_l$ optimizations can be implemented in SymBoltz.
-
-\subsection{Forward-mode vs. reverse-mode automatic differentiation}
-\label{sec:forwardreverse}
-
-At this time SymBoltz is only well-tested with forward-mode automatic differentiation.
-However, we saw in \cref{sec:intro_diff} that reverse-mode is more attractive for applications with more inputs than outputs.
-This is the case for popular applications with scalar likelihood or loss functions, such as MCMC parameter inference and training neural network emulators.
-Reverse-mode could be particularly powerful for parameter inference with next-generation surveys, where experimental nuisance parameters must also be sampled in large $\mathcal{O}(100)$-dimensional parameter spaces, even if eventually marginalized over.
-However, forward-mode has better characteristics when performing sensitivity analyses.
-For example, computing $\partial P(k; \boldsymbol{\theta})/\partial\theta_i $ or $\partial C_l(\boldsymbol{\theta}) / \partial \theta_i$
-(e.g. Fisher forecasting in \cref{sec:fisher}) is faster with forward-mode, since one typically wants $\mathcal{O}(100\text{-}1000)$ $k$ or $l$, but only has $\mathcal{O}(10)$ parameters.
-
-Of course, automatic differentiation is just an additional feature.
-One can run the code with or without automatic differentiation, or use finite differences instead.
-It does not pose any tradeoff, but robust support for both forward-mode and reverse-mode remains a future goal that would make SymBoltz more powerful for different applications.
-This situation will improve as the differentiable Julia ecosystem continues to evolve.
 
 \section{Future work}
 \label{sec:futurework}
