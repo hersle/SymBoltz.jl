@@ -900,34 +900,6 @@ Performance improvements are needed to make this viable also for perturbation-de
     \label{fig:sn}
 \end{figure}
 
-\section{Discussion of design synergies and tradeoffs}
-\label{sec:discussion}
-
-A symbolic-numeric interface, lack of approximations and differentiability are interesting features in their own rights.
-They also constitute a self-reinforcing synergy explained in \cref{fig:synergy}.
-Like any Boltzmann solver, SymBoltz makes some tradeoffs in its design.
-
-\begin{figure}
-    \centering
-        \begin{tikzpicture}[
-        pillar/.style={circle, draw, minimum size=2.4cm, align=center, font=\small},
-        joiner/.style={midway, sloped, black, font=\small, above, yshift=+5pt},
-        arrow/.style={-{Latex[width=4mm,length=4mm]}, line width=1mm, black},
-    ]
-    \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
-    \node[pillar, fill=blue!50] (app) at (240:5.8cm) {Free of\\approx-\\imations};
-    \node[pillar, fill=red!50] (dif) at (300:5.8cm) {Automatic\\differentiation};
-    \draw[arrow] (sym.300) -- node[joiner] {Detect sparsity of $J$} (dif.120);
-    \draw[arrow] (dif.180) -- node[joiner] {Calculate $J$ robustly} (app.0);
-    \draw[arrow] (app.60) -- node[joiner] {Easy to specify model} (sym.240);
-    \end{tikzpicture}
-    \caption{%
-        A symbolic-numeric interface, approximation-freeness and differentiability are three important features of SymBoltz that form a synergy.
-        For example: automatic differentiation helps to calculate the ODE Jacobian robustly; which is needed by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down models in a simple symbolic form; which can be used to detect the sparsity pattern of the Jacobian; which in turn increases the efficiency of the implicit ODE solver.
-        This synergy creates a self-reinforcing design.
-    }
-    \label{fig:synergy}
-\end{figure}
 
 
 \section{Performance comparison to CLASS}
@@ -1005,45 +977,65 @@ In a larger context, we are hopeful that a Boltzmann solver in Julia can foster 
 For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on the output from Boltzmann solvers.
 It is possible to make such existing codes compatible, but supporting automatic differentiation across language barriers is challenging.
 An ecosystem of similar packages in one language with good support for automatic differentiation, like Julia or Python combined with Jax, could open the door to a larger, modular and fully differentiable cosmological modeling toolbox.
-A recent example of the transition to differentiable tools is the impressive end-to-end modeling from linear perturbation theory to non-linear structure formation with a differentiable Boltzmann code coupled to a differentiable $N$-body code by DISCO-DJ \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
+A recent example of this is the impressive end-to-end modeling from linear perturbations to non-linear structure formation with a differentiable Boltzmann code coupled to a differentiable $N$-body code by DISCO-DJ \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
 
-\section{Conclusion and future potential}
+\section{Conclusion}
 \label{sec:conclusion}
 
-SymBoltz is a fresh Julia package for solving the linearized Einstein-Boltzmann equations.
-It relaxes all approximation switching schemes found in other codes and solves a single set of stiff equations at all times with implicit integrators, and combats the performance loss with modern and efficient implicit ODE solvers, optimized linear system solvers and (soon) sparse matrix methods.
+SymBoltz is a fresh Julia package for solving the linear Einstein-Boltzmann equations.
+It features a symbolic-numeric interface where models are built from symbolic equations and compiled to efficient numerical code.
+This lets modelers prototype new models with few lines code at a high level.
+It relaxes all approximation switching schemes found in older codes by solving a single set of stiff equations at all times with implicit integrators.
+This simplifies the equations, and fast generated code for ODEs and analytical and sparse Jacobians preserves the speed of approximation-based codes.
 It is differentiable, so one can get accurate derivatives of any output quantity with respect to any input parameter.
-This enables modelers to rapidly prototype new models by straightforwardly writing down new variables and equations.
+Output power spectra agrees with CLASS to $0.1\%$, which is the same level of accuracy found between CAMB and CLASS.
 
-Version 0.8.1 features the metric in the conformal Newtonian gauge, General Relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant and $w_0 w_a$ dark energy, and computes luminosity distances and matter and CMB spectra.
-It also has some rudimentary models for Brans-Dicke gravity, quintessence dark energy and curved geometry, but these are not complete yet.
-We think the modular design makes it very easy to add new models and compute other quantities.
+\begin{figure}
+    \centering
+        \begin{tikzpicture}[
+        pillar/.style={circle, draw, minimum size=2.4cm, align=center, font=\small},
+        joiner/.style={midway, sloped, black, font=\small, above, yshift=+5pt},
+        arrow/.style={-{Latex[width=4mm,length=4mm]}, line width=1mm, black},
+    ]
+    \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
+    \node[pillar, fill=blue!50] (app) at (240:5.8cm) {Approximation-\\freeness};
+    \node[pillar, fill=red!50] (dif) at (300:5.8cm) {Differentiability};
+    \draw[arrow] (sym.300) -- node[joiner] {Detect sparsity of $\boldsymbol{J}$} (dif.120);
+    \draw[arrow] (dif.180) -- node[joiner] {Calculate $\boldsymbol{J}$ robustly} (app.0);
+    \draw[arrow] (app.60) -- node[joiner] {Easy to specify model} (sym.240);
+    \end{tikzpicture}
+    \caption{%
+        A symbolic-numeric interface, approximation-freeness and differentiability are three main features of SymBoltz that form a synergy.
+        For example: differentiability helps to calculate the ODE Jacobian accurately and efficiently; which is needed by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down models in a simple symbolic form; which can be used to detect the sparsity pattern of the Jacobian; which in turn increases the efficiency of the implicit ODE solver.
+        This creates a self-reinforcing design.
+    }
+    \label{fig:synergy}
+\end{figure}
 
-Forward-mode automatic differentiation is well-tested, while support for reverse-mode is a future goal.
-This would make SymBoltz very powerful for scalar loss applications like MCMCs.
+Some of these main features -- a symbolic-numeric interface, approximation-freeness and differentiability -- are notably also implemented in other recent Boltzmann codes like DISCO-EB, Bolt.jl and PyCosmo.
+SymBoltz combines them into one code and uses a synergy between them that reinforces its design, as illustrated in \cref{fig:synergy}.
+Together, these alternative codes now offer a simpler approximation-free structure in high-level languages
+that complements traditional codes like CAMB and CLASS that are highly optimized around historical approximation schemes and low-level languages.
+However, new codes need more work to reach the level of features available in CAMB and CLASS that have grown over many years.
 
-With some more work, SymBoltz could grow into a fully integrated symbolic-numeric and differentiable cosmological modeling environment.
-For example, numerical code generation could be extended from linear equations to non-linear $N$-body simulations in a consistent and unified framework.
-This could alleviate the $N$-language problem ($N \gtrsim 2$) prevalent in cosmological modeling, which glues together convenient high-level languages like Python with performant low-level languages like C and Fortran, and sometimes symbolic work in a CAS like Mathematica.
-
-SymBoltz shows that it is possible to create a symbolic-numeric, approximation-free and differentiable Boltzmann solver with modern numerical techniques.
-It excels at model simplicity and ease of modification.
-More work is needed to make it as feature-complete and fast as CAMB and CLASS that have been refined over many years.
-A major goal is to compute values and derivatives of perturbation-derived spectra fast enough for use with gradient-based MCMC samplers.
-Implicit ODE solvers, nonlinear and linear equation solvers, sparse matrix methods and differentiability are all demanding numerical techniques.
-Making them work robustly and efficiently together is challenging, but the current state shows promise.
-SymBoltz is built on (and has contributed to) several evolving Julia packages, and will continue to grow both on its own and with improvements to its dependencies.
+SymBoltz version 0.14.0 includes the metric in the flat Newtonian gauge, General Relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant and $w_0 w_a$ dark energy with scalar perturbations, luminosity distances and matter and CMB spectra.
+More models and observables, vector and tensor perturbations and curved geometry are left for future work.
+Forward-mode automatic differentiation works for single-run sensitivity analyses like Fisher forecasting.
+A next milestone is reverse-mode for scalar loss functions, particularly for perturbation-derived spectra.
+This could challenge emulators in smarter gradient-based MCMC sampling.
+No differentiable Boltzmann code has yet demonstrated this ability.
 
 SymBoltz is easy to install from \url{https://github.com/hersle/SymBoltz.jl}.
-Documentation is available there, and the code is tested with continuous integration to ensure it remains correct and up-to-date (see \cref{sec:testing}).
+Documentation\footnote{\url{https://hersle.github.io/SymBoltz.jl/}} is available there, and the code is tested with continuous integration to ensure it remains correct and up-to-date (see \cref{sec:testing}).
 \textbf{Anyone is encouraged to ask questions, give feedback, open issues and contribute pull requests in the repository!}
-We hope SymBoltz offers valuable competition and new ideas on the Boltzmann solver market.
+We hope others can find it useful to build tools on top of SymBoltz, and that it offers valuable competition and new ideas on the Boltzmann solver market.
 
 \section*{Acknowledgments}
 
+I thank the entire Julia community for striving towards an open ecosystem of scientific packages upon which SymBoltz continues to grow.
 I thank Aayush Sabharwal and Christopher Rackauckas for developing and maintaining ModelingToolkit.jl and DifferentialEquations.jl and answering questions.
-I thank Hans A. Winther for helpful suggestions, testing the code and giving feedback on it and this manuscript.
-I thank Julien Lesgourgues, Thomas Tram and others for developing CLASS, which has inspired SymBoltz.
+I thank Hans A. Winther for helpful suggestions, testing the code and giving feedback on it and drafts of this paper.
+I thank Julien Lesgourgues, Thomas Tram and others for developing CLASS and inspiring SymBoltz.
 
 \bibliographystyle{bibtex/aa}
 \bibliography{paper}
