@@ -527,7 +527,7 @@ Easy, accurate and fast Jacobians are very important for SymBoltz to remain fast
 SymBoltz treats stiffness in the Einstein-Boltzmann equations with modern implicit ODE solvers that integrate the full equations at all times.
 It is therefore free of approximation schemes, such as the TCA, UFA, RSA, NCDMFA and Saha approximation.
 This is friendlier to the modeler, who now simply has to provide a single set of equations instead of deriving approximations, validating them and dealing with related chores.
-It suits the high-level equation-oriented symbolic interface.
+This pairs well with high-level equation-oriented symbolic interface.
 
 Implicit solvers take more expensive steps than explicit methods.
 At every step, they solve a generally nonlinear system of equations for the next unknowns $\boldsymbol{u}$.
@@ -536,72 +536,76 @@ by LU-factorizing $\boldsymbol{W} = \boldsymbol{I} - \gamma h \boldsymbol{J}$,
 where $\gamma$ is a constant, $h$ is the time step and $\boldsymbol{J}$ is the ODE Jacobian \eqref{eq:jacobian}.%
 \footnote{
 For example, the implicit Euler method $\boldsymbol{u}_{n+1} = \boldsymbol{u}_n + h \boldsymbol{f}(\tau_{n+1}, \boldsymbol{u}_{n+1})$ solves
-$\boldsymbol{F}(\boldsymbol{u}_{n+1}) = \boldsymbol{u}_{n+1} - h \boldsymbol{f}(t_{n+1}, \boldsymbol{u}_{n+1}) - \boldsymbol{u}_n = \boldsymbol{0}$ at every step with Newton's method
-using its Jacobian $\boldsymbol{W} = \boldsymbol{I} - h \boldsymbol{J}(t_{n+1},\boldsymbol{u}_{n+1})$.
+$\boldsymbol{F}(\boldsymbol{u}_{n+1}) = \boldsymbol{u}_{n+1} - h \boldsymbol{f}(\tau_{n+1}, \boldsymbol{u}_{n+1}) - \boldsymbol{u}_n = \boldsymbol{0}$ at every step with Newton's method
+using its Jacobian $\boldsymbol{W} = \boldsymbol{\nabla} \boldsymbol{F} = \boldsymbol{I} - h \boldsymbol{J}(\tau_{n+1},\boldsymbol{u}_{n+1})$.
 }
 LU-factorizing a dense $n \times n$ matrix from an $n$-dimensional ODE costs $O(n^3)$ operations
 and bottlenecks larger ODEs (e.g. larger $\lmax$).
 In return, implicit methods use more information about the ODE to take stable and long steps.
 
-To remain performant, implicit solvers need several optimizations.
-They need efficient ways to compute not only $\boldsymbol{f}$, but also $\boldsymbol{J}$.
-A common strategy is to reuse $\boldsymbol{W}$ and its LU-factorization over several steps.
-Newton's method only needs an approximate $\boldsymbol{W}$ to iterate towards the root.
-It is recomputed if it converges slowly, which means $\boldsymbol{J}$ is outdated or the step $h$ is changed by the adaptive solver.
-This trades fewer LU-factorizations for more linear solve back-substitutions, which are only $O(n^2)$.
+To remain fast, implicit solvers need several optimizations.
+They must compute not only $\boldsymbol{f}$, but also $\boldsymbol{J}$ efficiently.
+A common strategy is to reuse the LU-factorized $\boldsymbol{W}$ over several steps.
+Newton's method only needs an approximate $\boldsymbol{W}$ to find the root,
+and $\boldsymbol{W}$ is recomputed only if convergence is slow due to an outdated $\boldsymbol{J}$ or a new step size $h$.
+This trades fewer LU-factorizations and $\boldsymbol{J}$ evaluations for more linear solve back-substitutions, which only cost $O(n^2)$.
 The next trick is to use sparse matrices if $\boldsymbol{W}$ contains many zeros, as is the case for large perturbation systems.
-SymBoltz solves these issues by generating the analytical and sparse Jacobian, which is optimal in both speed and accuracy (see \cref{sec:jacobian}).
+SymBoltz handles this by generating the analytical and sparse Jacobian in the fastest and most accurate way (see \cref{sec:jacobian}).
 
-SymBoltz generates working code for all implicit solvers in OrdinaryDiffEq.jl\footnote{\url{https://github.com/SciML/OrdinaryDiffEq.jl/}} and both dense and sparse matrix methods in LinearSolve.jl\footnote{\url{https://github.com/SciML/LinearSolve.jl}}.
-We can then test several methods by changing one line of code.
-This is useful, as performance and stability of implicit solvers and linear algebra can be highly problem-dependent.
+SymBoltz generates code for all implicit solvers in OrdinaryDiffEq.jl\footnote{\url{https://github.com/SciML/OrdinaryDiffEq.jl/}} and dense and sparse matrix methods in LinearSolve.jl\footnote{\url{https://github.com/SciML/LinearSolve.jl}}.
+We can test different methods, which is useful as performance and stability of implicit solvers and linear algebra operations are problem-dependent.
 Using $O(100)$ perturbation equations with more than $95\%$ sparsity, we find \texttt{RFLUFactorization} fastest for dense matrices, but \texttt{KLUFactorization} several times faster when exploiting sparsity.
-We find the following ODE solvers to work:
+We tested these ODE solvers:
 % https://scicomp.stackexchange.com/questions/31380/what-is-the-state-of-the-art-in-solving-stiff-initial-value-problems
 % https://www.stochasticlifestyle.com/differences-between-methods-for-solving-stiff-odes/
 
 \begin{itemize}
-\item \textbf{BDF methods:}
-Backward Differentiation Formula methods like \texttt{FBDF} and \texttt{QNDF} \citep{shampineMATLABODESuite1997} are 
-multi-step methods that use information from several past steps at every step.
-Without \enquote{stages} in single-stepping Runge-Kutta methods,
-they solve just one implicit equation per step, scale well for larger ODEs and reuse Jacobians aggressively.
+\item
+%\textbf{BDF methods:}
+\textbf{Backward Differentiation Formula (BDF) methods}
+like \texttt{FBDF} and \texttt{QNDF} \citep{shampineMATLABODESuite1997} are 
+multi-step methods that use several points in the past to find the next step.
+They do not have \enquote{stages} as in Runge-Kutta methods and solve just one implicit equation per step,
+so they scale best for larger ODEs and can reuse Jacobians aggressively.
 They have variable order of 1-5, but their most desirable L-stability property only holds up to 2nd order.
-This makes them take very small steps and not utilize their high order in stiff regimes.
+This makes them take very small steps in stiff regimes without utilizing their highest orders.
 %They reuse Jacobians very aggressively by keeping the time step constant.
 %but we do not find this to be the case with sparse matrices and only $O(100)$ equations per perturbation mode.
 %Being multistep methods, they do not have \enquote{stages} but compute the next time point in one point.
+% TODO: multi-step structure is not optimal for events like approximation switching
 We find them to be the slowest.
 CLASS' \texttt{ndf15} evolver belongs to this family \citep{lesgourguesCosmicLinearAnisotropy2011a}.
 
-\item \textbf{ESDIRK methods:}
-Explicit Singly-Diagonal Implicit Runge-Kutta methods \citep[e.g.][]{jorgensenFamilyESDIRKIntegration2018} like \texttt{KenCarp4} \citep{kennedyAdditiveRungeKutta2003} are a class of implicit Runge-Kutta methods designed to preserve most stability of Fully Implicit (FIRK) methods with less computational cost.
-An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$ and must solve one big system of $n \times s$ equations at every step.
-D in ESDIRK means that $a_{ij}$ only has lower triangular and diagonal nonzeros, so the $n \times s$ system decouples into $s$ systems of $n$ equations that are easier to solve sequentially.
-S means that all (nonzero) diagonal entries $a_{ii} = \gamma$ are equal, so all stages use the same $\boldsymbol{W}$-matrix that can be reused over steps as in BDF methods.
+\item
+%\textbf{ESDIRK methods:}
+\textbf{Explicit Singly-Diagonal Implicit Runge-Kutta (ESDIRK) methods} \citep[e.g.][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of Fully Implicit (FIRK) methods at a cheaper computational cost.
+An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$ and must solve a system of $n \times s$ equations at every step.
+D in ESDIRK means that $a_{ij}$ has only lower triangular and diagonal nonzeros, decoupling the system into $s$ systems of $n$ equations that are faster to solve sequentially.
+S means that all diagonal nonzeros $a_{ii} = \gamma$ are equal, so all stages share the same $\boldsymbol{W}$-matrix and only one must be factorized and can be reused as in BDF methods.
 E means that $a_{11} = 0$, so the first stage is explicit and cheap.
-Unlike BDF methods, these methods remain L-stable without losing order in stiff regimes.
-We find the 4th order \texttt{KenCarp4} method to perform well on the Einstein-Boltzmann equations with much fewer time steps.
-Bolt.jl also defaults to this solver, and DISCO-EB and PyCosmo use \texttt{Kvaerno5} and \texttt{TRBDF2} from the same family.
+Unlike BDF methods, they can remain L-stable without losing order to stiffness.
+We find the 4th order \texttt{KenCarp4} method \citep{kennedyAdditiveRungeKutta2003} to perform well with much fewer time steps.
+Bolt.jl also defaults to this solver, and DISCO-EB and PyCosmo use \texttt{Kvaerno5} and \texttt{TRBDF2} from the same family, but we find them slower.
 
-\item \textbf{Rosenbrock methods:} Rosenbrock methods \citep[e.g.][]{langRosenbrockWannerMethodsConstruction2020} like \texttt{Rodas5P} \citep{steinebachConstructionRosenbrockWanner2023} linearize $\boldsymbol{f} \approx \boldsymbol{J} \boldsymbol{u}$ and write out only one iteration of Newton's method.
-Being free from nonlinear convergence is a major upside and also suitable for the linear perturbation ODEs.
-The downside is that they can require a new $\boldsymbol{J}$ at every single step, but this is largely eliminated with a generated analytical Jacobian.
-A subclass called Rosenbrock-W methods can in principle reuse $\boldsymbol{J}$ over time steps, but this strategy is not yet implemented in OrdinaryDiffEq.jl.
-We find this to perform best on both the background and perturbations in terms of both stability and stiffness, and have not found it used by other Boltzmann codes.
+\item \textbf{Rosenbrock methods:} Rosenbrock methods \citep[e.g.][]{langRosenbrockWannerMethodsConstruction2020} linearize $\boldsymbol{f} \approx \boldsymbol{J} \boldsymbol{u}$ and replace Newton's method with one linear solve.
+Their major upside is being free from convergence on a nonlinear problem.
+This suits the perturbation ODEs that are already linear.
+The downside is that they can require a new $\boldsymbol{J}$ at every step, but this is eliminated by generating it analytically.
+A subclass called Rosenbrock-W methods can in principle reuse Jacobians, but this strategy is not yet used by OrdinaryDiffEq.jl.
+We find the 5th order L-stable \texttt{Rodas5P} method \citep{steinebachConstructionRosenbrockWanner2023} to be both most efficient and stable on both the background and perturbations, and have not found it used by other Boltzmann codes.
 \end{itemize}
 \Cref{sec:performance} gives a performance comparison of these methods.
 
-In contrast, traditional codes use approximations to reduce stiffness and improve performance by evolving fewer ODE variables when possible.
-Previous works have found only marginal speedups from TCA and UFA compared to use of implicit solvers,
+In contrast, traditional codes use approximations to reduce stiffness and increase performance by evolving fewer ODE variables when possible.
+Earlier works find only marginal speedups from the TCA and UFA compared to using implicit solvers,
 while the RSA can significantly speed up models with high $\lmax$ \citep{lesgourguesCosmicLinearAnisotropy2011a,moserSymbolicImplementationExtensions2022,hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
-But approximation-based solvers are more complicated and must account for the structure of the equations to change.
-This is not without overhead for implicit solvers and sparse Jacobian structures.
-Approximation-free solvers can challenge this by optimizing around unchanged structure.
-Furthermore, non-differentiable codes compute $\boldsymbol{J}$ with finite differences with $O(n)$ evaluations of $\boldsymbol{f}$.
-This is extremely wasteful, as $\boldsymbol{f} = \boldsymbol{J} \boldsymbol{u}$ for the linear perturbations and computing the nonzeros of $\boldsymbol{J}$ in fact requires fewer operations than $\boldsymbol{f}$!
-Approximations also put more load on the modeler to derive, implement and validate them,
-and this must generally be repeated for modifications that easily reintroduce stiffness or invalidate the approximations.
+But approximation-based codes must account for the structure of the equations to change, which adds overhead to implicit solvers and restructuring sparse Jacobians.
+Approximation-free solvers optimize around unchanged structure to challenge this.
+Non-differentiable codes approximate $\boldsymbol{J}$ with finite differences and $O(n)$ evaluations of $\boldsymbol{f}$.
+This is very wasteful, as $\boldsymbol{f} = \boldsymbol{J} \boldsymbol{u}$ for linear perturbations and computing the nonzeros of $\boldsymbol{J}$ in fact requires fewer operations than $\boldsymbol{f}$!
+Codes with a symbolic structure can take advantage of such properties.
+Approximations also complicate the code and put more load on modelers to derive, implement and validate them,
+and repeat the process for modifications that reintroduce stiffness or invalidate approximations.
 
 SymBoltz is tuned for performance without invoking approximations.
 The approximation-free structure is a major simplification and pairs well with a symbolic high-level equation-oriented interface.
