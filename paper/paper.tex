@@ -111,24 +111,26 @@ Vera C. Rubin Observatory \citep{lsstsciencecollaborationLSSTScienceBook2009},
 Dark Energy Spectroscopic Instrument \citep{desicollaborationDESIExperimentPart2016},
 Simon's Observatory \citep{thesimonsobservatorycollaborationSimonsObservatoryScience2019} and
 Euclid \citep{euclidcollaborationEuclidOverviewEuclid2025}
-promise even more precise data.
-Setting models apart with upcoming data involves both theoretical model parameters and experimental nuisance parameters that live side-by-side in large $O(100)$-dimensional spaces \citep{pirasFutureCosmologicalLikelihoodbased2024}.
-In high dimensions, modern Markov chain Monte Carlo methods like Hamiltonian Monte Carlo and the No-U-Turn Sampler \citep{hoffmanNoUTurnSamplerAdaptively2011} beat the traditional Metropolis-Hastings algorithm \citep{hastingsMonteCarloSampling1970}.
-These methods explore parameter space more efficiently, but need both the likelihood and its derivatives with respect to parameters.
-Differentiability is also increasingly important in other applications, such as forward-modeling field-level inference using simulations with initial conditions from Boltzmann solvers \citep{seljakOptimalExtractionCosmological2017}.
-Automatic differentiation is a way to compute derivatives that is more accurate and can be faster than finite differences, which is an approximate and brute-force method.
-A differentiable Boltzmann solver is therefore a cornerstone in the next-generation cosmological modeling toolbox.
+promise more precise data.
+Setting models apart with upcoming data involves both theoretical model parameters and experimental nuisance parameters that coexist in large $O(100)$-dimensional spaces \citep{pirasFutureCosmologicalLikelihoodbased2024}.
+In high dimensions, modern Markov chain Monte Carlo methods like Hamiltonian Monte Carlo and the No-U-Turn Sampler \citep{hoffmanNoUTurnSamplerAdaptively2011} outperform the traditional Metropolis-Hastings algorithm \citep{hastingsMonteCarloSampling1970}.
+They explore parameter space more efficiently, but need both the likelihood and its gradient with respect to parameters.
+Emulators have become popular to get this from existing non-differentiable codes by training differentiable neural networks to reproduce their output \citep[e.g][]{bollietHighaccuracyEmulatorsObservables2024,boniciCapsejlEfficientAutodifferentiable2024}.
+Differentiability is also used in forward-modeling field-level inference with simulations and initial conditions from Boltzmann solvers, for example \citep{seljakOptimalExtractionCosmological2017}.
+Automatic differentiation can compute derivatives more accurately and faster than approximate and brute-force finite differences.
+A differentiable Boltzmann solver is a cornerstone in the modern cosmological modeling toolbox.
 
 SymBoltz is a new Boltzmann solver that aims to fill these gaps, featuring a convenient symbolic-numeric interface, approximation-freeness and differentiability.
-At its core, a Boltzmann code solves the gravitational (Einstein) equations for a gravitational theory coupled to some particle species described by thermodynamic (Boltzmann) equations up to first perturbative order around a homogeneous and isotropic universe.
-It can predict cosmic microwave background (CMB), baryon acoustic oscillation (BAO) or supernova (SN) observations; or be used in longer computations, such as to generate initial conditions to non-linear $N$-body simulations of large-scale structure.
+At its core, a Boltzmann code solves the Einstein equations for a gravitational theory coupled to some particle species described by Boltzmann equations up to first perturbative order around a homogeneous and isotropic universe.
+For example, it predicts cosmic microwave background (CMB), baryon acoustic oscillation (BAO) or supernova (SN) observations, or generates initial conditions for non-linear $N$-body simulations of large-scale structure.
 
 This article is structured as follows.
-\Cref{sec:intro} revisits the historical development of Boltzmann codes, sketches their structure, reviews methods for computing derivatives and motivates SymBoltz.
-\Cref{sec:features} maps out the architecture and main features of SymBoltz and how it differs from other codes.
-\Cref{sec:examples} shows some example usage.
-\Cref{sec:discussion} discusses synergies and tradeoffs in the design.
-\Cref{sec:conclusion} concludes with the current state of the code and future potential.
+\Cref{sec:intro} revisits the historical development of Boltzmann codes, introduces methods for computing derivatives and motivates SymBoltz.
+\Cref{sec:features} describes the structure and main features of SymBoltz and how it differs from other codes.
+\Cref{sec:examples} shows example usage.
+\Cref{sec:performance} compares performance to one existing code.
+\Cref{sec:futurework} describes possibilities for future work.
+\Cref{sec:conclusion} concludes with the current state of the code.
 The appendices list equations, implementation details, comparison settings and testing methods.
 
 \section{History and motivation}
@@ -760,7 +762,7 @@ We proceed with this new model and problem.
 \subsection{Computing power spectra}
 
 \begin{table}[b]
-\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra}.}
+\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra} with standard precision.}
 %\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
 %\begin{tabularx}{\linewidth}{Xrr}
 \begin{tabularx}{\linewidth}{X r r}

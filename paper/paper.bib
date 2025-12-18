@@ -205,23 +205,45 @@
   file = {/home/hermasl/Zotero/storage/5EHW7ZU8/The Cosmic Linear Anisotropy Solving System (CLASS) II (Blas+, 2011).pdf;/home/hermasl/Zotero/storage/XJC8WCNX/1104.html}
 }
 
-@misc{bollietHighaccuracyEmulatorsObservables2023,
-  title = {High-Accuracy Emulators for Observables in \${{$\Lambda$}}\${{CDM}}, \${{N}}\_\textbackslash mathrm\textbraceleft eff\textbraceright\$, \${{$\Sigma$m}}\_{$\nu\$$}, and \$w\$ Cosmologies},
-  author = {Bolliet, Boris and Mancini, Alessio Spurio and Hill, J. Colin and Madhavacheril, Mathew and Jense, Hidde T. and Calabrese, Erminia and Dunkley, Jo},
-  year = 2023,
-  month = mar,
-  number = {arXiv:2303.01591},
+@article{bollietHighaccuracyEmulatorsObservables2024,
+  title = {High-Accuracy Emulators for Observables in {{$\Lambda$CDM}}, {{Neff}}, {{$\Sigma$m$\nu$}}, and w Cosmologies},
+  author = {Bolliet, Boris and Spurio~Mancini, Alessio and Hill, J Colin and Madhavacheril, Mathew and Jense, Hidde T and Calabrese, Erminia and Dunkley, Jo},
+  year = 2024,
+  month = jun,
+  journal = {MNRAS},
+  volume = {531},
+  number = {1},
   eprint = {2303.01591},
-  primaryclass = {astro-ph},
-  publisher = {arXiv},
-  doi = {10.48550/arXiv.2303.01591},
-  url = {http://arxiv.org/abs/2303.01591},
+  pages = {1351--1370},
+  issn = {0035-8711},
+  doi = {10.1093/mnras/stae1201},
+  url = {https://doi.org/10.1093/mnras/stae1201},
   urldate = {2025-12-18},
-  abstract = {We use the emulation framework CosmoPower to construct and publicly release neural network emulators of cosmological observables, including the Cosmic Microwave Background (CMB) temperature and polarization power spectra, matter power spectrum, distance-redshift relation, baryon acoustic oscillation (BAO) and redshift-space distortion (RSD) observables, and derived parameters. We train our emulators on Einstein-Boltzmann calculations obtained with high-precision numerical convergence settings, for a wide range of cosmological models including {$\Lambda$}CDM, {$w$}CDM, {$\Lambda$}CDM+{$N$}eff, and {$\Lambda$}CDM+{$\Sigmam\nu$}. Our CMB emulators are accurate to better than 0.5\% out to {$\ell$} = 104 which is sufficient for Stage-IV data analysis, and our {$P^{1}k$}º emulators reach the same accuracy level out to {$k$} = 50 Mpc 1, which is sufficient for Stage-III data analysis. We release the emulators via an online repository (CosmoPower Organisation), which will be continually updated with additional extended cosmological models. Our emulators accelerate cosmological data analysis by orders of magnitude, enabling cosmological parameter extraction analyses, using current survey data, to be performed on a laptop. We validate our emulators by comparing them to class and camb and by reproducing cosmological parameter constraints derived from Planck TT, TE, EE, and CMB lensing data, as well as from the Atacama Cosmology Telescope Data Release 4 CMB data, Dark Energy Survey Year-1 galaxy lensing and clustering data, and Baryon Oscillation Spectroscopic Survey Data Release 12 BAO and RSD data.},
+  abstract = {We use the emulation framework CosmoPower to construct and publicly release neural network emulators of cosmological observables, including the cosmic microwave background (CMB) temperature and polarization power spectra, matter power spectrum, distance-redshift relation, baryon acoustic oscillation (BAO) and redshift-space distortion (RSD) observables, and derived parameters. We train our emulators on Einstein--Boltzmann calculations obtained with high-precision numerical convergence settings, for a wide range of cosmological models including {$\Lambda$}CDM, wCDM, {$\Lambda$}CDM~+~Neff, and {$\Lambda$}CDM~+~{$\Sigma$}m{$\nu$}. Our CMB emulators are accurate to better than 0.5 per\,cent out to {$\ell~$}= 104, which is sufficient for Stage-IV data analysis, and our P(k) emulators reach the same accuracy level out to \$k=50 \textbackslash, \textbackslash, \textbackslash mathrm\textbraceleft Mpc\textbraceright\textasciicircum\textbraceleft -1\textbraceright\$, which is sufficient for Stage-III data analysis. We release the emulators via an online repository (CosmoPower Organisation), which will be continually updated with additional extended cosmological models. Our emulators accelerate cosmological data analysis by orders of magnitude, enabling cosmological parameter extraction analyses, using current survey data, to be performed on a laptop. We validate our emulators by comparing them to class and camb and by reproducing cosmological parameter constraints derived from Planck TT, TE, EE, and CMB lensing data, as well as from the Atacama Cosmology Telescope Data Release 4 CMB data, Dark Energy Survey Year-1 galaxy lensing and clustering data, and Baryon Oscillation Spectroscopic Survey Data Release 12 BAO and RSD data.},
+  archiveprefix = {arXiv},
+  file = {/home/hermasl/Zotero/storage/EPHYETS4/Bolliet et al. - 2024 - High-accuracy emulators for observables in ΛCDM, Neff, Σmν, and w cosmologies.pdf;/home/hermasl/Zotero/storage/NVYRHLPI/stae1201.html}
+}
+
+@article{boniciCapsejlEfficientAutodifferentiable2024,
+  title = {Capse.Jl: Efficient and Auto-Differentiable {{CMB}} Power Spectra Emulation},
+  shorttitle = {Capse.Jl},
+  author = {Bonici, Marco and Bianchini, Federico and {Ruiz-Zapatero}, Jaime},
+  year = 2024,
+  month = jan,
+  journal = {TheOJA},
+  volume = {7},
+  eprint = {2307.14339},
+  primaryclass = {astro-ph},
+  pages = {10.21105/astro.2307.14339},
+  issn = {2565-6120},
+  doi = {10.21105/astro.2307.14339},
+  url = {http://arxiv.org/abs/2307.14339},
+  urldate = {2025-12-19},
+  abstract = {We present Capse.jl, a novel neural network-based emulator designed for rapid and accurate prediction of Cosmic Microwave Background (CMB) temperature, polarization, and lensing angular power spectra. The emulator computes predictions in just a few microseconds with emulation errors below \$0.1{$\sigma\$$} for all the scales relevant for the upcoming CMB-S4 survey. Capse.jl can also be trained in an hour's time on a 8-cores CPU. We test Capse.jl on Planck 2018, ACT DR4, and 2018 SPT-3G data and demonstrate its capability to derive cosmological constraints comparable to those obtained by traditional methods, but with a computational efficiency that is three to six orders of magnitude higher. We take advantage of the differentiability of our emulators to use gradient-based methods, such as Pathfinder and Hamiltonian Monte Carlo (HMC), which speed up the convergence and increase sampling efficiency. Together, these features make Capse.jl a powerful tool for studying the CMB and its implications for cosmology. When using the fastest combination of our likelihoods, emulators, and analysis algorithm, we are able to perform a Plancky TT + TE + EE analysis in less than a second. To ensure full reproducibility, we provide open access to the codes and data required to reproduce all the results of this work.},
   archiveprefix = {arXiv},
   langid = {english},
   keywords = {Astrophysics - Cosmology and Nongalactic Astrophysics},
-  file = {/home/hermasl/Zotero/storage/JJB3SHCR/Bolliet et al. - 2023 - High-accuracy emulators for observables in $Λ$CDM, $N_mathrm eff $, $Σm_ν$, and $w$ cosmologies.pdf}
+  file = {/home/hermasl/Zotero/storage/49N7KHS9/2307.pdf}
 }
 
 @article{bull$L$CDMProblemsSolutions2016,
