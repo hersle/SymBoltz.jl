@@ -786,16 +786,19 @@ Cls = spectrum_cmb([:TT, :TE, :EE], prob, jl)
 \end{Verbatim}
 \end{codebox}
 Calling \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} with \texttt{prob} automatically selects a coarse $k$-grid to solve the perturbations for and interpolates to a finer $k$-grid.
-This is a common trick in Boltzmann solvers to integrate fewer perturbation modes.
-Output spectra and their computation time are shown in \cref{fig:spectra,tab:timings}.
+This is a common trick in Boltzmann solvers to integrate fewer $k$-modes.
+Both functions take in all precision parameters that affect the computation as optional keyword arguments.
+Output spectra and their computation time with standard precision settings are shown in \cref{fig:spectra,tab:timings}.
 
-SymBoltz and CLASS agree to around $0.1\%$ or better.
+We see that SymBoltz and CLASS agree to around $0.1\%$ or better.
 The $P(k)$ agree to $0.1\%$ for all $k$ and $0.01\%$ for linear $k$.
-The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for very low $l$ (dominated by cosmic variance) and very large $l$ in $C_l^\text{TE}$.
-This is the level of accuracy needed to fit current-generation data \TODO{ref}.
+The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for very low $l$ (where cosmic variance is also larger) and very large $l$ in $C_l^\text{TE}$.
+This level of accuracy is sufficient for most current data \citep[e.g.][]{bollietHighaccuracyEmulatorsObservables2023}.
+It is around the level of CAMB vs. CLASS run with standard precision,
+although their agreement can be pushed to $0.01\%$ using high precision \cite{lesgourguesCosmicLinearAnisotropy2011c}.
 
 SymBoltz computes $P(k)$ quickly, but the extra steps needed for $C_l$ are not yet as optimized as they are in CLASS.
-A more thorough comparison of performance vs. precision for computing $P(k)$ with SymBoltz vs. CLASS is given in \cref{sec:performance}.
+A more thorough performance comparison for $P(k)$ is given in \cref{sec:performance}.
 
 \subsection{Differentiable Fisher forecasting}
 \label{sec:fisher}
