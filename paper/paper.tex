@@ -334,7 +334,7 @@ In any case, automatic differentiation requires access to the source code!
     \draw [bigprocess] (model) -- node [above=1mm] {Compile} (problem);
     \draw [bigprocess] (problem) -- node [above=1mm] {Solve} (solution);
     \end{tikzpicture}
-    \caption{SymBoltz represents cosmological models with equations in \emph{symbolic} form and grouped by physical components like the spacetime metric, gravity and particle species. This is compiled to a \emph{numerical} problem that splits the model into background and perturbation stages and generates efficient numerical code for ODEs and their Jacobians. The problem is then solved and the result stored in a solution object that gives convenient access to any quantity defined in the symbolic model.}
+    \caption{SymBoltz represents cosmological models with symbolic equations grouped by physical components like the metric, gravity and particle species. This is compiled to a numerical problem that splits the equations into background and perturbation stages and generates fast code for ODEs and their Jacobians. The problem is then solved and the result stored in a solution object that gives convenient access to any variable in the model.}
     \label{fig:components}
 \end{figure*}
 
@@ -349,14 +349,14 @@ This provides rapid model prototyping, helpful abstractions and automation of ty
 SymBoltz encourages interactive usage and pursues a modular design that lets users integrate whatever they need from the package into their own applications.
 The end goal is to prioritize the \emph{modeler}, who should be able to just write down the model equations while SymBoltz takes care of the rest.
 
-SymBoltz is written in the Julia programming language \citep{bezansonJuliaFreshApproach2017a}, which attracts development of modern numerical methods and aims to resolve the two-language problem.
+SymBoltz is written in the Julia programming language \citep{bezansonJuliaFreshApproach2017a}, with a rich ecosystem of scientific packages and an aim to resolve the two-language problem.
 The symbolic-numeric interface is built on the ModelingToolkit.jl \citep{maModelingToolkitComposableGraph2022} and Symbolics.jl \citep{gowdaHighperformanceSymbolicnumericsMultiple2022} packages.
-The compiled functions are integrated by implicit ODE solvers in DifferentialEquations.jl \citep{rackauckasDifferentialEquationsjlPerformantFeatureRich2017}.
-Everything works with automatic differentiation through ForwardDiff.jl \citep{revelsForwardModeAutomaticDifferentiation2016}, for example.
+The compiled functions are integrated by implicit ODE solvers in OrdinaryDiffEq.jl \citep{rackauckasDifferentialEquationsjlPerformantFeatureRich2017}.
+Automatic differentiation works through ForwardDiff.jl \citep{revelsForwardModeAutomaticDifferentiation2016}.
 
 The next subsections present the design of SymBoltz in more detail, revolving around the three key features in the title.
-Other minor implementation details are given in \cref{sec:implementation}.
-\textbf{This paper is as of SymBoltz version 0.8.1. Please refer to the package documentation for definitive up-to-date information.}
+Other implementation details are given in \cref{sec:implementation}.
+\textbf{This paper is as of SymBoltz version 0.14.0. Please refer to the package documentation for definitive up-to-date information.}
 
 \subsection{Symbolic-numeric interface}
 \label{sec:symbolicnumeric}
@@ -373,21 +373,20 @@ It is easiest for modelers to specify equations in one common system, where the 
 The separation into computational stages can be automated.
 
 Second, solving each stage is hard due to stiffness, performance requirements and its dependence on previous stages.
-To overcome this, it is helpful to automatically generate low-level code for the ODE that is optimal in speed, accuracy and stability.
-This can be extended to generate the ODE Jacobian, which is nontrivial to derive manually but crucial for implicit solvers to solve stiff ODEs.
-Modelers should not have to worry about this.
+To overcome this, it is helpful to automatically generate ODE code that is optimal in speed, accuracy and stability, and includes nontrivial constructs like the ODE Jacobian that implicit solvers may take advantage of.
+Modelers should not worry about this.
 
-Third, the equations are often modified because the true cosmological model is unknown.
-This can be made easier by organizing the equations in a way that reflects the physical structure of the model, so it is easy to replace a subset of equations with another without duplicating the entire model.
+Third, the equations are often modified because the true cosmology is unknown.
+This can be made easier by organizing equations in a way that reflects the physical structure of the model, so it is easy to replace a related subset of equations with another without duplicating the entire model.
 This could be slow to do at the numerical level, but can be done with no runtime penalty in an intermediate symbolic representation of the equations.
 
 Inspired by this, SymBoltz inverts the traditional layout of Boltzmann solvers.
-While other codes are built as pipelines to follow the background, perturbations and other stages of the equations,
-SymBoltz is primarily structured around the physical components that it consists of.
-Related variables and equations are grouped into distinct components for the metric, gravitational theory, photons, baryons, dark matter, dark energy, neutrinos and other species.
+While other codes are pipelines that follow the background, perturbations and other stages of the equations,
+SymBoltz is primarily structured around the physical components that they consists of.
+Related variables and equations are grouped in distinct components for the metric, gravitational theory, photons, baryons, dark matter, dark energy, neutrinos and other species (see \cref{fig:components}).
 This isolates everything related to one submodel to one place.
 Any set of such submodels are joined into a full cosmological model, like \LCDM{}.
-Interactions (e.g. Compton scattering or sourcing of gravity) are equations between several components.
+Interactions (e.g. Compton scattering or sourcing of gravity) are equations between components.
 Adding new submodels is easy, and SymBoltz is largely devoted to simply building a well-organized library of them.
 
 SymBoltz then takes a full cosmological model, separates it into stages and generates numerical code to solve each stage with ODE methods.
@@ -401,7 +400,7 @@ The generic symbolic framework can also be used to build reduced models with non
 When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons. % e.g. https://github.com/lesgourg/class_public/issues/246
 
 In contrast, the monolithic layout of other codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
-As more and more submodels are added, their code is increasingly intertwined and the fragmentation is amplified.
+As more and more submodels are added, this code is increasingly intertwined and the fragmentation is amplified.
 %Adding new submodels then effectively duplicates one big monolithic model and leads to many forked versions of a Boltzmann code with different extensions that are incompatible with each other.
 They are also not flexible enough to test simpler toy models, as baryons and photons are hardcoded as fundamental to the structure of the code.
 This design fits the computational structure better than the physical one.
@@ -411,13 +410,13 @@ It can result in an overwhelming code that becomes hard to read and modify, and 
 As an alternative to the component-based modeling,
 SymBoltz also includes a version of the default \LCDM{} model with all equations packed into one big \enquote{unstructured} system.
 This makes it trivial to change absolutely anything in the equations, but sacrifices modularity.
-The powerful symbolic interface makes it very compact:
+The symbolic interface makes it very compact:
 SymBoltz defines the full \LCDM{} model (with GR, baryons, RECFAST recombination, photons, cosmological constant, massive and massless neutrinos) in just 277 straightforward lines of code, while the equivalent code to browse in CLASS is spread over 10 files with 27721 lines.%
 \footnote{Counting \texttt{input.\{h,c\}}, \texttt{background.\{h,c\}}, \texttt{thermodynamics.\{h,c\}}, \texttt{perturbations.\{h,c\}} and \texttt{wrap\_recfast.\{h,c\}} with \texttt{wc -l}.}
 CLASS' greater number of features does not make up for the $100\times$ simplification.
 
 SymBoltz' powerful symbolic-numeric interface aims to make it as easy as possible to solve and modify the Einstein-Boltzmann equations.
-It gives maximal speed, stability and convenience from minimal user input.
+Its goal is to maximize speed, stability and convenience with minimal user input.
 The next sections go into detail on how these overarching features are implemented.
 
 \subsubsection{Automatic numerical code generation}
@@ -429,71 +428,76 @@ SymBoltz automatically compiles symbolic equations to numerical code for ordinar
     \label{eq:ode}
 \end{equation}
 The generated code is fast and prevents users unfamiliar with the language or package from writing slow numerical code.
-If necessary, one can escape the standard code generation and include arbitrary numerical code, but the user is then fully responsible for its performance.
-This accommodates functions that cannot be written as straightforward equations, for example if one must solve a nonlinear equation for the minimum of a potential or interpolate tabulated data.
-The code generation deals with chores like dynamically allocating indices for each ODE state $u_i$, and performs optimizations such as common subexpression elimination.
+If necessary, one can escape the standard code generation and call arbitrary numerical functions, for example if one wants to solve a nonlinear equation for the minimum of a potential or interpolate tabulated data.
+The code generation handles chores like allocating indices for each ODE state $u_i$, and performs optimizations such as common subexpression elimination.
 This is helpful as Boltzmann solvers tend to have big $\boldsymbol{f}$, and particularly with implicit ODE solvers that call $\boldsymbol{f}$ often.
 
 \subsubsection{Automatic handling of observed variables}
 \label{sec:observed}
 
-In general, an ODE \eqref{eq:ode} admits two types of variables: \textit{unknowns} $\mathbf{u}(\tau)$ are the variables that are integrated with respect to time, and \textit{observed} variables are functions of the unknowns.
-The Einstein-Boltzmann equations are commonly formulated with many observed variables.
+A general ODE \eqref{eq:ode} admits two types of variables: \textit{unknowns} $\mathbf{u}(\tau)$ are integrated with respect to time, while \textit{observed} variables are any functions of the unknowns.
+The Einstein-Boltzmann equations are usually written with many observed variables.
 
 For example, consider the metric and gravity equations in \cref{sec:metric,sec:gravity} sourced by some arbitrary $\rho(\tau)$, $\delta\rho(\tau,k)$ and $\Pi(\tau,k)$.
-Here $a(\tau)$ and $\Phi(\tau,k)$ are the only unknown (differential) variables that the ODE solver must solve for,
-while one can \enquote{observe} $z(\tau)$, $\scrH(\tau)$, $H(\tau)$, $\chi(\tau)$ and $\Psi(\tau,k)$ from the unknowns.
-Of course, it is always possible to eliminate all observeds by explicitly inserting them into the equations for the unknowns.
-But this kills readability, as observed variables are helpful and natural intermediate definitions that break up the system, and one may want to extract them from the solution as well.
+Here $a(\tau)$ and $\Phi(\tau,k)$ are the only unknown (differential) variables that the ODE solver solve for,
+while one can \enquote{observe} $z(\tau)$, $\scrH(\tau)$, $H(\tau)$ and $\Psi(\tau,k)$ from the unknowns.
+In addition, observed derivatives like $\scrH^\prime$ or $\Psi^\prime$ are not always trivial to compute, but SymBoltz automatically expands them using the definitions of $\scrH$ or $\Psi$.
+Of course, one can eliminate all observeds by explicitly inserting them into the equations for the unknowns.
+But this kills readability, as observed variables are helpful intermediate definitions that break up the system, and one may want to extract them from the solution as well.
 Furthermore, modified models can change the sets of unknown and observed variables (e.g. modified gravity can change the constraint equation for $\Psi$ into a differential equation).
-It is easier to compose models when variables do not have to be hardcoded as either unknown or observed.
+It is easier to compose models when variables are not hardcoded as either unknown or observed.
 
-SymBoltz reads in an entire system of equations like that defined by \cref{sec:implementation} and automatically figures out which variables are unknown and observed.
+SymBoltz reads in a full system of equations like that defined by \cref{sec:implementation} and separates variables into unknowns and observeds.
 It then generates numerical code for solving the ODE for the unknowns (see \cref{sec:codegen}),
-and can lazily compute any observed variable or expression thereof from the solution of the unknowns.
+but can automatically recompute any observed variables from the solution of the unknowns.
 
-The bottom line is that the user can trivially use and obtain \textit{any} variable anywhere just by referring to it, whether it is unknown or observed.
+The bottom line is that users can easily refer to and obtain \textit{any} variable anywhere just by referring to it, whether it is unknown or observed.
 In other solvers one must look up the desired expression for observed variables and recompute them manually.
-This is tedious, error-prone and can tempts users to neglect parts of expressions (e.g. approximating $\Psi \approx \Phi$ by neglecting anisotropic stress).
+This is tedious, error-prone and tempts users to neglect parts of expressions (e.g. approximating $\Psi \approx \Phi$ without anisotropic stress).
 
 \subsubsection{Automatic stage separation and splining of unknowns}
 \label{sec:splining}
 
-In principle, one can solve the Einstein-Boltzmann equations by integrating the entire system (i.e. background and perturbations) at the same time.
+In principle, one can solve the Einstein-Boltzmann equations by integrating the entire system (e.g. background and perturbations) at once.
 However, the system can be broken down into sequential computational stages that each depend only on those before it.
 To alleviate stiffness in each stage, separate concerns by solving every equation only once (e.g. avoid recomputing the background for every perturbation mode) and to improve performance, it is common to solve the system stage-by-stage and spline variables from one stage as input to the next.
 
-To illustrate, again consider the general relativistic equations in \cref{sec:gravity} sourced by some given $\rho(\tau)$, $\delta\rho(\tau,k)$ and $\Pi(\tau,k)$.
-Clearly $\Phi(\tau,k)$ and $\Psi(\tau,k)$ depend on $a(\tau)$, but $a(\tau)$ does not depend on $\Phi(\tau,k)$ or $\Psi(\tau,k)$ (this just reflects the perturbative nature of the problem).
-One can first solve for only $a(\tau)$ in the \textit{background}, then spline $a(\tau)$ and use it as input for solving for $\Phi(\tau,k)$ and $\Psi(\tau,k)$ in the \textit{perturbations}, instead of solving for all three together and repeatedly solve for $a(\tau)$ for every $k$.
+To illustrate, again consider the general relativistic equations in \cref{sec:gravity} sourced by some known $\rho(\tau)$, $\delta\rho(\tau,k)$ and $\Pi(\tau,k)$.
+Clearly $\Phi(\tau,k)$ and $\Psi(\tau,k)$ depend on $a(\tau)$, but $a(\tau)$ does not depend on $\Phi(\tau,k)$ or $\Psi(\tau,k)$, reflecting the perturbative nature of the problem.
+One can first solve for only $a(\tau)$ in the \enquote{background}, then spline and look up $a(\tau)$ to solve for $\Phi(\tau,k)$ and $\Psi(\tau,k)$ in the \enquote{perturbations}, instead of solving for all three together and repeatedly solve for $a(\tau)$ for every $k$.
 
 SymBoltz uses the same stage separation strategy, but automates and strengthens it with its knowledge of the symbolic equations.
-First, the full symbolic model is split into background and perturbation systems.
-Cubic Hermite splines are then constructed for all \emph{unknown} variables (like $a(\tau)$) to pass their solution from one stage to the next.
-This type of splines is perfect for interpolating ODEs, as cubic Hermite splines increase accuracy by taking both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account, and $\boldsymbol{u}^\prime(\tau)$ is known analytically by definition \eqref{eq:ode}.
-In contrast, \emph{observed} variables (like $\Psi(\tau,k)$) are computed from the (splined) unknowns because their derivatives are not known analytically.
-Splining them directly would be less accurate.
+First, the full symbolic equations are split into background and perturbation systems.
+Cubic Hermite splines are then constructed for all background unknowns (like $a(\tau)$) and passed on to the perturbations.
+This type of splines is optimal for interpolating ODEs, as Hermite splines increase accuracy by taking both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account, and $\boldsymbol{u}^\prime(\tau)$ is known analytically by definition \eqref{eq:ode}.
+In contrast, observed variables (like $\scrH(\tau)$) are computed from the (splined) unknowns because their derivatives are not known directly.
+Splining them directly is less accurate.
 Modelers can simply write down a new background variable and access it in the perturbations for free.
-They can access any variable anywhere \emph{as if} solving the entire set of equations at once, while still benefiting from splining under the hood.
+Any variable can be accessed anywhere as if solving the entire set of equations at once, while splining and stage separation is still used under the hood.
 
-The separation into background and perturbation stages just reflects the perturbative structure of the linearized Einstein-Boltzmann equations, where each order depends only on those before it, and is always guaranteed.
+The separation into background and perturbation stages is guaranteed and just reflects the perturbative structure of the linearized Einstein-Boltzmann equations, where each order depends only on those before it.
 However, they can often be broken further down: most thermodynamics (recombination) models can be separated from the background, and some variables have integral solutions (e.g. the optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\bar\tau) \mathrm{d}\bar\tau$ or line-of-sight integration) that can be computed in isolation after solving the differential equations.
-Over time, SymBoltz aims to extend the automatic background-perturbation separation by automatically incorporating more or \emph{all} stages of the equations at hand.%
-\footnote{All stages can in principle be identified from a directed dependency graph between variables (e.g. from the Jacobian matrix). Cycles in the graph correspond to interdependent equations that must be integrated together in one ODE system (e.g. background and perturbations). Leaves with differentiated variables correspond to integral solutions.}
-This feature is a major advantage with access to the symbolic equations.
+SymBoltz' background-perturbations separation could be extended to automatically split all such smaller stages by symbolically inspecting the dependency between variables of the full Einstein-Boltzmann system.
+%Over time, SymBoltz aims to extend the automatic background-perturbation separation by automatically incorporating more or \emph{all} stages of the equations at hand.%
+%\footnote{All stages can in principle be identified from a directed dependency graph between variables (e.g. from the Jacobian matrix). Cycles in the graph correspond to interdependent equations that must be integrated together in one ODE system (e.g. background and perturbations). Leaves with differentiated variables correspond to integral solutions.}
+%This feature is a major advantage with access to the symbolic equations.
 
 \subsubsection{Automatic solution interpolation}
 \label{sec:interpolation}
 
-SymBoltz integrates equations in conformal time $\tau$ for several given wavenumbers $k$, and stores the result in an object that wraps independent ODE solutions for the background and perturbations for every $k$.
-Conveniently, this solution object can be queried for \emph{any} variable or symbolic expression
+SymBoltz integrates the background and several perturbation ODEs in conformal time $\tau$ for several wavenumbers $k$.
+All the results are stored in a solution object.
+This solution object can be conveniently queried for any variable or symbolic expression
 \begin{equation}
-    x(\tau, k) = x(\boldsymbol{u}(\tau, k_i)).
+    S(\boldsymbol{u}(\tau, k)).
 \end{equation}
-at any $\tau$ and $k$.
-The solution object automatically expands $x$ in terms of unknowns $\boldsymbol{u}$ (if $x$ is observed), and interpolates between solved wavenumbers $k_i$ (if $x$ is perturbative) and in $\tau$ using the ODE solver's built-in interpolation method (or as in \cref{sec:splining} if $x$ is splined).
+This looks up the background solution if $S$ is a background variable, or the perturbation solutions if it is perturbative.
+It interpolates from the times stored by the ODE solver to the requested $\tau$ using the solver's dense interpolation method.
+If $S$ is perturbative, it also interpolates from the integrated perturbation $k$-modes to the requested $k$.
+If $S$ is an unknown, it is returned directly from the ODE solution.
+If $S$ is observed, it is instead recomputed automatically from the equation that defines it as a function of the unknowns.
 This provides the modeler easy access to any variable and expression defined in the model.
-The solution interpolation is also incorporated into convenient plot recipes for trivial visualization of any expressions for any $\tau$ and $k$.
+The solution interpolation is also incorporated into convenient plot recipes for trivial visualization of any variable as a function of $\tau$ and $k$.
 
 \subsubsection{Automatic Jacobian generation and sparsity detection}
 \label{sec:jacobian}
