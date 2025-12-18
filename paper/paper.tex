@@ -615,17 +615,16 @@ In the long run, approximation schemes can of course be explored as a secondary 
 \label{sec:diff}
 
 SymBoltz is compatible with automatic differentiation.
-It can compute derivatives of any output quantity, like ODE variables and derived spectra, with respect to any input parameters, like the Hubble parameter $h$ or cold dark matter density parameter $\Omega_{c0}$.
-For example, it can be used to learn the output's sensitivity to the input, perform Fisher forecasts or guide the shooting method when parametrizing cosmological models with integrated variables.
-It can also compute the ODE Jacobian, but we do this symbolically to get it analytically and find its sparsity pattern.
+It can compute derivatives of any output quantity (e.g. ODE variables, $P(k)$ or $C_l$) with respect to any input parameters (e.g. $h$ or $\Omega_{c0}$).
+For example, it can be used to learn the output's sensitivity to the input, perform Fisher forecasts or compute the Jacobian in the shooting method when parametrizing models with integrated variables.
+It can also compute the ODE Jacobian, but we do this symbolically to get it analytically with its sparsity pattern.
 
-Currently SymBoltz is well-tested with forward-mode dual numbers through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}}.
-This is most appropriate for applications with more outputs than inputs, such as analyzing sensitivity of $\mathcal{O}(100)$ values of $P(k)$ or $C_l$ as a function of $\mathcal{O}(10)$ cosmological parameters.
-Support for reverse-mode would be ideal when there are fewer outputs.
-This is very attractive for like MCMCs or training neural network emulators, where prediction-data errors are compressed to a scalar loss value.
-Cheap reverse-mode gradients could accelerate sampling of $O(100)$-dimensional parameter spaces with more experimental nuisance parameters in next-generation surveys.
-Emulators have become popular \enquote{workarounds} to do this cheaply and with existing theory codes, instead of adapting codes to be differentiable.
-Unfortunately, reverse-mode is left for future work.
+Currently, SymBoltz works with forward-mode dual numbers through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}}.
+This is appropriate for applications with more outputs than inputs, like differentiating $\mathcal{O}(100)$ values of $P(k)$ or $C_l$ as functions of $\mathcal{O}(10)$ parameters.
+Reverse-mode is ideal with fewer outputs and attractive for MCMCs or training emulators where output is compressed to a scalar loss.
+Cheap reverse-mode gradients could accelerate sampling of $O(100)$-dimensional parameter spaces with more nuisance parameters from upcoming surveys.
+Emulators have become a popular tool to do this with existing theory codes without rewriting them to be differentiable.
+However, reverse-mode is left for future work.
 
 \begin{figure*}
     \centering
