@@ -630,6 +630,14 @@ Cheap reverse-mode gradients could accelerate sampling of $O(100)$-dimensional p
 Emulators have become a popular tool to do this with existing theory codes without rewriting them to be differentiable.
 However, reverse-mode is left for future work.
 
+\section{Examples}
+\label{sec:examples}
+
+The best way to illustrate the features in \cref{sec:features} is perhaps through some examples.
+The full code is as of SymBoltz version 0.14.0 and available in a notebook in the project repository.
+
+\subsection{Basic usage workflow}
+
 \begin{figure*}
     \centering
     \includegraphics[scale=0.43]{figures/evolution.pdf}
@@ -637,20 +645,11 @@ However, reverse-mode is left for future work.
     \label{fig:output}
 \end{figure*}
 
-
-\section{Examples}
-\label{sec:examples}
-
-The best way to illustrate the features in \cref{sec:features} is perhaps through some examples.
-The full code is as of SymBoltz version 0.8.1 and available in a notebook in the project repository.
-
-\subsection{Basic usage workflow}
-
 Most usage follows a model--problem--solution workflow:
 \begin{codebox}
 \begin{Verbatim}
 using SymBoltz
-M = ΛCDM(lmax = 10)
+M = ΛCDM(lmax = 16)
 pars = Dict(
   M.γ.T₀ => 2.7, M.b.Ω₀ => 0.05, M.b.rec.Yp => 0.25,
   M.ν.Neff => 3.0, M.c.Ω₀ => 0.27, M.h.m_eV => 0.06,
@@ -663,57 +662,52 @@ sol = solve(prob, ks)
 \end{codebox}
 The model--problem--solution split achieves three distinct goals.
 
-First, a \textit{symbolic} representation of the \LCDM{} model \texttt{M} is created.
-This is a standalone object designed to be interactively inspected and modified independently of numerics (see \cref{sec:modifying}).
-It contains every variable, parameter and equation of the cosmological model structured as a graph of submodels for each logically distinct (physical) component: the metric $g$, the gravitational theory $G$, photons $\gamma$, massless neutrinos $\nu$, massive neutrinos $h$, cold dark matter $c$, baryons $b$, the cosmological constant $\Lambda$ and inflation $I$.
-For example, \texttt{equations(M)} shows all model equations; \texttt{equations(M.G)} shows only the gravitational ones; \texttt{M.g.a} gives a handle to the scale factor variable $a(\tau)$ that \enquote{belongs} to the metric $g$; \texttt{M.b.Ω₀} is the density parameter $\Omega_{b0}$ in the baryon component $b$; and \texttt{parameters(M)} lists parameters of the model that the user may set.
-Everything displays with \LaTeX-compatibility in notebooks to encourage interactive use.
+First, a purely symbolic representation \texttt{M} of the \LCDM{} model is created.
+This is a standalone object designed to be interactively inspected and modified.
+It contains every variable, parameter and equation of the cosmological model structured as one submodel per physical component: the metric $g$, the gravitational theory $G$, photons $\gamma$, massless neutrinos $\nu$, massive neutrinos $h$, cold dark matter $c$, baryons $b$, the cosmological constant $\Lambda$ and inflation $I$.
+For example, \texttt{equations(M)} shows all model equations; \texttt{equations(M.G)} only the gravitational ones; \texttt{M.g.a} refers to the scale factor variable $a(\tau)$ that \enquote{belongs} to the metric $g$; \texttt{M.b.Ω₀} is the baryon density parameter $\Omega_{b0}$; and \texttt{parameters(M)} lists parameters of the model that the user may set.
+Everything displays with \LaTeX-compatibility in notebooks for interactive use.
 
-Second, the symbolic model is compiled to a \emph{numerical} problem \texttt{prob} with parameters \texttt{pars}.
-This is an expensive operation where the \enquote{magic} in \cref{sec:symbolicnumeric} happens: equations are checked for consistency and split into background and perturbation stages; observed and unknown variables are distinguished; fast ODE code is generated; background unknowns in the perturbations are replaced by splines; the Jacobian matrix is generated in numerical/analytical and dense/sparse form; and initial values are computed.
-One can customize whether stages should be separated, how the Jacobian should be generated, and so on.
+Second, the symbolic model is compiled to a numerical problem \texttt{prob} with parameters \texttt{pars}.
+This is an expensive operation where the processing in \cref{sec:symbolicnumeric} happens: equations are checked for consistency and split into background and perturbation stages; observed and unknown variables are distinguished; fast ODE code is generated; background unknowns in the perturbations are replaced by splines; the Jacobian matrix is generated in numerical/analytical and dense/sparse form; and initial values are computed.
+One can customize whether stages should be separated, how the Jacobian is computed, and so on.
 This is a separate step because it performs final transformations on the model \texttt{M} once the user has finished modifying and committed to it.
 
-Third, \texttt{solve(prob, ks)} solves the background and perturbations for the requested wavenumbers \texttt{ks}.
+Third, \texttt{solve(prob, ks)} solves the background and perturbations for the wavenumbers \texttt{ks}.
 Omitting \texttt{ks} solves only the background.
 The resulting solution object \texttt{sol} provides convenient access to all model variables.
-Internally, it stores the values of all ODE \textit{unknowns} at the time steps taken by the (adaptive) solvers and for every requested wavenumber.
-However, it can be queried with \textit{any} time, wavenumber and symbolic expression, and will automatically compute it from the unknowns and interpolate between stored times and wavenumbers (see \cref{sec:observed,sec:splining,sec:interpolation}).
-For example, calling \texttt{sol(1.0, 2.0, g.Φ+g.Ψ)} will compute $\Phi+\Psi$ at $k = 1 \, H_0/c$ and $\tau = 2 \, H_0^{-1}$ by expanding it in terms of unknowns according to the equations in \cref{sec:gravity}.
-It is also possible to compute arbitrary expressions over grids of $k$ and $\tau$.
-The convenient solution interface is also integrated into plot recipes for effortless visualization, as shown in \cref{fig:output}.
+Internally, it stores values of all ODE unknowns at the time steps taken by the solvers and for every requested wavenumber.
+But it can be queried with any time, wavenumber and symbolic expression, and will automatically compute it from the unknowns and interpolate between stored times and wavenumbers, as explained in \cref{sec:interpolation}.
+For example, calling \texttt{sol(1.0, 2.0, g.Φ+g.Ψ)} computes $\Phi+\Psi$ at $k = 1 \, H_0/c$ and $\tau = 2 \, H_0^{-1}$ by expanding it in terms of unknowns using the equations in \cref{sec:gravity}.
+This convenient interface was used to easily plot the evolution of several variables in \cref{fig:output}.
 
-Other Boltzmann solvers save only a hardcoded set of variables, such as only the unknowns.
-Observed variables must generally be recomputed manually, even though they are already expressed somewhere in the code.
-This is cumbersome, introduces more potential for user error and adds unnecessary friction in the modeling process.
-SymBoltz has higher ambitions than simply spitting out a table with some selected variables, and is designed to interactively make modifications to the model with minimal changes and easily inspect its impact on any output.
-
-\begin{figure*}
-    \centering
-    \includegraphics[scale=0.43]{figures/spectra.pdf}
-    \caption{Matter and CMB (TT, TE and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; grey dashes) with relative errors $\text{rel.err.} = P_k^\text{SB}/P_k^\text{CL}-1$ and $\text{rel.err.} = C_l^\text{SB}/C_l^\text{CL}-1$ for the $\Lambda \text{CDM}$ model. CLASS uses the precision parameters in \cref{sec:precision}.}
-    \label{fig:spectra}
-\end{figure*}
+Other Boltzmann solvers save only a fixed set of variables, such as only the unknowns.
+Recovering observed variables requires manual effort.
+This is cumbersome, opens for user error and adds friction in the modeling process.
+SymBoltz is designed to provide easy access to all variables defined by the model.
 
 \subsection{Modifying models}
 \label{sec:modifying}
 
-Suppose we want to replace the cosmological constant species $\Lambda$ in the model \texttt{M} with another dark energy species.
-A well-known example is dynamical $w_0 w_a$ dark energy \citep{chevallierAcceleratingUniversesScaling2001,linderExploringExpansionHistory2003} with equation of state%
-\footnote{SymBoltz already includes $w_0 w_a$ as an available species.}
+Suppose we want to replace the cosmological constant $\Lambda$ with another dark energy model,
+such as dynamical $w_0 w_a$ dark energy \citep{chevallierAcceleratingUniversesScaling2001,linderExploringExpansionHistory2003} with equation of state%
 \begin{equation}
     w(\tau) = w_0 + w_a (1-a(\tau)).
 \end{equation}
-In this case, the continuity equation
+In this case, it is possible to solve the continuity equation
+\begin{subequations}
 \begin{equation}
-    \rho^\prime(\tau) = -3\scrH(\tau)\rho(\tau)(1+w(\tau))
+\rho^\prime(\tau) = -3\scrH(\tau)\rho(\tau)(1+w(\tau))
+\label{eq:w0wadiff}
 \end{equation}
-admits the analytical solution
-(by an ansatz of the same form)
+analytically with the ansatz $\rho(\tau) \propto a(\tau)^m \exp (n a(\tau))$ to get
 \begin{equation}
     \rho(\tau)=\rho(\tau_0)a(\tau)^{-3(1+w_0+w_a)}\exp(-3w_a(1-a(\tau))).
+\label{eq:w0waanal}
 \end{equation}
-To implement this species including perturbations following \cite{putterMeasuringSpeedDark2010}, simply write down the symbolic variables, parameters, equations and initial conditions:
+\end{subequations}
+Perturbations are given by \cite{putterMeasuringSpeedDark2010}.
+To implement this species in SymBoltz, write down all related variables, parameters, equations and initial conditions in one place:
 \begin{codebox}
 \begin{Verbatim}
 g, τ, k = M.g, M.τ, M.k
@@ -739,32 +733,62 @@ initialization_eqs = [
 X = System(eqs, τ; initialization_eqs, name = :X)
 \end{Verbatim}
 \end{codebox}
-Everything is packed down into the $w_0 w_a$ component \texttt{X}.
-Note that SymBoltz encourages Unicode symbols to maximize similarity between equations and code (e.g. \texttt{Ω₀} over \texttt{Omega\_0}) and to easily display \LaTeX{} in compatible environments (e.g. notebooks).
+Everything is packed down in the $w_0 w_a$ component \texttt{X}.
+Unicode code symbols are encouraged to maximize similarity with equations (e.g. \texttt{Ω₀} over \texttt{Omega\_0}),
+and SymBoltz will automatically render them in \LaTeX{}-compatible environments (e.g. notebooks).
 
-This is all the user has to do!
-Variables are automatically split into and carried across the background and perturbation stages, hooks for setting input parameters and getting arbitrary output variables are automatically available, and so on.
-The modification simply consists of writing down the equations verbatim.
-It could not have been more compact and to the point.
-
-A similar modification to CLASS is more involved, for example.
-It would require \emph{at least}: reading new parameters in \texttt{input.c}; declaring new background and perturbation variables in \texttt{background.h} and \texttt{perturbations.h}; solving background equations, storing desired output and coupling them to gravity in \texttt{background.c}; and recomputing or looking up background variables, solving perturbation equations and storing desired output and coupling them to gravity in \texttt{perturbations.c}.
-The changes should be if-guarded correctly to ensure the code works both with and without $w_0 w_a$.
-
-A full $w_0 w_a \text{CDM}$ model and problem can now be built by replacing the cosmological constant species \texttt{Λ} in $\Lambda \text{CDM}$ by the $w_0 w_a$ species \texttt{X}:
+A $w_0 w_a \text{CDM}$ model is now built by replacing the cosmological constant species \texttt{Λ} in $\Lambda \text{CDM}$ by the $w_0 w_a$ species \texttt{X}:
 \begin{codebox}
 \begin{Verbatim}
 M = ΛCDM(Λ = X, name = :w₀wₐCDM)
 push!(pars, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; jac=true, sparse=true)
 \end{Verbatim}
 \end{codebox}
-We proceed with this new model and problem.
+
+This is all the user has to do.
+The modification simply consists of writing down the equations verbatim.
+It could hardly be more compact and to the point.
+Under the hood, SymBoltz will:%
+\begin{itemize}%
+\item create input hooks for setting the parameters $w_0$, $w_a$, $c_s^2$, $\Omega_{0}$,
+\item move $(\tau)$-dependent functions to the background,
+\item move $(\tau,k)$-dependent functions to the perturbations,
+\item expand $\texttt{D(w)} = \mathrm{d}w/\mathrm{d}\tau$ and $\texttt{D(Φ)} = \mathrm{d}\Phi/\mathrm{d}\tau$ from $w$ and $\Phi$,
+\item compute needed background variables in the perturbations,
+\item spline $\rho(\tau)$ in the perturbations (had we used \eqref{eq:w0wadiff} over \eqref{eq:w0waanal}),
+\item source gravity with energy-momentum contributions,
+\item assign $\Omega_0 = 1 - \sum_{s \neq {w_0 w_a}} \Omega_{s0}$ (if gravity is GR),
+\item eliminate common subexpressions like $x=1+w$ and $y = 1/x$, % and multiply by $y$ instead of dividing by $x$,
+\item generate ODE functions for $\delta^\prime$ and $\theta^\prime$,
+\item generate sparse analytical Jacobian entries for $\delta^\prime$ and $\theta^\prime$,
+\item output and interpolate any variable $S(\tau,k)$ from the solution.
+\end{itemize}
+
+All these steps require some degree of manual intervention in a purely numerical code.
+In CLASS one would have to
+read new parameters in \texttt{input.c};
+declare new background and perturbation variables in \texttt{background.h} and \texttt{perturbations.h};
+solve background equations, save desired output and source gravity in \texttt{background.c};
+and recompute or look up background variables, solve perturbation equations, save desired output and source gravity in \texttt{perturbations.c}.
+The changes are scattered across the code, so it deteriorates as more models are added.
+%Moreover, a practical analysis would require both modifying the Boltzmann solver codebase and scripting new analysis code.
+SymBoltz opens for a workflow to implement and analyze a modified model with less effort all in one notebook, for example.
+
+Both codes already have a $w_0 w_a$ species, but this is how they are implemented.
+We proceed with the $w_0 w_a \text{CDM}$ model.
+
+\begin{figure*}[ht!]
+    \centering
+    \includegraphics[scale=0.43]{figures/spectra.pdf}
+    \caption{Matter and CMB (TT, TE and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; grey dashes) with relative errors $\text{rel.err.} = P_k^\text{SB}/P_k^\text{CL}-1$ and $\text{rel.err.} = C_l^\text{SB}/C_l^\text{CL}-1$ for the $\Lambda \text{CDM}$ model. CLASS uses the precision parameters in \cref{sec:precision}.}
+    \label{fig:spectra}
+\end{figure*}
 
 \subsection{Computing power spectra}
 
 \begin{table}[b]
-\caption{\label{tab:timings}Wall time spent by SymBoltz and CLASS to compute the power spectra $P(k)$ and $C_l$ (TT+TE+EE) in \cref{fig:spectra} with standard precision.}
+\caption{\label{tab:timings}Time to compute the power spectra in \cref{fig:spectra}.}
 %\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
 %\begin{tabularx}{\linewidth}{Xrr}
 \begin{tabularx}{\linewidth}{X r r}
@@ -788,17 +812,17 @@ jl = SphericalBesselCache(ls)
 Cls = spectrum_cmb([:TT, :TE, :EE], prob, jl)
 \end{Verbatim}
 \end{codebox}
-Calling \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} with \texttt{prob} automatically selects a coarse $k$-grid to solve the perturbations for and interpolates to a finer $k$-grid.
-This is a common trick in Boltzmann solvers to integrate fewer $k$-modes.
-Both functions take in all precision parameters that affect the computation as optional keyword arguments.
+The \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} functions select a coarse $k$-grid to solve the perturbations for and interpolates to a finer $k$-grid.
+This is a common trick to integrate fewer $k$-modes.
+Precision parameters that affect the output are given with optional keyword arguments.
 Output spectra and their computation time with standard precision settings are shown in \cref{fig:spectra,tab:timings}.
 
-We see that SymBoltz and CLASS agree to around $0.1\%$ or better.
+It shows that SymBoltz and CLASS agree to around $0.1\%$ or better.
 The $P(k)$ agree to $0.1\%$ for all $k$ and $0.01\%$ for linear $k$.
-The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for very low $l$ (where cosmic variance is also larger) and very large $l$ in $C_l^\text{TE}$.
-This level of accuracy is sufficient for most current data \citep[e.g.][]{bollietHighaccuracyEmulatorsObservables2023}.
-It is around the level of CAMB vs. CLASS run with standard precision,
-although their agreement can be pushed to $0.01\%$ using high precision \cite{lesgourguesCosmicLinearAnisotropy2011c}.
+The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for cosmic variance-dominated $l$ and very large $l$ in $C_l^\text{TE}$.
+This is sufficient for most current data \citep[e.g.][]{bollietHighaccuracyEmulatorsObservables2024}.
+It is similar CAMB vs. CLASS with standard precision,
+although their agreement is pushed to $0.01\%$ with high precision \citep{lesgourguesCosmicLinearAnisotropy2011c}.
 
 SymBoltz computes $P(k)$ quickly, but the extra steps needed for $C_l$ are not yet as optimized as they are in CLASS.
 A more thorough performance comparison for $P(k)$ is given in \cref{sec:performance}.
@@ -806,47 +830,45 @@ A more thorough performance comparison for $P(k)$ is given in \cref{sec:performa
 \subsection{Differentiable Fisher forecasting}
 \label{sec:fisher}
 
-Fisher forecasting is a powerful technique for predicting how strong parameter constraints that can be placed by data with given errors.
-It requires accurate derivatives and is a nice application for automatic differentiation.
+Fisher forecasting is a technique to predict how strong parameter constraints that can be placed by data with given errors.
+It needs derivatives that can be computed with automatic differentiation.
 
-Near a peak $\boldsymbol{\theta}_0$, where derivatives vanish, a log-likelihood function of parameters $\boldsymbol{\theta}$ is approximated by the Taylor series
+Near a peak $\boldsymbol{\theta}_0$, where derivatives vanish, a log-likelihood $\log L$ of parameters $\boldsymbol{\theta}$ is approximated by the Taylor series
 \begin{equation}
-    \log L(\boldsymbol{\theta}) \approx \log L(\boldsymbol{\theta}_0) - \sum_{i,j} F_{ij} (\theta_i - \bar{\theta}_i) (\theta_j - \bar{\theta}_j),
+    \log L(\boldsymbol{\theta}) \approx \log L(\boldsymbol{\theta}_0) - \sum_{i,j} F_{ij}(\boldsymbol{\theta}_0) (\theta_i - \bar{\theta}_i) (\theta_j - \bar{\theta}_j),
 \label{eq:likelihood_expansion}
 \end{equation}
-where $F$ is the \textit{Fisher (information) matrix} with elements
+where $\boldsymbol{F}$ is the Fisher (information) matrix with elements
 \begin{equation}
-    F_{ij} = -\frac12 \frac{\partial^2 \log L}{\partial \theta_i \, \partial \theta_j} \bigg\rvert_{\,\boldsymbol{\theta} = \boldsymbol{\theta}_0} .
+    F_{ij}(\boldsymbol{\theta}) = -\frac12 \frac{\partial^2 \log L(\boldsymbol{\theta})}{\partial \theta_i \, \partial \theta_j} .
 \label{eq:fisher_general}
 \end{equation}
-Intuitively, $F$ measures how sharp the peak is, or how sensitive $\log L$ is to changes in different directions in parameter space.
-Fisher forecasting is powered by the \textit{Cramér-Rao bound}, which guarantees that $F^{-1}_{ij}$ is a lower bound $\big\lvert C_{ij}\big\rvert \geq \big\lvert F^{-1}_{ij} \big\rvert$ for the covariance $C_{ij}$ between model parameters $\theta_i$ and $\theta_j$.
-The inequality is more saturated the better the likelihood approximation \eqref{eq:likelihood_expansion} is (i.e. the \enquote{more Gaussian} the probability distribution is, for which the expansion is exact).
-Thus, computing $F_{ij}$ at a peak and inverting it gives the tightest parameter constraints one can hope for.
-
-Since $F_{ij}$ depends on derivatives of $\log L$, Fisher forecasting traditionally involves error-prone finite differences and step size tuning.
-This problem is avoided with automatic differentiation.
+Intuitively, $\boldsymbol{F}$ measures how sharp the peak is, or how sensitive $L$ is in different directions in parameter space.
+Fisher forecasting is powered by the Cramér-Rao bound, which guarantees that $\big\lvert \smash{F^{-1}_{ij}} \big\rvert \leq \big\lvert \smash{C_{ij}} \big\rvert$ bounds the covariance $C_{ij}$ between parameters $\theta_i$ and $\theta_j$.
+The inequality is saturated as the approximation \eqref{eq:likelihood_expansion} improves, and becomes an equality for a Gaussian.
+Thus, inverting $\boldsymbol{F}(\boldsymbol{\theta}_0)$ gives the tightest parameter constraints one can hope for.
 
 To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best possible CMB (TT) measurement: one of $\bar{C}_l$ over the full sky with errors only due to cosmic variance
 \begin{equation}
     \sigma_l = \sqrt{\frac{2}{2l+1}} \bar{C}_l.
 \label{eq:cmb_cosmic_variance}
 \end{equation}
-Assuming the measurements of each $\bar{C}_l$ are normally distributed and uncorrelated, the log-likelihood for this experiment is $\chi^2$:
+%the measurements of each $\bar{C}_l$ are normally distributed and uncorrelated, the log-likelihood for this experiment is $\chi^2$:
+Assuming a $\chi^2$-log-likelihood
 \begin{equation}
-    \log L(\boldsymbol{\theta}) = -\frac12 \sum_l \left( \frac{C_l(\boldsymbol{\theta}) - \bar{C}_l}{\sigma_l} \right)^2.
+    \log L(\boldsymbol{\theta}) = -\frac12 \sum_l \bigg( \frac{C_l(\boldsymbol{\theta}) - \bar{C}_l}{\sigma_l} \smash{\bigg)^2} ,
 \end{equation}
-In this case, the Fisher matrix \eqref{eq:fisher_general} becomes
+the Fisher matrix \eqref{eq:fisher_general} becomes
 \begin{equation}
-    F_{ij} = \sum_l \frac{\partial C_l}{\partial \theta_i} \frac{1}{\sigma_l^2} \frac{\partial C_l}{\partial \theta_j} \bigg\rvert_{\,\boldsymbol{\theta} = \boldsymbol{\theta}_0},
+    F_{ij} = \sum_l \frac{\partial C_l}{\partial \theta_i} \frac{1}{\sigma_l^2} \frac{\partial C_l}{\partial \theta_j} .
 \label{eq:fisher_special}
 \end{equation}
-evaluated in some fiducial cosmology $\boldsymbol{\theta} = \boldsymbol{\theta}_0$.
 
-The derivatives $\partial C_l / \partial \theta_i$ are hard to compute and perfect candidates for automatic differentiation with ForwardDiff.jl:
+The derivatives $\partial C_l / \partial \theta_i$ are nontrivial to compute.
+They are usually found with error-prone finite differences by carefully tuning the step.
+SymBoltz skips this problem altogether by differentiating the function for $C_l(\boldsymbol{\theta})$ with ForwardDiff.jl:
 \begin{codebox}
 \begin{Verbatim}
-using ForwardDiff: jacobian
 vary = [
   M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.ν.Neff,
   M.h.m_eV, M.X.w₀, M.X.wₐ, M.I.ln_As1e10, M.I.ns,
@@ -855,13 +877,15 @@ genprob = parameter_updater(prob, vary)
 ls, ls′ = 100:1:1000, 100:25:1000
 Cl(θ) = spectrum_cmb(:TT, genprob(θ), ls, ls′)
 θ₀ = map(par -> pars[par], vary)
-dCl_dθ = jacobian(Cl, θ₀)
+dCl_dθ = ForwardDiff.jacobian(Cl, θ₀)
 \end{Verbatim}
 \end{codebox}
-Here \texttt{vary} orders the subset of parameters to differentiate with respect to, and \texttt{genprob} is a \emph{function} that generates a new problem with updated parameters \texttt{θ}.
-Then \texttt{Cl} specifies a function that computes $C_l(\boldsymbol{\theta})$ for \texttt{ls}, interpolating from a coarser grid \texttt{ls′}.
-This machinery just converts from SymBoltz' parameter-to-value mapping to a function of an array of parameter values, as \texttt{jacobian} requires a pure mathematical function $\boldsymbol{f}: \mathbb{R}^a \rightarrow \mathbb{R}^b$ to differentiate.
-Finally $\partial C_l / \partial \theta_i$ is computed with forward-mode automatic differentiation and stored in \texttt{dCl\_dθ}, as shown in \cref{fig:derivatives}.
+Here \texttt{vary} orders the parameters to differentiate with respect to,
+and \texttt{genprob} generates a new problem with updated parameters \texttt{θ}.
+This sets up a vector-to-vector function \texttt{Cl(θ)} is differentiated by \texttt{ForwardDiff.jacobian}
+to compute $\partial C_l / \partial \theta_i$ with dual numbers, as shown in \cref{fig:derivatives}.
+Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in \cref{fig:forecast}.
+They are in excellent agreement with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
 
 \begin{figure}
     \centering
@@ -877,44 +901,38 @@ Finally $\partial C_l / \partial \theta_i$ is computed with forward-mode automat
     \label{fig:forecast}
 \end{figure}
 
-It is now trivial to compute the Fisher matrix \eqref{eq:fisher_special}.
-Inverting
-it forecasts the constraints in \cref{fig:forecast}.
-They are in excellent agreement with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
-
 \subsection{Differentiable MCMC sampling with supernova data}
 
-Finally, we show that SymBoltz can output differentiable results for gradient-based Markov chain Monte Carlo (MCMC) samplers, like the No-U-Turn Sampler (NUTS).
-This state-of-the-art method uses likelihood gradients to move more intelligently in parameter space than the \enquote{blind} Metropolis-Hastings algorithm.
+Finally, we show that SymBoltz outputs differentiable results for gradient-based MCMC samplers, like the No-U-Turn Sampler (NUTS).
+It uses gradients to sample parameter space more efficiently than the \enquote{blind} Metropolis-Hastings algorithm.
 
-We predict apparent magnitudes $m(z)$ of Type Ia supernovae as a function of redshift $z$ and fit them to 1048 observations $(z_i, m_i)$ from the Pantheon dataset \citep{scolnicCompleteLightcurveSample2018}.
-Such supernovae are standard candles with constant
-absolute magnitude $M \approx -19.3$.
-Their apparent magnitudes are $m(z) = M + \mu(z)$, where $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus from the background-derived luminosity distance%
+We predict apparent magnitudes $m(z) = M + \mu(z)$ of Type Ia supernovae at redshift $z$ and fit to 1048 Pantheon observations $(z_i, m_i)$ \citep{scolnicCompleteLightcurveSample2018}.
+Their standard absolute magnitude is $M \approx -19.3$, and $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus from the background-derived luminosity distance%
 \footnote{This expression is valid for any $\Omega_{k0}$ with complex $\sinc(x) = \sin(x)/x$, but can be split into branches for positive, negative and zero $\Omega_{k0}$.}
 \begin{equation}
     d_L(z) = \frac{c}{H_0} \frac{\chi(z)}{a(z)} \sinc \Big( H_0 \sqrt{-\Omega_{k0}} \, \chi(z) \Big) .
 \end{equation}
 
-We define the likelihood by a multivariate normal distribution of the 1048 supernovae with (constant) covariance matrix $C$ given in detail by \cite{scolnicCompleteLightcurveSample2018}.
-To compute it, we interface SymBoltz with the probabilistic programming framework Turing.jl \citep{fjeldeTuringjlGeneralPurposeProbabilistic2025}, which allows a high-level description of the probabilistic model equivalent to the log-likelihood
+We define the likelihood $L$ by a multivariate normal distribution of the 1048 supernovae with (constant) covariance matrix $C$ given in detail by \cite{scolnicCompleteLightcurveSample2018}.
+To compute $L$, we interface SymBoltz with the probabilistic programming framework Turing.jl \citep{fjeldeTuringjlGeneralPurposeProbabilistic2025}, which allows a high-level description of the probabilistic model equivalent to the log-likelihood%
 \begin{equation}
-    \log L = -\frac12 \sum_{i,j} \big(m(z_i)-m_i\big) C^{-1}_{ij} \big(m(z_j)-m_j\big) .
+    \log L = -\frac12 \sum_{i,j} C^{-1}_{ij} \big(m(z_i)-m_i\big) \big(m(z_j)-m_j\big) .
 \end{equation}
 We use the NUTS sampler in Turing.
 The code for this example can be found in the paper's notebook.
 For the flat $w_0 \text{CDM}$ model ($\Omega_{k0} = 0$, $w_a = 0$, fixed $\Omega_{r0}$) it gives the constraints in \cref{fig:sn}.
-The results are not interesting, but show that differentiable parameter inference \emph{works} with SymBoltz.
-Performance improvements are needed to make this viable also for perturbation-derived spectra.
+
+The differentiable computation is not yet fast enough for perturbation-derived spectra.
+While these results are not groundbreaking, they are a first step to computing fast gradients through the entire solver.
+More advanced MCMCs with a differentiable background have been done by \cite{campagneJAXCOSMOEndtoEndDifferentiable2023}, for example.
+We hope to improve this with future work (see \cref{sec:futurework}).
 
 \begin{figure}
     \centering
     \includegraphics[width=1.00\linewidth]{figures/constraints.pdf}
-    \caption{Parameter inference on 1048 Type Ia supernovae from the full Pantheon supernova dataset, using 5000 MCMC samples with the gradient-based NUTS sampler in Turing.jl and differentiable theory predictions from SymBoltz.jl.}
+    \caption{Parameter inference on 1048 Type Ia supernovae from Pantheon data, using 5000 MCMC samples with the gradient-based NUTS sampler in Turing.jl and differentiable predictions from SymBoltz.}
     \label{fig:sn}
 \end{figure}
-
-
 
 \section{Performance comparison to CLASS}
 \label{sec:performance}
