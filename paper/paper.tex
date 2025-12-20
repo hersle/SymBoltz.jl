@@ -1033,44 +1033,44 @@ Output power spectra agrees with CLASS to $0.1\%$, which is the same level of ac
         arrow/.style={-{Latex[width=4mm,length=4mm]}, line width=1mm, black},
     ]
     \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
-    \node[pillar, fill=blue!50] (app) at (240:5.8cm) {Approximation-\\freeness};
-    \node[pillar, fill=red!50] (dif) at (300:5.8cm) {Differentiability};
+    \node[pillar, fill=blue!50] (app) at (240:5.7cm) {Approximation-\\freeness};
+    \node[pillar, fill=red!50] (dif) at (300:5.7cm) {Differentiability};
     \draw[arrow] (sym.300) -- node[joiner] {Detect sparsity of $\boldsymbol{J}$} (dif.120);
     \draw[arrow] (dif.180) -- node[joiner] {Calculate $\boldsymbol{J}$ robustly} (app.0);
     \draw[arrow] (app.60) -- node[joiner] {Easy to specify model} (sym.240);
     \end{tikzpicture}
     \caption{%
         A symbolic-numeric interface, approximation-freeness and differentiability are three main features of SymBoltz that form a synergy.
-        For example: differentiability helps to calculate the ODE Jacobian accurately and efficiently; which is needed by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down models in a simple symbolic form; which can be used to detect the sparsity pattern of the Jacobian; which in turn increases the efficiency of the implicit ODE solver.
-        This creates a self-reinforcing design.
+        Differentiability computes the ODE Jacobian $\boldsymbol{J}$ accurately and efficiently; which is used by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down equations in simple symbolic form; which is used to find the sparsity pattern of $\boldsymbol{J}$; which speeds up $\boldsymbol{J}$ and the implicit solver.
+        This is a self-reinforcing design.
     }
     \label{fig:synergy}
 \end{figure}
 
-Some of these main features -- a symbolic-numeric interface, approximation-freeness and differentiability -- are notably also implemented in other recent Boltzmann codes like DISCO-EB, Bolt.jl and PyCosmo.
-SymBoltz combines them into one code and uses a synergy between them that reinforces its design, as illustrated in \cref{fig:synergy}.
-Together, these alternative codes now offer a simpler approximation-free structure in high-level languages
-that complements traditional codes like CAMB and CLASS that are highly optimized around historical approximation schemes and low-level languages.
-However, new codes need more work to reach the level of features available in CAMB and CLASS that have grown over many years.
+Other recent codes like PyCosmo, Bolt.jl and DISCO-EB also incorporate some of these features.
+SymBoltz combines them and reinforces its design with a synergy between them, as explained in \cref{fig:synergy}.
+Together, these new codes offer a simpler alternative in high-level languages
+that complements traditional codes like CAMB and CLASS that are historically highly tuned around approximations in low-level languages.
+However, new codes need more work to reach the level of features and maturity of CAMB and CLASS that have grown over many years.
 
-SymBoltz version 0.14.0 includes the metric in the flat Newtonian gauge, General Relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant and $w_0 w_a$ dark energy with scalar perturbations, luminosity distances and matter and CMB spectra.
-More models and observables, vector and tensor perturbations and curved geometry are left for future work.
-Forward-mode automatic differentiation works for single-run sensitivity analyses like Fisher forecasting.
-A next milestone is reverse-mode for scalar loss functions, particularly for perturbation-derived spectra.
-This could challenge emulators in smarter gradient-based MCMC sampling.
-No differentiable Boltzmann code has yet demonstrated this ability.
+SymBoltz version 0.14.0 includes the flat Newtonian gauge metric, General Relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant and $w_0 w_a$ dark energy with scalar perturbations, distances and matter and CMB spectra.
+%More models and observables, vector and tensor perturbations and curved geometry are left for future work.
+Forward-mode automatic differentiation works for single-run purposes like Fisher forecasting.
+Fast reverse-mode scalar loss gradients, particularly through the perturbations,
+is a future milestone that could challenge emulators in gradient-based MCMC sampling.
+No differentiable Boltzmann code is yet capable of this.
 
 SymBoltz is easy to install from \url{https://github.com/hersle/SymBoltz.jl}.
-Documentation\footnote{\url{https://hersle.github.io/SymBoltz.jl/}} is available there, and the code is tested with continuous integration to ensure it remains correct and up-to-date (see \cref{sec:testing}).
-\textbf{Anyone is encouraged to ask questions, give feedback, open issues and contribute pull requests in the repository!}
-We hope others can find it useful to build tools on top of SymBoltz, and that it offers valuable competition and new ideas on the Boltzmann solver market.
+Documentation\footnote{\url{https://hersle.github.io/SymBoltz.jl/}} is available, and the code is tested with continuous integration to remain correct and up-to-date (see \cref{sec:testing}).
+All questions and contributions are welcome in the repository!
+We hope SymBoltz proves useful and that it offers valuable ideas on the Boltzmann solver market.
 
 \section*{Acknowledgments}
 
-I thank the entire Julia community for striving towards an open ecosystem of scientific packages upon which SymBoltz continues to grow.
-I thank Aayush Sabharwal and Christopher Rackauckas for developing and maintaining ModelingToolkit.jl and DifferentialEquations.jl and answering questions.
-I thank Hans A. Winther for helpful suggestions, testing the code and giving feedback on it and drafts of this paper.
-I thank Julien Lesgourgues, Thomas Tram and others for developing CLASS and inspiring SymBoltz.
+I thank the Julia community for creating an open ecosystem of scientific packages underlying SymBoltz.
+I thank Aayush Sabharwal and Christopher Rackauckas for developing ModelingToolkit.jl and OrdinaryDiffEq.jl and answering questions.
+I thank Hans A. Winther for helpful suggestions and feedback on the code and drafts of this paper.
+I thank Julien Lesgourgues, Thomas Tram and others for developing and documenting CLASS.
 
 \bibliographystyle{bibtex/aa}
 \bibliography{paper}
