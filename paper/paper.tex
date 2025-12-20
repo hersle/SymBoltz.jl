@@ -164,7 +164,7 @@ The full Einstein-Boltzmann equations are partial differential equations
 that linearize to ordinary differential equations.
 
 In principle, the core task of a Boltzmann solver is thus very simple:
-to solve these ordinary differential equations (ODEs) ${\mathrm{d}\mathbf{u}}/{\mathrm{d} \tau} = \mathbf{f}(\tau,\mathbf{u};\mathbf{p})$ for some initial conditions $\mathbf{u}(\tau_0)$ and parameters $\mathbf{p}$, including several perturbation wavenumbers, and compute desired quantities from their solution, like power spectra.
+to solve these ordinary differential equations (ODEs) ${\mathrm{d}\mathbf{u}}/{\mathrm{d} \tau} = \mathbf{f}(\tau,\mathbf{u},\mathbf{p})$ for some initial conditions $\mathbf{u}(\tau_0)$ and parameters $\mathbf{p}$, including several perturbation wavenumbers, and compute desired quantities from their solution, like power spectra.
 
 In practice, however, several properties complicate this task.
 First, the equations separate into computational stages that benefit substantially from being solved sequentially for performance and stability, such as the background and perturbations stages.
@@ -428,7 +428,7 @@ The next sections go into detail on how these overarching features are implement
 
 SymBoltz automatically compiles symbolic equations to numerical code for ordinary differential equations (ODEs)
 \begin{equation}
-    \frac{\mathrm{d}\mathbf{u}}{\mathrm{d} \tau} = \mathbf{f}(\tau,\mathbf{u}).
+    \frac{\mathrm{d}\mathbf{u}}{\mathrm{d} \tau} = \mathbf{f}(\tau,\mathbf{u},\mathbf{p}).
     \label{eq:ode}
 \end{equation}
 The generated code is fast and prevents users unfamiliar with the language or package from writing slow numerical code.
@@ -986,10 +986,10 @@ The purpose of the comparison made here is to show the viability of approximatio
 \section{Future work}
 \label{sec:futurework}
 
-We hope to continue to improve SymBoltz with new features and enable others to build upon it.
-In particular, its symbolic capabilities could be extended with utility methods for:
+We hope SymBoltz continues to grow and that others can build on it.
+Its symbolic capabilities can be extended with utilities for:
 \begin{itemize}
-\item gauge transformation of equations, say from the Newtonian gauge in SymBoltz to the synchronous gauge used by default in CAMB and CLASS, as already featured in CAMB\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}};
+\item gauge transformation of equations (e.g. Newtonian $\leftrightarrow$ synchronous gauge), as already possible in CAMB\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}};
 \item perturbation theory for deriving initial conditions and approximation schemes for new models;
 %\item initial conditions for perturbations generated with computer-assisted symbolic perturbation theory;
 %\item approximation schemes generated with computer-assisted symbolic perturbation theory, to enable speedups without costly reinvention of approximations with any model change;
@@ -999,18 +999,20 @@ In particular, its symbolic capabilities could be extended with utility methods 
 \end{itemize}
 These tasks traditionally involve manual error-prone calculations, so such utilities could ease exploration of extended models.
 
-We also aim to improve performance, particularly of differentiable parameter runs.
-An attractive milestone is efficient reverse-mode automatic differentiation of scalar loss functions, which could enable very powerful gradient-based MCMC sampling.
-Support for sparse (Jacobian) matrices is also on our radar, and could accelerate the solution of large perturbation systems.
+We particularly aim to improve performance for differentiable runs to the level of standard runs.
+An attractive milestone is fast reverse-mode gradients of scalar loss functions for gradient-based MCMCs.
+We anticipate the symbolic structure and Jacobian generation to be useful for this,
+as writing $\mathbf{u}(\tau,\boldsymbol{p})$ in the ODE \eqref{eq:ode} and differentiating it for $\boldsymbol{v}_i = \partial \boldsymbol{u} / \partial p_i$ gives
+$\mathrm{d}\mathbf{v}_i/\mathrm{d}\tau = \mathbf{J} \mathbf{v}_i + \partial \mathbf{f} / \partial p_i$ and is hard to construct by hand.
 
 It is left for future work to generalize the code from scalar to vector and tensor perturbations, from flat to curved spacetimes, and from adiabatic to other initial conditions.
 Some additional models like quintessence dark energy and Brans-Dicke gravity are in the works, and we invite others to add extended models.
 
-In a larger context, we are hopeful that a Boltzmann solver in Julia can foster growth of modular interoperating add-on packages.
-For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on the output from Boltzmann solvers.
-It is possible to make such existing codes compatible, but supporting automatic differentiation across language barriers is challenging.
-An ecosystem of similar packages in one language with good support for automatic differentiation, like Julia or Python combined with Jax, could open the door to a larger, modular and fully differentiable cosmological modeling toolbox.
-A recent example of this is the impressive end-to-end modeling from linear perturbations to non-linear structure formation with a differentiable Boltzmann code coupled to a differentiable $N$-body code by DISCO-DJ \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
+We hope SymBoltz can foster growth of modular interoperating packages for cosmology in Julia.
+For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on output from Boltzmann solvers.
+Supporting automatic differentiation across language barriers is hard,
+and an ecosystem of such packages in one language with support for automatic differentiation, like Julia or Python with Jax, could create a modular and differentiable cosmological modeling toolbox.
+A recent example of this is DISCO-DJ's impressive end-to-end modeling from linear perturbations to non-linear structure formation by coupling differentiable Boltzmann and $N$-body codes \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
 
 \section{Conclusion}
 \label{sec:conclusion}
