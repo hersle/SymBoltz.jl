@@ -844,8 +844,9 @@ where $\boldsymbol{F}$ is the Fisher (information) matrix with elements
 \label{eq:fisher_general}
 \end{equation}
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is, or how sensitive $L$ is in different directions in parameter space.
-Fisher forecasting is powered by the Cramér-Rao bound, which guarantees that $\big\lvert \smash{F^{-1}_{ij}} \big\rvert \leq \big\lvert \smash{C_{ij}} \big\rvert$ bounds the covariance $C_{ij}$ between parameters $\theta_i$ and $\theta_j$.
-The inequality is saturated as the approximation \eqref{eq:likelihood_expansion} improves, and becomes an equality for a Gaussian.
+Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $\theta_i$ and $\theta_j$.
+It is an equality for a Gaussian, for which the likelihood \eqref{eq:likelihood_expansion} is exact.
+%The inequality is saturated as the approximation \eqref{eq:likelihood_expansion} improves, and becomes an equality for a Gaussian.
 Thus, inverting $\boldsymbol{F}(\boldsymbol{\theta}_0)$ gives the tightest parameter constraints one can hope for.
 
 To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best possible CMB (TT) measurement: one of $\bar{C}_l$ over the full sky with errors only due to cosmic variance
@@ -864,9 +865,8 @@ the Fisher matrix \eqref{eq:fisher_general} becomes
 \label{eq:fisher_special}
 \end{equation}
 
-The derivatives $\partial C_l / \partial \theta_i$ are nontrivial to compute.
-They are usually found with error-prone finite differences by carefully tuning the step.
-SymBoltz skips this problem altogether by differentiating the function for $C_l(\boldsymbol{\theta})$ with ForwardDiff.jl:
+The derivatives $\partial C_l / \partial \theta_i$ are usually found with error-prone finite differences by carefully tuning the step.
+SymBoltz avoids this problem altogether with automatic differentiation:
 \begin{codebox}
 \begin{Verbatim}
 vary = [
@@ -882,10 +882,13 @@ dCl_dθ = ForwardDiff.jacobian(Cl, θ₀)
 \end{codebox}
 Here \texttt{vary} orders the parameters to differentiate with respect to,
 and \texttt{genprob} generates a new problem with updated parameters \texttt{θ}.
-This sets up a vector-to-vector function \texttt{Cl(θ)} is differentiated by \texttt{ForwardDiff.jacobian}
+This sets up a vector-to-vector function \texttt{Cl(θ)} that is differentiated by \texttt{ForwardDiff.jacobian}
 to compute $\partial C_l / \partial \theta_i$ with dual numbers, as shown in \cref{fig:derivatives}.
 Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in \cref{fig:forecast}.
 They are in excellent agreement with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
+
+Differentiable Fisher forecasts have also been done with an Eisenstein-Hu transfer function fit by \cite{campagneJAXCOSMOEndtoEndDifferentiable2023},
+and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
 
 \begin{figure}
     \centering
