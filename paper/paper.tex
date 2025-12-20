@@ -959,28 +959,29 @@ We hope to improve this with future work (see \cref{sec:futurework}).
 This computation solves the background, thermodynamics and perturbations for several $k$ and reads off $P(k)$ at the final time.
 The work is dominated by the perturbations, so it is a relevant test of SymBoltz' approximation-free treatment of perturbations.
 
-The comparison shows how approximations and the choice of ODE method affects integration of the Einstein-Boltzmann equations.
+The comparison shows how approximations and the ODE solver affects integration of the Einstein-Boltzmann equations.
 Without approximations, SymBoltz with \texttt{Rodas5P} is more than $10\times$ faster than CLASS with its implicit \texttt{ndf15} evolver at comparable precision.
-When CLASS uses its approximation schemes and explicit evolver, SymBoltz is about as fast for most precision requirements while remaining approximation-free.
+When CLASS uses approximations and explicit evolver, SymBoltz is as fast while remaining approximation-free.
 %CLASS' performance could improve with more efficient $q$-sampling, and SymBoltz' speed could likewise improve with implementation of approximation schemes at the cost of code complexity.
 
-To make this comparison as apples-to-apples as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use the same multipole cutoff $\lmax$ for all species.
+To make this comparison as fair as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use the same multipole cutoff $\lmax$ for all species.
 However, the codes sample massive neutrino momenta $q$ differently.
-This has a major impact on the number of perturbation equations and the work needed to solve them (see \cref{sec:massiveneutrinos}).
-SymBoltz defaults to 4 momenta and gives 127 perturbation equations in total.
+This greatly impacts the number of perturbation equations (see \cref{sec:massiveneutrinos}).
+SymBoltz' 4 default momenta gives 127 perturbation equations in total.
 CLASS' default $\texttt{tol\_ncdm\_newtonian} = 10^{-5}$ gives 11 momenta and 245 equations (before approximations).
-Increasing this tolerance to $10^{-3}$ gives 5 momentum bins, 143 equations and is around $245/143 \approx 1.7$ times faster, but introduces errors beyond $1\%$ in $P(k)$ in \cref{fig:spectra}.
-We therefore leave both codes with default $q$-sampling, but note that we think CLASS could be up to $2\times$ faster at unchanged precision with more efficient $q$-sampling.
-This would shift the curves in \cref{fig:workprec} down by $\lg 2 \approx 0.3$.
-Similarly, \cite[appendix A]{howlettCMBPowerSpectrum2012} find a precise 3-4 point scheme in CAMB, and \cite{leeEfficientAnalyticApproximation2025} speed up CLASS with an integral equation approach for massive neutrinos in the fork CLASSIER\footnote{\url{https://github.com/nanoomlee/CLASSIER}}.
+Increasing this tolerance to $10^{-3}$ gives 5 momentum bins, 143 equations and is around $245/143 \approx 1.7$ times faster, but introduces errors beyond $1\%$ in $P(k)$.
+We therefore leave both codes with default $q$-sampling, but note that CLASS could be up to $2\times$ faster at unchanged precision with sparser sampling.
+This would shift its curves down by $\lg 2 \approx 0.3$.
+\cite{howlettCMBPowerSpectrum2012} (in appendix A) also find a precise 3-4 point scheme in CAMB,
+and \cite{leeRapidAccurateNumerical2025} speed up CLASS using integral equations for massive neutrinos in the fork CLASSIER\footnote{\url{https://github.com/nanoomlee/CLASSIER}}.
 % https://github.com/cmbant/CAMB/blob/06a0845/fortran/massive_neutrinos.f90#L84-L97
 
 SymBoltz is currently slower than CAMB and CLASS for computing CMB power spectra $C_l$.
 This is subject to more optimizations than $P(k)$, such as sampling of the source function $S(\tau,k)$, interpolation in $\tau$, $k$, and $l$, evaluation of spherical Bessel functions $j_l(x)$ and optimized line-of-sight quadrature.
-These optimizations are very well polished by CAMB and CLASS, and unmatched by SymBoltz at this time.
-A similar detailed performance analysis for $C_l$ is therefore not meaningful now.
-It would also blur the impact and viability of approximation-free perturbations, which is SymBoltz' first design milestone.
-With more work, the $C_l$ optimizations can be implemented in SymBoltz.
+These are very well polished by CAMB and CLASS, and unmatched by SymBoltz at this time.
+A detailed performance analysis for $C_l$ is therefore not meaningful now (but see \cref{tab:timings}).
+With more work, the $C_l$ optimizations can be added to SymBoltz.
+The purpose of the comparison made here is to show the viability of approximation-free perturbations, which was a major milestone.
 
 \section{Future work}
 \label{sec:futurework}
