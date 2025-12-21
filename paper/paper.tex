@@ -654,12 +654,12 @@ Most usage follows a model--problem--solution workflow:
 \begin{Verbatim}
 using SymBoltz
 M = ΛCDM(lmax = 16)
-pars = Dict(
-  M.γ.T₀ => 2.7, M.b.Ω₀ => 0.05, M.b.rec.Yp => 0.25,
-  M.ν.Neff => 3.0, M.c.Ω₀ => 0.27, M.h.m_eV => 0.06,
+p = Dict(
+  M.γ.T₀ => 2.7, M.b.Ω₀ => 0.05, M.b.YHe => 0.25,
+  M.ν.Neff => 3.0, M.c.Ω₀ => 0.27, M.h.m_eV => 0.02,
   M.I.ln_As1e10 => 3.0, M.I.ns => 0.96, M.g.h => 0.7
 )
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, p)
 ks = [4, 40, 400, 4000] # k / (H₀/c)
 sol = solve(prob, ks)
 \end{Verbatim}
@@ -672,7 +672,7 @@ It contains every variable, parameter and equation of the cosmological model str
 For example, \texttt{equations(M)} shows all model equations; \texttt{equations(M.G)} only the gravitational ones; \texttt{M.g.a} refers to the scale factor variable $a(\tau)$ that \enquote{belongs} to the metric $g$; \texttt{M.b.Ω₀} is the baryon density parameter $\Omega_{b0}$; and \texttt{parameters(M)} lists parameters of the model that the user may set.
 Everything displays with \LaTeX-compatibility in notebooks for interactive use.
 
-Second, the symbolic model is compiled to a numerical problem \texttt{prob} with parameters \texttt{pars}.
+Second, the symbolic model is compiled to a numerical problem \texttt{prob} with parameters \texttt{p}.
 This is an expensive operation where the processing in \cref{sec:symbolicnumeric} happens: equations are checked for consistency and split into background and perturbation stages; observed and unknown variables are distinguished; fast ODE code is generated; background unknowns in the perturbations are replaced by splines; the Jacobian matrix is generated in numerical/analytical and dense/sparse form; and initial values are computed.
 One can customize whether stages should be separated, how the Jacobian is computed, and so on.
 This is a separate step because it performs final transformations on the model \texttt{M} once the user has finished modifying and committed to it.
@@ -732,7 +732,7 @@ eqs = [
 ]
 initialization_eqs = [
   δ ~ -3//2 * (1+w) * Ψ
-  θ ~ 1//2 * k^2*τ * Ψ
+  θ ~ 1//2 * (k^2*τ) * Ψ
 ]
 X = System(eqs, τ; initialization_eqs, name = :X)
 \end{Verbatim}
@@ -744,9 +744,9 @@ and SymBoltz will automatically render them in \LaTeX{}-compatible environments 
 A $w_0 w_a \text{CDM}$ model is now built by replacing the cosmological constant species \texttt{Λ} in $\Lambda \text{CDM}$ by the $w_0 w_a$ species \texttt{X}:
 \begin{codebox}
 \begin{Verbatim}
-M = ΛCDM(Λ = X, name = :w₀wₐCDM)
-push!(pars, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
-prob = CosmologyProblem(M, pars; jac=true, sparse=true)
+M = ΛCDM(Λ = X, lmax = 16, name = :w₀wₐCDM)
+push!(p, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
+prob = CosmologyProblem(M, p; jac=true, sparse=true)
 \end{Verbatim}
 \end{codebox}
 
@@ -760,9 +760,9 @@ Under the hood, SymBoltz will:%
 \item move $(\tau,k)$-dependent functions to the perturbations,
 \item expand $\texttt{D(w)} = \mathrm{d}w/\mathrm{d}\tau$ and $\texttt{D(Φ)} = \mathrm{d}\Phi/\mathrm{d}\tau$ from $w$ and $\Phi$,
 \item compute needed background variables in the perturbations,
-\item spline $\rho(\tau)$ in the perturbations (had we used \eqref{eq:w0wadiff} over \eqref{eq:w0waanal}),
+\item spline $\rho(\tau)$ in the perturbations (if we use \eqref{eq:w0wadiff} over \eqref{eq:w0waanal}),
 \item source gravity with energy-momentum contributions,
-\item assign $\Omega_0 = 1 - \sum_{s \neq {w_0 w_a}} \Omega_{s0}$ (if gravity is GR),
+\item assign $\Omega_{X0} = 1 - \sum_{s \neq {X}} \Omega_{s0}$ (if gravity is GR) by default,
 \item eliminate common subexpressions like $x=1+w$ and $y = 1/x$, % and multiply by $y$ instead of dividing by $x$,
 \item generate ODE functions for $\delta^\prime$ and $\theta^\prime$,
 \item generate sparse analytical Jacobian entries for $\delta^\prime$ and $\theta^\prime$,
@@ -799,9 +799,9 @@ We proceed with the $w_0 w_a \text{CDM}$ model.
 \toprule
 Code (approximations) & $P(k)$ & $C_l$ \\
 \midrule
-SymBoltz (no approximations) & 0.3 s & 4.3 s \\
-CLASS (only tight-coupling approximation) & 7.6 s & 14.1 s \\
-CLASS (all approximations) & 0.6 s & 2.4 s \\
+SymBoltz (no approximations) & 0.3 s & 3.1 s \\
+CLASS (only tight-coupling approximation) & 5.2 s & 8.7 s \\
+CLASS (all approximations) & 0.5 s & 1.6 s \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -813,7 +813,7 @@ ks = 10 .^ range(-1, 4, length = 100)
 Ps = spectrum_matter(prob, ks)
 ls = vcat([2,3,5,10], 20:20:2500)
 jl = SphericalBesselCache(ls)
-Cls = spectrum_cmb([:TT, :TE, :EE], prob, jl)
+Cls = spectrum_cmb([:TT, :EE, :TE], prob, jl)
 \end{Verbatim}
 \end{codebox}
 The \texttt{spectrum\_matter} and \texttt{spectrum\_cmb} functions select a coarse $k$-grid to solve the perturbations for and interpolates to a finer $k$-grid.
@@ -837,21 +837,21 @@ A more thorough performance comparison for $P(k)$ is given in \cref{sec:performa
 Fisher forecasting is a technique to predict how strong parameter constraints that can be placed by data with given errors.
 It needs derivatives that can be computed with automatic differentiation.
 
-Near a peak $\boldsymbol{\theta}_0$, where derivatives vanish, a log-likelihood $\log L$ of parameters $\boldsymbol{\theta}$ is approximated by the Taylor series
+Near a peak $\boldsymbol{p}_0$, where derivatives vanish, a log-likelihood $\log L$ of parameters $\boldsymbol{p}$ is approximated by the Taylor series
 \begin{equation}
-    \log L(\boldsymbol{\theta}) \approx \log L(\boldsymbol{\theta}_0) - \sum_{i,j} F_{ij}(\boldsymbol{\theta}_0) (\theta_i - \bar{\theta}_i) (\theta_j - \bar{\theta}_j),
+    \log L(\boldsymbol{p}) \approx \log L(\boldsymbol{p}_0) - \sum_{i,j} F_{ij}(\boldsymbol{p}_0) (p_i - \bar{p}_i) (p_j - \bar{p}_j),
 \label{eq:likelihood_expansion}
 \end{equation}
 where $\boldsymbol{F}$ is the Fisher (information) matrix with elements
 \begin{equation}
-    F_{ij}(\boldsymbol{\theta}) = -\frac12 \frac{\partial^2 \log L(\boldsymbol{\theta})}{\partial \theta_i \, \partial \theta_j} .
+    F_{ij}(\boldsymbol{p}) = -\frac12 \frac{\partial^2 \log L(\boldsymbol{p})}{\partial p_i \, \partial p_j} .
 \label{eq:fisher_general}
 \end{equation}
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is, or how sensitive $L$ is in different directions in parameter space.
-Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $\theta_i$ and $\theta_j$.
+Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
 It is an equality for a Gaussian, for which the likelihood \eqref{eq:likelihood_expansion} is exact.
 %The inequality is saturated as the approximation \eqref{eq:likelihood_expansion} improves, and becomes an equality for a Gaussian.
-Thus, inverting $\boldsymbol{F}(\boldsymbol{\theta}_0)$ gives the tightest parameter constraints one can hope for.
+Thus, inverting $\boldsymbol{F}(\boldsymbol{p}_0)$ gives the tightest parameter constraints one can hope for.
 
 To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best possible CMB (TT) measurement: one of $\bar{C}_l$ over the full sky with errors only due to cosmic variance
 \begin{equation}
@@ -861,15 +861,15 @@ To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best
 %the measurements of each $\bar{C}_l$ are normally distributed and uncorrelated, the log-likelihood for this experiment is $\chi^2$:
 Assuming a $\chi^2$-log-likelihood
 \begin{equation}
-    \log L(\boldsymbol{\theta}) = -\frac12 \sum_l \bigg( \frac{C_l(\boldsymbol{\theta}) - \bar{C}_l}{\sigma_l} \smash{\bigg)^2} ,
+    \log L(\boldsymbol{p}) = -\frac12 \sum_l \bigg( \frac{C_l(\boldsymbol{p}) - \bar{C}_l}{\sigma_l} \smash{\bigg)^2} ,
 \end{equation}
 the Fisher matrix \eqref{eq:fisher_general} becomes
 \begin{equation}
-    F_{ij} = \sum_l \frac{\partial C_l}{\partial \theta_i} \frac{1}{\sigma_l^2} \frac{\partial C_l}{\partial \theta_j} .
+    F_{ij} = \sum_l \frac{\partial C_l}{\partial p_i} \frac{1}{\sigma_l^2} \frac{\partial C_l}{\partial p_j} .
 \label{eq:fisher_special}
 \end{equation}
 
-The derivatives $\partial C_l / \partial \theta_i$ are usually found with error-prone finite differences by carefully tuning the step.
+The derivatives $\partial C_l / \partial p_i$ are usually found with error-prone finite differences by carefully tuning the step.
 SymBoltz avoids this problem altogether with automatic differentiation:
 \begin{codebox}
 \begin{Verbatim}
@@ -878,16 +878,16 @@ vary = [
   M.h.m_eV, M.X.w₀, M.X.wₐ, M.I.ln_As1e10, M.I.ns,
 ]
 genprob = parameter_updater(prob, vary)
-ls, ls′ = 100:1:1000, 100:25:1000
-Cl(θ) = spectrum_cmb(:TT, genprob(θ), ls, ls′)
-θ₀ = map(par -> pars[par], vary)
-dCl_dθ = ForwardDiff.jacobian(Cl, θ₀)
+jl, ls = SphericalBesselCache(100:25:1000), 100:1000
+Cl(p) = spectrum_cmb(:TT, genprob(p), jl, ls)
+p₀ = map(par -> p[par], vary)
+dCl_dp = ForwardDiff.jacobian(Cl, p₀)
 \end{Verbatim}
 \end{codebox}
 Here \texttt{vary} orders the parameters to differentiate with respect to,
-and \texttt{genprob} generates a new problem with updated parameters \texttt{θ}.
-This sets up a vector-to-vector function \texttt{Cl(θ)} that is differentiated by \texttt{ForwardDiff.jacobian}
-to compute $\partial C_l / \partial \theta_i$ with dual numbers, as shown in \cref{fig:derivatives}.
+and \texttt{genprob} generates a new problem with updated parameters \texttt{p}.
+This prepares a vector-to-vector function \texttt{Cl(p)} that is differentiated by \texttt{ForwardDiff.jacobian}
+to compute $\partial C_l / \partial p_i$ with dual numbers, as shown in \cref{fig:derivatives}.
 Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in \cref{fig:forecast}.
 They are in excellent agreement with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
 
@@ -897,7 +897,7 @@ and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinst
 \begin{figure}
     \centering
     \includegraphics[scale=0.43]{figures/derivatives.pdf}
-    \caption{Normalized derivatives $(\partial C_l / \partial \theta_i) / C_l$ of a CMB TT power spectrum with respect to cosmological parameters $\theta_i$ from SymBoltz and automatic differentiation (AD; colored lines) versus CLASS and central finite differences (FD; gray dashes). CLASS uses the precision parameters in \cref{sec:precision} and finite differences with $5 \%$ relative step sizes.}
+    \caption{Normalized derivatives $(\partial C_l / \partial p_i) / C_l$ of a CMB TT power spectrum with respect to cosmological parameters $p_i$ from SymBoltz and automatic differentiation (AD; colored lines) versus CLASS and central finite differences (FD; gray dashes). CLASS uses the precision parameters in \cref{sec:precision} and finite differences with $5 \%$ relative step sizes.}
     \label{fig:derivatives}
 \end{figure}
 
