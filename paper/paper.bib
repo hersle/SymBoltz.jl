@@ -1353,28 +1353,6 @@
   file = {/home/hermasl/Zotero/storage/GJV88PFY/The Einstein-Boltzmann equations revisited (Nadkarni-Ghosh+, 2017).pdf;/home/hermasl/Zotero/storage/ZMIMRET7/1612.html}
 }
 
-@article{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017a,
-  title = {The {{Einstein-Boltzmann}} Equations Revisited},
-  author = {{Nadkarni-Ghosh}, Sharvari and Refregier, Alexandre},
-  year = 2017,
-  month = oct,
-  journal = {Monthly Notices of the Royal Astronomical Society},
-  volume = {471},
-  number = {2},
-  eprint = {1612.06697},
-  primaryclass = {gr-qc},
-  pages = {2391--2430},
-  issn = {0035-8711, 1365-2966},
-  doi = {10.1093/mnras/stx1662},
-  url = {http://arxiv.org/abs/1612.06697},
-  urldate = {2025-12-03},
-  abstract = {The linear Einstein-Boltzmann equations describe the evolution of perturbations in the universe and its numerical solutions play a central role in cosmology. We revisit this system of differential equations and present a detailed investigation of its mathematical properties. For this purpose, we focus on a simplified set of equations aimed at describing the broad features of the matter power spectrum. We first perform an eigenvalue analysis and study the onset of oscillations in the system signalled by the transition from real to complex eigenvalues. We then provide a stability criterion of different numerical schemes for this linear system and estimate the associated stepsize. We elucidate the stiffness property of the Einstein-Boltzmann system and show how it can be characterised in terms of the eigenvalues. While the parameters of the system are time dependent making it non-autonomous, we define an adiabatic regime where the parameters vary slowly enough for the system to be quasi-autonomous. We summarise the different regimes of the system for these different criteria as function of wave number k and scale factor a. We also provide a compendium of analytic solutions for all perturbation variables in 6 limits on the k-a plane and express them explicitly in terms of initial conditions. These results are aimed to help the further development and testing of numerical cosmological Boltzmann solvers.},
-  archiveprefix = {arXiv},
-  langid = {english},
-  keywords = {Astrophysics - Cosmology and Nongalactic Astrophysics,General Relativity and Quantum Cosmology},
-  file = {/home/hermasl/Zotero/storage/EDEGGRCE/Nadkarni-Ghosh and Refregier - 2017 - The Einstein-Boltzmann equations revisited.pdf}
-}
-
 @article{peeblesPrimevalAdiabaticPerturbation1970,
   title = {Primeval {{Adiabatic Perturbation}} in an {{Expanding Universe}}},
   author = {Peebles, P. J. E. and Yu, J. T.},
@@ -1549,20 +1527,24 @@
   file = {/home/hermasl/Zotero/storage/HPIULLGB/DifferentialEquations (Rackauckas+, 2017).pdf}
 }
 
-@article{refregierPyCosmoIntegratedCosmological2017a,
-  title = {{{PyCosmo}}: {{An Integrated Cosmological Boltzmann Solver}}},
+@article{refregierPyCosmoIntegratedCosmological2018,
+  title = {{{PyCosmo}}: {{An}} Integrated Cosmological {{Boltzmann}} Solver},
   shorttitle = {{{PyCosmo}}},
-  author = {Refregier, Alexandre and Gamper, Lukas and Amara, Adam and Heisenberg, Lavinia},
-  year = 2017,
-  month = aug,
-  journal = {ArXiv},
+  author = {Refregier, A. and Gamper, L. and Amara, A. and Heisenberg, L.},
+  year = 2018,
+  month = oct,
+  journal = {Astronomy and Computing},
+  volume = {25},
   eprint = {1708.05177},
-  doi = {10.48550/arXiv.1708.05177},
-  url = {http://arxiv.org/abs/1708.05177},
-  urldate = {2024-11-18},
-  abstract = {As wide-field surveys yield ever more precise measurements, cosmology has entered a phase of high precision requiring highly accurate and fast theoretical predictions. At the heart of most cosmological model predictions is a numerical solution of the Einstein-Boltzmann equations governing the evolution of linear perturbations in the Universe. We present PyCosmo, a new Python-based framework to solve this set of equations using a special pur- pose solver based on symbolic manipulations, automatic generation of C++ code and sparsity optimisation. The code uses a consistency relation of the field equations to adapt the time step and does not rely on physical approximations for speed-up. After reviewing the system of first-order linear homogeneous differential equations to be solved, we describe the numerical scheme implemented in PyCosmo. We then compare the predictions and performance of the code for the computation of the transfer functions of cosmological perturbations and compare it to existing cosmological Boltzmann codes. We find that we achieve comparable execution times for comparable accuracies. While PyCosmo does not yet have all the features of other codes, our approach is complementary to existing cosmological Boltzmann solvers and can be used as an independent test of their numerical solutions. The symbolic representation of the Einstein-Boltzmann equation system in PyCosmo provides a convenient interface for implementing extended cosmological models. We also discuss how the PyCosmo framework can also be used as a general framework to compute cosmological quantities as well as observables for both interactive and high-performance batch jobs applications. Information about the PyCosmo package and future code releases are available at http://www.cosmology.ethz.ch/research/software-lab.html.},
+  pages = {38--43},
+  issn = {2213-1337},
+  doi = {10.1016/j.ascom.2018.08.001},
+  url = {https://www.sciencedirect.com/science/article/pii/S2213133717300963},
+  urldate = {2025-12-21},
+  abstract = {As wide-field surveys yield ever more precise measurements, cosmology has entered a phase of high precision requiring highly accurate and fast theoretical predictions. At the heart of most cosmological model predictions is a numerical solution of the Einstein--Boltzmann equations governing the evolution of linear perturbations in the Universe. We present PyCosmo, a new Python-based framework to solve this set of equations using a special purpose solver based on symbolic manipulations, automatic generation of C++ code and sparsity optimisation. The code uses a consistency relation of the field equations to adapt the time step and does not rely on physical approximations for speed-up. After reviewing the system of first-order linear homogeneous differential equations to be solved, we describe the numerical scheme implemented in PyCosmo. We then compare the predictions and performance of the code for the computation of the transfer functions of cosmological perturbations and compare it to existing cosmological Boltzmann codes. While PyCosmo does not yet have all the features of other codes, our approach is complementary to other fast cosmological Boltzmann solvers and can be used as an independent test of their numerical solutions. The symbolic representation of the Einstein--Boltzmann equation system in PyCosmo provides a convenient interface for implementing extended cosmological models. We also discuss how the PyCosmo framework can also be used as a general framework to compute cosmological quantities as well as observables for both interactive and high-performance batch jobs applications. Information about the PyCosmo package and future code releases are available at http://www.cosmology.ethz.ch/research/software-lab.html.},
   archiveprefix = {arXiv},
-  file = {/home/hermasl/Zotero/storage/H29Y4PKD/PyCosmo (Refregier+, 2017).pdf;/home/hermasl/Zotero/storage/V48BNBQ7/1708.html}
+  keywords = {Boltzmann equation,Cosmology,Differential equations,Python},
+  file = {/home/hermasl/Zotero/storage/PLWUG3NW/Refregier et al. - 2018 - PyCosmo An integrated cosmological Boltzmann solver.pdf;/home/hermasl/Zotero/storage/3XK3UALP/S2213133717300963.html}
 }
 
 @article{revelsForwardModeAutomaticDifferentiation2016,
