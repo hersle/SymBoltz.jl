@@ -257,18 +257,23 @@ Boltzmann solvers typically save computational resources by interpolating spectr
 These are all examples where Boltzmann solvers or applications that use them need derivatives.
 
 There are at least four ways to compute derivatives.
-\textit{Manual differentiation} is the exact pen-and-paper method with differentiation rules, but is limited to simple expressions and by human error.
+
+\textit{Manual differentiation} is human application of differentiation rules,
+but is limited to simple expressions and by human error.
+
 \textit{Symbolic differentiation} automates this process with computer algebra systems,
-but is inherently symbolic and cannot differentiate arbitrary programs nested with control flow through conditional statements and loops that depend on numerical values.
+but is inherently symbolic and cannot differentiate arbitrary programs nested with control flow like conditional statements and loops that depend on numerical values.
+
 \textit{Finite differentiation} approximates the derivative $f^\prime(x) \approx (f(x+\epsilon/2) - f(x-\epsilon/2)) \,/\, \epsilon$ with a small $\epsilon > 0$ (here using central differences) by simply evaluating the program several times.
 This can differentiate arbitrary programs, but is approximate, introduces the step size $\epsilon$ as a hyperparameter that must be tuned for both accuracy and stability, and is a brute-force approach that requires $O(n)$ evaluations ($2n$ using central differences) to compute the gradient of an $n$-variate scalar $f$.
-\textit{Automatic differentiation} \citep[e.g.][]{griewankEvaluatingDerivatives2008} can be understood by viewing any computer program as a (big) composite function
+
+\textit{Automatic differentiation} can be understood by viewing any computer program as a (big) composite function
 \begin{equation}
     \boldsymbol{f} = \boldsymbol{f}_N \circ \boldsymbol{f}_{N-1} \circ \cdots \circ \boldsymbol{f}_2 \circ \boldsymbol{f}_1 = \boldsymbol{f}_N(\boldsymbol{f}_{N-1}( \cdots \boldsymbol{f}_2(\boldsymbol{f}_1)))
 \label{eq:program}
 \end{equation}
 of (many) elementary operations $\boldsymbol{f}_i: \mathbb{R}^{a_i} \rightarrow \mathbb{R}^{b_i}$ (think of $\boldsymbol{f}_i$ as the $i$-th line of code).
-It then numerically evaluates the chain rule
+It then numerically evaluates the chain rule%
 \begin{equation}
     \boldsymbol{J} = \boldsymbol{J}_N \cdot \boldsymbol{J}_{N-1} \cdots \boldsymbol{J}_2 \cdot \boldsymbol{J}_1.
 \label{eq:program_derivative}
