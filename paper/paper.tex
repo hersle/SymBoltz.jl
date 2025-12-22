@@ -1512,6 +1512,20 @@ The point $(k, \Theta) = (0, 0)$ is included manually, for which the numerical s
 By default, the $\Theta_l$ are sampled on a fine grid of wavenumbers with spacing $\Delta k = 2\pi/2 \tau_0$, which interpolates from solved perturbation modes on a coarse grid $\Delta k = 8/\tau_0$.
 Both grids range between $0.1 l_\text{min}/\tau_0 \leq k \leq 3 l_\text{max}/\tau_0$, where $l_\text{min}$ and $l_\text{max}$ are the angular spectrum's minimum and maximum requested multipoles.
 
+\subsection{Adaptive source function refinement}
+\label{sec:adaptive}
+
+SymBoltz can optionally refine source functions $S(\tau,k)$ in $k$, such as when computing the matter or CMB power spectra.
+
+First, the source function $S_i(\tau) = S(\tau,k_i)$ is found on an initial grid of wavenumbers $k_i$ by integrating their perturbations.
+The method then iterates over each interval $(k_i, k_{i+1})$, integrates the perturbations for the center $k_{i+1/2} = (k_i+k_{i+1})/2$ and finds $S_{i+1/2}(\tau) = S(\tau,k_{i+1/2})$.
+The idea is then to compare this to a linearly interpolated source $S_\text{int}(\tau) = (S_i(\tau) + S_{i+1}(\tau)) / 2$ with some error measure $\texttt{err}$, for example from $\texttt{err}^2 = \int \mathrm{d}\tau \big( S_\text{int}(\tau) - S_{i+1/2}(\tau) \big)^2$.
+If the interpolation is poor and \texttt{err} is greater than some absolute and relative tolerances, the left and right half-intervals $(k_i,k_{i+1/2})$ and $(k_{i+1/2},k_{i+1})$ are recursively refined in the same way.
+
+This gives $S(\tau,k)$ by integrating as few $k$–modes as possible.
+Instead of manually creating a non-uniform $k$-grid with many hyperparameters, the process is controlled by only one tolerance.
+It parallelizes over each interval and can also be done in $\log k$.
+
 \section{Precision parameters for CLASS}
 \label{sec:precision}
 
