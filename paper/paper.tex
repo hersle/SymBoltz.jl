@@ -235,9 +235,7 @@ However, approximations put much more strain on modelers to derive and validate 
 This process may have to be repeated when the model is modified.
 The numerics also become more complicated: timeseries from each ODE solution must be stitched together, each separate ODE system can use different tolerances, ODE integrators must be reinitialized, and so on.
 
-%For a long time, approximation schemes was the only way considered to handle the stiffness in the Einstein-Boltzmann equations \citep{maCosmologicalPerturbationTheory1995,lesgourguesCosmicLinearAnisotropy2011,lewisCAMBNotes2025}.
 Another way to integrate stiff equations is to use appropriate implicit solvers.
-%They are well-known to be appropriate in such situations.
 PyCosmo first solved the full stiff Einstein-Boltzmann equations with an implicit integrator, followed by Bolt.jl and DISCO-EB.
 CLASS also has an implicit solver, but does not permit disabling the tight-coupling approximation, for example.
 Historically, implicit solvers may have been underutilized because they are harder to implement than explicit solvers and have a reputation for being slower,
@@ -404,18 +402,15 @@ This preprocessing does not slow the code at runtime; to the contrary the symbol
 Modifications automatically enjoy these benefits without extra user input.
 
 The modular component-based structure scales well in model space.
-%It makes it easier to assemble both reduced and extended cosmological models.
 For example, modified gravity or dark energy models can be written down as self-contained submodels and combined with other components to create many different extended cosmological models.
 The generic symbolic framework can also be used to build reduced models with non-interacting radiation, matter and dark energy species.
 When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons. % e.g. https://github.com/lesgourg/class_public/issues/246
 
 In contrast, the monolithic layout of traditional codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
 As more and more submodels are added, the code is increasingly intertwined and fragmented.
-%Adding new submodels then effectively duplicates one big monolithic model and leads to many forked versions of a Boltzmann code with different extensions that are incompatible with each other.
 They are also not flexible enough to test simpler toy models, as baryons and photons are hardcoded as fundamental to the structure of the code.
 This design fits the computational structure better than the physical one.
 It can result in an overwhelming code that becomes hard to read and modify, and whose complexity scales poorly in model space.
-%\TODO{e.g. implementing many different gravity models that do not have the same limit}
 
 As an alternative to component-based modeling,
 SymBoltz also includes a version of the default \LCDM{} model with all equations packed into one big \enquote{unstructured} system.
@@ -494,9 +489,6 @@ while splining and stage separation are done automatically under the hood.
 The separation into background and perturbation stages is guaranteed and just reflects the perturbative structure of the linearized Einstein-Boltzmann equations, where each order depends only on those before it.
 However, they can often be broken further down: most thermodynamics (recombination) models can be separated from the background, and some variables have integral solutions (e.g. the optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\bar\tau) \mathrm{d}\bar\tau$ or line-of-sight integration) that can be computed in isolation after solving the differential equations.
 In the future, SymBoltz' background-perturbations separation could be extended to automatically split all smaller stages by symbolically inspecting the dependencies between variables in the equations.
-%Over time, SymBoltz aims to extend the automatic background-perturbation separation by automatically incorporating more or \emph{all} stages of the equations at hand.%
-%\footnote{All stages can in principle be identified from a directed dependency graph between variables (e.g. from the Jacobian matrix). Cycles in the graph correspond to interdependent equations that must be integrated together in one ODE system (e.g. background and perturbations). Leaves with differentiated variables correspond to integral solutions.}
-%This feature is a major advantage with access to the symbolic equations.
 
 \subsubsection{Automatic solution interpolation}
 \label{sec:interpolation}
@@ -573,12 +565,9 @@ SymBoltz generates code for all implicit solvers in OrdinaryDiffEq.jl\footnote{\
 We can test different solvers, which is useful as performance and stability of implicit methods and linear algebra operations are problem-dependent.
 Using $O(100)$ perturbation equations with more than $95\%$ sparsity, we find \texttt{RFLUFactorization} fastest for dense matrices, but \texttt{KLUFactorization} several times faster when exploiting sparsity.
 We tested these ODE solvers:
-% https://scicomp.stackexchange.com/questions/31380/what-is-the-state-of-the-art-in-solving-stiff-initial-value-problems
-% https://www.stochasticlifestyle.com/differences-between-methods-for-solving-stiff-odes/
 
 \begin{itemize}
 \item
-%\textbf{BDF methods:}
 \textbf{Backward Differentiation Formula (BDF) methods}
 like \texttt{FBDF} and \texttt{QNDF} \citep{shampineMATLABODESuite1997} are 
 multi-step methods that use several past points to solve for the next step.
@@ -586,16 +575,11 @@ They do not have Runge-Kutta \enquote{stages} and solve just one implicit equati
 so they scale well to large ODEs and can reuse Jacobians aggressively.
 They have variable order of 1-5, but are \enquote{L-stable} only up to 2nd order.
 This makes them take small steps in stiff regimes without utilizing their high order.
-%They reuse Jacobians very aggressively by keeping the time step constant.
-%but we do not find this to be the case with sparse matrices and only $O(100)$ equations per perturbation mode.
-%Being multistep methods, they do not have \enquote{stages} but compute the next time point in one point.
-% TODO: multi-step structure is not optimal for events like approximation switching
 We find them to be slowest.
 The solvers \texttt{ndf15} in CLASS and \texttt{BDF2} in PyCosmo belong to this family.
 \cite{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein-Boltzmann equations.
 
 \item
-%\textbf{ESDIRK methods:}
 \textbf{Explicit Singly-Diagonal Implicit Runge-Kutta (ESDIRK) methods} \citep[e.g.][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of Fully Implicit (FIRK) methods at a cheaper computational cost.
 An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$ and must solve a system of $n \times s$ equations at every step.
 D in ESDIRK means that $a_{ij}$ has only lower triangular and diagonal nonzeros, decoupling the system into $s$ systems of $n$ equations that are faster to solve sequentially.
@@ -787,7 +771,6 @@ declare new background and perturbation variables in \texttt{background.h} and \
 solve background equations, save desired output and source gravity in \texttt{background.c};
 and recompute or look up background variables, solve perturbation equations, save desired output and source gravity in \texttt{perturbations.c}.
 The changes are scattered across the code, so it grows in complexity as more models are added.
-%Moreover, a practical analysis would require both modifying the Boltzmann solver codebase and scripting new analysis code.
 SymBoltz opens for a workflow that implements and analyzes a modified model with less effort all in one notebook, for example.
 
 Of course, both codes already include a $w_0 w_a$ species, but this is how they are implemented.
@@ -804,8 +787,6 @@ We proceed with the $w_0 w_a \text{CDM}$ model.
 
 \begin{table}[b]
 \caption{\label{tab:timings}Time to compute the power spectra in \cref{fig:spectra}.}
-%\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
-%\begin{tabularx}{\linewidth}{Xrr}
 \begin{tabularx}{\linewidth}{X r r}
 \toprule
 Code (approximations) & $P(k)$ & $C_l$ \\
@@ -861,7 +842,6 @@ where $\boldsymbol{F}$ is the Fisher (information) matrix with elements
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is, or how sensitive $L$ is in different directions in parameter space.
 Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
 It is an equality for a Gaussian, for which the likelihood \eqref{eq:likelihood_expansion} is exact.
-%The inequality is saturated as the approximation \eqref{eq:likelihood_expansion} improves, and becomes an equality for a Gaussian.
 Thus, inverting $\boldsymbol{F}(\boldsymbol{p}_0)$ gives the tightest parameter constraints one can hope for.
 
 To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best possible CMB (TT) measurement: one of $\bar{C}_l$ over the full sky with errors only due to cosmic variance
@@ -869,7 +849,6 @@ To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best
     \sigma_l = \sqrt{\frac{2}{2l+1}} \bar{C}_l.
 \label{eq:cmb_cosmic_variance}
 \end{equation}
-%the measurements of each $\bar{C}_l$ are normally distributed and uncorrelated, the log-likelihood for this experiment is $\chi^2$:
 Assuming a $\chi^2$-log-likelihood
 \begin{equation}
     \log L(\boldsymbol{p}) = -\frac12 \sum_l \bigg( \frac{C_l(\boldsymbol{p}) - \bar{C}_l}{\sigma_l} \smash{\bigg)^2} ,
@@ -975,14 +954,12 @@ but more advanced MCMCs with a differentiable background have been done by \cite
 
 
 \Cref{fig:workprec} compares performance versus precision of the matter power spectrum $P(k)$ computed with SymBoltz and CLASS.
-%Boltzmann solvers have a great deal of optimizations and tricks that are controlled by several hyperparameters, so such a comparison only makes sense in an apples-to-apples configuration.
 This computation solves the background, thermodynamics and perturbations for several $k$ and reads off $P(k)$ at the final time.
 The work is dominated by the perturbations, so it is a relevant test of SymBoltz' approximation-free treatment of perturbations.
 
 The comparison shows how approximations and the ODE solver affect integration of the Einstein-Boltzmann equations.
 Without approximations, SymBoltz with \texttt{Rodas5P} is more than $10\times$ faster than CLASS with its implicit \texttt{ndf15} evolver at comparable precision.
 When CLASS uses approximations and explicit evolver, SymBoltz is as fast while remaining approximation-free.
-%CLASS' performance could improve with more efficient $q$-sampling, and SymBoltz' speed could likewise improve with implementation of approximation schemes at the cost of code complexity.
 
 To make this comparison as fair as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use the same multipole cutoff $\lmax$ for all species.
 However, the codes sample massive neutrino momenta $q$ differently.
@@ -994,7 +971,6 @@ We therefore leave both codes with default $q$-sampling, but note that CLASS cou
 This would shift its curves down by $\lg 2 \approx 0.3$.
 \cite{howlettCMBPowerSpectrum2012} (in appendix A) also find a precise 3-4 point scheme in CAMB,
 and \cite{leeRapidAccurateNumerical2025} speed up CLASS using integral equations for massive neutrinos in the fork CLASSIER.
-% https://github.com/cmbant/CAMB/blob/06a0845/fortran/massive_neutrinos.f90#L84-L97
 
 Despite lack of approximation schemes, SymBoltz is fast due to
 high-order implicit solvers like \texttt{Rodas5P} that take accurate and long steps,
@@ -1018,8 +994,6 @@ Its symbolic capabilities can be extended with utilities for:
 \item separation into finer computational stages (see \cref{sec:splining});
 \item gauge transformation of equations (e.g. Newtonian $\leftrightarrow$ synchronous gauge), as already possible in CAMB\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}};
 \item perturbation theory utilities for deriving initial conditions and approximation schemes for new models;
-%\item initial conditions for perturbations generated with computer-assisted symbolic perturbation theory;
-%\item approximation schemes generated with computer-assisted symbolic perturbation theory, to enable speedups without costly reinvention of approximations with any model change;
 \item transformation of differential equations with respect to conformal time $\tau$ to another (one-to-one) independent variable (e.g. to get observables as direct functions of redshift $z$);
 \item validation of dimensions in symbolic equations to catch modeling mistakes by tagging variables with physical units;
 \item symbolic tensor manipulation to aid work with modified gravity theories (as a standalone package).
@@ -1081,7 +1055,6 @@ that complements traditional codes like CAMB and CLASS that are historically hig
 However, new codes need more work to reach the level of features and maturity of CAMB and CLASS that have grown over many years.
 
 SymBoltz version 0.14.1 includes the flat Newtonian gauge metric, General Relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant and $w_0 w_a$ dark energy with scalar perturbations, distances and matter and CMB spectra.
-%More models and observables, vector and tensor perturbations and curved geometry are left for future work.
 Forward-mode automatic differentiation works for single-run purposes like Fisher forecasting.
 Fast reverse-mode scalar loss gradients, particularly through the perturbations,
 is a future milestone that could challenge emulators in gradient-based MCMC sampling.
