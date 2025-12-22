@@ -259,16 +259,16 @@ These are all examples where (applications of) Boltzmann solvers need derivative
 
 There are at least four ways to compute derivatives.
 
-\textit{Manual differentiation} is human application of differentiation rules,
+Manual differentiation is human application of differentiation rules,
 but is limited to simple expressions and by human error.
 
-\textit{Symbolic differentiation} automates this process with computer algebra systems,
+Symbolic differentiation automates this process with computer algebra systems,
 but is inherently symbolic and cannot differentiate arbitrary programs nested with control flow like conditional statements and loops that depend on numerical values.
 
-\textit{Finite differentiation} approximates the derivative $f^\prime(x) \approx (f(x+\epsilon/2) - f(x-\epsilon/2)) \,/\, \epsilon$ with a small $\epsilon > 0$ (here using central differences) by simply evaluating the program several times.
+Finite differentiation approximates the derivative $f^\prime(x) \approx (f(x+\epsilon/2) - f(x-\epsilon/2)) \,/\, \epsilon$ with a small $\epsilon > 0$ (here using central differences) by simply evaluating the program several times.
 This can differentiate arbitrary programs, but is approximate, introduces the step size $\epsilon$ as a hyperparameter that must be tuned for both accuracy and stability, and is a brute-force approach that requires $O(n)$ evaluations ($2n$ using central differences) to compute the gradient of an $n$-variate scalar $f$.
 
-\textit{Automatic differentiation} can be understood by viewing any computer program as a (big) composite function
+Automatic differentiation can be understood by viewing any computer program as a (big) composite function
 \begin{equation}
     \boldsymbol{f} = \boldsymbol{f}_N \circ \boldsymbol{f}_{N-1} \circ \cdots \circ \boldsymbol{f}_2 \circ \boldsymbol{f}_1 = \boldsymbol{f}_N(\boldsymbol{f}_{N-1}( \cdots \boldsymbol{f}_2(\boldsymbol{f}_1)))
 \label{eq:program}
@@ -285,8 +285,8 @@ This is numerically exact, free of precision parameters, usually requires fewer 
 Notably, while the function \eqref{eq:program} must be evaluated inside-to-outside (right-to-left),
 the chain rule \eqref{eq:program_derivative} is an associative matrix product that can be evaluated in any order.
 This generally changes the number of operations and is a more open-ended computational problem.
-\textit{Forward-mode} automatic differentiation seeds $\boldsymbol{J}_1 = \boldsymbol{1}$ (the derivative of the input with respect to itself) and multiplies $\boldsymbol{J}_N (\boldsymbol{J}_{N-1} (\cdots (\boldsymbol{J}_2 (\boldsymbol{J}_1))))$ by \enquote{pushing} every column of $\boldsymbol{J}_1$ forward through the product in the same evaluation order as $\boldsymbol{f}$.
-\textit{Reverse-mode} first computes $\boldsymbol{f}$ in a forward pass, then seeds $\boldsymbol{J}_N = \boldsymbol{1}$ (the derivative of the output with respect to itself) and multiplies $((((\boldsymbol{J}_N) \boldsymbol{J}_{N-1}) \cdots) \boldsymbol{J}_2) \boldsymbol{J}_1$ by \enquote{pulling} every row of $\boldsymbol{J}_N$ backwards through the product.
+Forward-mode automatic differentiation seeds $\boldsymbol{J}_1 = \boldsymbol{1}$ (the derivative of the input with respect to itself) and multiplies $\boldsymbol{J}_N (\boldsymbol{J}_{N-1} (\cdots (\boldsymbol{J}_2 (\boldsymbol{J}_1))))$ by \enquote{pushing} every column of $\boldsymbol{J}_1$ forward through the product in the same evaluation order as $\boldsymbol{f}$.
+Reverse-mode first computes $\boldsymbol{f}$ in a forward pass, then seeds $\boldsymbol{J}_N = \boldsymbol{1}$ (the derivative of the output with respect to itself) and multiplies $((((\boldsymbol{J}_N) \boldsymbol{J}_{N-1}) \cdots) \boldsymbol{J}_2) \boldsymbol{J}_1$ by \enquote{pulling} every row of $\boldsymbol{J}_N$ backwards through the product.
 This usually makes forward-mode faster when $\boldsymbol{f}: \mathbb{R}^a \rightarrow \mathbb{R}^b$ has more outputs $b \gg a$, and reverse-mode better when there are more inputs $a \gg b$.
 
 In practice, both modes are implemented using techniques like operator overloading or source code transformation.
@@ -450,7 +450,7 @@ This is helpful as Boltzmann solvers tend to have big $\boldsymbol{f}$ and ODE s
 \subsubsection{Automatic handling of observed variables}
 \label{sec:observed}
 
-A general ODE \eqref{eq:ode} admits two types of variables: \textit{unknowns} $\boldsymbol{u}(\tau)$ are integrated with respect to time, while \textit{observed} variables are any functions of the unknowns.
+A general ODE \eqref{eq:ode} has two types of variables: \enquote{unknowns} $\boldsymbol{u}(\tau)$ are integrated with respect to time, while \enquote{observed} variables are any functions of the unknowns.
 The Einstein-Boltzmann equations are usually written with many observed variables.
 
 For example, consider the metric and gravity equations in \cref{sec:metric,sec:gravity} sourced by some arbitrary $\rho(\tau)$, $\delta\rho(\tau,k)$ and $\Pi(\tau,k)$.
@@ -655,7 +655,7 @@ The code is as of SymBoltz version 0.14.1 and available in a notebook in the pro
 \begin{figure*}
     \centering
     \includegraphics[scale=0.43]{figures/evolution.pdf}
-    \caption{Included plot recipes in SymBoltz make it trivial to visualize \emph{any} symbolic variable or expression thereof from a solution of the Einstein-Boltzmann equations. This plot was made with one short line of code per subplot. Wavenumbers $k$ are in units of $H_0/c$.}
+    \caption{Included plot recipes in SymBoltz make it trivial to visualize any symbolic variable or expression thereof from a solution of the Einstein-Boltzmann equations. This plot was made with one short line of code per subplot. Wavenumbers $k$ are in units of $H_0/c$.}
     \label{fig:output}
 \end{figure*}
 
@@ -1147,7 +1147,7 @@ a^\prime = \sqrt{\frac{8\pi}{3} \rho} \, a^{2}, \qquad
 \Psi = - \Phi - 12\pi \bigg( \frac{a}{k} \bigg)^2 \Pi .
 \end{align*}
 Note that it is also possible to evolve other redundant combinations of the Einstein equations (such as the acceleration equation).
-The equations are coupled to total densities $\rho$, $\delta\rho$, pressures $P$ and anisotropic stresses $\Pi$ for an \emph{arbitrary} set of species $s$ that are present in the cosmological model:
+The equations are coupled to total densities $\rho$, $\delta\rho$, pressures $P$ and anisotropic stresses $\Pi$ for an arbitrary set of species $s$ that are present in the cosmological model:
 \begin{align*}
 \rho = \sum_s \rho_s, \qquad
 P = \sum_s P_s, \qquad
@@ -1159,7 +1159,7 @@ P = \sum_s P_s, \qquad
 
 We emphasize that the gravity component is completely unaware of all particle species and makes no assumptions about them.
 It only reacts to total stress-energy components.
-All species \emph{must} therefore define $\rho$, $P$, $\delta \rho$, $\delta P$ and $\Pi$ explicitly, even if zero.
+All species must therefore define $\rho$, $P$, $\delta \rho$, $\delta P$ and $\Pi$ explicitly, even if zero.
 This requirement is somewhat pedantic, but helps isolate components from each other for greater reuse when composing models.
 
 The scale factor $a$ is initialized as the nonlinear solution of the Friedmann equation constrained to $\scrH = 1/\tau$ (motivated by its radiation-dominated solution $a = \sqrt{\Omega_{r0}} \, \tau$).
@@ -1264,7 +1264,7 @@ This includes $Y_\He$, fudge factors and wavenumbers, frequencies and energies f
 Some important variables are the baryon temperature $T_b$, photon temperature $T_\gamma$, mean molecular weight $\mu$, baryon sound speed $c_s^2$, optical depth $\kappa$, visibility function $v$ and the free electron fraction $X_\el$ (conventionally relative to Hydrogen, so $X_\el > 1$ in presence of Helium).
 Please consult the code and RECFAST references cited above for more details.
 
-Unlike other RECFAST implementations, SymBoltz does not approximate the stiff Peebles equations at early times by Saha approximations (although $X_\He^{++}$ is given by a Saha equation at \emph{all} times).
+Unlike other RECFAST implementations, SymBoltz does not approximate the stiff Peebles equations at early times by Saha approximations (although $X_\He^{++}$ is given by a Saha equation at all times).
 This is not necessary with a good implicit ODE solver.
 SymBoltz sets $C_\Hy = C_\Hesin = 1$ when $X_\el \gtrsim 0.99$ to avoid numerical instability at early times.
 Atomic calculations are done in SI units and converted to SymBoltz' dimensionless units by factors of $H_0$ in SI units.
@@ -1350,11 +1350,11 @@ If photons are present, they default to $T_{\nu 0} = \big(\frac{4}{11}\big)^{1/3
 \label{sec:massiveneutrinos}
 
 Massive neutrinos are the most complicated species in the \LCDM{} model (alongside baryon recombination).
-In essence, the species we have looked at so far have Boltzmann equations where the momenta of their distribution function can be integrated out \emph{analytically} in non-relativistic and ultra-relativistic limits.
+In essence, the species we have looked at so far have Boltzmann equations where the momenta of their distribution function can be integrated out analytically in non-relativistic and ultra-relativistic limits.
 This means that their stress-energy components are linked by trivial equations of state and sound speeds, for example, and their effect can be parametrized by a simple density parameter $\Omega_{0}$.
 
 On the other hand, massive neutrinos have intermediate masses that fall between the non-relativistic and ultra-relativistic limits.
-Integrals over their distribution function must be computed \emph{numerically}.
+Integrals over their distribution function must be computed numerically.
 This is very expensive if done naively, and it is extremely important to choose a quadrature scheme that minimizes the number of sampled points.
 Fortunately, the momentum integrals have a structure that can be exploited: they are all in the form weighted form $I[g(x)] = \int_0^\infty \mathrm{d}x \, x^2 f(x) g(x)$, where $f(x) = 1/(e^x+1)$ is the equilibrium distribution function and $g(x)$ is an arbitrary function of the dimensionless momentum $x = pc/k_B T$ (see \cite{maCosmologicalPerturbationTheory1995} for more details).
 One can generally approximate $I[g(x)] \approx \sum_i W_i \, g(x_i)$ with a weighted quadrature scheme with points $x_i$ and weights $W_i$ (more on this after the equations).
@@ -1391,12 +1391,12 @@ u = \frac{3 I_1}{3I_\rho + I_P} , \qquad
 \theta = k u .
 \end{align*}
 Initial conditions are $\psi_{i,0} = -\frac{1}{4} (-2 \Psi) \big(\dlnfdlnx\big)_i$, $\psi_{i,1} = -\frac{1}{3} \frac{E_i}{x_i} \frac{1}{2} k\tau \Psi \big(\dlnfdlnx\big)_i$, $\psi_{i,2} = -\frac{1}{2} \frac{1}{15} (k\tau)^2 \Psi \big(\dlnfdlnx\big)_i$ and $\psi_{i,l} = 0$.
-This integrates to adiabatic $\delta/(1+w)$, $\theta$ and $\sigma$ similarly to \emph{massless} neutrinos.
+This integrates to adiabatic $\delta/(1+w)$, $\theta$ and $\sigma$ similarly to massless neutrinos.
 Free parameters are the temperature today $T_0$, mass $m$ of a single neutrino and degeneracy factor $N = \sum_{i=1}^N m_i / m$ for describing multiple neutrinos with equal mass.
 The degeneracy factor defaults to $N = 3$, and the temperature to $T_{h0} = \big(\frac{4}{11}\big)^{1/3} T_{\gamma 0}$ if photons are present, as for massless neutrinos.
 
 Here the equation for $\psi_{i,l}^\prime$ applies for $2 \leq l \leq \lmax$, and expressions $g_i = g(x_i)$ indexed by $i$ are evaluated with the momentum quadrature point $x = x_i$.
-The reduction to \emph{dimensionless} momenta $x = pc/k_B T$ (the argument of $\exp$ in $f$) is deliberate because it makes numerics more well-defined and the quadrature scheme independent of $m$ and all other cosmological parameters.
+The reduction to dimensionless momenta $x = pc/k_B T$ (the argument of $\exp$ in $f$) is deliberate because it makes numerics more well-defined and the quadrature scheme independent of $m$ and all other cosmological parameters.
 
 SymBoltz automatically computes momentum bins $x_i$ and quadrature weights $W_i$ with $N$-point Gaussian quadrature.
 First, by default, the following substitution is applied to the momentum integral:
