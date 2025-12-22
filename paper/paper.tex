@@ -183,7 +183,7 @@ To overcome these challenges, most Boltzmann solvers are written in low-level hi
 They are tightly adapted to the pipeline-like computational structure of the problem (e.g. input $\rightarrow$ background $\rightarrow$ thermodynamics $\rightarrow$ perturbations $\rightarrow \ldots \rightarrow$ output in \cite{lesgourguesCosmicLinearAnisotropy2011}).
 This makes sense for programmers, but does not necessarily provide the simplest interface for modelers.
 
-Traditional codes have nonexistent or thin abstraction layers.
+Traditional codes like CAMB and CLASS have nonexistent or thin abstraction layers.
 To modify them, users must work directly in the low-level numerical code and have a good understanding of its internal structure.
 For example, to implement a new species, one must often modify the code in many places: input handling for new parameters, new background equations, new thermodynamics equations, new perturbation equations, joining each of these stages, output handling, and so on.
 This leads to fragmented code where changes related to one species are scattered throughout the code.
@@ -351,7 +351,7 @@ In any case, automatic differentiation requires access to the source code!
 \section{Code architecture and main features}
 \label{sec:features}
 
-SymBoltz is built somewhat differently than traditional Boltzmann codes.
+SymBoltz is designed around three main features.
 In short, it has a symbolic-numeric abstraction interface where users enter high-level symbolic equations, and automatically compiles them to fast low-level numerical functions.
 It cures stiffness with implicit ODE solvers, and uses no approximation schemes to keep models simple, elegant and extensible.
 It is differentiable, so one can get accurate derivatives of any output with respect to any input.
@@ -391,7 +391,7 @@ This can be made easier by organizing equations in a way that reflects the physi
 This could be slow to do at the numerical level, but can be done with no runtime penalty in an intermediate symbolic representation of the equations.
 
 Inspired by this, SymBoltz inverts the traditional layout of Boltzmann solvers.
-While other codes are pipelines that follow the background, perturbations and other stages of the equations,
+While most codes are built as pipelines that follow the background, perturbations and other stages of the equations,
 SymBoltz is primarily structured around the physical components that they consists of.
 Related variables and equations are grouped in distinct components for the metric, gravitational theory, photons, baryons, dark matter, dark energy, neutrinos and other species (see \cref{fig:components}).
 This isolates everything related to one submodel to one place.
@@ -409,8 +409,8 @@ For example, modified gravity or dark energy models can be written down as self-
 The generic symbolic framework can also be used to build reduced models with non-interacting radiation, matter and dark energy species.
 When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons. % e.g. https://github.com/lesgourg/class_public/issues/246
 
-In contrast, the monolithic layout of other codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
-As more and more submodels are added, this code is increasingly intertwined and the fragmentation is amplified.
+In contrast, the monolithic layout of traditional codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
+As more and more submodels are added, the code is increasingly intertwined and fragmented.
 %Adding new submodels then effectively duplicates one big monolithic model and leads to many forked versions of a Boltzmann code with different extensions that are incompatible with each other.
 They are also not flexible enough to test simpler toy models, as baryons and photons are hardcoded as fundamental to the structure of the code.
 This design fits the computational structure better than the physical one.
@@ -481,8 +481,9 @@ To illustrate, again consider the general relativistic equations in \cref{sec:gr
 Clearly $\Phi(\tau,k)$ and $\Psi(\tau,k)$ depend on $a(\tau)$, but $a(\tau)$ does not depend on $\Phi(\tau,k)$ or $\Psi(\tau,k)$, reflecting the perturbative nature of the problem.
 One can first solve for only $a(\tau)$ in the \enquote{background}, then spline and look up $a(\tau)$ to solve for $\Phi(\tau,k)$ and $\Psi(\tau,k)$ in the \enquote{perturbations}, instead of solving for all three together and repeatedly solve for $a(\tau)$ for every $k$.
 
-SymBoltz uses the same stage separation strategy, but automates it with its knowledge of the symbolic equations.
-First, all symbolic equations are split into background and perturbation stages.
+SymBoltz uses the same stage separation strategy as any other Boltzmann code,
+but automates it with its knowledge of the symbolic equations.
+First, all equations are split into background and perturbation stages.
 Cubic Hermite splines are then constructed for all background unknowns (like $a(\tau)$) and passed on to the perturbations.
 This spline type is optimal for interpolating ODEs, as Hermite splines take both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account for better accuracy, and $\boldsymbol{u}^\prime(\tau)$ is known analytically from $\boldsymbol{u}(\tau)$ and definition \eqref{eq:ode}.
 In contrast, observed variables (like $\scrH(\tau)$) are computed from the (splined) unknowns because their derivatives are not known directly, and splining them is less accurate.
@@ -492,7 +493,7 @@ while splining and stage separation are done automatically under the hood.
 
 The separation into background and perturbation stages is guaranteed and just reflects the perturbative structure of the linearized Einstein-Boltzmann equations, where each order depends only on those before it.
 However, they can often be broken further down: most thermodynamics (recombination) models can be separated from the background, and some variables have integral solutions (e.g. the optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\bar\tau) \mathrm{d}\bar\tau$ or line-of-sight integration) that can be computed in isolation after solving the differential equations.
-In the future, SymBoltz' background-perturbations separation can be extended to automatically split all smaller stages by symbolically inspecting the dependencies between variables in the full equations.
+In the future, SymBoltz' background-perturbations separation could be extended to automatically split all smaller stages by symbolically inspecting the dependencies between variables in the equations.
 %Over time, SymBoltz aims to extend the automatic background-perturbation separation by automatically incorporating more or \emph{all} stages of the equations at hand.%
 %\footnote{All stages can in principle be identified from a directed dependency graph between variables (e.g. from the Jacobian matrix). Cycles in the graph correspond to interdependent equations that must be integrated together in one ODE system (e.g. background and perturbations). Leaves with differentiated variables correspond to integral solutions.}
 %This feature is a major advantage with access to the symbolic equations.
@@ -835,7 +836,7 @@ It shows that SymBoltz and CLASS agree to around $0.1\%$ or better.
 The $P(k)$ agree to $0.1\%$ for all $k$ and $0.01\%$ for linear $k$.
 The $C_l$ agree to $0.1\%$ for most $l$, but slightly worse for cosmic variance-dominated $l$ and very large $l$ in $C_l^\text{TE}$.
 This is sufficient for most current data \citep[e.g.][]{bollietHighaccuracyEmulatorsObservables2024}.
-It is similar CAMB vs. CLASS with standard precision,
+It is similar to CAMB vs. CLASS with standard precision,
 although their agreement is pushed to $0.01\%$ with high precision \citep{lesgourguesCosmicLinearAnisotropy2011c}.
 
 SymBoltz computes $P(k)$ quickly, but the extra steps needed for $C_l$ are not yet as optimized as they are in CLASS.
@@ -1014,7 +1015,7 @@ The purpose of the comparison made here is to show the viability of approximatio
 We hope SymBoltz continues to grow and that others can build on it.
 Its symbolic capabilities can be extended with utilities for:
 \begin{itemize}
-\item separation into finer computational stages (see \cref{sec:splining}),
+\item separation into finer computational stages (see \cref{sec:splining});
 \item gauge transformation of equations (e.g. Newtonian $\leftrightarrow$ synchronous gauge), as already possible in CAMB\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}};
 \item perturbation theory utilities for deriving initial conditions and approximation schemes for new models;
 %\item initial conditions for perturbations generated with computer-assisted symbolic perturbation theory;
@@ -1038,7 +1039,7 @@ We hope SymBoltz can foster growth of modular interoperating packages for cosmol
 For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on output from Boltzmann solvers.
 Supporting automatic differentiation across language barriers is hard,
 and an ecosystem of such packages in one language with support for automatic differentiation, like Julia or Python with JAX, could create a modular and differentiable cosmological modeling toolbox.
-A recent example of this is DISCO-DJ's impressive end-to-end modeling from linear perturbations to non-linear structure formation by coupling differentiable Boltzmann and $N$-body codes \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
+A recent example of this is DISCO-DJ's coupling of differentiable Boltzmann and $N$-body codes for end-to-end modeling from linear perturbations to non-linear structure formation \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -1049,7 +1050,7 @@ This lets modelers prototype new models with few lines code at a high level.
 It relaxes all approximation schemes found in older codes by solving a single set of stiff equations at all times with implicit integrators.
 This simplifies the equations and remains performant due to high-order implicit solvers with fast generated code for ODEs and analytical and sparse Jacobians.
 It is differentiable, so one can get accurate derivatives of any output quantity with respect to any input parameter.
-Output power spectra agrees with CLASS to $0.1\%$ and can be used fit to current data.
+Output power spectra agree with CLASS to $0.1\%$ with standard precision and can be used fit to current data.
 
 \begin{figure}
     \centering
