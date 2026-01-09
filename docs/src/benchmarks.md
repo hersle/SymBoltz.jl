@@ -200,7 +200,11 @@ Ms = [ΛCDM(; lmax) for lmax in lmaxs]
 probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
 probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
 
-probs_sparse[end].pt.f.jac_prototype # example of sparse Jacobian
+# example of sparse Jacobian
+J = copy(probs_sparse[end].pt.f.jac_prototype)
+J.nzval .= 1
+N = first(size(J))
+heatmap(J; yflip = true, title = "$N×$N Jacobian nonzeros; $(round(SymBoltz.sparsity_fraction(J)*100, digits=1))% sparse; lmax = $(lmaxs[end])", axis = false, colorbar = false, aspect_ratio = 1, size = (600, 600))
 ```
 
 Sparse matrix methods are therefore very important to speed up the solution of large perturbation systems.
