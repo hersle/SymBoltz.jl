@@ -9,8 +9,8 @@ author: |
     | \scriptsize 
     | Code \& documentation & paper: [github.com/hersle/SymBoltz.jl](https://github.com/hersle/SymBoltz.jl)
 colorlinks: true
+classoption: table # add table option to xcolor
 header-includes: |
-    \usepackage[table]{xcolor}
     \usepackage{emoji}
     \usepackage{multicol}
     \usepackage{mathtools}
@@ -146,7 +146,9 @@ Two ways:
 
 # Spectra agree with CLASS to around 0.1%
 
-![](media/spectra.png){width=85%}
+ 
+
+![ ](media/spectra.png){width=80%}
 
 # Feature 1: symbolic-numeric interface
 
@@ -247,7 +249,7 @@ plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 700))
 
 $$
 \begin{gathered}
-J = \\
+J \sim \\
 \tiny
 \setcounter{MaxMatrixCols}{20}
 \setlength{\arraycolsep}{4pt}
@@ -256,24 +258,25 @@ J = \\
   last-row,
   code-for-first-col = \color{gray},
   code-for-last-row = \color{gray},
-  columns-width=auto]
-{a}^\prime & \Block[fill=red!30]{1-1}{} 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{X_H^+}^\prime & \Block[fill=blue!30]{4-5}{} 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{X_{He}^+}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{T_b}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{κ}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{Φ}^\prime & \Block[fill=green!30]{11-16}{} 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 \\
-{δ_c}^\prime & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 1 & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 \\
-{θ_c}^\prime & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
-{δ_b}^\prime & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 0 & 1 & 1 & 1 & 0 & 1 & 0 & 0 & 0 & 0 \\
-{θ_b}^\prime & 1 & 1 & 1 & 1 & 0 & 1 & 0 & 0 & 1 & 1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\
-{F_{γ0}}^\prime & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 1 & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 \\
-{F_{γ1}}^\prime & 1 & 1 & 1 & 1 & 0 & 1 & 0 & 0 & 0 & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 \\
-{F_{γ2}}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 0 & 0 & 0 \\
-{F_{γ3}}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 0 & 0 \\
-{F_{γ4}}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 0 \\
-{F_{γ5}}^\prime & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 0 \\
-{Θ_{γl}}^\prime & \Block[fill=yellow!30]{1-17}{} 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 0 & 0 \\
+  columns-width=auto
+]
+{a}^\prime & \cellcolor{red!30}{1} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{X_H^+}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{X_{He}^+}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{T_b}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{κ}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{Φ}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{δ_c}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{θ_c}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{δ_b}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{θ_b}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{F_{γ0}}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{F_{γ1}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{F_{γ2}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
+{F_{γ3}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & 0 \\
+{F_{γ4}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & 0 \\
+{F_{γ5}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & 0 \\
+{Θ_{γl}}^\prime & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 0 & \cellcolor{yellow!30}{0} \\
 & \mathclap{a} & \mathclap{X_H^+} & \mathclap{X_{He}^+} & \mathclap{T_b} & \mathclap{κ} & \mathclap{Φ} & \mathclap{δ_c} & \mathclap{θ_c} & \mathclap{δ_b} & \mathclap{θ_b} & \mathclap{F_{γ0}} & \mathclap{F_{γ1}} & \mathclap{F_{γ2}} & \mathclap{F_{γ3}} & \mathclap{F_{γ4}} & \mathclap{F_{γ5}} & \mathclap{Θ_{γl}}
 \end{bNiceMatrix}
 \end{gathered}
@@ -284,7 +287,7 @@ Reflects variable dependencies in the full system
 :::
 ::::::::::::::
 
-Scatters one species across many files
+- Scatters one species across many files
 
 # SymBoltz collects all equations in one system
 
@@ -953,7 +956,7 @@ $$
 
 - CLASS requires step size tuning
 
-- But slower than non-differentiable runs
+- SymBoltz currently slower for differentiable runs
 
 :::
 
