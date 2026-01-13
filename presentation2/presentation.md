@@ -21,14 +21,14 @@ pdf-engine: lualatex
 monofont: JuliaMono
 ---
 
-# Theoretical tensions call for extensions to ΛCDM
+# Tensions call for theoretical extensions to ΛCDM
 
 :::::::::::::: {.columns align=center}
 ::: {.column width="40%"}
 
 ![\scriptsize Hubble tension ([2105.05208](https://arxiv.org/abs/2105.05208))](media/hubble_tension.png){width=90%}
 
-![\scriptsize Dynamical DE? ([2404.03002](https://arxiv.org/abs/2404.03002))](media/desi.png){width=80%}
+![\scriptsize Dynamical DE? ([2404.03002](https://arxiv.org/abs/2404.03002))](media/desi.png){width=90%}
 
 :::
 ::: {.column width="60%"}
@@ -56,35 +56,51 @@ monofont: JuliaMono
 
  
 
-Two ways:
+![Gradients push samplers in the right direction (like a ball rolling in a potential)](media/hmc.png){width=80%}
+
+Two approaches:
 
 - Emulators (of non-diff. codes)
 
 - Differentiable codes
 
- 
-
-![Gradients push samplers in the right direction (like a ball rolling in a potential)](media/hmc.png){width=80%}
-
 :::
 ::: {.column width=40%}
 
-![[2405.12965](https://arxiv.org/abs/2405.12965)](media/highdim.png)
+![Small-dim. param. space ([2405.12965](https://arxiv.org/abs/2405.12965))](media/highdim.png)
 
 :::
 ::::::
 
-# What does an Einstein-Boltzmann solver do?
+# History of Boltzmann codes
+
+\scriptsize
+
+**Year**              **Code**                                                                                             **Lang.**  **New features**
+--------------------- ---------------------------------------------------------------------------------------------------- ---------- -------------------------------------------------
+1995                  [COSMICS](https://arxiv.org/abs/astro-ph/9506072) [ ](https://arxiv.org/abs/astro-ph/9506070)        Fortran    First proper treatment; seminal paper
+1996                  [CMBFAST](https://arxiv.org/abs/astro-ph/9603033)                                                    Fortran    Line-of-sight integration (lower perturbations $l_\text{max}$)
+2000                  [CAMB](https://arxiv.org/abs/astro-ph/9911177) \emoji{sports-medal}                                  Fortran    Further development, non-flat models
+2003                  [CMBEASY](https://arxiv.org/abs/astro-ph/0302138)                                                    C++        Object-oriented code structure
+2011                  [CLASS](https://arxiv.org/abs/1104.2932) \emoji{sports-medal}                                        C          User-friendliness, flexibility, accuracy control, speed
+2017                  [PyCosmo](https://arxiv.org/abs/1708.05177)                                                          Py/C++     Symbolic-numeric, code gen., approx.-free., sparsity
+2021                  [Bolt](https://github.com/xzackli/Bolt.jl/)                                                          Julia      Differentiable, approx.-free
+2024                  [DISCO-EB](https://arxiv.org/abs/2311.03291)                                                         Py/Jax     Differentiable, approx.-free, GPUs
+2025                  [SymBoltz](https://github.com/hersle/SymBoltz.jl)                                                    Julia      Symbolic-numeric, approx.-free, differentiable
+
+... and all forks thereof; e.g. [HiCLASS](https://arxiv.org/abs/1909.01828), [EFTCAMB](https://arxiv.org/abs/1312.5742), ...
+
+# What do Einstein-Boltzmann codes do? (less technical)
 
 ![](media/evolution_esa.png)
 
-- Simulates the evolution of a universe
+- Simulates a universe described by some cosmological model
 
-- Perturbative around a homo. & iso. background
+- Perturbative around a homo. & iso. FLRW background
 
-- Foundation for many cosmological analyses
+- Foundation for many cosmological CMB/LSS analyses
 
-# What does an Einstein-Boltzmann solver do?
+# What do Einstein-Boltzmann codes do? (more technical)
 
 \scriptsize
 1. Read input parameters $\Omega_{m0}$, $\Omega_{b0}$, $T_{\gamma 0}$, $N_\mathrm{eff}$, $A_s$, $n_s$, $\ldots$
@@ -119,26 +135,6 @@ Two ways:
 \scriptsize
 
 5. Output some function of the ODEs/integrals, like $P(k)$ or $C_l$.
-
-# History of Boltzmann solvers
-
-\scriptsize
-
-**Year**              **Code**                                                                                             **Lang.**  **New features**                                   
---------------------- ---------------------------------------------------------------------------------------------------- ---------- -------------------------------------------------
-1995                  [COSMICS](https://arxiv.org/abs/astro-ph/9506072) [ ](https://arxiv.org/abs/astro-ph/9506070)        Fortran    First proper treatment; seminal paper
-1996                  [CMBFAST](https://arxiv.org/abs/astro-ph/9603033)                                                    Fortran    Line-of-sight integration (lower $l_\text{max}$)
-2000                  [CAMB](https://arxiv.org/abs/astro-ph/9911177)                                                       Fortran    Further development, closed models
-2003                  [CMBEASY](https://arxiv.org/abs/astro-ph/0302138)                                                    C++        Code structure, object-oriented
-2011                  [CLASS](https://arxiv.org/abs/1104.2932)                                                             C          User-friendliness, flexibility, accuracy control
-2017                  [PyCosmo](https://arxiv.org/abs/1708.05177)                                                          Py/C++     Symbolic-numeric, code gen., approx.-free., sparsity
-2021                  [Bolt](https://github.com/xzackli/Bolt.jl/)                                                          Julia      Differentiable, approx.-free
-2024                  [DISCO-EB](https://arxiv.org/abs/2311.03291)                                                         Py/Jax     Differentiable, approx.-free
-2025                  [SymBoltz](https://github.com/hersle/SymBoltz.jl)                                                    Julia      Symbolic-numeric, approx.-free, differentiable
-
-... and all forks thereof; e.g. [EFTCAMB](https://arxiv.org/abs/1312.5742), [HiCLASS](https://arxiv.org/abs/1909.01828), ...
-
-**Opinion:** Boltzmann codes are too complicated
 
 # SymBoltz solves background and perturbations
 
@@ -187,39 +183,7 @@ ks = [4, 40, 400, 4000] # k / (H₀/c)
 sol = solve(prob, ks)
 ```
 
-# Symbolic model is structured by components
-
-\scriptsize
-```julia
-hierarchy(M; describe = true) # show model structure
-```
-```
-ΛCDM: Standard cosmological constant and cold dark matter cosmological model
-├─ g: Spacetime FLRW metric in Newtonian gauge
-├─ G: General relativity gravity
-├─ γ: Photon radiation
-├─ ν: Massless neutrinos
-├─ c: Cold dark matter
-├─ b: Baryonic matter
-│  ├─ rec: Baryon-photon recombination thermodynamics (RECFAST)
-│  ├─ rei1: Reionization with tanh-like (activation function) contribution ...
-│  └─ rei2: Reionization with tanh-like (activation function) contribution ...
-├─ h: Massive neutrino
-├─ Λ: Cosmological constant
-├─ I: Harrison-Zel'dovich inflation
-├─ m: Late-time matter (effective species for c+b+h)
-└─ r: Early-time radiation (effective species for γ+ν+h)
-```
-
-# Inspect equations to show what is being solved
-
-```julia
-equations(M.G) # show gravity equations
-```
-
-![ ](media/inspect.png)
-
-# Easy plotting of any symbolic expressions
+# Easily get/plot any expressions from the solution
 
 \tiny
 ```julia
@@ -232,168 +196,6 @@ plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 700))
 ```
 
 ![ ](media/plot_recipes.png){width=90%}
-
-# Create interactive plots, too
-
-![ ](media/plot_interactive.png){height=75%}
-
-# Other codes are structured by stages
-
-:::::::::::::: {.columns}
-::: {.column width="25%"}
-
-![CLASS modules](media/class_modules.png)
-
-:::
-::: {.column width="75%"}
-
-$$
-\begin{gathered}
-J \sim \\
-\tiny
-\setcounter{MaxMatrixCols}{20}
-\setlength{\arraycolsep}{4pt}
-\begin{bNiceMatrix}%
- [first-col,
-  last-row,
-  code-for-first-col = \color{gray},
-  code-for-last-row = \color{gray},
-  columns-width=auto
-]
-{a}^\prime & \cellcolor{red!30}{1} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{X_H^+}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{X_{He}^+}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{T_b}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{κ}^\prime & 1 & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{1} & \cellcolor{blue!30}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-{Φ}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{δ_c}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{θ_c}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{δ_b}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{θ_b}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{F_{γ0}}^\prime & 1 & 0 & 0 & 0 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{F_{γ1}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{F_{γ2}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & 0 \\
-{F_{γ3}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{0} & 0 \\
-{F_{γ4}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & 0 \\
-{F_{γ5}}^\prime & 1 & 1 & 1 & 1 & 0 & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{0} & \cellcolor{green!30}{1} & \cellcolor{green!30}{1} & 0 \\
-{Θ_{γl}}^\prime & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 0 & \cellcolor{yellow!30}{0} \\
-& \mathclap{a} & \mathclap{X_H^+} & \mathclap{X_{He}^+} & \mathclap{T_b} & \mathclap{κ} & \mathclap{Φ} & \mathclap{δ_c} & \mathclap{θ_c} & \mathclap{δ_b} & \mathclap{θ_b} & \mathclap{F_{γ0}} & \mathclap{F_{γ1}} & \mathclap{F_{γ2}} & \mathclap{F_{γ3}} & \mathclap{F_{γ4}} & \mathclap{F_{γ5}} & \mathclap{Θ_{γl}}
-\end{bNiceMatrix}
-\end{gathered}
-$$
-
-Reflects variable dependencies in the full system
-
-:::
-::::::::::::::
-
-- Scatters one species across many files
-
-# SymBoltz collects all equations in one system
-
-![](media/unstructured.png)
-
-- Background and perturbations are automatically split internally
-
-- Everything related to one component located in one place
-
-- Perturbations can freely refer to the background
-
-- **Goal:** work with all equations as if part of one big system
-
-# Symbolic models are built from components, or ...
-
-```julia
-g = SymBoltz.metric()
-G = SymBoltz.general_relativity(g)
-c = SymBoltz.cold_dark_matter(g)
-b = SymBoltz.baryons(g)
-γ = SymBoltz.photons(g; lmax = 10)
-ν = SymBoltz.massless_neutrinos(g; lmax = 10)
-h = SymBoltz.massive_neutrinos(g; lmax = 10, nx = 5)
-Λ = SymBoltz.cosmological_constant(g)
-# ...
-```
-
-- Each component contains all related variables/equations
-
-- Reflects the physical structure of the model
-
-- **Goal:** create a scalable library of components
-
-# ... or by putting everything in one component
-
-\tiny
-```julia
-# gravity/metric equations
-ℋ ~ D(a) / a
-D(a) ~ √(8*Num(π)/3 * ρ) * a^2
-D(Φ) ~ -4*Num(π)/3*a^2/ℋ*δρ - k^2/(3*ℋ)*Φ - ℋ*Ψ
-k^2 * (Φ - Ψ) ~ 12*Num(π) * a^2 * Π
-ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
-P ~ Pγ + Pν + Ph + PΛ
-δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν + δh*ρh
-Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν + (1+wh)*ρh*σh
-
-# baryons
-ρb ~ 3/(8*Num(π)) * Ωb0 / a^3
-D(δb) ~ -θb - 3*ℋ*csb2*δb + 3*D(Φ)
-D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4//3*κ̇*ργ/ρb*(θγ-θb)
-
-# photons
-Tγ ~ Tγ0 / a
-Ωγ0 ~ π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*h)^2)
-ργ ~ 3/(8*Num(π)) * Ωγ0 / a^4
-wγ ~ 1//3
-Pγ ~ wγ * ργ
-D(Fγ0) ~ -k*Fγ[1] + 4*D(Φ)
-D(Fγ[1]) ~ k/3*(Fγ0-2*Fγ[2]+4*Ψ) - 4//3 * κ̇/k * (θb - θγ)
-[D(Fγ[l]) ~ k/(2l+1) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + κ̇ * (Fγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
-D(Fγ[lγmax]) ~ k*Fγ[lγmax-1] - (lγmax+1) / τ * Fγ[lγmax] + κ̇ * Fγ[lγmax]
-D(Gγ0) ~ k * (-Gγ[1]) + κ̇ * (Gγ0 - Πγ/2)
-D(Gγ[1]) ~ k/(2*1+1) * (1*Gγ0 - 2*Gγ[2]) + κ̇ * Gγ[1]
-[D(Gγ[l]) ~ k/(2l+1) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + κ̇ * (Gγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
-D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + κ̇ * Gγ[lγmax]
-δγ ~ Fγ0
-θγ ~ 3*k*Fγ[1]/4
-σγ ~ Fγ[2]/2
-Πγ ~ Fγ[2] + Gγ0 + Gγ[2]
-```
-
-:::::: {.columns}
-::: {.column width=50%}
-
-SymBoltz: [full ΛCDM model in 250 LOC](https://hersle.github.io/SymBoltz.jl/stable/unstructured/)
-
-:::
-::: {.column width=50%}
-
-CLASS: spread over >25000 LOC in 10 files
-
-:::
-::::::
-
-# Unicode compatibility improves readability
-
-:::::: {.columns}
-
-::: {.column width=50%}
-
-Photon equations in CLASS:
-
-![](media/photons_class_nonum.png)
-
-:::
-
-::: {.column width=50%}
-
-Photon equations in SymBoltz:
-
-![](media/photons_symboltz_nonum.png)
-
-:::
-
-::::::
 
 # Example: add $w₀wₐ$ dark energy
 
@@ -408,83 +210,6 @@ cₐ² &= w - \frac{1}{3ℋ(1+w)} \frac{\mathrm{d}w}{\mathrm{d}τ}, \\
 \sigma &= 0 \\
 \end{aligned}
 $$
-
-# Short modification to SymBoltz
-
-:::::: {.columns}
-::: {.column width=55%}
-
-\tiny
-```julia
-# 1) Create w0wa species "X"
-g, τ, k = M.g, M.τ, M.k
-a, ℋ, Φ, Ψ = g.a, g.ℋ, g.Φ, g.Ψ
-D = Differential(τ)
-@parameters w₀ wₐ cₛ² Ω₀ ρ₀
-@variables ρ(τ) P(τ) w(τ) cₐ²(τ) δ(τ, k) θ(τ, k) σ(τ, k)
-eqs = [
-  w ~ w₀ + wₐ*(1-a) 
-  ρ₀ ~ 3*Ω₀ / (8*Num(π))
-  ρ ~ ρ₀ * a^(-3(1+w₀+wₐ)) * exp(-3wₐ*(1-a))
-  P ~ w * ρ
-  cₐ² ~ w - 1/(3ℋ) * D(w)/(1+w)
-  D(δ) ~ 3ℋ*(w-cₛ²)*δ - (1+w)*((1+9(ℋ/k)^2*(cₛ²-cₐ²))*θ - 3*D(Φ))
-  D(θ) ~ (3cₛ²-1)*ℋ*θ + k^2*cₛ²*δ/(1+w) + k^2*Ψ
-  σ ~ 0
-]
-initialization_eqs = [
-  δ ~ -3//2 * (1+w) * Ψ
-  θ ~ 1//2 * (k^2*τ) * Ψ
-]
-X = System(eqs, τ; initialization_eqs, name = :X)
-
-# 2) Create extended model and problem
-M = ΛCDM(Λ = X, lmax = 16, name = :w₀wₐCDM)
-push!(p, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
-prob = CosmologyProblem(M, p; jac=true, sparse=true)
-```
-
-:::
-::: {.column width=45%}
-
-\scriptsize
-
-Symbolic engine does mechanical tasks:
-
-\tiny
-
-- parameter hooks (e.g. $w_0$, $w_a$, $c_s^2$, $\Omega_{0}$),
-
-- move $(\tau)$-functions to background,
-
-- move $(\tau,k)$-functions to perturbations,
-
-- expand $\texttt{D(w)} \!=\! \mathrm{d}w/\mathrm{d}\tau$ and $\texttt{D(Φ)} \!=\! \mathrm{d}\Phi/\mathrm{d}\tau$,
-
-- look up background in perturbations,
-
-- source gravity with energy-momentum,
-
-- spline $\rho(\tau)$ in the perturbations (if integrating $\mathrm{d}\rho/\mathrm{d}\tau$),
-
-- set $\Omega_{X0} = 1 - \sum_{s \neq {X}} \Omega_{s0}$ (if GR),
-
-- eliminate common subexpressions like $x\!=\!1+w$ and $y\!=\!1/x$,
-
-- generate ODE code/indices for $\delta^\prime$ and $\theta^\prime$,
-
-- generate sparse anal. $J_{ij}$ for $\delta^\prime$ and $\theta^\prime$,
-
-- output any variable from the solution, both for unknowns (i.e. $\delta$ and $\theta$) and observeds (e.g. $w$ and $c_a^2$).
-
-- lower higher-order derivatives to 1 (e.g. $\frac{\mathrm{d}^2 \phi}{\mathrm{d} \tau^2}$),
-
-- everything related to one species is written in one place,
-
-- unicode makes code look like equations.
-
-:::
-::::::
 
 # Involved modification to CLASS {.allowframebreaks}
 
@@ -686,9 +411,193 @@ perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fld]
 
 - Things related to one species scattered in many places
 
-- A lot of boilerplate code for mechanical tasks
+- A lot of boilerplate code for mechanical tasks → unnecessary
 
 - In CLASS' defence, it handles more general $w(a)$ models
+
+# Short modification to SymBoltz
+
+:::::: {.columns}
+::: {.column width=55%}
+
+\tiny
+```julia
+# 1) Create w0wa species "X"
+g, τ, k = M.g, M.τ, M.k
+a, ℋ, Φ, Ψ = g.a, g.ℋ, g.Φ, g.Ψ
+D = Differential(τ)
+@parameters w₀ wₐ cₛ² Ω₀ ρ₀
+@variables ρ(τ) P(τ) w(τ) cₐ²(τ) δ(τ, k) θ(τ, k) σ(τ, k)
+eqs = [
+  w ~ w₀ + wₐ*(1-a)
+  ρ₀ ~ 3*Ω₀ / (8*Num(π))
+  ρ ~ ρ₀ * a^(-3(1+w₀+wₐ)) * exp(-3wₐ*(1-a))
+  P ~ w * ρ
+  cₐ² ~ w - 1/(3ℋ) * D(w)/(1+w)
+  D(δ) ~ 3ℋ*(w-cₛ²)*δ - (1+w)*((1+9(ℋ/k)^2*(cₛ²-cₐ²))*θ - 3*D(Φ))
+  D(θ) ~ (3cₛ²-1)*ℋ*θ + k^2*cₛ²*δ/(1+w) + k^2*Ψ
+  σ ~ 0
+]
+initialization_eqs = [
+  δ ~ -3//2 * (1+w) * Ψ
+  θ ~ 1//2 * (k^2*τ) * Ψ
+]
+X = System(eqs, τ; initialization_eqs, name = :X)
+
+# 2) Create extended model and problem
+M = ΛCDM(Λ = X, lmax = 16, name = :w₀wₐCDM)
+push!(p, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
+prob = CosmologyProblem(M, p; jac=true, sparse=true)
+```
+
+:::
+::: {.column width=45%}
+
+\scriptsize
+
+Symbolic engine does mechanical tasks:
+
+\tiny
+
+- parameter hooks (e.g. $w_0$, $w_a$, $c_s^2$, $\Omega_{0}$),
+
+- move $(\tau)$-functions to background,
+
+- move $(\tau,k)$-functions to perturbations,
+
+- expand $\texttt{D(w)} \!=\! \mathrm{d}w/\mathrm{d}\tau$ and $\texttt{D(Φ)} \!=\! \mathrm{d}\Phi/\mathrm{d}\tau$,
+
+- look up background in perturbations,
+
+- source gravity with energy-momentum,
+
+- spline $\rho(\tau)$ in the perturbations (if integrating $\mathrm{d}\rho/\mathrm{d}\tau$),
+
+- set $\Omega_{X0} = 1 - \sum_{s \neq {X}} \Omega_{s0}$ (if GR),
+
+- eliminate common subexpressions like $x\!=\!1+w$ and $y\!=\!1/x$,
+
+- generate ODE code/indices for $\delta^\prime$ and $\theta^\prime$,
+
+- generate sparse anal. $J_{ij}$ for $\delta^\prime$ and $\theta^\prime$,
+
+- output any variable, both unknowns (i.e. $\delta$, $\theta$) and observeds (e.g. $w$, $c_a^2$).
+
+- lower higher-order derivs. to 1 (e.g. $\frac{\mathrm{d}^2 \phi}{\mathrm{d} \tau^2}$),
+
+- everything related to one species in one place,
+
+- compact and readable unicode code.
+
+:::
+::::::
+
+# Other codes are structured by computational stages
+
+:::::::::::::: {.columns}
+::: {.column width="25%"}
+
+\scalebox{0.66}{
+\begin{tabular}{c}
+{\tt input.c} \\
+$\downarrow$\\
+{\tt \colorbox{red!80}{background.c}} \\
+$\downarrow$\\
+{\tt \colorbox{blue!80}{thermodynamics.c}} \\
+$\downarrow$\\
+{\tt \colorbox{green!80}{perturbations.c}} \\
+$\downarrow$\\
+{\tt bessel.c} \\
+$\downarrow$\\
+{\tt \colorbox{yellow!80}{transfer.c}} \\
+$\downarrow$\\
+{\tt primordial.c} \\
+$\downarrow$\\
+{\tt spectra.c} \\
+$\downarrow$\\
+{\tt nonlinear.c} \\
+$\downarrow$\\
+{\tt lensing.c} \\
+$\downarrow$\\
+{\tt output.c}\\
+\end{tabular}
+}
+
+\normalsize
+CLASS structure
+
+:::
+::: {.column width="75%"}
+
+$$
+\begin{gathered}
+\mathbf{J} = [ \partial u_i^\prime / \partial u_j ] \sim \\
+\tiny
+\setcounter{MaxMatrixCols}{20}
+\setlength{\arraycolsep}{4pt}
+\begin{bNiceMatrix}[
+    margin,
+    first-col,
+    last-row,
+    code-for-first-col = \color{gray},
+    code-for-last-row = \color{gray},
+    columns-width=auto
+]
+{a}^\prime & \cellcolor{red!80}{1} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{X_\mathrm{H}^+}^\prime & \cellcolor{blue!20}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{X_\mathrm{He}^+}^\prime & \cellcolor{blue!20}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{T_b}^\prime & \cellcolor{blue!20}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{κ}^\prime & \cellcolor{blue!20}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{1} & \cellcolor{blue!80}{0} & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+{Φ}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{δ_c}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{θ_c}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{δ_b}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{θ_b}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{F_{γ0}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{F_{γ1}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{F_{γ2}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & 0 \\
+{F_{γ3}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{0} & 0 \\
+{F_{γ4}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & 0 \\
+{F_{γ5}}^\prime & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{1} & \cellcolor{green!20}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{0} & \cellcolor{green!80}{1} & \cellcolor{green!80}{1} & 0 \\
+{Θ_{γl}}^\prime & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{0} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{1} & \cellcolor{yellow!20}{0} & \cellcolor{yellow!20}{0} & \cellcolor{yellow!80}{0} \\
+& \mathclap{a} & \mathclap{X_\mathrm{H}^+} & \mathclap{X_\mathrm{He}^+} & \mathclap{T_b} & \mathclap{κ} & \mathclap{Φ} & \mathclap{δ_c} & \mathclap{θ_c} & \mathclap{δ_b} & \mathclap{θ_b} & \mathclap{F_{γ0}} & \mathclap{F_{γ1}} & \mathclap{F_{γ2}} & \mathclap{F_{γ3}} & \mathclap{F_{γ4}} & \mathclap{F_{γ5}} & \mathclap{Θ_{γl}}
+\end{bNiceMatrix}
+\end{gathered}
+$$
+
+Reflects variable dependencies in the full system
+
+ 
+
+:::
+::::::::::::::
+
+:::::: {.columns}
+::: {.column width="35%"}
+
+- Spline prev. stages
+
+:::
+::: {.column width="65%"}
+
+- Scatters one species across many files
+
+:::
+::::::
+
+# SymBoltz is structured by physical components
+
+![](media/unstructured.png)
+
+- All (background/perturbations) equations written in one system
+
+- Background/perturbations are automatically split internally
+
+- Everything related to one component located in one place
+
+- Perturbations can freely refer to the background
+
+- **Goal:** work with all equations as if part of one big system
 
 # Feature 2: approximation-freeness
 
@@ -701,18 +610,18 @@ perturbations.c:9293:          +cs2*k2/(1.+w_fld)*y[pv->index_pt_delta_fld]
 ```
 
 \footnotesize
-Einstein-Boltzmann system is stiff with multiple \textcolor{red}{(inverse) time scales}, e.g.:
+Einstein-Boltzmann equations are stiff due to different \textcolor{red}{(inverse) time scales}, e.g.:
 
 $$\frac{\mathrm{d} θ_b}{\mathrm{d}τ} = -\textcolor{red}{ℋ} θ_b + \textcolor{red}{k^2} cₛ² δ_b - \frac{4ρ_γ}{3ρᵦ} \textcolor{red}{\dot{\kappa}} (θ_γ - θ_b)$$
 
-Standard explicit ODE integrators take tiny steps and crash!
+Standard explicit ODE integrators (e.g. RK4) take tiny steps and crash!
 
 # Solution 1: remove stiffness with approximations
 
 :::::::::::::: {.columns}
 ::: {.column width="64%"}
 
-Remove stiffness and speed up with approximations:
+Remove stiffness (and speed up) with approximation schemes:
 
 - tight coupling (TCA)
 
@@ -726,51 +635,102 @@ Remove stiffness and speed up with approximations:
 
 :::
 ::: {.column width="36%"}
+
 ![CLASS ([1104.2933](https://arxiv.org/abs/1104.2933))](media/approximations.png){height=50%}
+
 :::
 ::::::::::::::
 
-- Complicates equations and code
+- Complicates equations and code (also harder to differentiate)
 
-- Switching thresholds must be tuned
+- Switching criteria must be tuned (repeat for modifications)
 
-- Approximations must be validated
+- Approximations must be validated (repeat for modifications)
 
 - Extensions reintroduce stiffness and need new approximations
+
+- Biases extensions to less complicated sectors?
 
 # Approximations complicate the code
 
 [![](media/approximation_branching.png)](https://github.com/lesgourg/class_public/blob/e85808324f51fc694d12e3ed7439552a3c3f9540/source/perturbations.c#L9115)
 
+:::::: {.columns}
+::: {.column width=50%}
+
+- Several versions of equations
+
+:::
+::: {.column width=50%}
+
 - Nested `if`-`else` branching
 
-# Solution 2: integrate stiff equations with implicit solvers
+:::
+::::::
+
+# Solution 2: integrate full stiff equations with implicit solvers
 
 - Designed to solve stiff systems
 
-- **Challenge:** solves nonlinear system at every step, e.g.:
+- **Challenge:** every step solves $N ∼ O(100)$ implicit eqs., e.g.:
   $$
   \begin{aligned}
-  \text{Explicit Euler method: } \mathbf{u}_{n+1} &= \mathbf{u}_n + h \, \mathbf{f}(\mathbf{u}_n, t_n) \\
-  \text{Implicit Euler method: } \mathbf{u}_{n+1} &= \mathbf{u}_n + h \, \mathbf{f}(\mathbf{u}_{n+1}, t_n)
+  \text{Explicit Euler method: } \textcolor{red}{\mathbf{u}_{n+1}} &= \mathbf{u}_n + h \, \mathbf{f}(\mathbf{u}_n, t_n) \\
+  \text{Implicit Euler method: } \textcolor{red}{\mathbf{u}_{n+1}} &= \mathbf{u}_n + h \, \mathbf{f}(\textcolor{red}{\mathbf{u}_{n+1}}, t_n)
   \end{aligned}
   $$
 
-- Solves (non)linear equation at every step; needs ODE $\mathbf{J}$
+- Nonlinear solver (e.g. Newton's method) → needs ODE $\mathbf{J}$
 
   - Symbolic equations → analytical $\mathbf{J}$
 
-- Dense LU-factorization is $O(N^3)$; want sparse matrix methods!
+- Dense LU-fact. is $O(N^3)$ → want $O(\mathrm{nnz})$ sparse matrices
 
   - Symbolic equations → exact sparsity pattern of $\mathbf{J}$
 
   - Approximation-free → fixed sparsity pattern of $\mathbf{J}$
 
-- **Reward:** long steps, one clear set of equations, no switching
+- Handled by Julia's powerful [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl/) library
 
-# Uses Julia's powerful differential equations library
+- **Reward:** long steps, one simple equation set, no switching
 
-![\tiny * [Comparison](https://www.stochasticlifestyle.com/comparison-differential-equation-solver-suites-matlab-r-julia-python-c-fortran/) by the main developer of DifferentialEquations.jl (made before [diffrax](https://docs.kidger.site/diffrax/) in Python)](media/differentialequations_full.png)
+# Symbolic codes compute the Jacobian analytically
+
+By definition, the perturbation ODEs $f_i = \sum_j A_{ij} u_j$ are linear.
+
+$$
+\begin{aligned}
+&\implies J_{ij} = \partial f_i / \partial u_j = A_{ij} \\
+&\implies f_i = \sum_j J_{ij} u_j \\
+&\implies \text{sparse $\mathbf{J}$ requires fewer operations than $\mathbf{f}$}
+\end{aligned}
+$$
+
+
+ 
+
+:::::: {.columns}
+
+::: {.column width=50%}
+
+CLASS (\emoji{slightly-frowning-face}):
+
+- Knows only $\mathbf{f}$
+
+- Computes approximate $\mathbf{J}$ with $O(N)$ finite-difference evaluations of $\mathbf{f}$.
+
+:::
+
+::: {.column width=50%}
+
+SymBoltz (\emoji{slightly-smiling-face}):
+
+- Knows both $\mathbf{f}$ and $\mathbf{J}$
+
+- Computes exact $\mathbf{J}$ from 1 analytical evaluation with *fewer* operations than $\mathbf{f}$.
+
+:::
+::::::
 
 # Big speedup from sparse matrix methods
 
@@ -787,50 +747,14 @@ Remove stiffness and speed up with approximations:
 :::
 ::::::
 
-Approximation-free codes can optimize for fixed sparsity pattern
-
-# Symbolic codes compute the Jacobian analytically
-
-By definition, the perturbation ODEs $f_i = \sum_j A_{ij} u_j$ are linear.
-
-$$
-\begin{aligned}
-&\implies J_{ij} = \partial f_i / \partial u_j = A_{ij} \\
-&\implies f_i = \sum_j J_{ij} u_j \\
-\end{aligned}
-$$
-
- 
-
-:::::: {.columns}
-
-::: {.column width=50%}
-
-CLASS:
-
-- Knows only $\boldsymbol{f}$
-
-- Computes approximate $\mathbf{J}$ with $O(N)$ finite-difference evaluations of $\boldsymbol{f}$.
-
-:::
-
-::: {.column width=50%}
-
-SymBoltz:
-
-- Knows both $\boldsymbol{f}$ and $\boldsymbol{J}$
-
-- Computes exact $\mathbf{J}$ from 1 analytical evaluation with *fewer* operations than $\boldsymbol{f}$.
-
-:::
-::::::
-
 # Performance is good: work vs. precision diagram
 
-Can test different implicit solvers (problem-dependent behavior):
-![$L_2$ error of $P(k)$. Tolerances $10^{-9}$-$10^{-2}$. Reference tolerance $10^{-10}$. Same $k$-modes. Same $l_\text{max}$ cutoff. Default massive neutrino $q$-sampling.](media/performance.png){width=85%}
+Choice of implicit solver matters!
 
-(Line-of-sight integration for $C_l$ is not as fast as CLASS yet)
+![$L_2$ error of $P(k)$. Tolerances $10^{-9}$-$10^{-2}$. Reference tolerance $10^{-10}$. Same $k$-modes. Same $l_\text{max}$ cutoff. Default massive neutrino $q$-sampling.](media/performance.png){width=80%}
+
+\scriptsize
+(Line-of-sight integration for $C_l$ not yet as fast as CLASS)
 
 # Comparison of approximation/performance characteristics
 
@@ -844,7 +768,7 @@ Approximation-free         \cellcolor{red}No     \cellcolor{yellow}Almost${}^1$ 
 Solver order (stable)      -                     \cellcolor{yellow}1-5 (2)${}^2$       \cellcolor{yellow}2 (2)       \cellcolor{green}5 (5)              \cellcolor{green}4 (4)              \cellcolor{green}5 (5)
 Newton iterations          -                     \cellcolor{red}Yes                    \cellcolor{green}No${}^3$     \cellcolor{red}Yes                  \cellcolor{red}Yes                  \cellcolor{green}No${}^4$
 Jacobian method            -                     \cellcolor{red}$O(N)$ fin.diff.       \cellcolor{green}$O(1)$ anal. \cellcolor{yellow}$O(N)$ auto.diff. \cellcolor{yellow}$O(N)$ auto.diff. \cellcolor{green}$O(1)$ anal.
-Jacobian sparsity          -                     \cellcolor{yellow}Yes (dynamic)${}^5$ \cellcolor{green}Yes (fixed)  \cellcolor{red}No                   \cellcolor{red}No                   \cellcolor{green}Yes (fixed)
+Jacobian sparsity          -                     \cellcolor{yellow}Dynamic${}^5$       \cellcolor{green}Fixed        \cellcolor{red}Not supported        \cellcolor{red}Not supported        \cellcolor{green}Fixed
 
 - ${}^1$[Tight-coupling approximation is mandatory](https://github.com/lesgourg/class_public/blob/e85808324f51fc694d12e3ed7439552a3c3f9540/include/perturbations.h#L42), but others can be disabled.
 
@@ -867,7 +791,7 @@ Derivatives are important in e.g.:
 
 - Gradient-baed MCMCs: HMC, NUTS
 
-- Training machine learning emulators
+- Training machine learning emulators (minimize loss)
 
 - Fisher forecasting
 
@@ -885,10 +809,6 @@ Autodiff propagates exact gradients through the code:
 :::
 ::::::::::::::
 
-# Differentiation methods
-
-[![](media/diffmethods.png)](https://fmin.xyz/docs/methods/Autograd.html)
-
 # What is automatic differentiation?
 
 Any computer program is one (big) composite function
@@ -896,7 +816,9 @@ $$
 \mathbf{f} = \mathbf{f}_N \circ \mathbf{f}_{N-1} \circ \cdots \circ \mathbf{f}_2 \circ \mathbf{f}_1 = \mathbf{f}_N(\mathbf{f}_{N-1}( \cdots \mathbf{f}_2(\mathbf{f}_1)))
 $$
 
-Automatic differentiation is any technique computes the chain rule
+**Finite differences:** approximate $J_{ij} ≈ \frac{\mathbf{f}(\mathbf{x} + \mathbf{e}_j \frac{ϵ}{2}) - \mathbf{f}(\mathbf{x} - \mathbf{e}_j \frac{ϵ}{2})}{ϵ} \cdot \mathbf{e}_i$.
+
+**Automatic differentiation:** any method computing chain rule
 $$
 \mathbf{J} = \mathbf{J}_N \cdot \mathbf{J}_{N-1} \cdots \mathbf{J}_2 \cdot \mathbf{J}_1 = \frac{\partial\,\mathbf{f}_{N}}{\partial\,\mathbf{f}_{N-1}} \cdot \frac{\partial\,\mathbf{f}_{N-1}}{\partial\,\mathbf{f}_{N-2}} \cdots \frac{\partial\,\mathbf{f}_{3}}{\partial\,\mathbf{f}_{2}} \cdot \frac{\partial\,\mathbf{f}_{2}}{\partial\,\mathbf{f}_{1}}.
 $$
@@ -907,11 +829,11 @@ $$
 
 Unlike $\mathbf{f}$, the product for $\mathbf{J}$ can be evaluated in any order:
 
-- Forward-mode seeds $\mathbf{J}_1=\mathbf{1}$; best when $\mathbf{f}$ has more outputs
+- Forward-mode seeds $\mathbf{J}_1=\mathbf{1}$; fastest when $\mathbf{f}$ has more outputs
 
-- Reverse-mode seeds $\mathbf{J}_N=\mathbf{1}$; best when $\mathbf{f}$ has more inputs
+- Reverse-mode seeds $\mathbf{J}_N=\mathbf{1}$; fastest when $\mathbf{f}$ has more inputs
 
-# Trivial example: finite differences vs. 
+# Example: finite differences vs. automatic differentiation
 
 \scriptsize
 ```julia
@@ -924,18 +846,21 @@ f(3.0)
 # typeof(x) = Float64
 # 9.0
 
-(f(3.0+1e-10/2)-f(3.0-1e-10/2))/1e-10
+# 1) Finite differences
+ϵ = 1e-10
+(f(3.0+ϵ/2) - f(3.0-ϵ/2)) / ϵ
 # typeof(x) = Float64
 # typeof(x) = Float64
 # 6.000000496442226
 
+# 2) Automatic differentiation (forward-mode dual numbers)
 using ForwardDiff
 ForwardDiff.derivative(f, 3.0)
 # typeof(x) = ForwardDiff.Dual{ForwardDiff.Tag{typeof(f), Float64}, Float64, 1}
 # 6.0
 ```
 
-# Forward-mode AD works
+# Forward-mode AD works in SymBoltz
 
 \scriptsize
 Can do differentiable Fisher forecasting, e.g. for cosmic variance-dominated CMB survey:
@@ -968,7 +893,7 @@ $$
 
 ::::::
 
-# Reverse-mode AD does not work yet
+# Reverse-mode AD does not work yet in SymBoltz
 
 - Most attractive for MCMCs, since $L(\mathbf{p})$ is vector-to-scalar
 
@@ -976,13 +901,13 @@ $$
 
 ![HMC explores likelihood more efficiently ([2512.09724](https://arxiv.org/abs/2512.09724))](media/mh_vs_hmc.png)
 
-- **Goal:** $T(L,∇L)⋅N(\text{NUTS}) ≪ T(L)⋅N(\text{MH})$ ([2406.04725](https://arxiv.org/abs/2406.04725))
+- **Goal:** $T(L,∇L)⋅N(\text{NUTS}) < T(L)⋅N(\text{MH})$ ([2406.04725](https://arxiv.org/abs/2406.04725))
 
-# New features reinforce each other
+# Main features reinforce each other
 
-![ ](media/synergy.png){width=70%}
+!["Stronger together" \emoji{flexed-biceps}](media/synergy.png){width=70%}
 
-# Current state and future work
+# Current feature status and future work
 
 ```{=latex}
 \scriptsize
@@ -1002,13 +927,14 @@ $$
 \emoji{red-square} Tensor perturbations \\
 \emoji{green-square} Matter power spectrum \\
 \emoji{green-square} CMB power spectrum \\
+\emoji{yellow-square} CMB lensing \\
 \emoji{green-square} Symbolic interface \\
 \emoji{green-square} Auto stage separation \\
 \emoji{green-square} Auto spline ODE vars \\
 \emoji{green-square} Auto compute alg vars \\
 \emoji{green-square} Auto $(\tau, k)$-interpolate \\
 \emoji{green-square} Auto parameter hooks \\
-\emoji{yellow-square} Auto change of vars \\
+\emoji{yellow-square} Auto gauge transf \\
 \emoji{yellow-square} Auto initial conditions \\
 \emoji{red-square} Auto unit conversion \\
 \emoji{green-square} Auto plot recipes \\
@@ -1022,7 +948,7 @@ $$
 \emoji{green-square} Testing \\
 \emoji{green-square} CLASS comparison \\
 \emoji{yellow-square} Non-linear boosting \\
-\emoji{red-square} GPU parallellization \\
+\emoji{red-square} GPU support \\
 \emoji{green-square} Paper (arXiv) \\
 \emoji{black-large-square} \textbf{Ideas welcome!}
 \end{multicols}
@@ -1036,6 +962,12 @@ Available [github.com/hersle/SymBoltz.jl](https://github.com/hersle/SymBoltz.jl)
 
 - Link to [documentation](https://hersle.github.io/SymBoltz.jl/stable) and [paper](https://arxiv.org/abs/2509.24740) ![](media/docs_paper.png){height=3%}
 
-- Star if you find this interesting :) ![](media/star.png){height=3%}
+- Star Github if you find this interesting :) ![](media/star.png){height=3%}
 
 - Looking for people to try it and give feedback!
+
+- Feel free to open issues on Github!
+
+ 
+
+## Thank you!
