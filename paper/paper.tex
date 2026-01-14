@@ -118,7 +118,7 @@ A differentiable Boltzmann solver is a cornerstone in the modern cosmological mo
 
 SymBoltz is a new Boltzmann solver that aims to meet these needs, featuring a convenient symbolic-numeric interface, approximation-freeness and differentiability.
 At its core, a Boltzmann code solves the Einstein equations for a gravitational theory coupled to some particle species described by Boltzmann equations up to first perturbative order around a homogeneous and isotropic universe.
-For example, it predicts cosmic microwave background (CMB), baryon acoustic oscillation (BAO) or supernova (SN) observations, or generates initial conditions for non-linear $N$-body simulations of large-scale structure.
+For example, it predicts cosmic microwave background (CMB), baryon acoustic oscillation (BAO) or supernova (SN) observations, or generates initial conditions for nonlinear $N$-body simulations of large-scale structure.
 
 This article is structured as follows.
 \Cref{sec:intro} motivates SymBoltz by reviewing the historical development of Boltzmann codes and methods for computing derivatives.
@@ -173,7 +173,7 @@ Third, wildly different timescales coexist in the equations and make them extrem
 This stiffness must be massaged away in the equations or dealt with numerically in other ways.
 Fourth, the size of differential equations is very large and increases for more accurate description of relativistic species.
 Typical models with accurate treatment of photons and neutrinos need $O(100)$ equations.
-Fifth, the perturbations must be solved for many different wavenumbers $k$, and tradeoffs between performance and precision must be made.
+Fifth, the perturbations must be solved for many different wavenumbers $k$, and trade-offs between performance and precision must be made.
 
 To overcome these challenges, most Boltzmann solvers are written in low-level high-performance languages like C, C++ and Fortran.
 They are tightly adapted to the pipeline-like computational structure of the problem (e.g. input $\rightarrow$ background $\rightarrow$ thermodynamics $\rightarrow$ perturbations $\rightarrow \ldots \rightarrow$ output in \cite{lesgourguesCosmicLinearAnisotropy2011}).
@@ -197,7 +197,7 @@ They are also incompatible with each other unless one merges them into one code,
 The two-language problem amplifies the problem, as data analysis often happens in slow high-level languages like Python.
 This shapes Boltzmann solvers to rigid pipelines that must compute everything at once and avoid interception at all costs, in order to maximize performance in the low-level language before passing output back to the high-level language.
 Some features are really just post-processing of the ODE solutions, but are appended to the pipeline even if peripheral to the core task of an Einstein-Boltzmann solver -- solving the Einstein-Boltzmann equations.
-Features like non-linear boosting and CMB lensing could be made as smaller and interoperating modular packages, but instead become part of \enquote{all-in-one} Boltzmann codes.
+Features like nonlinear boosting and CMB lensing could be made as smaller and interoperating modular packages, but instead become part of \enquote{all-in-one} Boltzmann codes.
 
 These patterns lead to big monolithic Boltzmann solvers.
 They become increasingly complex as they incorporate more models and features beyond their original core scope.
@@ -229,7 +229,7 @@ Approximations can help both speed and stability and allow the use of explicit s
 
 However, approximations put much more strain on modelers to derive and validate several versions of the equations in different regimes.
 This process may have to be repeated when the model is modified.
-The numerics also become more complicated: timeseries from each ODE solution must be stitched together, each separate ODE system can use different tolerances, ODE integrators must be reinitialized, and so on.
+The numerics also become more complicated: time series from each ODE solution must be stitched together, each separate ODE system can use different tolerances, ODE integrators must be reinitialized, and so on.
 
 Another way to integrate stiff equations is to use appropriate implicit solvers.
 PyCosmo first solved the full stiff Einstein-Boltzmann equations with an implicit integrator, followed by Bolt.jl and DISCO-EB.
@@ -245,7 +245,7 @@ Derivatives are important in computing.
 Cosmological applications are no exception.
 For example, algorithms that optimize likelihoods and Markov chain Monte Carlo (MCMC) samplers for Bayesian parameter inference can take advantage of derivatives of the likelihood with respect to each parameter to intelligently step in a direction where the likelihood increases.
 In machine learning, the same applies when training neural networks emulators for cosmological observables as functions of parameters by minimizing a scalar loss.
-Some cosmologies are parametrized as boundary-value problems with the shooting method, and use nonlinear root solvers like Newton's method that need Jacobians.
+Some cosmologies are parameterized as boundary-value problems with the shooting method, and use nonlinear root solvers like Newton's method that need Jacobians.
 Implicit ODE solvers also use Jacobians to solve for values at the next time step.
 Fisher forecasting uses the Hessian (double derivative) of the likelihood with respect to parameters to predict how strong parameter constraints that can be placed by data with some uncertainty.
 Boltzmann solvers save time by interpolating spectra computed on coarse grids of $k$ and $l$ to finer grids, and this can be made more precise with derivatives with respect to $k$ and $l$.
@@ -464,9 +464,9 @@ This is tedious, error-prone and can tempt users to make simplifying assumptions
 \subsubsection{Automatic stage separation and splining of unknowns}
 \label{sec:splining}
 
-In principle, one can solve the Einstein-Boltzmann equations by integrating the entire system (e.g. background and perturbations) at once.
+In principle, one can solve the Einstein-Boltzmann equations by integrating the entire system (i.e. background and perturbations) at once.
 However, the system can be broken down into sequential computational stages that each depend only on those before it.
-To alleviate stiffness in each stage, separate concerns by solving every equation only once (e.g. avoid recomputing the background for every perturbation mode) and to improve performance, all Boltzmann codes solve the system stage-by-stage and spline variables from one stage as input to the next.
+To alleviate stiffness in each stage, separate concerns by solving every equation only once (i.e. avoid recomputing the background for every perturbation mode) and to improve performance, all Boltzmann codes solve the system stage-by-stage and spline variables from one stage as input to the next.
 
 To illustrate, again consider the general relativistic equations in \cref{sec:gravity} sourced by some known $\rho(\tau)$, $\delta\rho(\tau,k)$ and $\Pi(\tau,k)$.
 Clearly $\Phi(\tau,k)$ and $\Psi(\tau,k)$ depend on $a(\tau)$, but $a(\tau)$ does not depend on $\Phi(\tau,k)$ or $\Psi(\tau,k)$, reflecting the perturbative nature of the problem.
@@ -520,10 +520,10 @@ Analytical Jacobians are as fast and stable as possible, and automatic generatio
 
 SymBoltz stores the Jacobian in sparse form to boost performance when it has many zeros.
 From the analytical $\boldsymbol{J}$, SymBoltz precomputes its exact sparsity pattern (where $J_{ij} = 0$).
-This is hard to specify manually, and numerical solvers cannot distinguish false local zeros (for some input) from true global zeros (for all inputs).
+This is hard to specify manually, and numerical solvers cannot distinguish false local zeros (for some inputs) from true global zeros (for all inputs).
 Without approximations, SymBoltz then reuses the same sparsity structure throughout the integration, computes the nonzero $J_{ij}$ analytically and stores them directly in the sparse $\boldsymbol{J}$ with no extra cost from looking up sparse matrix indices.
 
-Easy, accurate, fast and sparse Jacobians are crucial for SymBoltz to remain performant without approximations!
+Easy analytical and sparse Jacobians are crucial for SymBoltz to remain fast without approximations!
 It is a major advantage with the symbolic approach, as in PyCosmo.
 
 \subsection{Approximation-freeness}
@@ -536,7 +536,7 @@ This pairs well with a high-level equation-oriented symbolic interface.
 
 Implicit solvers take more expensive steps than explicit methods.
 At every step, they solve a generally nonlinear system of equations for the next unknowns $\boldsymbol{u}$.
-Using Newton's method, it iteratively solves linear systems $\boldsymbol{W} \boldsymbol{u} = \boldsymbol{b}$
+Newton's method iteratively solves linear systems $\boldsymbol{W} \boldsymbol{u} = \boldsymbol{b}$
 by LU-factorizing $\boldsymbol{W} = \boldsymbol{I} - \gamma h \boldsymbol{J}$,
 where $\gamma$ is a constant, $h$ is the time step and $\boldsymbol{J}$ is the ODE Jacobian \eqref{eq:jacobian}.%
 \footnote{
@@ -615,7 +615,7 @@ In the long run, approximation schemes can of course be explored as a secondary 
 
 SymBoltz is compatible with automatic differentiation.
 It can compute derivatives of any output quantity (e.g. ODE variables, $P(k)$ or $C_l$) with respect to any input parameters (e.g. $h$ or $\Omega_{c0}$).
-For example, it can be used to learn the output's sensitivity to the input, perform Fisher forecasts or compute the Jacobian in the shooting method when parametrizing models with integrated variables.
+For example, it can be used to learn the output's sensitivity to the input, perform Fisher forecasts or compute the Jacobian in the shooting method for models parameterized by integrated variables.
 It can also compute the ODE Jacobian, but we do this symbolically to get it analytically with its sparsity pattern.
 
 Currently, SymBoltz and Bolt.jl both work only with forward-mode dual numbers through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}}.
@@ -775,7 +775,7 @@ We proceed with the $w_0 w_a \text{CDM}$ model.
 \begin{figure*}[ht!]
     \centering
     \includegraphics[scale=0.43]{figures/spectra.pdf}
-    \caption{Matter and CMB (TT, TE and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; grey dashes) with relative errors $\text{rel.err.} = P_k^\text{SB}/P_k^\text{CL}-1$ and $\text{rel.err.} = C_l^\text{SB}/C_l^\text{CL}-1$ for the $\Lambda \text{CDM}$ model. CLASS uses the precision parameters in \cref{sec:precision}.}
+    \caption{Matter and CMB (TT, TE and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; gray dashes) with relative errors $\text{rel.err.} = P_k^\text{SB}/P_k^\text{CL}-1$ and $\text{rel.err.} = C_l^\text{SB}/C_l^\text{CL}-1$ for the $\Lambda \text{CDM}$ model. CLASS uses the precision parameters in \cref{sec:precision}.}
     \label{fig:spectra}
 \end{figure*}
 
@@ -1009,7 +1009,7 @@ We hope SymBoltz can foster growth of modular interoperating packages for cosmol
 For example, applications like higher-order perturbation theory (e.g. CLASS-PT by \cite{chudaykinNonlinearPerturbationTheory2020} and PyBird by \cite{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g. HALOFIT by \cite{takahashiRevisingHalofitModel2012} and HMCODE by \cite{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g. CMBLensing.jl by \cite{milleaBayesianDelensingDelight2020}) and nonlinear $N$-body simulations all rely on output from Boltzmann solvers.
 Supporting automatic differentiation across language barriers is hard,
 and an ecosystem of such packages in one language with support for automatic differentiation, like Julia or Python with JAX, could create a modular and differentiable cosmological modeling toolbox.
-A recent example of this is DISCO-DJ's coupling of differentiable Boltzmann and $N$-body codes for end-to-end modeling from linear perturbations to non-linear structure formation \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
+A recent example of this is DISCO-DJ's coupling of differentiable Boltzmann and $N$-body codes for end-to-end modeling from linear perturbations to nonlinear structure formation \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024,listDISCODJIIDifferentiable2025}.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -1018,7 +1018,7 @@ SymBoltz is a fresh Julia package for solving the linear Einstein-Boltzmann equa
 It features a symbolic-numeric interface where models are built from symbolic equations and compiled to efficient numerical code.
 This lets modelers prototype new models with few lines code at a high level.
 It relaxes all approximation schemes found in older codes by solving a single set of stiff equations at all times with implicit integrators.
-This simplifies the equations and remains performant due to high-order implicit solvers with fast generated code for ODEs and analytical and sparse Jacobians.
+This simplifies the equations and remains efficient due to high-order implicit solvers with fast generated code for ODEs and analytical and sparse Jacobians.
 It is differentiable, so one can get accurate derivatives of any output quantity with respect to any input parameter.
 Output power spectra agree with CLASS to $0.1\%$ with standard precision and can be used fit to current data.
 
@@ -1088,7 +1088,7 @@ The equations closely follow the conventions in the seminal paper by \cite{maCos
 It is far outside the scope of this paper to derive the equations and explain the meaning of every variable.
 
 The independent variable is conformal time $\tau$, and all derivatives ${}^\prime = \mathrm{d} / \mathrm{d}\tau$ are with respect to it (in units of $1/H_0$).
-This is perhaps the most common parametrization in the literature, and is natural because most equations are autonomous with respect to $\tau$ (i.e. $f(\tau,\boldsymbol{u}) \rightarrow f(\boldsymbol{u})$, except some multipole truncation schemes that use $1/(k\tau)$, but these are unphysical).
+This is perhaps the most common parameterization in the literature, and is natural because most equations are autonomous with respect to $\tau$ (i.e. $f(\tau,\boldsymbol{u}) \rightarrow f(\boldsymbol{u})$, except some multipole truncation schemes that use $1/(k\tau)$, but these are unphysical).
 By default, integration starts from the early time $\tau = \tau_i = 10^{-6}$, and is terminated when the scale factor crosses $a = 1$, and the corresponding time $\tau = \tau_0$ is labeled today.
 
 \subsection{Metric and spacetime \texorpdfstring{$(g)$}{(g)}}
@@ -1133,7 +1133,7 @@ All species must therefore define $\rho$, $P$, $\delta \rho$, $\delta P$ and $\P
 This requirement is somewhat pedantic, but helps isolate components from each other for greater reuse when composing models.
 
 The scale factor $a$ is initialized as the nonlinear solution of the Friedmann equation constrained to $\scrH = 1/\tau$ (motivated by its radiation-dominated solution $a = \sqrt{\Omega_{r0}} \, \tau$).
-The constraint potential is initialized to $\Psi = 20C/(15+4f_\nu)$ with the (arbitrary) integration constant $C=1/2$ and initial energy density fraction $f_\nu = (\rho_\nu+\rho_h) / (\rho_\nu+\rho_h+\rho_\gamma)$ of all (massless and massive) neutrino species relative to all species that are radiative at early times.
+The constraint potential is initialized to $\Psi = 20C/(15+4f_\nu)$ with the (arbitrary) integration constant $C=1/2$ and initial energy density fraction $f_\nu = (\rho_\nu+\rho_h) / (\rho_\nu+\rho_h+\rho_\gamma)$ of all (massless and massive) neutrino species relative to all species that are radiation-like at early times.
 The evolved potential $\Phi$ is initialized accordingly from the constraint equation (the found solution is close to $\Phi = (1 + 2 f_\nu / 5) \Psi$, but providing both $\Phi$ and $\Psi$ explicitly leads to overdetermined initialization equations due to the constraint equation).
 
 The next sections present the \LCDM{} section of the \enquote{library of species} that are available in SymBoltz.
@@ -1152,7 +1152,7 @@ u = \frac{\theta}{k} , \qquad
 \sigma = 0 .
 \end{align*}
 Initial conditions are adiabatic with $\delta/(1+w) = -3 \Psi / 2$ and $\theta = k^2 \tau \Psi / 2$.
-The species is parametrized by the reduced density $\Omega_0 = \frac{8\pi}{3}\rho_0$ today.
+The species is parameterized by the reduced density $\Omega_0 = \frac{8\pi}{3}\rho_0$ today.
 
 \subsection{Baryons \texorpdfstring{$(b)$}{b}}
 \label{sec:baryons}
@@ -1244,7 +1244,7 @@ but is integrated together with the background ODEs by initializing $\kappa(\tau
 There is no tight-coupling approximation.
 
 Initial conditions are full ionization $X_\Hy^+ = X_\He^+ = 1$, thermal equilibrium $T_b = T_\gamma$ ($\Delta T = 0$), the arbitrary $\kappa = 0$, and adiabatic perturbations $\delta/(1+w) = -3 \Psi / 2$ and $\theta = k^2 \tau \Psi / 2$.
-The baryon species is parametrized by the reduced density $\Omega_0 = \frac{8\pi}{3}\rho_0$ today and the primordial Helium mass fraction $Y_\He$.
+The baryon species is parameterized by the reduced density $\Omega_0 = \frac{8\pi}{3}\rho_0$ today and the primordial Helium mass fraction $Y_\He$.
 
 SymBoltz solves thermodynamics equations together with the background equations, while some other codes treat these as separate stages.
 There is no meaningful performance improvement from doing this, as the size of the background (and thermodynamics) ODEs is so small.
@@ -1288,7 +1288,7 @@ G_{\lmax}^\prime = k G_{\lmax-1} - \frac{\lmax+1}{\tau} G_{\lmax} + {\kappa^\pri
 The equations for $F_l^\prime$ and $G_l^\prime$ apply for $2 \leq l < \lmax$.
 There are no tight-coupling, radiation-streaming or ultra-relativistic fluid approximations.
 Initial conditions are adiabatic with $F_0 = -2\Psi$ (i.e. $\delta/(1+w) = -\frac32 \Psi$), $F_1 = \frac23 k\tau \Psi$ (i.e. $\theta = \frac12 k^2 \tau \Psi$), $F_2 = -\frac{8}{15} \frac{k}{\kappa^\prime} F_1$, $G_0 = \frac{5}{16} F_2$, $G_1 = -\frac{1}{16} \frac{k}{\kappa^\prime} F_2$, $G_2 = \frac{1}{16} F_2$, and $F_l = -\frac{l}{2l+1} \frac{k}{\kappa^\prime} F_{l-1}$ and $G_l = -\frac{l}{2l+1} \frac{k}{\kappa^\prime} G_{l-1}$ for $3 \leq l \leq \lmax$.
-The species is parametrized by its temperature $T_0$ today, which in turn sets the density parameters $\Omega_0 = \frac{\pi^2}{15} \frac{(k_B T_0)^4}{(\hbar c)^3} \frac{8\pi G}{3H_0^2}$ and $\rho_0 = \frac{8\pi}{3}\Omega_0$ today.
+The species is parameterized by its temperature $T_0$ today, which in turn sets the density parameters $\Omega_0 = \frac{\pi^2}{15} \frac{(k_B T_0)^4}{(\hbar c)^3} \frac{8\pi G}{3H_0^2}$ and $\rho_0 = \frac{8\pi}{3}\Omega_0$ today.
 
 \subsection{Massless neutrinos \texorpdfstring{$(\nu)$}{(ν)}}
 \label{sec:masslessneutrinos}
@@ -1313,7 +1313,7 @@ F_{\lmax}^\prime = k F_{\lmax-1} - \frac{\lmax+1}{\tau} F_{\lmax} .
 The equations for $F_l^\prime$ apply for $2 \leq l < \lmax$.
 There is no ultra-relativistic fluid approximation.
 Initial conditions are adiabatic with $F_0 = -2 \Psi$ (i.e. $\delta/(1+w) = -\frac32 \Psi$), $F_1 = \frac23 k \tau \Psi$ (i.e. $\theta = \frac12 k^2 \tau \Psi$), $F_2 = \frac{2}{15} (k\tau)^2 \Psi$ and $F_l = \frac{l}{2l+1} k\tau F_{l-1}$.
-The species is parametrized by the effective number $N_\text{eff}$, the reduced density $\Omega_0 = \frac{8\pi}{3} \rho_0$ and temperature $T_0$ today.
+The species is parameterized by the effective number $N_\text{eff}$, the reduced density $\Omega_0 = \frac{8\pi}{3} \rho_0$ and temperature $T_0$ today.
 If photons are present, they default to $T_{\nu 0} = \big(\frac{4}{11}\big)^{1/3} T_{\gamma 0}$ and $\Omega_{\nu 0} = N_\text{eff} \frac78 \big(\frac{4}{11}\big)^{4/3} \Omega_{\gamma 0}$.
 
 \subsection{Massive neutrinos \texorpdfstring{$(h)$}{(h)}}
@@ -1321,7 +1321,7 @@ If photons are present, they default to $T_{\nu 0} = \big(\frac{4}{11}\big)^{1/3
 
 Massive neutrinos are the most complicated species in the \LCDM{} model (alongside baryon recombination).
 In essence, the species we have looked at so far have Boltzmann equations where the momenta of their distribution function can be integrated out analytically in non-relativistic and ultra-relativistic limits.
-This means that their stress-energy components are linked by trivial equations of state and sound speeds, for example, and their effect can be parametrized by a simple density parameter $\Omega_{0}$.
+This means that their stress-energy components are linked by trivial equations of state and sound speeds, for example, and their effect can be parameterized by a simple density parameter $\Omega_{0}$.
 
 On the other hand, massive neutrinos have intermediate masses that fall between the non-relativistic and ultra-relativistic limits.
 Integrals over their distribution function must be computed numerically.
@@ -1432,14 +1432,14 @@ The cosmological constant is equivalent to a very simple species without perturb
     \sigma = 0 , \qquad
     u = 0 .
 \end{align*}
-It is parametrized by the reduced density $\Omega_0 = \frac{8\pi}{3} \rho_0$ today.
+It is parameterized by the reduced density $\Omega_0 = \frac{8\pi}{3} \rho_0$ today.
 This is set to $\Omega_{\Lambda 0} = 1 - \sum_{s \neq \Lambda} \Omega_{s0}$ if all species $s$ have a $\Omega_{s0}$ parameter and General Relativity is the theory of gravity.
 This constraint comes from the 1st Friedmann equation today.
 
 \subsection{Primordial power spectrum \texorpdfstring{($I$)}{(I)}}
 \label{sec:primordial}
 
-SymBoltz computes the inflationary primordial power spectrum parametrized by the amplitude $A_s$ and tilt $n_s$:
+SymBoltz computes the inflationary primordial power spectrum parameterized by the amplitude $A_s$ and tilt $n_s$:
 \begin{align*}
     P_0(k) = \frac{2\pi^2}{k^3} A_s \bigg(\frac{k}{k_\text{p}}\bigg)^{n_s-1}.
 \end{align*}
@@ -1516,7 +1516,7 @@ background_Nloga = 6000 # for stable derivatives
 \end{Verbatim}
 \end{codebox}
 We run CLASS with \verb|output = mPk| to compute only $P(k)$, and \verb|output = tCl, pCl| to compute only $C_l^\text{TT}$, $C_l^\text{EE}$ and $C_l^\text{TE}$ with the code's most specialized and optimized paths.
-CLASS and SymBoltz are configured to use the same Newtonian gauge, $\lmax$ for all species, RECFAST recombination model, $\tanh$-like reionization parametrization, $w_0 w_a$ dark energy equations and cosmological parameter values.
+CLASS and SymBoltz are configured to use the same Newtonian gauge, $\lmax$ for all species, RECFAST recombination model, $\tanh$-like reionization parameterization, $w_0 w_a$ dark energy equations and cosmological parameter values.
 The settings above disable as many approximations as possible and reduce the impact of the tight-coupling approximation, which cannot be disabled.
 We had to decrease the parameter \verb|background_Nloga| from the default value 40000 to make the derivatives in \cref{fig:derivatives} stable.
 This parameter controls the number of points used for splining background functions in the perturbations.
