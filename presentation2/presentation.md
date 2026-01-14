@@ -67,7 +67,7 @@ Two approaches:
 :::
 ::: {.column width=40%}
 
-![Small-dim. param. space ([2405.12965](https://arxiv.org/abs/2405.12965))](media/highdim.png)
+![A 37-dim. param. space is now "small" ([2405.12965](https://arxiv.org/abs/2405.12965))](media/highdim.png)
 
 :::
 ::::::
@@ -879,7 +879,9 @@ $$
 
 ![](media/gradients.png)
 
-- CLASS requires step size tuning
+- CLASS: needs step size tuning
+
+- SymBoltz: no step size tuning
 
 - SymBoltz currently slower for differentiable runs
 
