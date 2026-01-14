@@ -1,8 +1,8 @@
 \documentclass{aa}
 \usepackage{graphicx}
-\usepackage[colorlinks=true, allcolors=blue]{hyperref} % color all links blue
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{amsmath}
-\usepackage{mathrsfs} % for \mathscr
+\usepackage{mathrsfs}
 \usepackage{cleveref}
 \usepackage{tabularx}
 \usepackage{booktabs}
@@ -18,20 +18,19 @@
   Scale = MatchLowercase,
   Path = fonts/,
   Extension = .ttf ,
-  UprightFont = *-Regular, % or -Light, -Regular or -Medium
+  UprightFont = *-Regular,
 ]
 
-\usepackage{mdframed} % for colored boxes
+\usepackage{mdframed}
 \newmdenv[
-  backgroundcolor=black!5,      % Light gray background (5% black)
-  %linecolor=black,             % Frame color
-  linewidth=0pt,                % Thickness of the frame
-  roundcorner=0pt,              % Rounded corners
-  innerlinewidth=0pt,           % Thickness of the inner line
-  innertopmargin=5pt,           % Top padding
-  innerbottommargin=5pt,        % Bottom padding
-  innerleftmargin=5pt,          % Left padding
-  innerrightmargin=5pt,         % Right padding
+  backgroundcolor=black!5,
+  linewidth=0pt,
+  roundcorner=0pt,
+  innerlinewidth=0pt,
+  innertopmargin=5pt,
+  innerbottommargin=5pt,
+  innerleftmargin=5pt,
+  innerrightmargin=5pt,
 ]{codebox}
 
 \usepackage[dvipsnames]{xcolor}
@@ -43,7 +42,6 @@
 
 \DeclareMathOperator{\sinc}{sinc}
 \newcommand{\LCDM}{$\mathrm{\Lambda C D M}$}
-\newcommand\TODO[1]{\textcolor{red}{(\textbf{TODO:} #1)}}
 \newcommand\transpose[1]{#1^\mathsf{T}}
 \newcommand\scrH{\mathscr{H}}
 \newcommand\lmax{l_\text{max}}
@@ -51,15 +49,14 @@
 \newcommand\ddiff[1]{\frac{\mathrm{d^2}{#1}}{\mathrm{d\tau^2}}}
 \newcommand\dlnfdlnx{\frac{\mathrm{d} \ln f}{\mathrm{d \ln x}}}
 
-\newcommand\el{\mathrm{e}} % electron
-\newcommand\Hy{\mathrm{H}} % Hydrogen
-\newcommand\He{\mathrm{He}} % Helium
-\newcommand\Hesin{{\mathrm{He}_1}} % Helium singlet
-\newcommand\Hetri{{\mathrm{He}_3}} % Helium triplet
-\newcommand\reone{{\mathrm{re}_1}} % 1st reionization
-\newcommand\retwo{{\mathrm{re}_2}} % 2nd reionization
+\newcommand\el{\mathrm{e}}
+\newcommand\Hy{\mathrm{H}}
+\newcommand\He{\mathrm{He}}
+\newcommand\Hesin{{\mathrm{He}_1}}
+\newcommand\Hetri{{\mathrm{He}_3}}
+\newcommand\reone{{\mathrm{re}_1}}
+\newcommand\retwo{{\mathrm{re}_2}}
 
-% link arxiv papers
 \newcommand{\urlref}[1]{\url{#1}}
 \newcommand{\doiref}[1]{\href{https://doi.org/#1}{\tt{DOI:#1}}}
 \newcommand{\eprintref}[1]{\href{https://arxiv.org/abs/#1}{\tt{arXiv:#1}}}
@@ -84,7 +81,6 @@ The main features form a synergy that reinforces the design of the code.
 Results agree with established codes to $0.1\%$ with standard precision.
 More work is needed to implement additional features and for fast reverse-mode automatic differentiation of scalar loss functions.
 SymBoltz is available at \url{https://github.com/hersle/SymBoltz.jl} with single-command installation and extensive documentation, and welcomes all contributions.
-% alternative: \usepackage{fontawesome} and \faicon{github}
 }
 
 \keywords{Cosmology: theory - Methods: numerical}
@@ -295,7 +291,7 @@ In any case, automatic differentiation requires access to the source code!
 \begin{figure*}
     \centering
     \begin{tikzpicture}[
-        remember picture, % nested nodes work better
+        remember picture,
         node distance=6.5cm,
         every node/.style = {align=center},
         wrapper/.style = {rectangle, rounded corners, fill=black!10, font=\normalsize, minimum width=4.7cm, minimum height=6.0cm},
@@ -404,7 +400,7 @@ Modifications automatically enjoy these benefits without extra user input.
 The modular component-based structure scales well in model space.
 For example, modified gravity or dark energy models can be written down as self-contained submodels and combined with other components to create many different extended cosmological models.
 The generic symbolic framework can also be used to build reduced models with non-interacting radiation, matter and dark energy species.
-When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons. % e.g. https://github.com/lesgourg/class_public/issues/246
+When exploring modified gravity theories, it can be helpful to test such toy models to understand how gravity responds to pure fluids without coupling to baryons and photons.
 
 In contrast, the monolithic layout of traditional codes scatter changes related to one submodel across different modules for input/output, the background, perturbations and so on.
 As more and more submodels are added, the code is increasingly intertwined and fragmented.
@@ -511,7 +507,7 @@ The solution interpolation is also incorporated into plot recipes for visualizat
 \subsubsection{Automatic Jacobian generation and sparsity detection}
 \label{sec:jacobian}
 
-Just like SymBoltz generates code for $\boldsymbol{f}$ in the ODE \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with entries%
+Just like SymBoltz generates code for $\boldsymbol{f}$ in the ODE \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with entries
 \begin{equation}
     J_{ij} = \frac{\partial f_i}{\partial u_j}.
 \label{eq:jacobian}
@@ -748,8 +744,8 @@ prob = CosmologyProblem(M, p; jac=true, sparse=true)
 This is all the user has to do.
 The modification simply consists of writing down the equations verbatim.
 It could hardly be more compact and to the point.
-Under the hood, SymBoltz will:%
-\begin{itemize}%
+Under the hood, SymBoltz will:
+\begin{itemize}
 \item create input hooks for setting the parameters $w_0$, $w_a$, $c_s^2$, $\Omega_{0}$,
 \item move $(\tau)$-dependent functions to the background,
 \item move $(\tau,k)$-dependent functions to the perturbations,
@@ -758,7 +754,7 @@ Under the hood, SymBoltz will:%
 \item spline $\rho(\tau)$ in the perturbations (if we use \eqref{eq:w0wadiff} over \eqref{eq:w0waanal}),
 \item source gravity with energy-momentum contributions,
 \item assign $\Omega_{X0} = 1 - \sum_{s \neq {X}} \Omega_{s0}$ (if gravity is GR) by default,
-\item eliminate common subexpressions like $x\!=\!1+w$ and $y\!=\!1/x$, % and multiply by $y$ instead of dividing by $x$,
+\item eliminate common subexpressions like $x\!=\!1+w$ and $y\!=\!1/x$,
 \item generate ODE functions and state indices for $\delta^\prime$ and $\theta^\prime$,
 \item generate sparse analytical Jacobian entries for $\delta^\prime$ and $\theta^\prime$,
 \item interpolate and output any variable from the solution, both for unknowns (i.e. $\delta$ and $\theta$) and observeds (e.g. $w$ and $c_a^2$).
@@ -1524,7 +1520,7 @@ CLASS and SymBoltz are configured to use the same Newtonian gauge, $\lmax$ for a
 The settings above disable as many approximations as possible and reduce the impact of the tight-coupling approximation, which cannot be disabled.
 We had to decrease the parameter \verb|background_Nloga| from the default value 40000 to make the derivatives in \cref{fig:derivatives} stable.
 This parameter controls the number of points used for splining background functions in the perturbations.
-Its default value was changed from 3000 to 40000 in 2023, but we suspect that the increased density in points makes the splines oscillate from numerical noise. % https://github.com/lesgourg/class_public/commit/4e1788ddfcb80db3097cddd02ddf332c51cc15e7
+Its default value was changed from 3000 to 40000 in 2023, but we suspect that the increased density in points makes the splines oscillate from numerical noise.
 Likewise, the tolerance for the perturbations ODEs is set one notch smaller than the default $10^{-5}$ to make the output stable.
 We use CLASS' default sampling of massive neutrino momenta, as discussed in \cref{sec:performance}.
 
