@@ -360,7 +360,7 @@ Automatic differentiation works through ForwardDiff.jl \citep{revelsForwardModeA
 
 The next subsections describe SymBoltz' three main features in more detail.
 Other implementation details are given in \cref{sec:implementation}.
-\textbf{This paper is as of SymBoltz version 0.14.1. Please see the package documentation for definitive up-to-date information.}
+This paper is as of SymBoltz version 0.14.1. Please see the package documentation for definitive up-to-date information.
 
 \subsection{Symbolic-numeric interface}
 \label{sec:symbolicnumeric}
@@ -564,7 +564,7 @@ We tested these ODE solvers:
 
 \begin{itemize}
 \item
-\textbf{Backward Differentiation Formula (BDF) methods}
+Backward Differentiation Formula (BDF) methods
 like \texttt{FBDF} and \texttt{QNDF} \citep{shampineMATLABODESuite1997} are 
 multi-step methods that use several past points to solve for the next step.
 They do not have Runge-Kutta \enquote{stages} and solve just one implicit equation per step,
@@ -576,7 +576,7 @@ The solvers \texttt{ndf15} in CLASS and \texttt{BDF2} in PyCosmo belong to this 
 \cite{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein-Boltzmann equations.
 
 \item
-\textbf{Explicit Singly-Diagonal Implicit Runge-Kutta (ESDIRK) methods} \citep[e.g.][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of Fully Implicit (FIRK) methods at a cheaper computational cost.
+Explicit Singly-Diagonal Implicit Runge-Kutta (ESDIRK) methods \citep[e.g.][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of Fully Implicit (FIRK) methods at a cheaper computational cost.
 An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$ and must solve a system of $n \times s$ equations at every step.
 D in ESDIRK means that $a_{ij}$ has only lower triangular and diagonal nonzeros, decoupling the system into $s$ systems of $n$ equations that are faster to solve sequentially.
 S means that all diagonal nonzeros $a_{ii} = \gamma$ are equal, so all stages share the same $\boldsymbol{W}$-matrix and only one must be factorized and can be reused as in BDF methods.
@@ -585,7 +585,7 @@ Unlike BDF methods, they can remain L-stable without losing order to stiffness.
 We find the 4th order \texttt{KenCarp4} method \citep{kennedyAdditiveRungeKutta2003} to perform well with much fewer time steps.
 Bolt.jl also defaults to this solver. DISCO-EB uses \texttt{Kvaerno5}, but we find it slower.
 
-\item \textbf{Rosenbrock methods:} Rosenbrock methods \citep[e.g.][]{langRosenbrockWannerMethodsConstruction2020} linearize $\boldsymbol{f} \approx \boldsymbol{J} \boldsymbol{u}$ and effectively replace Newton's method with one linear solve.
+\item Rosenbrock methods \citep[e.g.][]{langRosenbrockWannerMethodsConstruction2020} linearize $\boldsymbol{f} \approx \boldsymbol{J} \boldsymbol{u}$ and effectively replace Newton's method with one linear solve.
 Their major upside is being free from convergence on a nonlinear problem.
 This suits the perturbation ODEs, as they are already linear.
 The downside is that they can need a new $\boldsymbol{J}$ at every step, which is slow to evaluate numerically in many problems.
