@@ -80,7 +80,7 @@ Automatic differentiation gives exact derivatives of any output with respect to 
 The main features form a synergy that reinforces the design of the code.
 Results agree with established codes to $0.1\%$ with standard precision.
 More work is needed to implement additional features and for fast reverse-mode automatic differentiation of scalar loss functions.
-SymBoltz is available at \url{https://github.com/hersle/SymBoltz.jl} with single-command installation and extensive documentation, and welcomes all contributions.
+SymBoltz is publicly available with single-command installation and extensive documentation, and welcomes all contributions to the code.
 }
 
 \keywords{Cosmology: theory - Methods: numerical}
@@ -97,8 +97,7 @@ the increasing precision of modern observations are revealing tensions between t
 These suggest that the current standard model is not the ultimate truth.
 
 On the theoretical side, this drives a search for the true cosmological model through modifications to \LCDM{} \citep{bull$L$CDMProblemsSolutions2016}.
-Efficiently exploring the space of models benefits from numerical tools that are easy to modify.
-Minimizing friction in the modeling process encourages relaxing model-dependent approximations, creating user-friendly interfaces and structuring codes with modular components that are easy to replace.
+Efficiently exploring the space of models benefits from numerical tools that are easy to modify, which encourages relaxing model-dependent approximations, creating user-friendly interfaces and structuring codes with modular components.
 Some of the most important such tools in the cosmological modeling toolbox are linear Einstein-Boltzmann solvers (\enquote{Boltzmann codes}) like CAMB \citep{lewisEfficientComputationCMB2000a} and CLASS \citep{lesgourguesCosmicLinearAnisotropy2011}.
 
 On the observational frontier, next-generation surveys like the
@@ -116,18 +115,18 @@ Differentiability is also used in forward-modeling field-level inference with si
 Automatic differentiation can compute derivatives more accurately and faster than approximate and brute-force finite differences.
 A differentiable Boltzmann solver is a cornerstone in the modern cosmological modeling toolbox.
 
-SymBoltz is a new Boltzmann solver that aims to meet these needs, featuring a convenient symbolic-numeric interface, approximation-freeness and differentiability.
+SymBoltz\footnote{\url{https://github.com/hersle/SymBoltz.jl}} is a new Boltzmann solver that aims to meet these needs, featuring a convenient symbolic-numeric interface, approximation-freeness and differentiability.
 At its core, a Boltzmann code solves the Einstein equations for a gravitational theory coupled to some particle species described by Boltzmann equations up to first perturbative order around a homogeneous and isotropic universe.
 For example, it predicts cosmic microwave background (CMB), baryon acoustic oscillation (BAO) or supernova (SN) observations, or generates initial conditions for nonlinear $N$-body simulations of large-scale structure.
 
 This article is structured as follows.
-\Cref{sec:intro} motivates SymBoltz by reviewing the historical development of Boltzmann codes and methods for computing derivatives.
+\Cref{sec:intro} motivates SymBoltz by reviewing the history of Boltzmann codes and gradient methods.
 \Cref{sec:features} describes the structure and main features of SymBoltz and how it differs from other codes.
 \Cref{sec:examples} shows example usage.
 \Cref{sec:performance} compares performance to an existing code.
-\Cref{sec:futurework} describes possibilities for future work.
+\Cref{sec:futurework} describes paths for future work.
 \Cref{sec:conclusion} concludes with the current state of the code.
-\Cref{sec:implementation,sec:precision,sec:testing} list equations, implementation details, comparison settings and testing methods.
+\Cref{sec:implementation,sec:precision,sec:testing} list equations and implementation, comparison and testing details.
 
 \section{Introduction}
 \label{sec:intro}
