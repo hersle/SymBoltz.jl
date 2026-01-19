@@ -1,1 +1,7 @@
-Compile with xelatex or lualatex.
+Uses custom JuliaMono monospace font for displaying unicode code.
+Must compile with xelatex (TeX Live 2023 for 12+6 pages) or lualatex.
+
+Latexdiff
+---------
+- Place abstract between \begin{document} and \maketitle (temporarily!) and use --append-textcmd=abstract to mark changes in the abstract.
+- Replace \begin{tikzpicture} ... \end{tikzpicture} with old version, as latexdiff messes up everything inside.
