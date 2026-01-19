@@ -9,4 +9,4 @@ Automatic differentiation gives exact derivatives of any output with respect to 
 The main features form a synergy that reinforces the design of the code.
 Results agree with established codes to 0.1% with standard precision.
 More work is needed to implement additional features and for fast reverse-mode automatic differentiation of scalar loss functions.
-SymBoltz is available at https://github.com/hersle/SymBoltz.jl with single-command installation and extensive documentation, and welcomes all contributions.
+SymBoltz is publicly available with single-command installation and extensive documentation, and welcomes all contributions to the code.
