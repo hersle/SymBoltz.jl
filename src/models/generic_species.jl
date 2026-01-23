@@ -27,7 +27,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         u̇(τ, k), [description = "Velocity derivative"]
     end
     n = 3 * (1 + _w)
-    n = !(unwrap(_w) isa ModelingToolkit.Symbolic) && isinteger(n) ? Int(n) : n
+    n = !Symbolics.issym(unwrap(_w)) && isinteger(n) ? Int(n) : n
     if analytical
         eqs = [
             Ω ~ Ω₀ / g.a^n
@@ -51,12 +51,12 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         σ ~ _σ
     ])
     adiabatic && push!(eqs, cₛ² ~ w)
-    ics = [
+    ieqs = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
         θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !θinteract && push!(eqs, (θinteraction ~ 0))
-    return System(eqs, τ, vars, [pars; k]; initialization_eqs=ics, name, kwargs...)
+    return System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, name, kwargs...)
 end
 
 """
@@ -94,8 +94,9 @@ Create an effective "read-only" species for several given `species` with metric 
 Additive properties (like ``ρ``, ``P`` and ``δρ``) are summed, and used to express non-additive properties (like ``w`` and ``δ``).
 """
 function effective_species(g, species; effective_name = "", kwargs...)
+    scope = ParentScope
     pars = @parameters begin
-        Ω₀, [description = "Reduced background density today"]
+        Ω₀ = scope(sum(s.Ω₀ for s in species)), [description = "Reduced background density today"]
     end
     vars = @variables begin
         w(τ), [description = "Equation of state"]
@@ -105,9 +106,7 @@ function effective_species(g, species; effective_name = "", kwargs...)
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
     end
-    scope = ParentScope
     eqs = [
-        Ω₀ ~ scope(sum(s.Ω₀ for s in species))
         ρ ~ scope(sum(s.ρ for s in species))
         P ~ scope(sum(s.P for s in species))
         w ~ P / ρ

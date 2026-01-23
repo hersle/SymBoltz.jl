@@ -58,12 +58,12 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         σ ~ 0
     ])
-    ics = [
+    ieqs = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
         θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ]
     description = "w₀wₐ (CPL) dark energy"
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs = ieqs, name, description, kwargs...)
 end
 
 """

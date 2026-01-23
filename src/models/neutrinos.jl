@@ -30,14 +30,14 @@ function massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)
         σ ~ F[2]/2
         u ~ θ / k
     ]
-    ics = [
+    ieqs = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1//2 * (k^2*τ) * g.Ψ
         σ ~ 1//15 * (k*τ)^2 * g.Ψ
         [F[l] ~ +l//(2*l+1) * k*τ * F[l-1] for l in 3:lmax]...
     ]
     description = "Massless neutrinos"
-    return extend(ν, System(eqs, τ, vars, pars; initialization_eqs=ics, name, kwargs...); description)
+    return extend(ν, System(eqs, τ, vars, pars; initialization_eqs = ieqs, name, kwargs...); description)
 end
 
 """
@@ -71,16 +71,17 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
     x, W = momentum_quadrature(f₀, nx)
+    x² = x .^ 2
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
 
     pars = @parameters begin
-        m, [description = "Individual neutrino mass (in kg)"]
+        N = 3, [description = "Number of degenerate neutrino masses"]
         m_eV, [description = "Individual neutrino mass (in eV/c²)"] # TODO: only one m?
-        N, [description = "Number of degenerate neutrino masses"]
+        m = m_eV * eV/c^2, [description = "Individual neutrino mass (in kg)"]
         T₀, [description = "Temperature today (in K)"]
-        Ω₀, [description = "Reduced background density today"]
-        y₀, [description = "Temperature-reduced mass today"]
-        Iρ₀, [description = "Density integral today"]
+        y₀ = m*c^2 / (kB*T₀), [description = "Temperature-reduced mass today"]
+        Iρ₀ = ∫dx_x²_f₀(@. √(x² + y₀^2)), [description = "Density integral today"] # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
+        Ω₀ = N * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN), [description = "Reduced background density today"]
     end
     vars = @variables begin
         ρ(τ), [description = "Background density"]
@@ -105,17 +106,11 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
     end
 
     eqs = [
-        # parameter equations: compute Ω₀ parameter by duplicating time-dependent equations today # TODO: avoid
-        m ~ m_eV * eV/c^2
-        y₀ ~ m*c^2 / (kB*T₀)
-        Iρ₀ ~ ∫dx_x²_f₀(@. √(x^2 + y₀^2)) # circumvent defining E₀[1:nx] because vector parameter dependencies doesn't work properly with setsym/remake
-        Ω₀ ~ N * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*T₀)^4 / (ħ*c)^3 * Iρ₀ / ((H100*g.h*c)^2/GN)
-
         T ~ T₀ / g.a
         y ~ y₀ * g.a
         In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
-        IP ~ ∫dx_x²_f₀(x.^2 ./ E)
+        IP ~ ∫dx_x²_f₀(x² ./ E)
         ρ ~ 2N/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         P ~ 2N/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
@@ -126,8 +121,8 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
-        σ ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ E .* ψ[:,2]) / (Iρ + IP/3)
-        cₛ² ~ ∫dx_x²_f₀(x.^2 ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
+        σ ~ (2//3) * ∫dx_x²_f₀(x² ./ E .* ψ[:,2]) / (Iρ + IP/3)
+        cₛ² ~ ∫dx_x²_f₀(x² ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
 
         [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
         [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
@@ -135,14 +130,13 @@ function massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)
         [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for i in 1:nx, l in 2:lmax-1]...
         [D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*τ) - ψ[i,lmax-1])) for i in 1:nx]... # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
     ]
-    ics = [
+    ieqs = [
         [ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
         [ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
         [ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
         [ψ[i,l] ~ 0 for i in 1:nx, l in 3:lmax]... # TODO: full ICs
     ]
-    defaults = [N => 3] # 3 degenerate neutrinos with equal mass
     description = "Massive neutrino"
     pars = [m, m_eV, N, T₀, Ω₀, y₀, T₀, Iρ₀]
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, defaults, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs = ieqs, name, description, kwargs...)
 end

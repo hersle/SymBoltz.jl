@@ -26,9 +26,6 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         G(τ, k)[1:lmax], [description = "Polarization component"]
     end
     eqs = [
-        # Parameter equations
-        γ.Ω₀ ~ π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
-
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ) # D(θ) ~ -κ̇ (θb-θγ)
@@ -44,7 +41,10 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         Θ0 ~ F0/4
         [Θ[l] ~ F[l]/4 for l in 1:lmax]...
     ]
-    ics = [
+    bindings = [
+        γ.Ω₀ => π^2/15 * (kB*γ.T₀)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*g.h)^2)
+    ]
+    ieqs = [
         F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k*τ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
@@ -57,7 +57,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
             [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / τ * G[lmax] + κ̇ * G[lmax]
         ])
-        append!(ics, [
+        append!(ieqs, [
             G0 ~ 5//16 * F[2],
             G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
@@ -67,5 +67,5 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         append!(eqs, [collect(G .~ 0)...]) # pin to zero
     end
     description = "Photon radiation"
-    return extend(γ, System(eqs, τ, vars, []; initialization_eqs=ics, name, kwargs...); description)
+    return extend(γ, System(eqs, τ, vars, []; initialization_eqs=ieqs, bindings, name, kwargs...); description)
 end

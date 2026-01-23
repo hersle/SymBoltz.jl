@@ -1,20 +1,14 @@
 function harrison_zeldovich(g; kwargs...)
-    @parameters begin
-        ln_As1e10, [description = "ln(10¹⁰ As)"]
-        As, [description = "Spectral amplitude"]
-        ns, [description = "Spectral index"]
-        kpivot, [description = "Pivot scale wavenumber"]
+    pars = @parameters begin
+        ln_As1e10 = NaN, [description = "ln(10¹⁰ As)"] # keep uninitialized if not needed
+        As = exp(ln_As1e10) / 1e10, [description = "Spectral amplitude"]
+        ns = NaN, [description = "Spectral index"]
+        kpivot = 0.05 / Mpc / (H100/c) / g.h, [description = "Pivot scale wavenumber"] # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
     end
-    @variables P(τ, k)
+    vars = @variables P(τ, k)
     eqs = [
-        As ~ exp(ln_As1e10) / 1e10
         P ~ 2*Num(π)^2 / k^3 * As * (k/kpivot)^(ns-1)
     ]
-    defaults = [
-        kpivot => 0.05 / Mpc / (H100/c) / g.h # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
-        ln_As1e10 => NaN # keep uninitialized if not needed
-        ns => NaN
-    ]
     description = "Harrison-Zel'dovich inflation"
-    return System(eqs, τ; defaults, description, kwargs...)
+    return System(eqs, τ, vars, pars; description, kwargs...)
 end

@@ -24,7 +24,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
             F₁ ~ D(a)^2 - 8*Num(π)/3*ρ*a^4 # violation of (squared) Friedmann constraint equation
             F₂ ~ 0 # we are enforcing the 2nd Friedmann equation
         ]
-        ics = [F₁ ~ 0]
+        ieqs = [F₁ ~ 0]
     else
         pars = []
         eqs = [
@@ -32,7 +32,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
             F₁ ~ 0 # we are enforcing the 1st Friedmann equation
             F₂ ~ D(D(a)) - D(a)^2/(2*a)*(1-3*P/ρ) # violation of acceleration equation
         ]
-        ics = []
+        ieqs = []
     end
     append!(eqs, [
         D(g.Φ) ~ -4*Num(π)/3*a^2/g.ℋ*δρ - k^2/(3*g.ℋ)*g.Φ - g.ℋ*g.Ψ
@@ -41,7 +41,7 @@ function general_relativity(g; acceleration = false, name = :G, kwargs...)
         g.Φ̇ ~ D(g.Φ)
     ])
     description = "General relativity gravity"
-    return System(eqs, τ, vars, pars; initialization_eqs = ics, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs = ieqs, name, description, kwargs...)
 end
 
 # TODO: potential
@@ -75,14 +75,14 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         KG
         G ~ (2*ω+4) / (2*ω+3) / ϕ # effective gravitational constant
     ]
-    ics = []
+    ieqs = []
     if acceleration
         append!(eqs, [
             F2
             F₂ ~ 0
             F₁ ~ F1.lhs - F1.rhs # violation of Friedmann contraint
         ])
-        push!(ics, F1)
+        push!(ieqs, F1)
     else
         append!(eqs, [
             D(a) ~ -a/2*D(ϕ)/ϕ + √((a/2*D(ϕ)/ϕ)^2 + 8*Num(π)/3*ρ*a^4/ϕ + ω/6*(a*D(ϕ)/ϕ)^2) # solve quadratic equation for ȧ # TODO: Symbolics.symbolic_solve
@@ -98,11 +98,9 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         g.Ψ̇ ~ D(g.Ψ)
         g.Φ̇ ~ D(g.Φ)
     ])
-    ics = append!(ics, [
-        δϕ ~ 0.0 # TODO: set properly
-        D(δϕ) ~ 0.0 # TODO: set properly
-    ])
+    ics = [δϕ => 0.0] # TODO: set properly
+    push!(ieqs, D(δϕ) ~ 0.0) # works better than having it in ics # TODO: set properly
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
-    return System(eqs, τ, vars, pars; name, description, initialization_eqs = ics, guesses, kwargs...)
+    return System(eqs, τ; name, description, initialization_eqs = ieqs, initial_conditions = ics, guesses, kwargs...)
 end

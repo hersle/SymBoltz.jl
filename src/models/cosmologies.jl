@@ -52,9 +52,9 @@ function ΛCDM(;
     radiation_species = filter(s -> nameof(s) in radiation_species, species)
     @named r = effective_species(g, radiation_species; effective_name = "Early-time radiation")
     pars = @parameters begin
-        C, [description = "Initial conditions integration constant"]
-        τ0, [description = "Conformal time today"]
-        τrec, [description = "Conformal time of recombination"]
+        C = 1//2, [description = "Initial conditions integration constant"]
+        τ0 = NaN, [description = "Conformal time today"]
+        τrec = NaN, [description = "Conformal time of recombination"]
     end
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
@@ -67,34 +67,28 @@ function ΛCDM(;
         SE_kχ²(τ, k), [description = "E-mode polarization source function"]
         Sψ(τ, k), [description = "Lensing source function"]
     end
-    defs = Dict(
-        C => 1//2,
-        τ0 => NaN,
-        τrec => NaN,
-        D(g.a) => g.a / τ, # ℋ ≈ 1 / τ
-    )
     guesses = Dict(
         g.a => τ # sensible initial guess because radiation-dominated solution is e.g. a = √(Ωr0)*τ
     )
-    ics = [
+    bindings = Ω₀_eqs(G, species)
+    ieqs = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
+        D(g.a) ~ g.a / τ # ℋ ≈ 1 / τ
     ]
-    eqs = Ω₀_eqs(G, species)
-    have(ν) && have(γ) && push!(eqs,
-        ν.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
-        ν.Ω₀ ~ ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
+    have(ν) && have(γ) && push!(bindings,
+        ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
+        ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
     )
-    have(h) && have(γ) && push!(eqs,
-        h.T₀ ~ (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
+    have(h) && have(γ) && push!(bindings,
+        h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
     )
-    append!(eqs, [
+    eqs = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
         b.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
         χ ~ τ0 - τ
-    ])
-    append!(eqs, [
+
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species) # TODO: factor 2/3 or 3/2? See e.g. https://arxiv.org/pdf/astro-ph/9506072 bottom of page 10? Check all models.
@@ -109,11 +103,11 @@ function ΛCDM(;
         ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
         SE_kχ² ~ 3/16 * b.v*γ.Π
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
-    ])
+    ]
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
     description = "Standard cosmological constant and cold dark matter cosmological model"
-    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, initialization_eqs = ics, guesses, name, description)
+    connections = System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, bindings, guesses, name, description)
     components = filter(!isnothing, [g; G; species; I; m; r])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
@@ -151,7 +145,7 @@ function RMΛ(;
         χ(τ), [description = "Conformal lookback time from today"]
     end
     pars = @parameters begin
-        τ0, [description = "Conformal time today"]
+        τ0 = NaN, [description = "Conformal time today"]
     end
     species = filter(have, [r, m, K, Λ])
     eqs = [
@@ -163,13 +157,14 @@ function RMΛ(;
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ]
-    defs = Dict(
-        g.Ψ => 20 // 15,
-        τ0 => NaN,
+    ieqs = [
+        g.Ψ ~ 20 // 15
+    ]
+    ics = [
         g.a => √(r.Ω₀) * τ # default initial scale factor
-    )
-    append!(eqs, Ω₀_eqs(G, species)) # parameter equations
-    connections = System(eqs, τ, vars, [pars; k]; defaults = defs, name)
+    ]
+    bindings = Ω₀_eqs(G, species) # parameter equations
+    connections = System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, initial_conditions = ics, bindings, name)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
@@ -224,9 +219,9 @@ function w0waCDM(; name = :w0waCDM, Λanalytical = true, kwargs...)
 end
 
 function Ω₀_eqs(G::System, species)
-    if all(map(s -> :Ω₀ in Symbol.(full_parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
-        return [species[end].Ω₀ ~ 1 - sum(s′.Ω₀ for s′ in species[begin:end-1])] # TODO: do for all species, or do sum(s.Ω₀) ~ 1, when parameter initialization is workign
+    if all(map(s -> :Ω₀ in Symbol.(parameters(s)), species)) && startswith(ModelingToolkit.description(G), "General relativity")
+        return Dict(species[end].Ω₀ => 1 - sum(s′.Ω₀ for s′ in species[begin:end-1])) # TODO: do for all species, or do sum(s.Ω₀) ~ 1, when parameter initialization is workign
     else
-        return Equation[]
+        return Dict()
     end
 end
