@@ -1,4 +1,4 @@
-import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
+import DataInterpolations: CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
@@ -111,8 +111,12 @@ function dummyspline(N)
     return CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
 end
 
-splvalue(s::AbstractInterpolation, t, i) = s(t)[i]
-@register_symbolic splvalue(s::AbstractInterpolation, t, i)
+# https://github.com/SciML/ModelingToolkit.jl/issues/4202#issuecomment-3799583124
+splvalue(s::Any, t, uprototype) = s(t)
+@register_array_symbolic splvalue(s::Any, t, uprototype::AbstractArray) begin
+    size = size(uprototype)
+    eltype = eltype(uprototype)
+end
 
 # create a range, optionally skipping the first point
 range_until(start, stop, step; skip_start=false) = range(skip_start ? start+step : start, step=step, length=Int(ceil((stop-start)/step+1)))
@@ -162,7 +166,8 @@ function mtkcompile_spline(sys::System, vars)
     # Build mapping from variables to spline parameters
     splname = :bgspline
     spldummy = dummyspline(length(vars))
-    spl, = @parameters $splname::typeof(spldummy)
+    uprototype = spldummy.u[begin]
+    spl, = @parameters $splname::Any
 
     iv = ModelingToolkit.get_iv(sys)
     D = Differential(iv)
@@ -179,7 +184,7 @@ function mtkcompile_spline(sys::System, vars)
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ splvalue(spl, τ, vari)) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
+            insert!(obs, 1, var ~ splvalue(spl, τ, uprototype)[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
         end
 
         # Remove splined variables from unknowns (they no longer need to be solved for)
