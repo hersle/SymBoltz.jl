@@ -33,7 +33,6 @@
   innerrightmargin=5pt,
 ]{codebox}
 
-\usepackage[dvipsnames]{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{arrows}
 \usetikzlibrary{positioning}
@@ -297,8 +296,8 @@ In any case, automatic differentiation does not work on compiled binaries, but r
             child { node[comp, fill=magenta!50] (pho) {Photons}}
             child { node[comp, fill=red!50] (neu) {Massless\\neutrinos}}
             child { node[comp, fill=orange!50] (mneu) {Massive\\neutrinos}}
-            child { node[comp, fill=LimeGreen!75] (cdm) {Cold dark\\matter}}
-            child { node[comp, fill=Cyan!50] (cc) {Cosmo-\\logical\\constant}};
+            child { node[comp, fill=green!50] (cdm) {Cold dark\\matter}}
+            child { node[comp, fill=cyan!50] (cc) {Cosmo-\\logical\\constant}};
             \draw[interaction] (bar) -- (pho);
         \end{tikzpicture}
     };
@@ -1017,7 +1016,7 @@ Output power spectra agree with CLASS to $0.1\%$ with standard precision and can
         joiner/.style={midway, sloped, black, font=\small, above, yshift=+5pt},
         arrow/.style={-{Latex[width=4mm,length=4mm]}, line width=1mm, black},
     ]
-    \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
+    \node[pillar, fill=green!50] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
     \node[pillar, fill=blue!50] (app) at (240:5.7cm) {Approximation-\\freeness};
     \node[pillar, fill=red!50] (dif) at (300:5.7cm) {Differentiability};
     \draw[arrow] (sym.300) -- node[joiner] {Detect sparsity of $\boldsymbol{J}$} (dif.120);
