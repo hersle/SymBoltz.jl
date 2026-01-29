@@ -208,7 +208,7 @@ in the equations (e.g., \citealt{doranSpeedingCosmologicalBoltzmann2005,blasCosm
 \item tight-coupling approximation (TCA);
 \item ultrarelativistic fluid approximation (UFA);
 \item radiation streaming approximation (RSA);
-\item non-cold dark matter fluid approximation (NCDMFA);
+\item noncold dark matter fluid approximation (NCDMFA);
 \item Saha approximation.
 \end{itemize}
 These involve switching from one set of equations to another when some control variable measuring the applicability of the approximation crosses a threshold.
@@ -1451,7 +1451,7 @@ As first suggested by \cite{seljakLineSightApproach1996}, this approach enables 
 This drastically speeds up the computation over including all $l$ in an enormous set of coupled perturbation ODEs.
 SymBoltz performs the integrals with the trapezoid method using the substitution, $u(\tau) = \tanh(\tau)$, which adds more points in the early Universe when sampled uniformly, using $768$ points by default.
 Here, $j_l$ are the spherical Bessel functions of the first kind.
-SymBoltz is not yet generalized to non-flat geometries, where they are replaced by hyperspherical functions.
+SymBoltz is not yet generalized to curved spacetimes, where they are replaced by hyperspherical functions.
 The cross-correlated angular spectrum between $\mathrm{A},\mathrm{B} \in \{\mathrm{T},\mathrm{E}\}$ is then computed from
 \begin{equation*}
     C_l^\mathrm{AB} = \frac{2\pi}{l(l+1)} D_l^\mathrm{AB} = \frac{2}{\pi} \int_0^\infty \mathrm{d}k k^2 P_0(k) \, \Theta_l^A(\tau_0,k) \, \Theta_l^B(\tau_0,k) .
