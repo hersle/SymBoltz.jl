@@ -454,12 +454,11 @@ Clearly, $\Phi(\tau,k)$ and $\Psi(\tau,k)$ depend on $a(\tau)$, but $a(\tau)$ do
 We can first solve for only $a(\tau)$ in the \enquote{background,} then spline and look up $a(\tau)$ to solve for $\Phi(\tau,k)$ and $\Psi(\tau,k)$ in the \enquote{perturbations,} instead of solving for all three together and repeatedly integrate $a(\tau)$ for every $k$.
 
 SymBoltz uses the same stage separation strategy as other Boltzmann codes,
-but automates it with its knowledge of the symbolic equations.
+but automates it with knowledge of the symbolic equations.
 First, all equations are split into background and perturbation stages.
 A Cubic Hermite spline is then constructed for all background unknowns (e.g., $a(\tau)$, $X_\Hy^+(\tau)$, $X_\He^+(\tau)$, $T_b(\tau)$ and $\kappa(\tau)$) and passed on to the perturbations.
 One vector-valued spline is used to avoid repeatedly looking up $\tau$ for every unknown.
-This spline type is optimal for interpolating ODEs, as Hermite splines take both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account for better accuracy, and $\boldsymbol{u}^\prime(\tau)$ is known analytically from $\boldsymbol{u}(\tau)$ through Eq. \eqref{eq:ode}.
-% TODO: \LEt{ Please make sure to add "Eq." when including an equation number in the text for clarity.***}
+Hermite splines are optimal for interpolating ODEs, as they take both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account for better accuracy, and $\boldsymbol{u}^\prime(\tau)$ is known analytically from $\boldsymbol{u}(\tau)$ through the ODE \eqref{eq:ode}.
 In contrast, observed variables (e.g., $\scrH(\tau)$) are computed from the (splined) unknowns because their derivatives are not known directly, and splining them is less accurate.
 This makes any background variable available in the perturbations \enquote{for free.}
 All stages of the Einstein-Boltzmann equations are solved as if it is written as one common system of equations,
@@ -491,7 +490,7 @@ The solution interpolation is also incorporated into plotting recipes for visual
 \subsubsection{Automatic Jacobian generation and sparsity detection}
 \label{sec:jacobian}
 
-Just as SymBoltz generates code for $\boldsymbol{f}$ in the ODE in Eq. \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with entries
+Just as SymBoltz generates code for $\boldsymbol{f}$ in the ODE \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with entries
 \begin{equation}
     J_{ij} = \frac{\partial f_i}{\partial u_j}.
 \label{eq:jacobian}
@@ -523,7 +522,7 @@ Implicit solvers take more expensive steps than explicit methods.
 At every step, they solve a generally nonlinear system of equations for the next unknowns $\boldsymbol{u}$.
 Newton's method iteratively solves linear systems $\boldsymbol{W} \boldsymbol{x} = \boldsymbol{b}$,
 by LU-factorizing $\boldsymbol{W} = \boldsymbol{I} - \gamma h \boldsymbol{J}$,
-where $\gamma$ is a constant, $h$ is the time step, and $\boldsymbol{J}$ is the ODE Jacobian in Eq. \eqref{eq:jacobian}.%
+where $\gamma$ is a constant, $h$ is the time step, and $\boldsymbol{J}$ is the ODE Jacobian \eqref{eq:jacobian}.%
 \footnote{
 For example, the implicit Euler method $\boldsymbol{u}_{n+1} = \boldsymbol{u}_n + h \boldsymbol{f}(\tau_{n+1}, \boldsymbol{u}_{n+1})$ solves
 $\boldsymbol{F}(\boldsymbol{u}_{n+1}) = \boldsymbol{u}_{n+1} - h \boldsymbol{f}(\tau_{n+1}, \boldsymbol{u}_{n+1}) - \boldsymbol{u}_n = \boldsymbol{0}$ at every step with Newton's method
@@ -820,7 +819,7 @@ where $\boldsymbol{F}$ is the Fisher information matrix with elements
 \end{equation}
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is or how sensitive $L$ is in different directions in parameter space.
 Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
-It is an equality for a Gaussian, for which the likelihood in Eq. \eqref{eq:likelihood_expansion} is exact.
+It is an equality for a Gaussian, for which the likelihood expansion \eqref{eq:likelihood_expansion} is exact.
 Thus, inverting $\boldsymbol{F}(\boldsymbol{p}_0)$ gives the tightest possible parameter constraints.
 
 To demonstrate differentiable Fisher forecasting with SymBoltz, we make the best possible CMB (TT) measurement: one of $\bar{C}_l$ over the full sky with errors only due to cosmic variance
@@ -832,7 +831,7 @@ Assuming a $\chi^2$-log-likelihood
 \begin{equation}
     \log L(\boldsymbol{p}) = -\frac12 \sum_l \bigg( \frac{C_l(\boldsymbol{p}) - \bar{C}_l}{\sigma_l} \smash{\bigg)^2} ,
 \end{equation}
-the Fisher matrix in Eq. \eqref{eq:fisher_general} becomes
+the Fisher matrix \eqref{eq:fisher_general} becomes
 \begin{equation}
     F_{ij} = \sum_l \frac{\partial C_l}{\partial p_i} \frac{1}{\sigma_l^2} \frac{\partial C_l}{\partial p_j} .
 \label{eq:fisher_special}
@@ -857,7 +856,7 @@ Here, \texttt{vary} orders the parameters to differentiate with respect to,
 and \texttt{genprob} generates a new problem with updated parameters \texttt{p}.
 This prepares a vector-to-vector function \texttt{Cl(p)} that is differentiated by \texttt{ForwardDiff.jacobian}
 to compute $\partial C_l / \partial p_i$ with dual numbers, as shown in Fig. \ref{fig:derivatives}.
-Computing and inverting the Fisher matrix in Eq. \eqref{eq:fisher_special} forecasts the constraints in Fig. \ref{fig:forecast}.
+Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in Fig. \ref{fig:forecast}.
 They agree with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
 Differentiable Fisher forecasts have also been demonstrated with an Eisenstein-Hu transfer function fit by \cite{campagneJAXCOSMOEndtoEndDifferentiable2023},
 and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
@@ -975,7 +974,7 @@ These tasks traditionally involve manual error-prone calculations, so such utili
 In particular, we also aim to improve performance for differentiable runs to the level of standard runs.
 An attractive milestone is fast reverse-mode gradients of scalar loss functions for gradient-based MCMCs.
 We anticipate the symbolic structure and Jacobian generation to be useful for this,
-as writing $\boldsymbol{u}(\tau,\boldsymbol{p})$ in the ODE in Eq. \eqref{eq:ode} and differentiating it for $\boldsymbol{v}_i = \partial \boldsymbol{u} / \partial p_i$ gives
+as writing $\boldsymbol{u}(\tau,\boldsymbol{p})$ in the ODE \eqref{eq:ode} and differentiating it for $\boldsymbol{v}_i = \partial \boldsymbol{u} / \partial p_i$ gives
 $\mathrm{d}\boldsymbol{v}_i/\mathrm{d}\tau = \boldsymbol{J} \boldsymbol{v}_i + \partial \boldsymbol{f} / \partial p_i$, which could be constructed analytically.
 
 Future work could also generalize the code from scalar to vector and tensor perturbations, from flat to curved spacetimes, and from adiabatic to other initial conditions.
