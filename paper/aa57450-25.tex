@@ -243,7 +243,7 @@ but it is inherently symbolic and cannot differentiate arbitrary programs nested
 
 Finite differentiation approximates the derivative $f^\prime(x) \approx (f(x+\epsilon/2) - f(x-\epsilon/2)) \,/\, \epsilon$ with a small $\epsilon > 0$ (here using central differences) by simply evaluating the program several times.
 This can differentiate arbitrary programs, but it is approximate, introduces the step size, $\epsilon$, as a hyperparameter that must be tuned for both accuracy and stability. It is a brute-force approach that requires $O(n)$ evaluations ($2n$ using central differences) to compute the gradient of a function $f$ of $n$ variables.
-Automatic differentiation can be understood by viewing any computer program as a (big) composite function,
+Automatic differentiation \citep[e.g.,][]{griewankEvaluatingDerivatives2008} can be understood by viewing any computer program as a (big) composite function,%
 \begin{equation}
     \boldsymbol{f} = \boldsymbol{f}_N \circ \boldsymbol{f}_{N-1} \circ \cdots \circ \boldsymbol{f}_2 \circ \boldsymbol{f}_1 = \boldsymbol{f}_N(\boldsymbol{f}_{N-1}( \cdots \boldsymbol{f}_2(\boldsymbol{f}_1))),
 \label{eq:program}
