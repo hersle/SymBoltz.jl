@@ -578,7 +578,7 @@ But generating $\boldsymbol{J}$ analytically eliminates this issue.
 The subclass of \enquote{Rosenbrock-W} methods can reuse Jacobians, but this strategy is not yet used by OrdinaryDiffEq.
 We find the fifth order L-stable \texttt{Rodas5P} method \citep{steinebachConstructionRosenbrockWanner2023} to be both most efficient and stable on both the background and perturbations, and have not found it used by other Boltzmann codes.
 \end{itemize}
-Performance of these methods is compared in Sect. \ref{sec:performance}.
+Section \ref{sec:performance} compares the performance of these methods.
 
 Traditional codes use approximations to reduce stiffness and increase performance by evolving fewer ODE states when possible.
 Earlier works find marginal speedups from the TCA and UFA compared to using implicit solvers,
