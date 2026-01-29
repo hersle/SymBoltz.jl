@@ -151,7 +151,7 @@ DISCO-EB\footnote{\url{https://github.com/ohahn/DISCO-EB}} by \cite{hahnDISCODJD
 SymBoltz.jl\footnote{\url{https://github.com/hersle/SymBoltz.jl}} is another Boltzmann code that brings together several of these developments.
 
 The core task of an Einstein-Boltzmann solver is to solve the Einstein-Boltzmann equations for some cosmological model.
-They are partial differential equations that linearize to ordinary differential equations (ODEs) ${\mathrm{d}\boldsymbol{u}}/{\mathrm{d} \tau} = \boldsymbol{f}(\boldsymbol{u},\boldsymbol{p},\tau)$ for some initial conditions, $\boldsymbol{u}(\tau_i),$ and parameters, $\boldsymbol{p}$, including several perturbation wavenumbers.
+They are partial differential equations that linearize to ordinary differential equations (ODEs) ${\mathrm{d}\boldsymbol{u}}/{\mathrm{d} \tau} = \boldsymbol{f}(\boldsymbol{u},\boldsymbol{p},\tau)$ for some initial conditions $\boldsymbol{u}(\tau_i)$ and parameters $\boldsymbol{p}$, including several perturbation wavenumbers.
 Any output from Einstein-Boltzmann codes are derived from the solution of these ODEs, such as the matter and CMB power spectra.
 
 However, several properties of the equations complicate this task.
@@ -164,7 +164,7 @@ Third, wildly different timescales coexist in the equations, making them extreme
 This stiffness must be massaged away in the equations by approximations or dealt with numerically by implicit ODE solvers.
 Fourth, the size of differential equations is very large and increases for more accurate description of relativistic species.
 Typical models with accurate treatment of photons and neutrinos need $O(100)$ equations.
-Fifth, the perturbations must be solved for many different wavenumbers, $k$, and trade-offs between performance and precision must be made.
+Fifth, the perturbations must be solved for many different wavenumbers $k$, and trade-offs between performance and precision must be made.
 
 To overcome these challenges, most Boltzmann solvers are written in low-level high-performance languages such as C, C++, and Fortran.
 They are tightly adapted to the pipeline-like computational structure of the problem (e.g., input $\rightarrow$ background $\rightarrow$ thermodynamics $\rightarrow$ perturbations $\rightarrow \ldots \rightarrow$ output in \citealt{lesgourguesCosmicLinearAnisotropy2011}).
@@ -242,16 +242,16 @@ Symbolic differentiation automates this process with computer algebra systems,
 but it is inherently symbolic and cannot differentiate arbitrary programs nested with control flow such as conditional statements and loops that depend on numerical values.
 
 Finite differentiation approximates the derivative $f^\prime(x) \approx (f(x+\epsilon/2) - f(x-\epsilon/2)) \,/\, \epsilon$ with a small $\epsilon > 0$ (here using central differences) by simply evaluating the program several times.
-This can differentiate arbitrary programs, but it is approximate, introduces the step size, $\epsilon$, as a hyperparameter that must be tuned for both accuracy and stability. It is a brute-force approach that requires $O(n)$ evaluations ($2n$ using central differences) to compute the gradient of a function $f$ of $n$ variables.
-Automatic differentiation \citep[e.g.,][]{griewankEvaluatingDerivatives2008} can be understood by viewing any computer program as a (big) composite function,%
+This can differentiate arbitrary programs, but it is approximate and introduces the step size $\epsilon$ as a hyperparameter that must be tuned for both accuracy and stability. It is a brute-force approach that requires $O(n)$ evaluations ($2n$ using central differences) to compute the gradient of a function $f$ of $n$ variables.
+Automatic differentiation \citep[e.g.,][]{griewankEvaluatingDerivatives2008} can be understood by viewing any computer program as a (big) composite function%
 \begin{equation}
-    \boldsymbol{f} = \boldsymbol{f}_N \circ \boldsymbol{f}_{N-1} \circ \cdots \circ \boldsymbol{f}_2 \circ \boldsymbol{f}_1 = \boldsymbol{f}_N(\boldsymbol{f}_{N-1}( \cdots \boldsymbol{f}_2(\boldsymbol{f}_1))),
+    \boldsymbol{f} = \boldsymbol{f}_N \circ \boldsymbol{f}_{N-1} \circ \cdots \circ \boldsymbol{f}_2 \circ \boldsymbol{f}_1 = \boldsymbol{f}_N(\boldsymbol{f}_{N-1}( \cdots \boldsymbol{f}_2(\boldsymbol{f}_1)))
 \label{eq:program}
 \end{equation}
-of elementary operations, $\boldsymbol{f}_i: \mathbb{R}^{m_i} \rightarrow \mathbb{R}^{n_i}$ (think of $\boldsymbol{f}_i$ as the $i$-th line of code).
-It then numerically evaluates the chain rule,%
+of elementary operations $\boldsymbol{f}_i: \mathbb{R}^{m_i} \rightarrow \mathbb{R}^{n_i}$ (think of $\boldsymbol{f}_i$ as the $i$-th line of code).
+It then numerically evaluates the chain rule%
 \begin{equation}
-    \boldsymbol{J} = \boldsymbol{J}_N \cdot \boldsymbol{J}_{N-1} \cdot \cdots \cdot \boldsymbol{J}_2 \cdot \boldsymbol{J}_1,
+    \boldsymbol{J} = \boldsymbol{J}_N \cdot \boldsymbol{J}_{N-1} \cdot \cdots \cdot \boldsymbol{J}_2 \cdot \boldsymbol{J}_1
 \label{eq:program_derivative}
 \end{equation}
 through the Jacobian $(\boldsymbol{J}_n)_{ij} = \partial f_{n,i} / \partial f_{n-1,j}$ of every elementary operation to accumulate the derivative of the entire program.
@@ -410,23 +410,23 @@ Section \ref{sec:modifying} shows a concrete example and some of the symbolic fe
 \subsubsection{Automatic numerical code generation}
 \label{sec:codegen}
 
-SymBoltz automatically compiles symbolic equations to numerical code ODEs,
+SymBoltz automatically compiles symbolic equations to numerical code for ODEs
 \begin{equation}
     \frac{\mathrm{d}\boldsymbol{u}}{\mathrm{d} \tau} = \boldsymbol{f}(\boldsymbol{u},\boldsymbol{p},\tau).
     \label{eq:ode}
 \end{equation}
 The generated code is fast and prevents users unfamiliar with Julia or SymBoltz from writing slow code.
 If necessary, we can escape the standard code generation and call arbitrary numerical functions; for example, to solve a nonlinear equation for the minimum of a potential or interpolate tabulated data.
-The code generation handles tasks such as allocating indices for each ODE state, $u_i$, and performs optimizations such as common subexpression elimination (see Sect. \ref{sec:modifying}).
+The code generation handles tasks such as allocating indices for each ODE state $u_i$, and performs optimizations such as common subexpression elimination (see Sect. \ref{sec:modifying}).
 This is helpful as Boltzmann solvers tend to have large $\boldsymbol{f}$, and ODE solvers evaluate $\boldsymbol{f}$ many times.
 
 \subsubsection{Automatic handling of observed variables}
 \label{sec:observed}
 
-A general ODE \eqref{eq:ode} has two types of variables: \enquote{unknowns,} $\boldsymbol{u}(\tau),$ are integrated with respect to time, while \enquote{observed} variables are any functions of the unknowns.
+A general ODE \eqref{eq:ode} has two types of variables: \enquote{unknowns} $\boldsymbol{u}(\tau)$ are integrated with respect to time, while \enquote{observed} variables are any functions of the unknowns.
 The Einstein-Boltzmann equations are usually written with many observed variables.
 
-For example, we can consider the metric and gravity equations described in Appendices \ref{sec:metric} and \ref{sec:gravity} that have been sourced by some arbitrary $\rho(\tau)$, $\delta\rho(\tau,k),$ and $\Pi(\tau,k)$.
+For example, we can consider the metric and gravity equations described in Appendices \ref{sec:metric} and \ref{sec:gravity} that have been sourced by some arbitrary $\rho(\tau)$, $\delta\rho(\tau,k)$, and $\Pi(\tau,k)$.
 Here, $a(\tau)$ and $\Phi(\tau,k)$ are the only unknown (differential) variables that the ODE is solved for,
 whereas we can \enquote{observe} $z(\tau)$, $\scrH(\tau)$, $H(\tau),$ and $\Psi(\tau,k)$ from the unknowns.
 In addition, it is not always straightforward to express derivatives such as $\scrH^\prime$ or $\Psi^\prime$, but SymBoltz automatically expands them using the definitions of $\scrH$ or $\Psi$.
@@ -473,9 +473,9 @@ Future work could extend SymBoltz' background-perturbations separation to split 
 \subsubsection{Automatic solution interpolation}
 \label{sec:interpolation}
 
-SymBoltz integrates the background and perturbation ODEs in conformal time, $\tau$, and for several wavenumbers, $k$.
+SymBoltz integrates the background and perturbation ODEs in conformal time $\tau$ and for several wavenumbers $k$.
 All the results are stored in a dedicated solution object.
-This object can be queried for any variable or symbolic expression,
+This object can be queried for any variable or symbolic expression
 \begin{equation}
     S(\tau) \quad \text{or} \quad S(\tau, k).
 \end{equation}
@@ -491,7 +491,7 @@ The solution interpolation is also incorporated into plotting recipes for visual
 \subsubsection{Automatic Jacobian generation and sparsity detection}
 \label{sec:jacobian}
 
-Just as SymBoltz generates code for $\boldsymbol{f}$ in the ODE in Eq. \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian, $\boldsymbol{J}$, with entries
+Just as SymBoltz generates code for $\boldsymbol{f}$ in the ODE in Eq. \eqref{eq:ode}, it uses the same symbolic equations to generate its Jacobian $\boldsymbol{J}$ with entries
 \begin{equation}
     J_{ij} = \frac{\partial f_i}{\partial u_j}.
 \label{eq:jacobian}
@@ -520,8 +520,8 @@ This is friendlier to the modeler, who must then simply provide a single set of 
 This approach is well-suited to a high-level equation-oriented symbolic interface.
 
 Implicit solvers take more expensive steps than explicit methods.
-At every step, they solve a generally nonlinear system of equations for the next unknowns, $\boldsymbol{u}$.
-Newton's method iteratively solves linear systems, $\boldsymbol{W} \boldsymbol{u} = \boldsymbol{b}$,
+At every step, they solve a generally nonlinear system of equations for the next unknowns $\boldsymbol{u}$.
+Newton's method iteratively solves linear systems $\boldsymbol{W} \boldsymbol{x} = \boldsymbol{b}$,
 by LU-factorizing $\boldsymbol{W} = \boldsymbol{I} - \gamma h \boldsymbol{J}$,
 where $\gamma$ is a constant, $h$ is the time step, and $\boldsymbol{J}$ is the ODE Jacobian in Eq. \eqref{eq:jacobian}.%
 \footnote{
@@ -537,7 +537,7 @@ To be fast, implicit solvers need several optimizations.
 They must compute not only $\boldsymbol{f}$, but also $\boldsymbol{J}$ efficiently.
 A common trick is to reuse an LU-factorized $\boldsymbol{W}$ over several steps, even if it really changes.
 Newton's method only requires an approximate $\boldsymbol{W}$ to find the root,
-and $\boldsymbol{W}$ is recomputed only if convergence is slow due to an outdated $\boldsymbol{J}$ or a new step size, $h$.
+and $\boldsymbol{W}$ is recomputed only if convergence is slow due to an outdated $\boldsymbol{J}$ or a new step size $h$.
 This trades fewer LU-factorizations and $\boldsymbol{J}$ evaluations for more linear solve back-substitutions, which only cost $O(n^2)$ operations.
 The next trick is to speed up the linear algebra with sparse matrices if $\boldsymbol{W}$ has many zeros, as for the perturbations.
 SymBoltz handles this by generating the analytical and sparse Jacobian (see Sect. \ref{sec:jacobian}).
@@ -562,7 +562,7 @@ The solvers \texttt{ndf15} in CLASS and \texttt{BDF2} in PyCosmo belong to this 
 
 \item
 Explicit singly diagonal implicit Runge-Kutta (ESDIRK) methods \citep[e.g.,][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of fully implicit (FIRK) methods at a cheaper computational cost.
-An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau, $a_{ij}$, and must solve a system of $n \times s$ equations at every step.
+An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$, and must solve a system of $n \times s$ equations at every step.
 D in ESDIRK means that $a_{ij}$ has only lower triangular and diagonal nonzeros, decoupling the system into $s$ systems of $n$ equations that are faster to solve sequentially.
 S means that all diagonal nonzeros $a_{ii} = \gamma$ are equal, so all stages share the same $\boldsymbol{W}$-matrix, and only one must be factorized and can be reused as in BDF methods.
 E means that $a_{11} = 0$, so the first stage is explicit and cheap.
@@ -644,14 +644,14 @@ The model-problem-solution split achieves three distinct goals.
 
 First, a symbolic representation \texttt{M} of the \LCDM{} model is created.
 This is a standalone object designed to be interactively inspected and modified.
-It contains every variable, parameter, and equation of the model structured as one submodel per physical component: the metric $g$,  gravitational theory $G$, photons $\gamma$, massless neutrinos $\nu$, massive neutrinos, $h$, cold dark matter, $c$, baryons, $b$, the cosmological constant, $\Lambda$, and inflation, $I$.
+It contains every variable, parameter, and equation of the model structured as one submodel per physical component: the metric $g$,  gravitational theory $G$, photons $\gamma$, massless neutrinos $\nu$, massive neutrinos $h$, cold dark matter $c$, baryons $b$, the cosmological constant $\Lambda$, and inflation $I$.
 For example, \texttt{equations(M)} shows all equations; \texttt{equations(M.G)} only the gravitational ones; \texttt{M.g.a} refers to the scale factor variable $a(\tau)$ that \enquote{belongs} to the metric $g$; \texttt{M.b.$\Omega_0$} is the baryon density parameter $\Omega_{b0}$; and \texttt{parameters(M)} shows all parameters that can be set.
 Everything displays with \LaTeX-compatibility in notebooks and transparently shows the equations being solved.
 
 Second, the symbolic model is compiled to a numerical problem \texttt{prob} with parameters \texttt{p}.
 This is an expensive step where the processing in Sect. \ref{sec:symbolicnumeric} happens: equations are checked for consistency and split into background and perturbation stages; observed and unknown variables are distinguished; fast ODE code is generated; background unknowns in the perturbations are replaced by splines; the Jacobian matrix is generated in numerical or analytical and dense or sparse form; and initial conditions are found.
 Optional keyword arguments customize the compilation and control precisely how the problem is solved.
-This is a separate step because it performs final transformations on the model, \texttt{M}, once the user has finished modifying and committed to it.
+This is a separate step because it performs final transformations on the model \texttt{M} once the user has finished modifying and committed to it.
 
 Third, \texttt{solve(prob, ks)} solves the background and perturbations for the wavenumbers \texttt{ks}.
 Omitting \texttt{ks} solves only the background.
@@ -669,15 +669,15 @@ SymBoltz is designed to provide easy access to all variables defined by the mode
 \subsection{Modifying models}
 \label{sec:modifying}
 
-Supposing we want to replace the cosmological constant $\Lambda$ with another dark energy model,
+Suppose we want to replace the cosmological constant $\Lambda$ with another dark energy model,
 such as dynamical $w_0 w_a$ dark energy \citep{chevallierAcceleratingUniversesScaling2001,linderExploringExpansionHistory2003} with equation of state%
 \begin{equation}
     w(\tau) = w_0 + w_a (1-a(\tau)).
 \end{equation}
-In this case, it is possible to solve the continuity equation,
+In this case, it is possible to solve the continuity equation
 \begin{subequations}
 \begin{equation}
-\rho^\prime(\tau) = -3\scrH(\tau)\rho(\tau)(1+w(\tau)),
+\rho^\prime(\tau) = -3\scrH(\tau)\rho(\tau)(1+w(\tau))
 \label{eq:w0wadiff}
 \end{equation}
 analytically with the ansatz $\rho(\tau) \propto a(\tau)^m \exp (n a(\tau))$ to get
@@ -778,7 +778,7 @@ CLASS (all approximations) & 0.5 s & 1.6 s \\
 \end{tabularx}
 \end{table}
 
-SymBoltz can compute the matter power spectrum, $P(k),$ and the angular CMB power spectra, $C_l^\text{TT}$, $C_l^\text{TE}$, and $C_l^\text{EE}$:
+SymBoltz can compute the matter power spectrum $P(k)$, and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{TE}$, and $C_l^\text{EE}$:
 \begin{codebox}
 \begin{Verbatim}
 ks = 10 .^ range(-1, 4, length = 100)
@@ -808,7 +808,7 @@ Section \ref{sec:performance} gives a more thorough performance comparison for $
 Fisher forecasting is a technique to predict how strong parameter constraints that can be placed by data with given errors.
 It needs derivatives that can be computed with automatic differentiation.
 
-Near a peak $\boldsymbol{p}_0$, where derivatives vanish, a log-likelihood, $\log L$, of parameters, $\boldsymbol{p}$, is approximated by the Taylor series
+Near a peak $\boldsymbol{p}_0$, where derivatives vanish, a log-likelihood $\log L$ of parameters $\boldsymbol{p}$ is approximated by the Taylor series
 \begin{equation}
     \log L(\boldsymbol{p}) \approx \log L(\boldsymbol{p}_0) - \sum_{i,j} F_{ij}(\boldsymbol{p}_0) (p_i - \bar{p}_i) (p_j - \bar{p}_j),
 \label{eq:likelihood_expansion}
@@ -819,7 +819,7 @@ where $\boldsymbol{F}$ is the Fisher information matrix with elements
 \label{eq:fisher_general}
 \end{equation}
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is or how sensitive $L$ is in different directions in parameter space.
-Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance, $C_{ij}$, between parameters, $p_i$ and $p_j$.
+Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
 It is an equality for a Gaussian, for which the likelihood in Eq. \eqref{eq:likelihood_expansion} is exact.
 Thus, inverting $\boldsymbol{F}(\boldsymbol{p}_0)$ gives the tightest possible parameter constraints.
 
@@ -865,7 +865,7 @@ and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinst
 \begin{figure}
     \centering
     \includegraphics[scale=0.43]{figures/derivatives.pdf}
-    \caption{Normalized derivatives $(\partial C_l / \partial p_i) / C_l$ of a CMB TT power spectrum with respect to cosmological parameters, $p_i$, from SymBoltz and automatic differentiation (AD; colored lines) vs. CLASS and central finite differences (FD; gray dashes). CLASS uses the precision parameters in Appendix \ref{sec:precision} and finite differences with $5 \%$ relative step sizes.}
+    \caption{Normalized derivatives $(\partial C_l / \partial p_i) / C_l$ of a CMB TT power spectrum with respect to cosmological parameters $p_i$ from SymBoltz and automatic differentiation (AD; colored lines) vs. CLASS and central finite differences (FD; gray dashes). CLASS uses the precision parameters in Appendix \ref{sec:precision} and finite differences with $5 \%$ relative step sizes.}
     \label{fig:derivatives}
 \end{figure}
 
@@ -881,15 +881,15 @@ and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinst
 Finally, we show that SymBoltz can output differentiable results for gradient-based MCMC samplers, such as the No-U-Turn Sampler (NUTS).
 It uses gradients to sample parameter space more efficiently than the \enquote{blind} Metropolis-Hastings algorithm.
 
-We predicted apparent magnitudes $m(z) = M + \mu(z)$ of Type Ia supernovae at redshift, $z$, and fit to 1048 Pantheon observations $(z_i, m_i)$ by \cite{scolnicCompleteLightcurveSample2018}.
-Their standard absolute magnitude is $M \approx -19.3$, and $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus from the background-derived luminosity distance,%
+We predicted apparent magnitudes $m(z) = M + \mu(z)$ of Type Ia supernovae at redshift $z$, and fit to 1048 Pantheon observations $(z_i, m_i)$ by \cite{scolnicCompleteLightcurveSample2018}.
+Their standard absolute magnitude is $M \approx -19.3$, and $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus from the background-derived luminosity distance%
 \footnote{This expression is valid for any $\Omega_{k0}$ with complex $\sinc(x) = \sin(x)/x$, but can be split into branches for positive, negative, and zero $\Omega_{k0}$.}
 \begin{equation}
     d_L(z) = \frac{c}{H_0} \frac{\chi(z)}{a(z)} \sinc \Big( H_0 \sqrt{-\Omega_{k0}} \, \chi(z) \Big) .
 \end{equation}
 
 We define the likelihood $L$ by a multivariate normal distribution of the 1048 supernovae with covariance matrix $C$ given by \cite{scolnicCompleteLightcurveSample2018}.
-To compute $L$, we use the probabilistic programming framework Turing.jl\footnote{\url{https://github.com/TuringLang/Turing.jl}} by \cite{fjeldeTuringjlGeneralPurposeProbabilistic2025} and specify a probabilistic model equivalent to,%
+To compute $L$, we use the probabilistic programming framework Turing.jl\footnote{\url{https://github.com/TuringLang/Turing.jl}} by \cite{fjeldeTuringjlGeneralPurposeProbabilistic2025} and specify a probabilistic model equivalent to%
 \begin{equation}
     \log L = -\frac12 \sum_{i,j} C^{-1}_{ij} \big(m(z_i)-m_i\big) \big(m(z_j)-m_j\big) .
 \end{equation}
@@ -953,7 +953,7 @@ fast generated functions for $\boldsymbol{f}$ and the analytical $\boldsymbol{J}
 sparse matrix methods with a constant precomputed sparsity pattern,
 and efficient sampling of massive neutrino momenta.
 However, SymBoltz currently computes $C_l$ slower than CAMB and CLASS.
-This computation is subject to more optimizations than $P(k)$, such as sampling of source functions, $S(\tau,k)$, interpolation in $\tau$, $k$, and $l$, evaluation of spherical Bessel functions, $j_l(x)$, and fast line-of-sight quadrature.
+This computation is subject to more optimizations than $P(k)$, such as sampling of source functions $S(\tau,k)$, interpolation in $\tau$, $k$, and $l$, evaluation of spherical Bessel functions $j_l(x)$, and fast line-of-sight quadrature.
 These aspects are not yet as polished in SymBoltz as in CAMB and CLASS, so a detailed performance analysis for $C_l$ (beyond the runtimes in Table \ref{tab:timings}) is not meaningful now.
 Further work can add these optimizations to SymBoltz.
 The purpose of the comparison made here is to show the viability of approximation-free perturbations, which marks a milestone in the design of SymBoltz.
@@ -967,7 +967,7 @@ Its symbolic capabilities can be extended with utilities for:
 \item separation into finer computational stages (see Sect. \ref{sec:splining});
 \item gauge transformation of equations (e.g., Newtonian $\leftrightarrow$ synchronous gauge), as is already possible in CAMB;\footnote{\url{https://camb.readthedocs.io/en/latest/symbolic.html}}
 \item perturbation theory utilities to derive initial conditions and approximation schemes for new models;
-\item transformation of differential equations with respect to conformal time, $\tau$, to another (one-to-one) independent variable (e.g., to get observables as direct functions of redshift, $z$);
+\item transformation of differential equations with respect to conformal time $\tau$ to another (one-to-one) independent variable (e.g., to get observables as direct functions of redshift $z$);
 \item validation of dimensions in symbolic equations to catch modeling mistakes by tagging variables with physical units;
 \item symbolic tensor manipulation for work with modified gravity.
 \end{itemize}
@@ -1016,7 +1016,7 @@ Output power spectra agree with CLASS to $0.1\%$ with standard precision, so Sym
     \end{tikzpicture}
     \caption{%
         A symbolic-numeric interface, approximation-freeness, and differentiability are three main features of SymBoltz that form a synergy.
-        Differentiability computes the ODE Jacobian, $\boldsymbol{J}$, accurately and efficiently; which is used by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down equations in simple symbolic form; which is used to find the sparsity pattern of $\boldsymbol{J}$; in turn speeding up $\boldsymbol{J}$ and the implicit solver.
+        Differentiability computes the ODE Jacobian $\boldsymbol{J}$ accurately and efficiently; which is used by implicit solvers to integrate stiff ODEs without approximations; which makes it easier to write down equations in simple symbolic form; which is used to find the sparsity pattern of $\boldsymbol{J}$; in turn speeding up $\boldsymbol{J}$ and the implicit solver.
         This is a self-reinforcing design.
     }
     \label{fig:synergy}
@@ -1111,9 +1111,9 @@ It only reacts to total stress-energy components.
 All species must therefore define $\rho$, $P$, $\delta \rho$, $\delta P$, and $\Pi$ explicitly, even if zero.
 This requirement is somewhat pedantic, but helps isolate components from each other for greater reuse when composing models.
 
-The scale factor, $a$, is initialized as the nonlinear solution of the Friedmann equation constrained to $\scrH = 1/\tau$ (motivated by its radiation-dominated solution $a = \sqrt{\Omega_{r0}} \, \tau$).
+The scale factor $a$ is initialized as the nonlinear solution of the Friedmann equation constrained to $\scrH = 1/\tau$ (motivated by its radiation-dominated solution $a = \sqrt{\Omega_{r0}} \, \tau$).
 The constraint potential is initialized to $\Psi = 20C/(15+4f_\nu)$ with the (arbitrary) integration constant $C=1/2$ and initial energy density fraction $f_\nu = (\rho_\nu+\rho_h) / (\rho_\nu+\rho_h+\rho_\gamma)$ of all (massless and massive) neutrino species relative to all species that are radiation-like at early times.
-The evolved potential, $\Phi$ is initialized accordingly from the constraint equation (the found solution is close to $\Phi = (1 + 2 f_\nu / 5) \Psi$, but providing both $\Phi$ and $\Psi$ explicitly leads to overdetermined initialization equations due to the constraint equation).
+The evolved potential $\Phi$ is initialized accordingly from the constraint equation (the found solution is close to $\Phi = (1 + 2 f_\nu / 5) \Psi$, but providing both $\Phi$ and $\Psi$ explicitly leads to overdetermined initialization equations due to the constraint equation).
 The next sections present the \LCDM{} section of the \enquote{library of species} that are available in SymBoltz.
 
 \subsection{Cold dark matter \texorpdfstring{$(c)$}{(c)}}
@@ -1209,9 +1209,7 @@ C_\Hetri = \frac{ A_{2p_3} \bigg( \frac{1 - \exp({-\tau_\Hetri}) }{ \tau_\Hetri 
 \end{align*}
 Every variable that does not occur on the left side of an equation is either a constant or a parameter.
 This includes $Y_\He$, fudge factors and wavenumbers, frequencies, and energies for atomic transitions.
-Some important variables are the baryon temperature, $T_b$,
-% TODO: \LEt{ When a symbol has the exact same meaning as the term preceding it and could be removed without changing the meaning of the sentence, it should be separated by parentheses or commas. Please check that my edits are accurate in this respect and make any further changes.***}
-photon temperature, $T_\gamma$, mean molecular weight $\mu$, baryon sound speed, $c_s^2$, optical depth, $\kappa$, visibility function, $v$, and the free electron fraction, $X_\el$ (conventionally relative to Hydrogen, so $X_\el > 1$ in presence of Helium).
+Some important variables are the baryon temperature $T_b$, photon temperature $T_\gamma$, mean molecular weight $\mu$, baryon sound speed $c_s^2$, optical depth $\kappa$, visibility function $v$, and the free electron fraction $X_\el$ (conventionally relative to Hydrogen, so $X_\el > 1$ in presence of Helium).
 We refer to the code and RECFAST references cited above for more details.
 
 Unlike other RECFAST implementations, SymBoltz does not approximate the stiff Peebles equations at early times by Saha approximations (although $X_\He^{++}$ is given by a Saha equation at all times).
@@ -1223,8 +1221,8 @@ The optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\tau^\prime) 
 but is integrated together with the background ODEs by initializing $\kappa(\tau_i) = 0$ to an arbitrary value, integrating the differential equation for $\kappa^\prime$, and subtracting the final value of $\kappa(\tau_0)$ (i.e., $\int_{\tau_0}^{\tau} = \int_{\tau_0}^{\tau_i} + \int_{\tau_i}^{\tau} = \int_{\tau_i}^{\tau} - \int_{\tau_i}^{\tau_0}$).
 There is no tight-coupling approximation.
 
-Initial conditions are full ionization, $X_\Hy^+ = X_\He^+ = 1$, thermal equilibrium, $T_b = T_\gamma$ ($\Delta T = 0$), the arbitrary $\kappa = 0$, and adiabatic perturbations, $\delta/(1+w) = -3 \Psi / 2$ and $\theta = k^2 \tau \Psi / 2$.
-The baryon species is parameterized by the reduced density today, $\Omega_0 = \frac{8\pi}{3}\rho_0$, and the primordial Helium mass fraction, $Y_\He$.
+Initial conditions are fully ionized $X_\Hy^+ = X_\He^+ = 1$, thermal equilibrium $T_b = T_\gamma$ ($\Delta T = 0$), the arbitrary $\kappa = 0$, and adiabatic perturbations $\delta/(1+w) = -3 \Psi / 2$ and $\theta = k^2 \tau \Psi / 2$.
+The baryon species is parameterized by the reduced density $\Omega_0 = \frac{8\pi}{3}\rho_0$ today, and the primordial Helium mass fraction $Y_\He$.
 
 SymBoltz solves thermodynamics equations together with the background equations, while some other codes treat these as separate stages.
 There is no meaningful performance improvement from doing this, as the size of the background (and thermodynamics) ODEs is so small.
@@ -1238,8 +1236,8 @@ SymBoltz would therefore benefit from including more physically accurate recombi
 \subsection{Photons \texorpdfstring{$(\gamma)$}{(γ)}}
 \label{sec:photons}
 Photons are massless and therefore ultrarelativistic.
-Unlike nonrelativistic particles, we must account for the direction $\cos\theta = \boldsymbol{p} \cdot \boldsymbol{k} / \lvert\boldsymbol{p}\rvert \lvert\boldsymbol{k}\rvert$ of their momenta, $\boldsymbol{p}$, relative to the Fourier wavenumber, $\boldsymbol{k}$.
-This results in a theoretically infinite hierarchy of equations for Legendre multipoles, $l$, which in practice must be truncated at some maximum multipole, $\lmax$:
+Unlike nonrelativistic particles, we must account for the direction $\cos\theta = \boldsymbol{p} \cdot \boldsymbol{k} / \lvert\boldsymbol{p}\rvert \lvert\boldsymbol{k}\rvert$ of their momenta $\boldsymbol{p}$ relative to the Fourier wavenumber $\boldsymbol{k}$.
+This results in a theoretically infinite hierarchy of equations for Legendre multipoles $l$, which in practice must be truncated at some maximum multipole $\lmax$:
 \begin{align*}
 &
 T = \frac{{T_0}}{a} , \qquad
@@ -1268,7 +1266,7 @@ G_{\lmax}^\prime = k G_{\lmax-1} - \frac{\lmax+1}{\tau} G_{\lmax} + {\kappa^\pri
 The equations for $F_l^\prime$ and $G_l^\prime$ hold for $2 \leq l < \lmax$.
 There are no tight-coupling, radiation-streaming or ultrarelativistic fluid approximations.
 Initial conditions are adiabatic with $F_0 = -2\Psi$ (i.e., $\delta/(1+w) = -\frac32 \Psi$), $F_1 = \frac23 k\tau \Psi$ (i.e., $\theta = \frac12 k^2 \tau \Psi$), $F_2 = -\frac{8}{15} \frac{k}{\kappa^\prime} F_1$, $G_0 = \frac{5}{16} F_2$, $G_1 = -\frac{1}{16} \frac{k}{\kappa^\prime} F_2$, $G_2 = \frac{1}{16} F_2$, $F_l = -\frac{l}{2l+1} \frac{k}{\kappa^\prime} F_{l-1}$, and $G_l = -\frac{l}{2l+1} \frac{k}{\kappa^\prime} G_{l-1}$ for $3 \leq l \leq \lmax$.
-The species is parameterized by its temperature today, $T_0$, which in turn sets the density parameters today, $\Omega_0 = \frac{\pi^2}{15} \frac{(k_B T_0)^4}{(\hbar c)^3} \frac{8\pi G}{3H_0^2}$ and $\rho_0 = \frac{8\pi}{3}\Omega_0$.
+The species is parameterized by its temperature $T_0$ today, which in turn sets the density parameters $\Omega_0 = \frac{\pi^2}{15} \frac{(k_B T_0)^4}{(\hbar c)^3} \frac{8\pi G}{3H_0^2}$ and $\rho_0 = \frac{8\pi}{3}\Omega_0$ today.
 
 \subsection{Massless neutrinos \texorpdfstring{$(\nu)$}{(ν)}}
 \label{sec:masslessneutrinos}
@@ -1293,7 +1291,7 @@ F_{\lmax}^\prime = k F_{\lmax-1} - \frac{\lmax+1}{\tau} F_{\lmax} .
 The equations for $F_l^\prime$ hold for $2 \leq l < \lmax$.
 There is no ultrarelativistic fluid approximation.
 Initial conditions are adiabatic with $F_0 = -2 \Psi$ (i.e., $\delta/(1+w) = -\frac32 \Psi$), $F_1 = \frac23 k \tau \Psi$ (i.e., $\theta = \frac12 k^2 \tau \Psi$), $F_2 = \frac{2}{15} (k\tau)^2 \Psi$, and $F_l = \frac{l}{2l+1} k\tau F_{l-1}$.
-The species is parameterized by the effective number, $N_\text{eff}$, the reduced density, $\Omega_0 = \frac{8\pi}{3} \rho_0$, and temperature today, $T_0$.
+The species is parameterized by the effective number $N_\text{eff}$, the reduced density $\Omega_0 = \frac{8\pi}{3} \rho_0$ today, and temperature $T_0$ today.
 If photons are present, they default to $T_{\nu 0} = \big(\frac{4}{11}\big)^{1/3} T_{\gamma 0}$ and $\Omega_{\nu 0} = N_\text{eff} \frac78 \big(\frac{4}{11}\big)^{4/3} \Omega_{\gamma 0}$.
 
 \subsection{Massive neutrinos \texorpdfstring{$(h)$}{(h)}}
@@ -1301,15 +1299,15 @@ If photons are present, they default to $T_{\nu 0} = \big(\frac{4}{11}\big)^{1/3
 
 Massive neutrinos are the most complicated species in the \LCDM{} model (alongside baryon recombination).
 In essence, the species we have looked at so far have Boltzmann equations where the momenta of their distribution function can be integrated out analytically in nonrelativistic and ultrarelativistic limits.
-This means that their stress-energy components are linked by trivial equations of state and sound speeds, for example, and their effect can be parameterized by a simple density parameter, $\Omega_{0}$.
+This means that their stress-energy components are linked by trivial equations of state and sound speeds, for example, and their effect can be parameterized by a simple density parameter $\Omega_{0}$.
 
 On the other hand, massive neutrinos have intermediate masses that fall between the nonrelativistic and ultrarelativistic limits.
 Integrals over their distribution function must be computed numerically.
 This is very expensive if done naively, and it is extremely important to choose a quadrature scheme that minimizes the number of sampled points.
 Fortunately, the momentum integrals have a structure that can be exploited: they are all in the form weighted form $I[g(x)] = \int_0^\infty \mathrm{d}x \, x^2 f(x) g(x)$, where $f(x) = 1/(e^x+1)$ is the equilibrium distribution function and $g(x)$ is an arbitrary function of the dimensionless momentum $x = pc/k_B T$ (see \cite{maCosmologicalPerturbationTheory1995} for more details).
 We can generally approximate $I[g(x)] \approx \sum_i W_i \, g(x_i)$ with a weighted quadrature scheme with points $x_i$ and weights $W_i$ (more on this after the equations).
-In other words, the integral operator $\int_0^\infty \mathrm{d} x \, x^2 f(x)$ is effectively replaced by the discrete summation operator, $\sum_i \! W_i$, for some weights, $W_i$.
-On top of this, perturbations are also expanded in Legendre multipoles, $l$, up to a cutoff $\lmax$:
+In other words, the integral operator $\int_0^\infty \mathrm{d} x \, x^2 f(x)$ is effectively replaced by the discrete summation operator $\sum_i \! W_i$ for some weights $W_i$.
+On top of this, perturbations are also expanded in Legendre multipoles $l$ up to a cutoff $\lmax$:
 \begin{align*}
 &
 T = \frac{{T_0}}{a} , \qquad
@@ -1341,7 +1339,7 @@ u = \frac{3 I_1}{3I_\rho + I_P} , \qquad
 \end{align*}
 Initial conditions are $\psi_{i,0} = -\frac{1}{4} (-2 \Psi) \big(\dlnfdlnx\big)_i$, $\psi_{i,1} = -\frac{1}{3} \frac{E_i}{x_i} \frac{1}{2} k\tau \Psi \big(\dlnfdlnx\big)_i$, $\psi_{i,2} = -\frac{1}{2} \frac{1}{15} (k\tau)^2 \Psi \big(\dlnfdlnx\big)_i$, and $\psi_{i,l} = 0$.
 When integrated, these initial conditions are equivalent to adiabatic $\delta/(1+w)$, $\theta$, and $\sigma$, similarly to massless neutrinos.
-Free parameters are the temperature today, $T_0$, mass of a single neutrino, $m$, and degeneracy factor, $N = \sum_{i=1}^N m_i / m$, for describing multiple neutrinos with equal mass.
+Free parameters are the temperature $T_0$ today, single neutrino mass $m$, and degeneracy factor $N = \sum_{i=1}^N m_i / m$ for describing multiple neutrinos with equal mass.
 The degeneracy factor defaults to $N = 3$, and the temperature to $T_{h0} = \big(\frac{4}{11}\big)^{1/3} T_{\gamma 0}$ if photons are present, as for massless neutrinos.
 
 Here the equation for $\psi_{i,l}^\prime$ hold for $2 \leq l \leq \lmax$ and the expressions $g_i = g(x_i)$ indexed by $i$ are evaluated with the momentum quadrature point $x = x_i$.
@@ -1354,9 +1352,9 @@ First, by default, the following substitution is applied to the momentum integra
     \quad \text{with} \quad
     u(x) = \frac{1}{1+\frac{x}{L}} .
 \end{equation*}
-This substitution achieves two things: the scaling, $x/L$, brings the dominant integral contributions well within $x/L \ll 1$ if $L$ is chosen to be a characteristic decay \enquote{length} of the distribution function, and the rational part $1/(1+x/L)$ maps the infinite domain $x \in (0, \infty)$ to the finite domain $u \in (0, 1)$, which can be integrated numerically.
+This substitution achieves two things: the scaling $x/L$ brings the dominant integral contributions well within $x/L \ll 1$ if $L$ is chosen to be a characteristic decay \enquote{length} of the distribution function, and the rational part $1/(1+x/L)$ maps the infinite domain $x \in (0, \infty)$ to the finite domain $u \in (0, 1)$, which can be integrated numerically.
 The substituted integrand is then passed to an adaptive algorithm in QuadGK.jl\footnote{\url{https://github.com/JuliaMath/QuadGK.jl}} that computes quadrature points $u_i$ and weights $W_i$ by performing weighted integrals against several test functions $g(x)$.
-Finally, the corresponding momenta $x_i = x(u_i)$ are returned along with the weights, $W_i$, from which we can approximate the integral $I[g(x)] \approx \sum_i W_i g(x_i)$ against any $g(x)$.
+Finally, the corresponding momenta $x_i = x(u_i)$ are returned along with the weights $W_i$, from which we can approximate the integral $I[g(x)] \approx \sum_i W_i g(x_i)$ against any $g(x)$.
 
 SymBoltz tests this numerical quadrature scheme against the analytical result $I[x^{n-2}] = \int_0^\infty \mathrm{d}x \, x^n / (e^x+1) = (1-2^{-n}) \zeta(n+1) \Gamma(n+1)$ for $2 \leq n \leq 8$.
 We assume this to be a reasonable test for the integrals encountered in the equations above. 
@@ -1449,7 +1447,7 @@ SymBoltz finds photon temperature and polarization multipoles today for any $l$ 
 \end{align*}
 As first suggested by \cite{seljakLineSightApproach1996}, this approach enables cheap computation for any $l$ after integrating the perturbation ODEs with only a few $l \leq \lmax$.
 This drastically speeds up the computation over including all $l$ in an enormous set of coupled perturbation ODEs.
-SymBoltz performs the integrals with the trapezoid method using the substitution, $u(\tau) = \tanh(\tau)$, which adds more points in the early Universe when sampled uniformly, using $768$ points by default.
+SymBoltz performs the integrals with the trapezoid method using the substitution $u(\tau) = \tanh(\tau)$, which adds more points in the early Universe when sampled uniformly, using $768$ points by default.
 Here, $j_l$ are the spherical Bessel functions of the first kind.
 SymBoltz is not yet generalized to curved spacetimes, where they are replaced by hyperspherical functions.
 The cross-correlated angular spectrum between $\mathrm{A},\mathrm{B} \in \{\mathrm{T},\mathrm{E}\}$ is then computed from
