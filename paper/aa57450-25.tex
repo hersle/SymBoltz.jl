@@ -456,7 +456,8 @@ We can first solve for only $a(\tau)$ in the \enquote{background,} then spline a
 SymBoltz uses the same stage separation strategy as other Boltzmann codes,
 but automates it with its knowledge of the symbolic equations.
 First, all equations are split into background and perturbation stages.
-Cubic Hermite splines are then constructed for all background unknowns (e.g., $a(\tau)$, $X_\Hy^+(\tau)$, $X_\He^+(\tau)$, $T_b(\tau)$ and $\kappa(\tau)$) and passed on to the perturbations.
+A Cubic Hermite spline is then constructed for all background unknowns (e.g., $a(\tau)$, $X_\Hy^+(\tau)$, $X_\He^+(\tau)$, $T_b(\tau)$ and $\kappa(\tau)$) and passed on to the perturbations.
+One vector-valued spline is used to avoid repeatedly looking up $\tau$ for every unknown.
 This spline type is optimal for interpolating ODEs, as Hermite splines take both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account for better accuracy, and $\boldsymbol{u}^\prime(\tau)$ is known analytically from $\boldsymbol{u}(\tau)$ through Eq. \eqref{eq:ode}.
 % TODO: \LEt{ Please make sure to add "Eq." when including an equation number in the text for clarity.***}
 In contrast, observed variables (e.g., $\scrH(\tau)$) are computed from the (splined) unknowns because their derivatives are not known directly, and splining them is less accurate.
