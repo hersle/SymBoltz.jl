@@ -113,7 +113,7 @@ Automatic differentiation can compute derivatives more accurately and faster tha
 A differentiable Boltzmann solver is therefore a cornerstone in the modern cosmological modeling toolbox.
 
 SymBoltz.jl\footnote{\url{https://github.com/hersle/SymBoltz.jl}} is a new Boltzmann solver that aims to meet these needs, featuring a convenient symbolic-numeric interface, approximation-freeness, and differentiability.
-At its core, a Boltzmann code solves the Einstein equations for a gravitational theory coupled to some particle species described by Boltzmann equations up to first perturbative order around a homogeneous and isotropic Universe.
+At its core, a Boltzmann code solves the Einstein equations for a gravitational theory coupled to some particle species described by Boltzmann equations up to first perturbative order around a homogeneous and isotropic universe.
 For example, it predicts cosmic microwave background (CMB), baryon acoustic oscillation (BAO), or supernova (SN) observations, or it generates initial conditions for nonlinear $N$-body simulations of large-scale structure.
 
 This article is structured as follows.
@@ -199,7 +199,7 @@ While existing Boltzmann solvers are impressively well-engineered and such tools
 The Einstein-Boltzmann equations are infamously stiff \citep{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017}.
 This property of differential equations means their numerical solution is unstable with standard explicit integrators and requires tiny step sizes, making them hard to solve.
 Stiffness can arise when multiple and very different time scales appear in the same problem.
-This is very common in cosmology, where particles interact very rapidly in a Universe that expands very slowly, particularly in the tightly coupled baryon-photon fluid.
+This is very common in cosmology, where particles interact very rapidly in a universe that expands very slowly, particularly in the tightly coupled baryon-photon fluid.
 Stiff equations are practically impossible to integrate with explicit solvers and require special treatment.
 For a long time, Boltzmann solvers have massaged away stiffness with several approximation schemes%
 \footnote{Here \enquote{approximations} refers to schemes that switch between different equations at different times. It excludes techniques such as multipole truncation and line-of-sight integration, which SymBoltz also uses.}
@@ -1215,7 +1215,7 @@ Unlike other RECFAST implementations, SymBoltz does not approximate the stiff Pe
 This is not necessary with a good implicit ODE solver.
 SymBoltz sets $C_\Hy = C_\Hesin = 1$ when $X_\el \gtrsim 0.99$ to avoid numerical instability at early times.
 Atomic calculations are done in SI units and converted to SymBoltz' dimensionless units by factors of $H_0$ in SI units.
-The differential equation for $T_b^\prime$ is very stiff and sensitive to $T_b-T_\gamma$, but $T_b \approx T_\gamma$ in the early Universe, so we rewrite it to a more stable differential equation for $\Delta T^\prime = T_b^\prime - T_\gamma^\prime$ instead, initialize $\Delta T = 0$, and observe $T_b = \Delta T + T_\gamma$.
+The differential equation for $T_b^\prime$ is very stiff and sensitive to $T_b-T_\gamma$, but $T_b \approx T_\gamma$ in the early universe, so we rewrite it to a more stable differential equation for $\Delta T^\prime = T_b^\prime - T_\gamma^\prime$ instead, initialize $\Delta T = 0$, and observe $T_b = \Delta T + T_\gamma$.
 The optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\tau^\prime) \mathrm{d}\tau^\prime$ is really a line-of-sight integral into the past,
 but is integrated together with the background ODEs by initializing $\kappa(\tau_i) = 0$ to an arbitrary value, integrating the differential equation for $\kappa^\prime$, and subtracting the final value of $\kappa(\tau_0)$ (i.e., $\int_{\tau_0}^{\tau} = \int_{\tau_0}^{\tau_i} + \int_{\tau_i}^{\tau} = \int_{\tau_i}^{\tau} - \int_{\tau_i}^{\tau_0}$).
 There is no tight-coupling approximation.
@@ -1269,7 +1269,7 @@ The species is parameterized by its temperature $T_0$ today, which in turn sets 
 
 \subsection{Massless neutrinos \texorpdfstring{$(\nu)$}{(ν)}}
 \label{sec:masslessneutrinos}
-Massless neutrinos behave similarly to photons, but decouple from interactions with other species in the very early Universe.
+Massless neutrinos behave similarly to photons, but decouple from interactions with other species in the very early universe.
 We must only account for this interaction in initial conditions, while their evolution equations are a simpler case of the photon equations:
 \begin{align*}
 &
@@ -1446,7 +1446,7 @@ SymBoltz finds photon temperature and polarization multipoles today for any $l$ 
 \end{align*}
 As first suggested by \citet{seljakLineSightApproach1996}, this approach enables cheap computation for any $l$ after integrating the perturbation ODEs with only a few $l \leq \lmax$.
 This drastically speeds up the computation over including all $l$ in an enormous set of coupled perturbation ODEs.
-SymBoltz performs the integrals with the trapezoid method using the substitution $u(\tau) = \tanh(\tau)$, which adds more points in the early Universe when sampled uniformly, using $768$ points by default.
+SymBoltz performs the integrals with the trapezoid method using the substitution $u(\tau) = \tanh(\tau)$, which adds more points in the early universe when sampled uniformly, using $768$ points by default.
 Here, $j_l$ are the spherical Bessel functions of the first kind.
 SymBoltz is not yet generalized to curved spacetimes, where they are replaced by hyperspherical functions.
 The cross-correlated angular spectrum between $\mathrm{A},\mathrm{B} \in \{\mathrm{T},\mathrm{E}\}$ is then computed from
