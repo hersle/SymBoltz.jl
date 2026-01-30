@@ -128,14 +128,14 @@ Appendices \ref{sec:implementation}, \ref{sec:precision} and \ref{sec:testing} l
 
 \label{sec:intro}
 
-Historically, \cite{peeblesPrimevalAdiabaticPerturbation1970} were the first to numerically integrate a comprehensive set of linear Einstein-Boltzmann equations.
-Their work was refined over several years, and \cite{maCosmologicalPerturbationTheory1995} laid the groundwork for modern Boltzmann solvers with the COSMICS code.
-\cite{seljakLineSightApproach1996} soon realized that photon multipoles can be integrated by parts to reduce thousands of coupled differential equations to independent integral solutions.
+Historically, \citet{peeblesPrimevalAdiabaticPerturbation1970} were the first to numerically integrate a comprehensive set of linear Einstein-Boltzmann equations.
+Their work was refined over several years, and \citet{maCosmologicalPerturbationTheory1995} laid the groundwork for modern Boltzmann solvers with the COSMICS code.
+\citet{seljakLineSightApproach1996} soon realized that photon multipoles can be integrated by parts to reduce thousands of coupled differential equations to independent integral solutions.
 As first implemented in their code CMBFAST, this line-of-sight integration method has become a standard technique that greatly speeds up the calculation, but requires truncating the multipoles in the differential equations.
-This Fortran codebase has since evolved into CAMB\footnote{\url{https://camb.info/}} written by \cite{lewisEfficientComputationCMB2000a}, which is one of the two most used and maintained Boltzmann solvers today.
-\cite{doranCMBEASYObjectOriented2005} ported CMBFAST to C++ with the fork CMBEASY, which structured the code in an object-oriented fashion and improved user-friendliness, but this project is abandoned today.
+This Fortran codebase has since evolved into CAMB\footnote{\url{https://camb.info/}} written by \citet{lewisEfficientComputationCMB2000a}, which is one of the two most used and maintained Boltzmann solvers today.
+\citet{doranCMBEASYObjectOriented2005} ported CMBFAST to C++ with the fork CMBEASY, which structured the code in an object-oriented fashion and improved user-friendliness, but this project is abandoned today.
 
-\cite{lesgourguesCosmicLinearAnisotropy2011,blasCosmicLinearAnisotropy2011a} started the second major family of Boltzmann solvers with the birth of CLASS\footnote{\url{http://class-code.net}} in C.
+\citet{lesgourguesCosmicLinearAnisotropy2011} and \citet{blasCosmicLinearAnisotropy2011a} started the second major family of Boltzmann solvers with the birth of CLASS\footnote{\url{http://class-code.net}} in C.
 It improved performance, user-friendliness, code flexibility, ease of modification, and control over precision parameters.
 It was the first cross-check of CAMB from an independent branch and boosted the scientific accuracy of the Planck mission.
 
@@ -145,9 +145,9 @@ Today they are very well-made, efficient, and reliable tools.
 
 Recently, several alternative solvers have appeared on the market.
 They target new numerical techniques, lack of approximations, differentiability, GPU parallelization, interactivity, and symbolic computation.
-PyCosmo\footnote{\url{https://pypi.org/project/PyCosmo/}} by \cite{refregierPyCosmoIntegratedCosmological2018} in Python was the first symbolic-numeric Boltzmann code that generates fast C++ code from user-provided symbolic equations, optimizes the sparse and analytical Jacobian matrix, and avoids approximation schemes.
-Bolt.jl\footnote{\url{https://github.com/xzackli/Bolt.jl}} by \cite{liBoltjl2023} in Julia is also approximation-free, supports forward-mode automatic differentiation, and uses similar differential equations solvers as SymBoltz.
-DISCO-EB\footnote{\url{https://github.com/ohahn/DISCO-EB}} by \cite{hahnDISCODJDifferentiableEinsteinBoltzmann2024} in the JAX framework in Python is also differentiable and relaxes approximation schemes to avoid overhead from switching equations on GPUs.
+PyCosmo\footnote{\url{https://pypi.org/project/PyCosmo/}} by \citet{refregierPyCosmoIntegratedCosmological2018} in Python was the first symbolic-numeric Boltzmann code that generates fast C++ code from user-provided symbolic equations, optimizes the sparse and analytical Jacobian matrix, and avoids approximation schemes.
+Bolt.jl\footnote{\url{https://github.com/xzackli/Bolt.jl}} by \citet{liBoltjl2023} in Julia is also approximation-free, supports forward-mode automatic differentiation, and uses similar differential equations solvers as SymBoltz.
+DISCO-EB\footnote{\url{https://github.com/ohahn/DISCO-EB}} by \citet{hahnDISCODJDifferentiableEinsteinBoltzmann2024} in the JAX framework in Python is also differentiable and relaxes approximation schemes to avoid overhead from switching equations on GPUs.
 SymBoltz.jl\footnote{\url{https://github.com/hersle/SymBoltz.jl}} is another Boltzmann code that brings together several of these developments.
 
 The core task of an Einstein-Boltzmann solver is to solve the Einstein-Boltzmann equations for some cosmological model.
@@ -203,7 +203,7 @@ This is very common in cosmology, where particles interact very rapidly in a Uni
 Stiff equations are practically impossible to integrate with explicit solvers and require special treatment.
 For a long time, Boltzmann solvers have massaged away stiffness with several approximation schemes%
 \footnote{Here \enquote{approximations} refers to schemes that switch between different equations at different times. It excludes techniques such as multipole truncation and line-of-sight integration, which SymBoltz also uses.}
-in the equations (e.g., \citealt{doranSpeedingCosmologicalBoltzmann2005,blasCosmicLinearAnisotropy2011a}):
+in the equations \citep[e.g.,][]{doranSpeedingCosmologicalBoltzmann2005,blasCosmicLinearAnisotropy2011a}:
 \begin{itemize}
 \item tight-coupling approximation (TCA);
 \item ultrarelativistic fluid approximation (UFA);
@@ -265,7 +265,7 @@ Reverse-mode first computes $\boldsymbol{f}$ in a forward pass, then seeds $\bol
 This usually makes forward-mode faster when $\boldsymbol{f}: \mathbb{R}^m \rightarrow \mathbb{R}^n$ has more outputs ($n \gg m$), and reverse-mode better when there are more inputs ($m \gg n$).
 
 In practice, both modes are implemented using techniques called operator overloading or source code transformation.
-The former specializes every function on a particular \enquote{dual number} type that propagates both the value and derivative of the function \cite[e.g.,][]{revelsForwardModeAutomaticDifferentiation2016}.
+The former specializes every function on a particular \enquote{dual number} type that propagates both the value and derivative of the function \citep[e.g.,][]{revelsForwardModeAutomaticDifferentiation2016}.
 The latter analyzes the source code for $\boldsymbol{f}$ and transforms it into another code that computes $\boldsymbol{J}$.
 In any case, automatic differentiation does not work on compiled binaries, but requires access to the source code to compute gradients with a different path through the instructions of the program.
 
@@ -335,9 +335,9 @@ SymBoltz encourages interactive use and pursues a modular design that lets users
 The end goal is to prioritize the modeler, who should be able to just write down their equations, while SymBoltz handles the modeling chores.
 
 The code is written in the Julia programming language \citep{bezansonJuliaFreshApproach2017a}, which has a rich ecosystem of scientific packages and an aim to resolve the two-language problem.
-The symbolic-numeric interface is built on ModelingToolkit.jl\footnote{\url{https://github.com/SciML/ModelingToolkit.jl}} by \cite{maModelingToolkitComposableGraph2022} and Symbolics.jl\footnote{\url{https://github.com/JuliaSymbolics/Symbolics.jl}} by \cite{gowdaHighperformanceSymbolicnumericsMultiple2022}.
-The compiled functions are solved by implicit ODE integrators in OrdinaryDiffEq.jl\footnote{\url{https://github.com/SciML/OrdinaryDiffEq.jl/}} by \cite{rackauckasDifferentialEquationsjlPerformantFeatureRich2017} and linear algebra methods in LinearSolve.jl\footnote{\url{https://github.com/SciML/LinearSolve.jl}}.
-Automatic differentiation works through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}} by \cite{revelsForwardModeAutomaticDifferentiation2016}.
+The symbolic-numeric interface is built on ModelingToolkit.jl\footnote{\url{https://github.com/SciML/ModelingToolkit.jl}} by \citet{maModelingToolkitComposableGraph2022} and Symbolics.jl\footnote{\url{https://github.com/JuliaSymbolics/Symbolics.jl}} by \citet{gowdaHighperformanceSymbolicnumericsMultiple2022}.
+The compiled functions are solved by implicit ODE integrators in OrdinaryDiffEq.jl\footnote{\url{https://github.com/SciML/OrdinaryDiffEq.jl/}} by \citet{rackauckasDifferentialEquationsjlPerformantFeatureRich2017} and linear algebra methods in LinearSolve.jl\footnote{\url{https://github.com/SciML/LinearSolve.jl}}.
+Automatic differentiation works through ForwardDiff.jl\footnote{\url{https://github.com/JuliaDiff/ForwardDiff.jl}} by \citet{revelsForwardModeAutomaticDifferentiation2016}.
 
 The next subsections describe SymBoltz' three main features in depth.
 Other implementation details are given in Appendix \ref{sec:implementation}.
@@ -557,7 +557,7 @@ They have variable order of 1-5, but are \enquote{L-stable} only up to second or
 This makes them take small steps in stiff regimes without utilizing their high order.
 We find them to be slowest.
 The solvers \texttt{ndf15} in CLASS and \texttt{BDF2} in PyCosmo belong to this family.
-\cite{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein-Boltzmann equations.
+\citet{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein-Boltzmann equations.
 
 \item
 Explicit singly diagonal implicit Runge-Kutta (ESDIRK) methods \citep[e.g.,][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of fully implicit (FIRK) methods at a cheaper computational cost.
@@ -685,7 +685,7 @@ analytically with the ansatz $\rho(\tau) \propto a(\tau)^m \exp (n a(\tau))$ to 
 \label{eq:w0waanal}
 \end{equation}
 \end{subequations}
-Perturbations are given by \cite{putterMeasuringSpeedDark2010}.
+Perturbations are given by \citet{putterMeasuringSpeedDark2010}.
 To implement this species in SymBoltz, we write down all related variables, parameters, equations, and initial conditions in one place:
 \begin{codebox}
 \begin{Verbatim}
@@ -858,8 +858,8 @@ This prepares a vector-to-vector function \texttt{Cl(p)} that is differentiated 
 to compute $\partial C_l / \partial p_i$ with dual numbers, as shown in Fig. \ref{fig:derivatives}.
 Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in Fig. \ref{fig:forecast}.
 They agree with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
-Differentiable Fisher forecasts have also been demonstrated with an Eisenstein-Hu transfer function fit by \cite{campagneJAXCOSMOEndtoEndDifferentiable2023},
-and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
+Differentiable Fisher forecasts have also been demonstrated with an Eisenstein-Hu transfer function fit by \citet{campagneJAXCOSMOEndtoEndDifferentiable2023},
+and through an Einstein-Boltzmann solver by \citet{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
 
 \begin{figure}
     \centering
@@ -880,15 +880,15 @@ and through an Einstein-Boltzmann solver by \cite{hahnDISCODJDifferentiableEinst
 Finally, we show that SymBoltz can output differentiable results for gradient-based MCMC samplers, such as the No-U-Turn Sampler (NUTS).
 It uses gradients to sample parameter space more efficiently than the \enquote{blind} Metropolis-Hastings algorithm.
 
-We predicted apparent magnitudes $m(z) = M + \mu(z)$ of Type Ia supernovae at redshift $z$, and fit to 1048 Pantheon observations $(z_i, m_i)$ by \cite{scolnicCompleteLightcurveSample2018}.
+We predicted apparent magnitudes $m(z) = M + \mu(z)$ of Type Ia supernovae at redshift $z$, and fit to 1048 Pantheon observations $(z_i, m_i)$ by \citet{scolnicCompleteLightcurveSample2018}.
 Their standard absolute magnitude is $M \approx -19.3$, and $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus from the background-derived luminosity distance%
 \footnote{This expression is valid for any $\Omega_{k0}$ with complex $\sinc(x) = \sin(x)/x$, but can be split into branches for positive, negative, and zero $\Omega_{k0}$.}
 \begin{equation}
     d_L(z) = \frac{c}{H_0} \frac{\chi(z)}{a(z)} \sinc \Big( H_0 \sqrt{-\Omega_{k0}} \, \chi(z) \Big) .
 \end{equation}
 
-We define the likelihood $L$ by a multivariate normal distribution of the 1048 supernovae with covariance matrix $C$ given by \cite{scolnicCompleteLightcurveSample2018}.
-To compute $L$, we use the probabilistic programming framework Turing.jl\footnote{\url{https://github.com/TuringLang/Turing.jl}} by \cite{fjeldeTuringjlGeneralPurposeProbabilistic2025} and specify a probabilistic model equivalent to%
+We define the likelihood $L$ by a multivariate normal distribution of the 1048 supernovae with covariance matrix $C$ given by \citet{scolnicCompleteLightcurveSample2018}.
+To compute $L$, we use the probabilistic programming framework Turing.jl\footnote{\url{https://github.com/TuringLang/Turing.jl}} by \citet{fjeldeTuringjlGeneralPurposeProbabilistic2025} and specify a probabilistic model equivalent to%
 \begin{equation}
     \log L = -\frac12 \sum_{i,j} C^{-1}_{ij} \big(m(z_i)-m_i\big) \big(m(z_j)-m_j\big) .
 \end{equation}
@@ -900,7 +900,7 @@ The differentiable computation is not yet fast enough for MCMCs with perturbatio
 While these results are not groundbreaking, they show that the differentiable pipeline works.
 We aim to speed it up with future work.
 Differentiable Boltzmann codes have yet to show use with gradient-based MCMC samplers,
-but \cite{campagneJAXCOSMOEndtoEndDifferentiable2023} did more advanced MCMCs with a differentiable background, for example.
+but \citet{campagneJAXCOSMOEndtoEndDifferentiable2023} did more advanced MCMCs with a differentiable background, for example.
 
 \begin{figure}
     \centering
@@ -944,7 +944,7 @@ This runs around $245/143 \approx 1.7$ times faster, but introduces errors beyon
 We therefore leave both codes with default $q$-sampling, but note that sparser sampling could make CLASS up to $2\times$ faster at unchanged precision
 and shift its curves down by $\lg 2 \approx 0.3$.
 \citet[in Appendix A]{howlettCMBPowerSpectrum2012} also found a precise three- to four-point scheme in CAMB,
-and \cite{leeRapidAccurateNumerical2025} sped up CLASS using integral equations for massive neutrinos.
+and \citet{leeRapidAccurateNumerical2025} sped up CLASS using integral equations for massive neutrinos.
 
 Despite the lack of approximation schemes, SymBoltz is fast thanks to
 high-order implicit solvers,
@@ -1062,7 +1062,7 @@ Variables are in units in which \enquote{$G = c = H_0 = 1$}, and temperatures ar
 These units are chosen because $G$, $c$, and $H_0$ can be divided out from the Einstein equations as natural units, but this requires some conversion in the recombination equations that depend explicitly on $H_0$.
 In other words, times are in units of $1/H_0$, distances in $c/H_0$, and masses in $c^3/H_0 G$.
 When $G$, $c$, or and $H_0$ appear explicitly in the equations, they are in SI units and used only to convert from SI units into the dimensionless units.
-The equations closely follow the conventions in the seminal paper by \cite{maCosmologicalPerturbationTheory1995} and very closely matches the source code of SymBoltz with Unicode characters.
+The equations closely follow the conventions in the seminal paper by \citet{maCosmologicalPerturbationTheory1995} and very closely matches the source code of SymBoltz with Unicode characters.
 It is far outside the scope of this paper to derive the equations and explain the meaning of every variable.
 
 The independent variable is conformal time $\tau$, and all derivatives ${}^\prime = \mathrm{d} / \mathrm{d}\tau$ are with respect to it (in units of $1/H_0$).
@@ -1303,7 +1303,7 @@ This means that their stress-energy components are linked by trivial equations o
 On the other hand, massive neutrinos have intermediate masses that fall between the nonrelativistic and ultrarelativistic limits.
 Integrals over their distribution function must be computed numerically.
 This is very expensive if done naively, and it is extremely important to choose a quadrature scheme that minimizes the number of sampled points.
-Fortunately, the momentum integrals have a structure that can be exploited: they are all in the form weighted form $I[g(x)] = \int_0^\infty \mathrm{d}x \, x^2 f(x) g(x)$, where $f(x) = 1/(e^x+1)$ is the equilibrium distribution function and $g(x)$ is an arbitrary function of the dimensionless momentum $x = pc/k_B T$ (see \cite{maCosmologicalPerturbationTheory1995} for more details).
+Fortunately, the momentum integrals have a structure that can be exploited: they are all in the form weighted form $I[g(x)] = \int_0^\infty \mathrm{d}x \, x^2 f(x) g(x)$, where $f(x) = 1/(e^x+1)$ is the equilibrium distribution function and $g(x)$ is an arbitrary function of the dimensionless momentum $x = pc/k_B T$ (see \citealt{maCosmologicalPerturbationTheory1995} for more details).
 We can generally approximate $I[g(x)] \approx \sum_i W_i \, g(x_i)$ with a weighted quadrature scheme with points $x_i$ and weights $W_i$ (more on this after the equations).
 In other words, the integral operator $\int_0^\infty \mathrm{d} x \, x^2 f(x)$ is effectively replaced by the discrete summation operator $\sum_i \! W_i$ for some weights $W_i$.
 On top of this, perturbations are also expanded in Legendre multipoles $l$ up to a cutoff $\lmax$:
@@ -1444,7 +1444,7 @@ SymBoltz finds photon temperature and polarization multipoles today for any $l$ 
     \Theta_l^\mathrm{E}\big(\tau_0,k\big) = \sqrt{\frac{(l+2)!}{(l-2)!}} \int_{\tau_i}^{\tau_0} S_E\big(\tau,k\big) \frac{j_l\big(k(\tau_0-\tau)\big)}{\big(k(\tau_0-\tau)\big)^2} \mathrm{d}\tau \quad \text{with} \quad 
     S_E = \frac{3}{16} v \Pi_\gamma .
 \end{align*}
-As first suggested by \cite{seljakLineSightApproach1996}, this approach enables cheap computation for any $l$ after integrating the perturbation ODEs with only a few $l \leq \lmax$.
+As first suggested by \citet{seljakLineSightApproach1996}, this approach enables cheap computation for any $l$ after integrating the perturbation ODEs with only a few $l \leq \lmax$.
 This drastically speeds up the computation over including all $l$ in an enormous set of coupled perturbation ODEs.
 SymBoltz performs the integrals with the trapezoid method using the substitution $u(\tau) = \tanh(\tau)$, which adds more points in the early Universe when sampled uniformly, using $768$ points by default.
 Here, $j_l$ are the spherical Bessel functions of the first kind.
