@@ -1443,7 +1443,7 @@ SymBoltz finds photon temperature and polarization multipoles today for any $l$ 
 \end{align*}
 As first suggested by \citet{seljakLineSightApproach1996}, this approach enables cheap computation for any $l$ after integrating the perturbation ODEs with only a few $l \leq \lmax$.
 This drastically speeds up the computation over including all $l$ in an enormous set of coupled perturbation ODEs.
-SymBoltz performs the integrals with the trapezoid method using the substitution $u(\tau) = \tanh(\tau)$, which adds more points in the early universe when sampled uniformly, using $768$ points by default.
+SymBoltz performs the integrals with the trapezoid method using around $1250$ uniformly sampled $\tau$, by default.
 Here, $j_l$ are the spherical Bessel functions of the first kind.
 SymBoltz is not yet generalized to curved spacetimes, where they are replaced by hyperspherical functions.
 The cross-correlated angular spectrum between $\mathrm{A},\mathrm{B} \in \{\mathrm{T},\mathrm{E}\}$ is then computed from
