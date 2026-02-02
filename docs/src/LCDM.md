@@ -11,7 +11,7 @@ This makes it **extremely easy** to make direct changes anywhere in the model!
 !!! warning
     Beware of variable name collisions!
 
-```@example unstructured
+```@example LCDM
 using SymBoltz
 
 # constants and some functions
@@ -285,19 +285,19 @@ M = System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses,
 ```
 
 Now set parameter values and compile the numerical problem:
-```@example unstructured
+```@example LCDM
 p = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02)
 prob = CosmologyProblem(M, p)
 ```
 
 Now solve it for some wavenumbers:
-```@example unstructured
+```@example LCDM
 ks = [4, 40, 400, 4000]
 sol = solve(prob, ks)
 ```
 
 Now plot the evolution of the variables you are interested in:
-```@example unstructured
+```@example LCDM
 using Plots
 p = plot(layout = (3, 1), size = (800, 1000))
 plot!(p[1], sol, τ, a)
