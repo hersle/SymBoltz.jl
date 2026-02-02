@@ -65,11 +65,11 @@ end
     τ0 = sol[M.τ0]
     @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
     @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
-    @test_throws "Could not express derivative" sol(D(D(M.g.z)), τ0)
+    @test_throws "not present in the system" sol(D(D(M.g.z)), τ0)
     sol(D(M.g.Φ), τ0, ks)
     @test isapprox(sol(D(M.g.Φ), τ0, ks), sol(D(M.g.Ψ), τ0, ks); atol = 2e-5)
-    @test_throws "Could not express derivative" sol(D(D(M.g.Φ)), τ0, ks)
-    @test_throws "Could not express derivative" sol(D(D(M.g.Ψ)), τ0, ks)
+    sol(D(D(M.g.Φ)), τ0, ks)
+    @test_throws "not present in the system" sol(D(D(M.g.Ψ)), τ0, ks)
 end
 
 @testset "Solution interpolation" begin

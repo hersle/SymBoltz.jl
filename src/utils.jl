@@ -1,4 +1,4 @@
-import DataInterpolations: AbstractInterpolation, CubicSpline, CubicHermiteSpline
+import DataInterpolations: CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
@@ -26,11 +26,12 @@ function identity(sys::System)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    ics = ModelingToolkit.get_initial_conditions(sys)
+    bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
-    defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
 
 function debugize(sys::System)
@@ -38,8 +39,12 @@ function debugize(sys::System)
 end
 
 function isbackground(expr)
-    vars = ModelingToolkit.vars(expr; op = Nothing) # don't collect Differential(τ)(f(τ, k))
+    vars = Symbolics.get_variables(expr)
     for var in vars
+        # peel off any derivative operators
+        while iscall(var) && operation(var) isa Differential
+            var = only(arguments(var))
+        end
         if iscall(var)
             if operation(var) === getindex
                 var = arguments(var)[1] # e.g. F(τ, k)[1] to F(τ, k)
@@ -59,20 +64,20 @@ function filter_system(f::Function, sys::System)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    ics = ModelingToolkit.get_initial_conditions(sys)
+    bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
-    defs = ModelingToolkit.get_defaults(sys)
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
     eqs = filter(f, eqs)
     ieqs = filter(f, ieqs)
+    ics = filter(x -> f(first(x)), ics)
     vars = filter(f, vars)
     pars = filter(!isinitial, pars) # remove Initial(...) # TODO: shouldn't have to touch this
-    defs = filter(pair -> #=!isinitial(pair.first) &&=# f(pair.first), defs)
 
-    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, defaults=defs, guesses=guesses, name=nameof(sys), description=get_description(sys))
-
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
@@ -101,10 +106,16 @@ function spline(sol::ODESolution)
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
-value(s::AbstractInterpolation, t, N) = s(t)
-@register_array_symbolic value(s::AbstractInterpolation, t, N) begin
-    size = (N,)
-    eltype = Float64 # TODO: generalize
+function dummyspline(N)
+    nans = SVector{N}(zeros(N))
+    return CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
+end
+
+# https://github.com/SciML/ModelingToolkit.jl/issues/4202#issuecomment-3799583124
+splvalue(s::Any, t, uprototype) = s(t)
+@register_array_symbolic splvalue(s::Any, t, uprototype::AbstractArray) begin
+    size = size(uprototype)
+    eltype = eltype(uprototype)
 end
 
 # create a range, optionally skipping the first point
@@ -154,7 +165,9 @@ function mtkcompile_spline(sys::System, vars)
 
     # Build mapping from variables to spline parameters
     splname = :bgspline
-    spl, = @parameters $splname::CubicHermiteSpline
+    spldummy = dummyspline(length(vars))
+    uprototype = spldummy.u[begin]
+    spl, = @parameters $splname::Any
 
     iv = ModelingToolkit.get_iv(sys)
     D = Differential(iv)
@@ -171,7 +184,7 @@ function mtkcompile_spline(sys::System, vars)
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ value(spl, iv, length(vars))[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
+            insert!(obs, 1, var ~ splvalue(spl, τ, uprototype)[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
         end
 
         # Remove splined variables from unknowns (they no longer need to be solved for)
@@ -185,12 +198,13 @@ function mtkcompile_spline(sys::System, vars)
         @set! sys.ps = ps
 
         # Do not solve for splined variables during initialization, and add dummy defaults for all splines
-        defs = ModelingToolkit.get_defaults(sys)
-        defs = remove_initial_conditions!(defs, vars)
-        nans = SVector{length(vars)}(zeros(length(vars)))
-        spldummy = CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
-        defs = merge(defs, Dict(spl => spldummy))
-        @set! sys.defaults = defs
+        ieqs = ModelingToolkit.get_initialization_eqs(sys)
+        ieqs = remove_initial_conditions!(ieqs, vars)
+        @set! sys.initialization_eqs = ieqs
+
+        ics = ModelingToolkit.get_initial_conditions(sys)
+        ics = remove_initial_conditions!(ics, vars)
+        @set! sys.initial_conditions = ics
 
         return sys
     end
@@ -200,10 +214,11 @@ function mtkcompile_spline(sys::System, vars)
     return sys, spl
 end
 
-function remove_initial_conditions!(ics::Dict, vars; maxorder=2)
+function remove_initial_conditions!(ics, vars; maxorder=2)
     for var in vars
         for order in 0:maxorder
-            delete!(ics, (D^order)(var)) # remove any existing initial conditions (would cause overdetermined initialization system)
+            f = ics isa Vector{Equation} ? (eq -> eq.lhs) : first
+            ics = filter!(eq -> !isequal(f(eq), (D^order)(var)), ics)
         end
     end
     return ics

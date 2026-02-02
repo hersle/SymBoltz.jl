@@ -358,8 +358,7 @@ initialization_equations(X)
 SymBoltz.quintessence
 ```
 ```@example components
-@variables ϕ(τ) V(ϕ) V′(ϕ) V′′(ϕ)
-Q = SymBoltz.quintessence(g, V, V′, V′′)
+Q = SymBoltz.quintessence(g)
 nothing # hide
 ```
 ```@raw html

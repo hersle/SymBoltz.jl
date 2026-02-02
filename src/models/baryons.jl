@@ -25,23 +25,18 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         T(τ), [description = "Temperature"]
         β(τ), [description = "Inverse temperature (coldness)"]
 
-        XH⁺(τ), [description = "H ionization fraction n(H⁺)/nH"]
+        XH⁺(τ) = 1.0, [description = "H ionization fraction n(H⁺)/nH"] # TODO: add first order correction?
         nH(τ), [description = "Total H number density"]
         αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ)
 
         nHe(τ), [description = "Total He number density"]
-        XHe⁺(τ), [description = "Singly ionized He fraction"]
+        XHe⁺(τ) = 1.0, [description = "Singly ionized He fraction"] # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
         XHe⁺⁺(τ), [description = "Doubly ionized He fraction"]
         αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ) # invK = 1 / K
     end
 
     ΛH = 8.2245809 # s⁻¹
     ΛHe = 51.3 # s⁻¹
-
-    defaults = [
-        XHe⁺ => 1.0 # TODO: add first order correction?
-        XH⁺ => 1.0 # - αH/βH # + O((α/β)²); from solving β*(1-X) = α*X*Xe*n with Xe=X
-    ]
 
     αHfit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
     αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
@@ -76,11 +71,12 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ # TODO: redefine XHe⁺⁺ so it is also 1 at early times?
     ]
 
+    ics = Dict()
     if Hswitch == 0
-        push!(defaults, FH => 1.14) # original fudge factor
+        push!(ics, FH => 1.14) # original fudge factor
         push!(eqs, KHfitfactor ~ 1)
     elseif Hswitch == 1
-        push!(defaults, FH => 1.125) # fudged fudge factor in RECFAST 1.5.2 to match new He physics in https://arxiv.org/abs/1110.0247
+        push!(ics, FH => 1.125) # fudged fudge factor in RECFAST 1.5.2 to match new He physics in https://arxiv.org/abs/1110.0247
         KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2) # Gaussian fit in log(a)-space
         push!(eqs, KHfitfactor ~ 1 + KHfitfactorfunc(g.a, -0.14, 7.28, 0.18) + KHfitfactorfunc(g.a, 0.079, 6.73, 0.33))
     else
@@ -116,7 +112,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         error("Supported He switches are 0 and 6. Got $Heswitch.") # TODO support more granular switches 1-5?
     end
     description = "Baryon-photon recombination thermodynamics (RECFAST)"
-    return System(eqs, τ, vars, pars; defaults, description, kwargs...)
+    return System(eqs, τ, vars, pars; initial_conditions = ics, description, kwargs...)
 end
 
 """
@@ -152,12 +148,12 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
 
     pars = @parameters begin
         YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
-        fHe, [description = "Primordial He/H nucleon ratio n(He)/n(H)"]
+        fHe = YHe / (mHe/mH*(1-YHe)), [description = "Primordial He/H nucleon ratio n(He)/n(H)"] # fHe = nHe/nH
         κ0 = NaN, [description = "Optical depth today (set retrospectively)"] # to make the real κ = 0 today
     end
     vars = @variables begin
         κ(τ), [description = "Optical depth normalized to 0 today"]
-        _κ(τ), [description = "Optical depth normalized to 0 initially"]
+        _κ(τ) = 0.0, [description = "Optical depth normalized to 0 initially"]
         κ̇(τ), [description = "Optical depth derivative"]
         I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
@@ -165,7 +161,7 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         cₛ²(τ), [description = "Thermal speed of sound squared"]
         T(τ), [description = "Baryon temperature"]
         Tγ(τ), [description = "Photon temperature"]
-        ΔT(τ) = 0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times
+        ΔT(τ) = 0.0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times
         DTγ(τ), [description = "Photon temperature derivative"]
         DT(τ), [description = "Baryon temperature derivative"]
         μc²(τ), [description = "Mean molecular weight multiplied by speed of light squared"]
@@ -177,9 +173,6 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
 
     comps = []
     eqs = [
-        # parameter equations
-        fHe ~ YHe / (mHe/mH*(1-YHe)) # fHe = nHe/nH
-
         D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
         κ̇ ~ D(_κ) # optical depth derivative
         κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
@@ -198,9 +191,6 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         nHe ~ fHe * nH # 1/m³
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
     ]
-    defaults = [
-        _κ => 0.0
-    ]
 
     if recombination
         @named rec = recombination_recfast(g, ParentScope(YHe), ParentScope(fHe); Hswitch, Heswitch)
@@ -216,7 +206,7 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
 
     push!(eqs, Xe ~ sum(comp.Xe for comp in comps; init = 0))
 
-    b = extend(b, System(eqs, τ, vars, pars; defaults, name); description)
+    b = extend(b, System(eqs, τ, vars, pars; name); description)
     b = compose(b, comps)
     return b
 end

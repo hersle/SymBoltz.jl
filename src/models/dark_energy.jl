@@ -58,20 +58,20 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         σ ~ 0
     ])
-    ics = [
+    ieqs = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.17)
         θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ; adiabatic ICs, see e.g. https://arxiv.org/abs/1004.5509 eq. (3.18)
     ]
     description = "w₀wₐ (CPL) dark energy"
-    return System(eqs, τ, vars, pars; initialization_eqs=ics, name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initialization_eqs = ieqs, name, description, kwargs...)
 end
 
 """
-    quintessence(g, v; name = :ϕ, kwargs...)
+    quintessence(g[, v]; name = :ϕ, kwargs...)
 
-Create a species for a quintessence scalar field with potential `v` in the spacetime with metric `g`.
+Create a species with a quintessence scalar field in the potential `v` in the spacetime with metric `g`.
 """
-function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
+function quintessence(g; name = :Q, kwargs...)
     @variables begin
         ϕ(τ), [description = "Background scalar field"]
         ρ(τ), [description = "Effective background density"]
@@ -81,7 +81,7 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         σ(τ, k), [description = "Shear stress"]
         V(τ), [description = "Potential of scalar field"]
         V′(τ), [description = "Potential derivative wrt. scalar field"]
-        V′′(τ), [description = "Potential 2nd derivative wrt. scalar field"]
+        V″(τ), [description = "Potential 2nd derivative wrt. scalar field"]
         K(τ), [description = "Effective kinetic energy"]
         m²(τ), [description = "Effective mass"]
         ϵs(τ), [description = "1st slow roll parameter"]
@@ -89,17 +89,14 @@ function quintessence(g, v, v′, v′′; name = :Q, kwargs...)
         cₛ²(τ), [description = "Speed of sound squared"]
     end
     eqs = [
-        V ~ v
-        V′ ~ v′
-        V′′ ~ v′′
         K ~ (D(ϕ)/g.a)^2 / 2 # ϕ̇²/2 = (ϕ′/a)²/2
         D(D(ϕ)) ~ -2 * g.ℋ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*H*ϕ̇ + V′ = 0
         ρ ~ K + V
         P ~ K - V
         w ~ P / ρ
-        m² ~ V′′
+        m² ~ V″
         ϵs ~ (V′/V)^2 / (16*Num(π))
-        ηs ~ (V′′/V) / (8*Num(π))
+        ηs ~ (V″/V) / (8*Num(π))
 
         δ ~ 0
         σ ~ 0
@@ -114,6 +111,7 @@ function quintessence(g, v; name = :Q, kwargs...)
     end
     ∂_∂ϕ = Differential(ϕ)
     v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
-    v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
-    return quintessence(g, v(ϕ), v′, v′′; name, kwargs...)
+    v″ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
+    Q = complete(quintessence(g; name, kwargs...))
+    return extend(Q, System([Q.V ~ v(ϕ), Q.V′ ~ v′, Q.V″ ~ v″], τ; name))
 end

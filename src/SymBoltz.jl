@@ -3,6 +3,7 @@ module SymBoltz
 using Reexport
 import ModelingToolkit: parameters, unknowns # explicitly imported because they are extended
 @reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
+using Symbolics, SymbolicUtils
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
 using OrdinaryDiffEqNonlinearSolve: NLNewton
 using NonlinearSolve
@@ -20,7 +21,7 @@ using StaticArrays
 # TODO: descriptions
 @independent_variables τ [description = "Conformal time"] # conformal time in units of 1/H₀
 D = Differential(τ)
-k = only(GlobalScope.(@parameters k [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
+k = only(GlobalScope.(@parameters k = NaN [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
 
 include("utils.jl")
 include("constants.jl")

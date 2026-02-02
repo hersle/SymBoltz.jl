@@ -25,7 +25,7 @@ makedocs(
         "Building models" => [
             "components.md",
             "models.md",
-            "unstructured.md"
+            "LCDM.md"
         ],
         "solve.md",
         "plot.md",

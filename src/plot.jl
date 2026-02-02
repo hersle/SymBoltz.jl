@@ -21,12 +21,15 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
         colorbar_title --> displayname(line_z)
     end
     label --> displayname.(y')
-    return xs, permutedims(ys)
+    return xs, permutedims(stack(ys))
 end
 
 RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, klabel = true)
     if !(y isa AbstractArray)
         y = [y]
+    end
+    if !(k isa AbstractArray)
+        k = [k]
     end
 
     xlabel --> (x isa AbstractArray ? "" : displayname(x))
@@ -43,7 +46,7 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, k
                 linestyle --> linestyle
                 color --> color
                 label := ""
-                xs, ys
+                xs, stack(ys)
             end
 
             # label wavenumber with dummy plot

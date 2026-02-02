@@ -179,11 +179,12 @@ function CosmologyProblem(
             # then spline should already be a vector of variables, so leave it unmodified
         end
         pt = perturbations(M)
-        pt, _ = mtkcompile_spline(pt, spline)
+        pt, splpar = mtkcompile_spline(pt, spline)
+        parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
         if debug
             pt = debug_system(pt)
         end
-        # TODO: also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
+        # also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
         parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
@@ -557,7 +558,6 @@ function express_derivatives(expr, prob)
         expr = substitute(expr, dvarmap_pt) # substitute derivatives
         expr === expr0 && break # stop when expression doesn't change anymore
     end
-    Symbolics.hasnode(is_derivative, expr) && error("Could not express derivative of $expr")
     return expr
 end
 
