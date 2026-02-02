@@ -81,7 +81,7 @@ function quintessence(g; name = :Q, kwargs...)
         σ(τ, k), [description = "Shear stress"]
         V(τ), [description = "Potential of scalar field"]
         V′(τ), [description = "Potential derivative wrt. scalar field"]
-        V″(τ), [description = "Potential 2nd derivative wrt. scalar field"]
+        V′′(τ), [description = "Potential 2nd derivative wrt. scalar field"] # ″ does not show properly in Mathjax
         K(τ), [description = "Effective kinetic energy"]
         m²(τ), [description = "Effective mass"]
         ϵs(τ), [description = "1st slow roll parameter"]
@@ -94,9 +94,9 @@ function quintessence(g; name = :Q, kwargs...)
         ρ ~ K + V
         P ~ K - V
         w ~ P / ρ
-        m² ~ V″
+        m² ~ V′′
         ϵs ~ (V′/V)^2 / (16*Num(π))
-        ηs ~ (V″/V) / (8*Num(π))
+        ηs ~ (V′′/V) / (8*Num(π))
 
         δ ~ 0
         σ ~ 0
@@ -111,7 +111,7 @@ function quintessence(g, v; name = :Q, kwargs...)
     end
     ∂_∂ϕ = Differential(ϕ)
     v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
-    v″ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
+    v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
     Q = complete(quintessence(g; name, kwargs...))
-    return extend(Q, System([Q.V ~ v(ϕ), Q.V′ ~ v′, Q.V″ ~ v″], τ; name))
+    return extend(Q, System([Q.V ~ v(ϕ), Q.V′ ~ v′, Q.V′′ ~ v′′], τ; name))
 end
