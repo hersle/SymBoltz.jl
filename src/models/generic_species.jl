@@ -27,7 +27,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         u̇(τ, k), [description = "Velocity derivative"]
     end
     n = 3 * (1 + _w)
-    n = !Symbolics.issym(unwrap(_w)) && isinteger(n) ? Int(n) : n
+    n = Symbolics.symbolic_type(_w) == Symbolics.NotSymbolic() && isinteger(n) ? Int(n) : n
     if analytical
         eqs = [
             Ω ~ Ω₀ / g.a^n
