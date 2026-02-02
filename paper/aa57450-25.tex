@@ -1,25 +1,31 @@
 \documentclass{aa}
 \usepackage{graphicx}
+\usepackage{txfonts}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{mathrsfs}
 \usepackage{tabularx}
 \usepackage{booktabs}
 \usepackage[autostyle, english = american]{csquotes}
 
-% TODO: A&A wants txfonts
-
-\usepackage{fontspec}
-\usepackage[nohelv,nott]{newtxtext}
-\usepackage[varg]{newtxmath}
+\usepackage{newunicodechar}
+\newunicodechar{Λ}{\ensuremath{\Lambda}}
+\newunicodechar{γ}{\ensuremath{\gamma}}
+\newunicodechar{₀}{\ensuremath{{}_0}}
+\newunicodechar{Ω}{\ensuremath{\Omega}}
+\newunicodechar{ν}{\ensuremath{\nu}}
+\newunicodechar{τ}{\ensuremath{\tau}}
+\newunicodechar{ℋ}{\ensuremath{\mathscr{H}}}
+\newunicodechar{Φ}{\ensuremath{\Phi}}
+\newunicodechar{Ψ}{\ensuremath{\Psi}}
+\newunicodechar{ₐ}{\ensuremath{{}_\texttt{a}}}
+\newunicodechar{ₛ}{\ensuremath{{}_\texttt{s}}}
+\newunicodechar{ρ}{\ensuremath{\rho}}
+\newunicodechar{δ}{\ensuremath{\delta}}
+\newunicodechar{θ}{\ensuremath{\theta}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{π}{\ensuremath{\pi}}
 
 \usepackage{fancyvrb}
-\setmonofont{JuliaMono}[
-  Scale = MatchLowercase,
-  Path = fonts/,
-  Extension = .ttf ,
-  UprightFont = *-Regular,
-]
-
 \usepackage{mdframed}
 \newmdenv[
   backgroundcolor=black!5,
@@ -30,6 +36,7 @@
   innerbottommargin=5pt,
   innerleftmargin=5pt,
   innerrightmargin=5pt,
+  font=\small,
 ]{codebox}
 
 \usepackage{tikz}
@@ -708,7 +715,7 @@ initialization_eqs = [
   δ ~ -3//2 * (1+w) * Ψ
   θ ~ 1//2 * (k^2*τ) * Ψ
 ]
-X = System(eqs, τ; initialization_eqs, name = :X)
+X = System(eqs, τ; initialization_eqs, name=:X)
 \end{Verbatim}
 \end{codebox}
 
@@ -718,7 +725,7 @@ and SymBoltz will automatically render them in \LaTeX{}-compatible environments 
 A full $w_0 w_a \text{CDM}$ model is now built by replacing the cosmological constant species \texttt{$\Lambda$} in $\Lambda \text{CDM}$ by the $w_0 w_a$ species \texttt{X}:
 \begin{codebox}
 \begin{Verbatim}
-M = ΛCDM(Λ = X, lmax = 16, name = :w₀wₐCDM)
+M = ΛCDM(Λ=X, lmax=16, name=:w₀wₐCDM)
 push!(p, X.w₀ => -0.9, X.wₐ => 0.2, X.cₛ² => 1.0)
 prob = CosmologyProblem(M, p; jac=true, sparse=true)
 \end{Verbatim}
