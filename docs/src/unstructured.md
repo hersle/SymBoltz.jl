@@ -36,6 +36,7 @@ nx = 4
 f₀(x) = 1 / (exp(x) + 1)
 dlnf₀_dlnx(x) = -x / (1 + exp(-x))
 x, W = SymBoltz.momentum_quadrature(f₀, nx)
+x² = x .^ 2
 ∫dx_x²_f₀(f) = sum(collect(f .* W))
 
 @independent_variables τ # conformal time
@@ -47,7 +48,7 @@ pars = @parameters begin
     Ωc0, # cold dark matter
     Ωb0, YHe, fHe, # baryons and recombination
     Tγ0, Ωγ0, # photons
-    Ων0, Tν0, Neff, fν, # massless neutrinos
+    Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
     ΩΛ0, # cosmological constant
     zre1, Δzre1, nre1, # 1st reionization
@@ -68,6 +69,7 @@ vars = @variables begin
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
+    fν(τ) # misc
 end
 
 eqs = [
@@ -89,7 +91,6 @@ eqs = [
     β ~ 1 / (kB*Tb)
     λe ~ 2π*ħ / √(2π*me/β)
     Hrec ~ H100 * h * H
-    fHe ~ YHe / (mHe/mH*(1-YHe))
     D(κ) ~ -a/(H100*h) * ne * σT * c
     κ̇ ~ D(κ)
     csb2 ~ kB/μc² * (Tb - D(Tb)/3ℋ)
@@ -151,7 +152,6 @@ eqs = [
 
     # photons
     Tγ ~ Tγ0 / a
-    Ωγ0 ~ π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*h)^2)
     ργ ~ 3/(8*Num(π)) * Ωγ0 / a^4
     wγ ~ 1//3
     Pγ ~ wγ * ργ
@@ -187,14 +187,10 @@ eqs = [
     σν ~ Fν[2]/2
 
     # massive neutrinos
-    mh ~ mh_eV * eV/c^2
-    yh0 ~ mh*c^2 / (kB*Th0)
-    Iρh0 ~ ∫dx_x²_f₀(@. √(x^2 + yh0^2))
-    Ωh0 ~ Nh * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H100*h*c)^2/GN)
     Th ~ Th0 / a
     yh ~ yh0 * a
     Iρh ~ ∫dx_x²_f₀(Eh)
-    IPh ~ ∫dx_x²_f₀(x.^2 ./ Eh)
+    IPh ~ ∫dx_x²_f₀(x² ./ Eh)
     ρh ~ 2Nh/(2*π^2) * (kB*Th)^4 / (ħ*c)^3 * Iρh / ((H100*h*c)^2/GN)
     Ph ~ 2Nh/(6*π^2) * (kB*Th)^4 / (ħ*c)^3 * IPh / ((H100*h*c)^2/GN)
     wh ~ Ph / ρh
@@ -202,8 +198,8 @@ eqs = [
     δh ~ Iδρh / Iρh
     uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
     θh ~ k * uh
-    σh ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
-    csh2 ~ ∫dx_x²_f₀(x.^2 ./ Eh .* ψh0) / Iδρh
+    σh ~ (2//3) * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
+    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
     [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [D(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2*ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
@@ -214,11 +210,15 @@ eqs = [
     ρΛ ~ 3/(8*Num(π)) * ΩΛ0
     wΛ ~ -1
     PΛ ~ wΛ * ρΛ
+
+    # misc
+    fν ~ (ρν + ρh) / (ρν + ρh + ργ)
 ]
 
 initialization_eqs = [
     # metric/gravity
     Ψ ~ 20C / (15 + 4fν)
+    D(a) ~ a / τ
 
     # baryons
     δb ~ -3//2 * Ψ
@@ -251,10 +251,8 @@ initialization_eqs = [
     [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
 ]
 
-defaults = [
-    D(a) => a / τ
+initial_conditions = [
     τ0 => NaN
-    fν => (ρν + ρh) / (ρν + ρh + ργ)
     C => 1//2
     XHe⁺ => 1.0
     XH⁺ => 1.0
@@ -271,19 +269,25 @@ defaults = [
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
     ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0
+    Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*h)^2)
+    mh => mh_eV * eV/c^2
+    yh0 => mh*c^2 / (kB*Th0)
+    Iρh0 => ∫dx_x²_f₀(@. √(x^2 + yh0^2))
+    Ωh0 => Nh * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H100*h*c)^2/GN)
+    fHe => YHe / (mHe/mH*(1-YHe))
 ]
 
 guesses = [
     a => τ
 ]
 
-M = System(eqs, τ, vars, pars; initialization_eqs, defaults, guesses, name = :ΛCDM)
+M = System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, name = :ΛCDM)
 ```
 
 Now set parameter values and compile the numerical problem:
 ```@example unstructured
-pars = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02)
-prob = CosmologyProblem(M, pars)
+p = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02)
+prob = CosmologyProblem(M, p)
 ```
 
 Now solve it for some wavenumbers:
