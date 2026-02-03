@@ -347,7 +347,7 @@ Automatic differentiation works through ForwardDiff.jl\footnote{\url{https://git
 
 The next subsections describe SymBoltz' three main features in depth.
 Other implementation details are given in Appendix \ref{sec:implementation}.
-This paper is as of SymBoltz version 0.14.1.
+This paper is as of SymBoltz version 1.0.0.
 We refer to the package documentation for definitive up-to-date information.
 
 \subsection{Symbolic-numeric interface}
@@ -402,7 +402,7 @@ SymBoltz also includes a version of the default \LCDM{} model with all equations
 This makes it trivial to change anything in the equations, but sacrifices modularity.
 The symbolic interface makes it very compact:
 SymBoltz defines a full \LCDM{} model in only 277 straightforward lines of code,%
-\footnote{\url{https://hersle.github.io/SymBoltz.jl/stable/unstructured/}}
+\footnote{\url{https://hersle.github.io/SymBoltz.jl/stable/LCDM/}}
 while the equivalent code to browse in CLASS is spread over 10 files with 27721 lines.%
 \footnote{\texttt{input.\{h,c\}}, \texttt{background.\{h,c\}}, \texttt{thermodynamics.\{h,c\}}, \texttt{perturbations.\{h,c\}}, and \texttt{wrap\_recfast.\{h,c\}} counted by \texttt{wc}.}
 
@@ -618,7 +618,7 @@ However, reverse-mode in SymBoltz is left for future work.
 \label{sec:examples}
 
 The best way to illustrate the features in Sect. \ref{sec:features} is perhaps through some examples.
-The code is as of SymBoltz version 0.14.1 and available in a notebook in the project repository.
+The code is as of SymBoltz version 1.0.0 and available in a notebook in the project repository.
 
 \subsection{Basic usage workflow}
 
@@ -697,11 +697,11 @@ To implement this species in SymBoltz, we write down all related variables, para
 g, τ, k = M.g, M.τ, M.k
 a, ℋ, Φ, Ψ = g.a, g.ℋ, g.Φ, g.Ψ
 D = Differential(τ)
-@parameters w₀ wₐ cₛ² Ω₀ ρ₀
+
+@parameters w₀ wₐ cₛ² Ω₀ ρ₀=3Ω₀/8π
 @variables ρ(τ) P(τ) w(τ) cₐ²(τ) δ(τ,k) θ(τ,k) σ(τ,k)
 eqs = [
   w ~ w₀ + wₐ*(1-a)
-  ρ₀ ~ 3*Ω₀ / (8*Num(π))
   ρ ~ ρ₀ * a^(-3(1+w₀+wₐ)) * exp(-3wₐ*(1-a))
   P ~ w * ρ
   cₐ² ~ w - 1/(3ℋ) * D(w)/(1+w)
@@ -718,7 +718,7 @@ X = System(eqs, τ; initialization_eqs, name=:X)
 \end{Verbatim}
 \end{codebox}
 
-Everything is packed down in the $w_0 w_a$ component \texttt{X}.
+The last line packs everything into a $w_0 w_a$ component \texttt{X}.
 Unicode symbols are encouraged to maximize similarity with equations (e.g., \texttt{$\Omega_0$} over \texttt{Omega\_0}),
 and SymBoltz automatically renders them in \LaTeX{}-compatible environments (e.g., notebooks).
 A full $w_0 w_a \text{CDM}$ model is now built by replacing the cosmological constant species \texttt{$\Lambda$} in $\Lambda \text{CDM}$ by the $w_0 w_a$ species \texttt{X}:
@@ -758,7 +758,7 @@ and recompute or look up background variables, solve perturbation equations, sav
 The changes are scattered across the code, so it grows in complexity as more models are added.
 SymBoltz opens for a workflow that implements and analyzes a modified model with less effort all in one notebook, for example.
 Of course, both codes already include a $w_0 w_a$ species, but this is how they are implemented.
-We proceed with the $w_0 w_a \text{CDM}$ model.
+We proceed with the $w_0 w_a \text{CDM}$ model to the next section.
 
 \begin{figure*}[ht!]
     \centering
@@ -1030,7 +1030,7 @@ Together, these new codes offer a simpler alternative in high-level languages
 that complements traditional codes such as CAMB and CLASS, which are historically highly tuned around approximations in low-level languages.
 However, new codes need more work to reach the level of features and maturity of CAMB and CLASS that have grown over many years.
 
-SymBoltz version 0.14.1 includes the flat Newtonian gauge metric, general relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant, and $w_0 w_a$ dark energy with scalar perturbations, distances, and matter and CMB spectra.
+SymBoltz version 1.0.0 includes the flat Newtonian gauge metric, general relativity, cold dark matter, photons, baryons and RECFAST recombination, massless and massive neutrinos, the cosmological constant, and $w_0 w_a$ dark energy with scalar perturbations, distances, and matter and CMB spectra.
 Forward-mode automatic differentiation works for single-run purposes such as Fisher forecasting.
 Fast reverse-mode scalar loss gradients, particularly through the perturbations,
 is a future milestone that could challenge emulators in gradient-based MCMC sampling.
