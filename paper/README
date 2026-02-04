@@ -5,3 +5,5 @@ Latexdiff
 ---------
 - Place abstract between \begin{document} and \maketitle (temporarily!) and use --append-textcmd=abstract to mark changes in the abstract.
 - Replace \begin{tikzpicture} ... \end{tikzpicture} with old version, as latexdiff messes up everything inside.
+- Handle unicode character β
+- Replace \begin{codebox} ... \end{codebox} contents that are messed up by latexdiff

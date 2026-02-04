@@ -7,7 +7,7 @@
 %% aa.dtx  (with options: `aa')
 %% 
 %% aa.dtx
-%% Copyright EDP Sciences (2024), J.-C. Charpentier (2010), all rights reserved.
+%% Copyright EDP Sciences (2025), J.-C. Charpentier (2010), all rights reserved.
 %% Class `aa' to use with LaTeX 2e
 %% \CharacterTable
 %%  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -25,9 +25,9 @@
 %%   Grave accent  \`     Left brace    \{     Vertical bar  \|
 %%   Right brace   \}     Tilde         \~}
 %%
-\def\filedate{2024/08/08}
+\def\filedate{2025/10/06}
 \let\aafiledate\filedate
-\def\fileversion{9.2}
+\def\fileversion{9.3}
 \let\aafileversion\fileversion
 \NeedsTeXFormat{LaTeX2e}[1995/06/01]
 \ProvidesClass{aa}
@@ -80,6 +80,10 @@
 \newif\if@wideboxfn
 \@wideboxfnfalse
 \DeclareOption{wideboxfn}{\@wideboxfntrue}
+%
+\newif\if@wideboxlafn
+\@wideboxlafnfalse
+\DeclareOption{wideboxlafn}{\@wideboxlafntrue}
 %
 \newif\ifaa@longfn
 \DeclareOption{longfn}{\aa@longfntrue}
@@ -230,7 +234,9 @@
 \RequirePackage[english]{babel}
 \def\aatolm#1{\gdef\@aatolm{#1}}
 \def\@aatolm{}
-\renewenvironment{appendix}{\par\clearpage\aatolm{1}
+\renewenvironment{appendix}{\par\clearpage%
+\aa@savefootnote \csname c@footnote\endcsname \relax%
+\aatolm{1}
 \def\@hangfrom##1{\setbox\@tempboxa\hbox{{##1}}%
       \hangindent \parindent\noindent\box\@tempboxa}
 \def\sectcounterend{:}
@@ -251,7 +257,31 @@
   \renewcommand\thetable{\@Alph\c@section.\@arabic\c@table}%
   \@addtoreset{equation}{section}%
   \@addtoreset{figure}{section}%
-  \@addtoreset{table}{section}}
+  \@addtoreset{table}{section}%
+    \ifaa@longauth\ifnum\aa@nbauthors>10\relax%
+    \nolinenumbers
+        \if@wideboxlafn
+        \setlength\bibindent{1.4\parindent}
+        \else
+        \setlength\bibindent{\parindent}
+        \fi
+    \renewcommand*\thefootnote{\@fnsymbol\c@footnote}
+        \csname c@footnote\endcsname \aa@savethanks \relax
+        \setcounter{footnote}{\aa@savethanks}	
+    \begin{aa@strip}
+  \section*{Authors and affiliations}%
+  \aaauthorname%
+  \aainstitutename%
+  %\addvspace{2\aa@afterauthorskip}
+    \end{aa@strip}
+    \@thanks
+    \clearpage%
+    \setlength\bibindent{1em}
+    \renewcommand*\thefootnote{\@arabic\c@footnote}
+    \csname c@footnote\endcsname \aa@savefootnote \relax
+    \setcounter{footnote}{\aa@savefootnote}
+    \fi\fi\linenumbers%
+}
 {
   \setcounter{section}{0}%
   \setcounter{subsection}{0}%
@@ -275,6 +305,8 @@
 \newcommand*\aa@keywordsmax{6}
 \newcounter{aa@institutecnt}
 \newcount\aa@savecounter
+\newcount\aa@savefootnote
+\newcount\aa@savethanks
 \newlength{\aa@dima}
 \newlength{\aa@dimb}
 \newlength{\aa@dimc}
@@ -519,6 +551,7 @@
 \newcommand*\aa@keywordfont{\small}
 \newcommand*\aa@longauthfont{\centering\small\itshape}
 \newcommand*\aa@longauthname{Affiliations can be found after the references}
+\newcommand*\aa@appauthaffname{Full author list and affiliations details can be  found after the references}
 \newcommand*\aa@longauthopen{(}
 \newcommand*\aa@longauthclose{)}
 \newcommand*\aa@acknowledgementsfont{\tiny}
@@ -569,14 +602,14 @@
     \or{\star}{\star}
     \or{\star}{\star}{\star}%
     \or{\star}{\star}{\star}{\star}
-    \or \dagger
     \or \ddagger
+    \or \dagger\dagger
+    \or \ddagger\ddagger    
     \or \mathsection
     \or \mathparagraph
     \or \|
     \or **
-    \or \dagger\dagger
-    \or \ddagger\ddagger
+    \or \dagger
     \else \@ctrerr
     \fi
   }%
@@ -713,17 +746,29 @@
 \newcommand*\aa@title{}
 \newcommand*\subtitle[1]{\renewcommand*\aa@subtitle{#1}}
 \newcommand*\aa@subtitle{}
+\newcommand*\aa@tenauthors{}
 \renewcommand*\author[1]{%
   \renewcommand*\aa@author{#1}%
   \begingroup
     \let\and\relax
-    \renewcommand*\inst[1]{}%
-    \renewcommand*\thanks[1]{}%
-    \renewcommand*\email[1]{}%
+    \renewcommand*\inst[1]{\unskip}%
+    \renewcommand*\thanks[1]{\unskip}%
+    \renewcommand*\email[1]{\unskip}%
+    \renewcommand*\fnmsep{\unskip}%
+      \ifx\orcid\undefined\relax\else%
+    \renewcommand*\orcid[1]{\unskip}%
+      \fi
+      \ifx\orcidlink\undefined\relax\else%
+    \renewcommand*\orcidlink[1]{\unskip}%
+      \fi
     \let\@@protect\protect
     \let\protect\@unexpandable@protect
     \global\aa@nbauthors \z@
     \expandafter\aa@cntauthors\aa@author\and\aa@nil\and
+       \ifnum\aa@nbauthors>10
+    \expandafter\aa@extracttenauthor\aa@author\and\aa@nil
+    \protected@xdef\aa@tenauthors{\aa@tenauthors}%
+       \fi
     \restore@protect
   \endgroup
 }%
@@ -867,12 +912,11 @@
 \def\aainstitutename{\par
   \begingroup
   \renewcommand*\and{%
-      \ifaa@longauth\\\else\par\fi%
+      \\%
       \refstepcounter{aa@institutecnt}%
       \hangindent\aa@instituteindent
       \noindent
-      \ifaa@longauth\hbox to-0.001\aa@instituteindent\else%
-      \hbox to\aa@instituteindent\fi%
+      \hbox to-0.001\aa@instituteindent%
       {%
         \hss
         \hbox{\@textsuperscript{\normalfont\theaa@institutecnt}}%
@@ -905,6 +949,24 @@
       \aa@institute\par
     }
   \endgroup}
+\def\aaauthorname{\par
+\begingroup        
+    \ifnum\aa@nbauthors=\tw@
+      \let\and\andtwoname
+    \else
+      \renewcommand\and{%
+        \advance\aa@cnta \@ne
+        \ifnum\aa@cnta=\aa@nbauthors
+          \andlastname
+        \else
+          \andname
+        \fi
+      }
+    \fi
+    \aa@cnta \@ne
+    {\aa@authorfont\centering\aa@author\par}
+    \addvspace{\aa@afterauthorskip}    
+\endgroup}
 \newcommand*\mail[1]{\renewcommand*\aa@mail{#1}}
 \newcommand*\aa@mail{}
 \newcommand*\msnr[1]{\renewcommand*\aa@msnr{#1}}
@@ -941,6 +1003,8 @@
     \endgroup
   \fi
 \endgroup
+  \aa@savethanks \csname c@footnote\endcsname \relax%
+  \let\@thanks\@empty%
   \setcounter{footnote}{0}%
 }
 \newcommand*\aa@maketitle{%
@@ -1033,19 +1097,37 @@
       }
     \fi
     \aa@cnta \@ne
+    \ifaa@longauth
+      \ifnum\aa@nbauthors>10%
+    {\aa@authorfont \aa@tenauthors\par}
+    \vspace{\aa@afterinstituteskip}
+      {\noindent\aa@longauthfont%
+       \aa@longauthopen\aa@appauthaffname\aa@longauthclose\par}
+    \addvspace{\aa@afterauthorskip}
+      \else
     {\aa@authorfont \aa@author\par}
     \addvspace{\aa@afterauthorskip}
+      \fi
+    \else
+    {\aa@authorfont \aa@author\par}
+    \addvspace{\aa@afterauthorskip}
+    \fi
   \endgroup
   \begingroup
-    \ifaa@longauth\addvspace{-10pt}
+    \ifaa@longauth
+      \ifnum\aa@nbauthors>10\relax%
+      \else
+    \addvspace{-10pt}
       {\noindent\aa@longauthfont%
        \aa@longauthopen\aa@longauthname\aa@longauthclose\par}
+    \vspace{\aa@afterinstituteskip}
+      \fi
     \else
     \leftskip \aa@headingleftmargin
     \rightskip \aa@headingrightmargin
       \aainstitutename
-    \fi
     \vspace{\aa@afterinstituteskip}
+    \fi
     {\noindent\aa@datefont\ifaa@longauth\centering\fi \aa@date\par}
     \ifx\aa@dedication\empty
       \vspace{\aa@afterdateskip}
@@ -1090,6 +1172,12 @@
   \renewcommand*\inst[1]{}%
   \renewcommand*\fnmsep{}%
   \renewcommand*\and{, }%
+      \ifx\orcid\undefined\relax\else%
+    \renewcommand*\orcid[1]{\unskip}%
+      \fi
+      \ifx\orcidlink\undefined\relax\else%
+    \renewcommand*\orcidlink[1]{\unskip}%
+      \fi
   \renewcommand*\\{ }%
   \renewcommand*\vspace[1]{}%
   \renewcommand*\offprints[1]{}%
@@ -1140,6 +1228,9 @@
 }
 \def\aa@extracttwoauthor#1\and#2\and#3\aa@nil{%
   \gdef\aa@headings{#1\andtwoname#2}%
+}
+\def\aa@extracttenauthor#1\and#2\and#3\and#4\and#5\and#6\and#7\and#8\and#9\aa@nil{%
+  \gdef\aa@tenauthors{#1\unskip, #2\unskip, #3\unskip, #4\unskip, #5\unskip, #6\unskip, #7\unskip, #8\unskip, et~al.}%
 }
 \def\sectcounterend{.}
 \def\@seccntformat#1{\csname the#1\endcsname\sectcounterend
@@ -1686,7 +1777,10 @@
 }{%
   \endlist\par\endgroup%
   \ifaa@longauth\nolinenumbers%
+       \ifnum\aa@nbauthors>10\relax%
+       \else
   \kern6pt\hrule\kern6pt\aainstitutename\aa@longauthfalse\fi%
+       \fi
   \ifaa@referee\if!\csname appendix\endcsname!\relax\else\listofobjects\fi\fi
   \def\@noitemerr{\ClassWarning{aa}{Empty `thebibliography' environment}}%
 }
@@ -2006,13 +2100,6 @@
   \newcommand*\bbbx{\ensuremath{\mathbf{X}}}
   \newcommand*\bbby{\ensuremath{\mathbf{Y}}}
   \newcommand*\bbbz{\ensuremath{\mathbf{Z}}}}
-%\@ifpackageloaded{hyperref}%
-%{}{\RequirePackage[colorlinks=true,
-%    linkcolor=blue, citecolor=blue, filecolor=blue, urlcolor=blue]{hyperref}}%
-%%%%%%%%%%%%%%%%%%%%%%%%%%% Macro ORCID %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\long\def\orcid#1{\unskip\protect\href{https://orcid.org/#1}{\protect\includegraphics[width=8pt,clip]{logo_orcid}}}%
-%\long\def\orcidlink#1{\unskip\protect\href{https://orcid.org/#1}{\protect\includegraphics[width=8pt,clip]{logo_orcid}}}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 }
 \setlength\leftmargini  {\parindent}
 \leftmargin  \leftmargini
@@ -2052,6 +2139,8 @@
 %
 % Package required for complexed name figure files
 \RequirePackage{grffile}
+%
+\AtBeginDocument{\renewcommand*\aa@pageof{, page \thepage{}}}
 %
 \endinput
 %%
