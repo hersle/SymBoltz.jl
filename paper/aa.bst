@@ -68,10 +68,12 @@
 
 ENTRY
   { address
+    annotation
     archiveprefix                   %EDP Sciences le 30/11/2014
     author
     booktitle
     chapter
+    doi
     edition
     editor
     howpublished
@@ -557,20 +559,9 @@ FUNCTION {format.in.editors}
 }
 
 FUNCTION {format.note}
-{ note empty$
+{ annotation empty$
     { "" }
-    { note #1 #1 substring$
-      duplicate$ "{" =
-        'skip$
-        { output.state mid.sentence =
-          { "l" }
-          { "u" }
-        if$
-        change.case$
-        }
-      if$
-      note #2 global.max$ substring$ *
-    }
+    { annotation }
   if$
 }
 
@@ -906,8 +897,7 @@ FUNCTION {first.page}
 
 FUNCTION {format.journal.pages}
 { pages empty$
-    { format.eprint outputeprint                   %EDP Sciences le 30/11/2014
-    }
+    {} % format.eprint outputeprint                   %EDP Sciences le 30/11/2014
     { duplicate$ empty$
         { pop$ format.pages }
         {
@@ -1048,7 +1038,7 @@ STRINGS {oldname}
 FUNCTION {format.edn.btitle} % Title should be on stack.
 { duplicate$ empty$ edition empty$ or
     'skip$
-    { ", " * format.edition * }
+    { ", \href{https://doi.org/" * doi * "}{" * format.edition * "}" * }
   if$
 }
 
@@ -1101,6 +1091,17 @@ FUNCTION {format.full.book.spec} % The title should be on the stack.
     if$
 }
 
+FUNCTION {format.journal}
+{ journal empty$
+    { "" }
+    { doi empty$
+        { journal }
+        { "\href{https://doi.org/" doi * "}{" * journal * }
+      if$
+    }
+  if$
+}
+
 %%%%%%%  End of functions from astrobib
 
 FUNCTION {article}
@@ -1111,8 +1112,7 @@ FUNCTION {article}
   format.date "year" output.check
   date.block
   crossref missing$
-    { journal
-      "journal" output.check
+    { format.journal output
       format.vol.num.pages output
     }
     { format.article.crossref output.nonnull
@@ -1120,6 +1120,10 @@ FUNCTION {article}
     }
   if$
   format.journal.pages
+  doi empty$
+    { }
+    { "}" * }
+  if$
   format.note output
   %format.eprint outputeprint                      %EDP Sciences le 30/11/2014
   fin.entry
