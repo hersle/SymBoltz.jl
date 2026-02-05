@@ -53,4 +53,14 @@ export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, distance_luminosity, SphericalBesselCache
 export express_derivatives
 
+using PrecompileTools: @compile_workload
+@compile_workload begin
+    using SymBoltz
+    @variables a(SymBoltz.τ)
+    @named M = System([SymBoltz.D(a) ~ a], SymBoltz.τ, [a], [SymBoltz.k])
+    p = Dict(a => 1e-5)
+    prob = CosmologyProblem(M, p; pt = false, jac = false, sparse = false)
+    sol = solve(prob)
+end
+
 end
