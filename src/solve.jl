@@ -123,8 +123,10 @@ function CosmologyProblem(
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
     bgopts = (), ptopts = (), kwargs...
 )
-    pars = merge(pars, shoot_pars) # save full dictionary for constructor
-    parsk = merge(pars, Dict(:k => NaN)) # k is unused, but must be set
+    if !isempty(shoot_pars) # merging with empty dict gives Any-dict
+        pars = merge(pars, shoot_pars) # save full dictionary for constructor
+    end
+    parsk = merge(pars, Dict(k => NaN)) # k is unused, but must be set
     shoot_pars = keys(shoot_pars)
 
     if bg
@@ -462,8 +464,8 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
             @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
-        else
-            verbose && print("\rSolved perturbations for wavenumber k = $(ks[i])")
+        elseif verbose
+            print("\rSolved perturbations for wavenumber k = $(ks[i])")
         end
         return output_func(sol, i)
     end
