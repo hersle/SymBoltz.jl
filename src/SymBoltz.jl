@@ -19,9 +19,12 @@ using StaticArrays
 # TODO: connector systems for Compton scattering / recombination etc.
 
 # TODO: descriptions
-@independent_variables τ [description = "Conformal time"] # conformal time in units of 1/H₀
-D = Differential(τ)
-k = only(GlobalScope.(@parameters k = NaN [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
+const τ, k, D = let
+    τ = only(@independent_variables τ [description = "Conformal time"]) # conformal time in units of 1/H₀
+    k = only(GlobalScope.(@parameters k = NaN [description = "Perturbation mode wavenumber"])) # perturbation wavenumber
+    D = Differential(τ)
+    τ, k, D
+end
 
 include("utils.jl")
 include("constants.jl")
