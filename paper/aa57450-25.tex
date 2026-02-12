@@ -752,7 +752,7 @@ We proceed with the $w_0 w_a \text{CDM}$ model to the next section.
 \begin{figure*}[ht!]
     \centering
     \includegraphics[scale=0.43]{figures/spectra.pdf}
-    \caption{Matter and CMB (TT, TE, and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; gray dashes) with relative errors $P_k^\text{SB}/P_k^\text{CL}-1$ and $C_l^\text{SB}/C_l^\text{CL}-1$ for the $w_0 w_a \text{CDM}$ model. CLASS uses the precision parameters in Appendix \ref{sec:precision}.}
+    \caption{Matter and CMB (TT, EE, and TE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; gray dashes) with relative errors $P_k^\text{SB}/P_k^\text{CL}-1$ and $C_l^\text{SB}/C_l^\text{CL}-1$ for the $w_0 w_a \text{CDM}$ model. CLASS uses the precision parameters in Appendix \ref{sec:precision}.}
     \label{fig:spectra}
 \end{figure*}
 
@@ -771,7 +771,7 @@ CLASS (all approximations) & 0.5 s & 1.6 s \\
 \end{tabularx}
 \end{table}
 
-SymBoltz can compute the matter power spectrum $P(k)$, and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{TE}$, and $C_l^\text{EE}$:
+SymBoltz can compute the matter power spectrum $P(k)$, and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{EE}$, and $C_l^\text{TE}$:
 \begin{codebox}
 \begin{Verbatim}
 ks = 10 .^ range(-1, 4, length = 100)
