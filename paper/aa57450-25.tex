@@ -915,7 +915,7 @@ but \citet{campagneJAXCOSMOEndtoEndDifferentiable2023} has done more advanced MC
         For each setup, $P(k)$ is computed by integrating perturbation $k$-modes with ODE solver tolerances $10^{-2}$-$10^{-9}$ that controls the adaptive stepping.
         For each tolerance, we record the best of 3 runtimes and the $L_2$-compressed error $\smash{\big(\sum_{i=1}^N \!\big(P(k_i)/\bar{P}(k_i)-1\big)^2/N\big)^{1/2}}$ relative to high-precision spectra $\bar{P}(k)$ from both codes with approximations off, tolerance $10^{-10}$, and \texttt{FBDF}/\texttt{ndf15}.
         Both codes solve a $w_0 w_a \text{CDM}$ model with equal parameters, $N=114$ equal wavenumbers $k_i$, multipole cutoff $\lmax=16$ for all species, default sampling of massive neutrino momenta, and parallelization over $k$.
-        Times are from a Linux laptop with a Intel i7-12800H CPU.}
+        Times are from a Linux laptop with an Intel i7-12800H CPU.}
     \label{fig:workprec}
 \end{figure}
 
