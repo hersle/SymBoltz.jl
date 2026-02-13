@@ -930,7 +930,7 @@ When CLASS uses approximations and its explicit \texttt{rk} evolver, SymBoltz is
 To make this comparison as fair as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use equal multipole cutoffs $\lmax$ for all species.
 However, the codes sample massive neutrino momenta $q$ differently.
 This greatly impacts the number of perturbation equations (see Appendix \ref{sec:massiveneutrinos}).
-SymBoltz' 4 default momenta gives 127 perturbation equations in total.
+SymBoltz' 4 default momenta give 127 perturbation equations in total.
 CLASS' default $\texttt{tol\_ncdm\_newtonian} = 10^{-5}$ gives 11 momenta and 245 equations (before approximations).
 Increasing this tolerance to $10^{-3}$ gives 5 momenta and 143 equations.
 This runs around $245/143 \approx 1.7$ times faster, but introduces errors beyond $1\%$ in $P(k)$.
