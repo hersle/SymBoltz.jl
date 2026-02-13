@@ -653,7 +653,7 @@ Omitting \texttt{ks} solves only the background.
 The resulting solution object \texttt{sol} provides convenient access to all model variables.
 Internally, it stores values of all ODE unknowns at the time steps taken by the solvers for every requested wavenumber.
 However, it can be queried with any time, wavenumber, and symbolic expression, and will automatically compute it from the unknowns and interpolate between stored times and wavenumbers, as explained in Sect. \ref{sec:interpolation}.
-For example, \texttt{sol(1.0, 2.0, g.Φ+g.Ψ)} computes $\Phi+\Psi$ at $k = 1 \, H_0/c$ and $\tau = 2 \, H_0^{-1}$ by expanding $\Psi$ in terms of $\Phi$ and other unknowns.
+For example, \texttt{sol(g.Φ+g.Ψ, 1.0, 2.0)} computes $\Phi+\Psi$ at $\tau = 1 \, H_0^{-1}$ and $k = 2 \, H_0/c$ by expanding $\Psi$ in terms of $\Phi$ and other unknowns.
 This interface is also used to plot the evolution of several variables in Fig. \ref{fig:output} with very compact code.
 
 Most Boltzmann solvers save only a fixed set of variables, such as only the unknowns.
