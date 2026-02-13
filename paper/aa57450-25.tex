@@ -594,7 +594,7 @@ In the long run, approximation schemes can of course be explored as a secondary 
 \label{sec:diff}
 
 SymBoltz is compatible with automatic differentiation.
-It can compute derivatives of any output quantity (e.g., ODE variables, $P(k)$ or $C_l$) with respect to any input parameters (e.g., $h$ or $\Omega_{c0}$).
+It can compute derivatives of any output quantity (e.g., ODE variables, $P(k)$, or $C_l$) with respect to any input parameters (e.g., $h$ or $\Omega_{c0}$).
 For example, it can be used to learn the sensitivity of the output to the input, perform Fisher forecasts, or compute the Jacobian in the shooting method for boundary-value parameterized models.
 It can also compute the ODE Jacobian, but SymBoltz does this symbolically to get it analytically with its sparsity pattern.
 
