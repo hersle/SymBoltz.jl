@@ -1,6 +1,6 @@
-SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein-Boltzmann solver
+SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein–Boltzmann solver
 ========================================================================================================
-SymBoltz is a new Julia package for solving the linear Einstein-Boltzmann equations in cosmology.
+SymBoltz is a new Julia package for solving the linear Einstein–Boltzmann equations in cosmology.
 It features a symbolic-numeric interface for specifying equations, is free of approximation switching schemes, and is compatible with automatic differentiation.
 Cosmological models are built from replaceable physical components in a way that scales well to extended models, or alternatively written as one compact system of equations.
 The modeler provides their equations, and SymBoltz solves them while reducing friction in the modeling process.
