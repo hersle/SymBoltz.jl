@@ -1,5 +1,12 @@
 \documentclass{aa}
 
+% remove journal name+copyright for preprint (delete for journal submission)
+\makeatletter % interpret @ in commands
+\renewcommand*{\aa@journalname}{} % see aa.cls
+\renewcommand*{\aa@manuscriptname}{} % see aa.cls
+\fancyhead[CE]{\aa@headfont \aa@headings} % same as odd pages from aa.cls
+\makeatother
+
 \usepackage{graphicx}
 \usepackage[varg]{txfonts}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
