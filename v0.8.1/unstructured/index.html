@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Unstructured ΛCDM model · SymBoltz</title><meta name="title" content="Unstructured ΛCDM model · SymBoltz"/><meta property="og:title" content="Unstructured ΛCDM model · SymBoltz"/><meta property="twitter:title" content="Unstructured ΛCDM model · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li class="is-active"><a class="tocitem" href>Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Building models</a></li><li class="is-active"><a href>Unstructured ΛCDM model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Unstructured ΛCDM model</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/unstructured.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Unstructured-ΛCDM-model"><a class="docs-heading-anchor" href="#Unstructured-ΛCDM-model">Unstructured ΛCDM model</a><a id="Unstructured-ΛCDM-model-1"></a><a class="docs-heading-anchor-permalink" href="#Unstructured-ΛCDM-model" title="Permalink"></a></h1><p>As an alternative to the modular structure in terms of physical components, SymBoltz provides a full unstructured ΛCDM model for those that prefer to work with everything in one large system. This includes <em>all</em> variables, parameters and equations in the background, thermodynamics and perturbations. This makes it <strong>extremely easy</strong> to make direct changes anywhere in the model!</p><div class="admonition is-success" id="Tip-150a43b05ac5c855"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-150a43b05ac5c855" title="Permalink"></a></header><div class="admonition-body"><p>Paste the code below into a notebook to freely edit the model and interactively inspect changes.</p></div></div><div class="admonition is-warning" id="Warning-8ab6e0add4bfbbaa"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-8ab6e0add4bfbbaa" title="Permalink"></a></header><div class="admonition-body"><p>Beware of variable name collisions!</p></div></div><pre><code class="language-julia hljs">using SymBoltz
+
+# constants and some functions
+@unpack kB, h, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse = SymBoltz
+lγmax = 6
+lνmax = 6
+lhmax = 6
+ϵ = 1e-9
+ΛH = 8.2245809
+ΛHe = 51.3
+λH∞1s   =  91.17534e-9; fH∞1s  = c/λH∞1s;  EH∞1s  = h*fH∞1s
+λH2s1s  = 121.56700e-9; fH2s1s = c/λH2s1s; EH2s1s = h*fH2s1s
+EH∞2s  = EH∞1s - EH2s1s
+λHe∞1s  =  50.42590e-9; fHe∞1s  = c/λHe∞1s;  EHe∞1s  = h*fHe∞1s
+λHe2s1s =  60.14045e-9; fHe2s1s = c/λHe2s1s; EHe2s1s = h*fHe2s1s
+λHe2p1s =  58.43344e-9; fHe2p1s = c/λHe2p1s; EHe2p1s = h*fHe2p1s
+EHe2p2s = EHe2p1s - EHe2s1s
+EHe∞2s  = EHe∞1s - EHe2s1s
+EHe⁺∞1s = 54.4178 * eV
+λHet∞2s = 260.0463e-9; fHet∞2s = c/λHet∞2s; EHet∞2s = h*fHet∞2s
+λHet2p1s = 59.1411e-9; fHet2p1s = c/λHet2p1s; EHet2p1s = h*fHet2p1s
+λHet2s1s = 62.5563e-9; fHet2s1s = c/λHet2s1s; EHet2s1s = h*fHet2s1s
+EHet2p2s = EHet2p1s - EHet2s1s
+A2ps = 1.798287e9
+A2pt = 177.58e0
+αHfit(T; F=1.125, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d)
+αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p))
+KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
+γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
+
+# massive neutrino distribution function and quadrature momenta
+nx = 4
+f₀(x) = 1 / (exp(x) + 1)
+dlnf₀_dlnx(x) = -x / (1 + exp(-x))
+x, W = SymBoltz.momentum_quadrature(f₀, nx)
+∫dx_x²_f₀(f) = sum(collect(f .* W))
+
+@independent_variables τ # conformal time
+D = Differential(τ) # derivative operator
+
+pars = @parameters begin
+    k, τ0, # wavenumber and conformal time today
+    h, # reduced Hubble parameter (overwrites Planck constant above!)
+    Ωc0, # cold dark matter
+    Ωb0, YHe, fHe, # baryons and recombination
+    Tγ0, Ωγ0, # photons
+    Ων0, Tν0, Neff, fν, # massless neutrinos
+    mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
+    ΩΛ0, # cosmological constant
+    zre1, Δzre1, nre1, # 1st reionization
+    zre2, Δzre2, nre2, # 2nd reionization
+    C # integration constant in initial conditions
+end
+
+vars = @variables begin
+    a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), # metric
+    ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
+    ρb(τ), Tb(τ), θb(τ,k), δb(τ,k), θb(τ,k), # baryons
+    κ(τ), κ̇(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), DTγ(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), Hrec(τ), # recombination
+    XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ) # Hydrogen recombination
+    nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
+    Xre1(τ), Xre2(τ), # reionization
+    ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ,k), Fγ(τ,k)[1:lγmax], Gγ0(τ,k), Gγ(τ,k)[1:lγmax], δγ(τ,k), θγ(τ,k), σγ(τ,k), Πγ(τ,k) # photons
+    ρc(τ), δc(τ,k), θc(τ,k) # cold dark matter
+    ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
+    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
+    ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
+end
+
+eqs = [
+    # metric equations
+    z ~ 1/a - 1
+    ℋ ~ D(a) / a
+    H ~ ℋ / a
+
+    # gravity equations
+    D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # 1st Friedmann equation
+    D(Φ) ~ -4*Num(π)/3*a^2/ℋ*δρ - k^2/(3*ℋ)*Φ - ℋ*Ψ
+    k^2 * (Φ - Ψ) ~ 12*Num(π) * a^2 * Π
+    ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
+    P ~ Pγ + Pν + Ph + PΛ
+    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν + δh*ρh
+    Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν + (1+wh)*ρh*σh
+
+    # baryon recombination
+    β ~ 1 / (kB*Tb)
+    λe ~ 2π*ħ / √(2π*me/β)
+    Hrec ~ H100 * h * H
+    fHe ~ YHe / (mHe/mH*(1-YHe))
+    D(κ) ~ -a/(H100*h) * ne * σT * c
+    κ̇ ~ D(κ)
+    csb2 ~ kB/μc² * (Tb - D(Tb)/3ℋ)
+    μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
+    DTb ~ -2*Tb*ℋ - a/h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT
+    DTγ ~ D(Tγ)
+    D(ΔT) ~ DTb - DTγ
+    Tb ~ ΔT + Tγ
+    nH ~ (1-YHe) * ρb*(H100*h)^2/GN / mH
+    nHe ~ fHe * nH
+    ne ~ Xe * nH
+    Xe ~ 1*XH⁺ + fHe*XHe⁺ + XHe⁺⁺ + Xre1 + Xre2
+
+    # baryon H⁺ + e⁻ recombination
+    αH ~ αHfit(Tb)
+    βH ~ αH / λe^3 * exp(-β*EH∞2s)
+    KHfitfactor ~ 1 + KHfitfactorfunc(a, -0.14, 7.28, 0.18) + KHfitfactorfunc(a, 0.079, 6.73, 0.33)
+    KH ~ KHfitfactor/8π * λH2s1s^3 / Hrec
+    CH ~ smoothifelse(XH⁺ - 0.99, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3)
+    D(XH⁺) ~ -a/(H100*h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s))
+
+    # baryon He⁺ + e⁻ singlet recombination
+    αHe ~ αHefit(Tb; q=10^(-16.744), p=0.711)
+    βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
+    KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2)
+    invKHe0 ~ 8π*Hrec / λHe2p1s^3
+    τHe ~ 3*A2ps*nHe*(1-XHe⁺+ϵ) / invKHe0
+    invKHe1 ~ -exp(-τHe) * invKHe0
+    γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
+    invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺)
+    CHe ~ smoothifelse(XHe⁺ - 0.99, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3)
+    DXHe⁺ ~ -a/(H100*h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
+
+    # baryon He⁺ + e⁻ triplet recombination
+    αHet ~ αHefit(Tb; q=10^(-16.306), p=0.761)
+    βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
+    τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*Hrec)
+    pHet ~ (1 - exp(-τHet)) / τHet
+    γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
+    CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s)
+    CHet ~ (ϵ + CHetnum) / (ϵ + CHetnum + βHet)
+    DXHet⁺ ~ -a/(H100*h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
+
+    # baryon He⁺ + e⁻ total recombination
+    D(XHe⁺) ~ DXHe⁺ + DXHet⁺
+
+    # baryon He⁺⁺ + e⁻ recombination
+    RHe⁺ ~ 1 * exp(-β*EHe⁺∞1s) / (nH * λe^3)
+    XHe⁺⁺ ~ 2*RHe⁺*fHe / (1+fHe+RHe⁺) / (1 + √(1 + 4*RHe⁺*fHe/(1+fHe+RHe⁺)^2))
+
+    # reionization
+    Xre1 ~ smoothifelse((1+zre1)^nre1 - (1+z)^nre1, 0, 1 + fHe; k = 1/(nre1*(1+zre1)^(nre1-1)*Δzre1))
+    Xre2 ~ smoothifelse((1+zre2)^nre2 - (1+z)^nre2, 0, 0 + fHe; k = 1/(nre2*(1+zre2)^(nre2-1)*Δzre2))
+
+    # baryons
+    ρb ~ 3/(8*Num(π)) * Ωb0 / a^3
+    D(δb) ~ -θb - 3*ℋ*csb2*δb + 3*D(Φ)
+    D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4//3*κ̇*ργ/ρb*(θγ-θb)
+
+    # photons
+    Tγ ~ Tγ0 / a
+    Ωγ0 ~ π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*(H100*h)^2)
+    ργ ~ 3/(8*Num(π)) * Ωγ0 / a^4
+    wγ ~ 1//3
+    Pγ ~ wγ * ργ
+    D(Fγ0) ~ -k*Fγ[1] + 4*D(Φ)
+    D(Fγ[1]) ~ k/3*(Fγ0-2*Fγ[2]+4*Ψ) - 4//3 * κ̇/k * (θb - θγ)
+    [D(Fγ[l]) ~ k/(2l+1) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + κ̇ * (Fγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
+    D(Fγ[lγmax]) ~ k*Fγ[lγmax-1] - (lγmax+1) / τ * Fγ[lγmax] + κ̇ * Fγ[lγmax]
+    δγ ~ Fγ0
+    θγ ~ 3*k*Fγ[1]/4
+    σγ ~ Fγ[2]/2
+    Πγ ~ Fγ[2] + Gγ0 + Gγ[2]
+    D(Gγ0) ~ k * (-Gγ[1]) + κ̇ * (Gγ0 - Πγ/2)
+    D(Gγ[1]) ~ k/(2*1+1) * (1*Gγ0 - 2*Gγ[2]) + κ̇ * Gγ[1]
+    [D(Gγ[l]) ~ k/(2l+1) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + κ̇ * (Gγ[l] - δkron(l,2)//10*Πγ) for l in 2:lγmax-1]...
+    D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + κ̇ * Gγ[lγmax]
+
+    # cold dark matter
+    ρc ~ 3/(8*Num(π)) * Ωc0 / a^3
+    D(δc) ~ -(θc-3*D(Φ))
+    D(θc) ~ -ℋ*θc + k^2*Ψ
+
+    # massless neutrinos
+    ρν ~ 3/(8*Num(π)) * Ων0 / a^4
+    wν ~ 1//3
+    Pν ~ wν * ρν
+    Tν ~ Tν0 / a
+    D(Fν0) ~ -k*Fν[1] + 4*D(Φ)
+    D(Fν[1]) ~ k/3*(Fν0-2*Fν[2]+4*Ψ)
+    [D(Fν[l]) ~ k/(2*l+1) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
+    D(Fν[lνmax]) ~ k*Fν[lνmax-1] - (lνmax+1) / τ * Fν[lνmax]
+    δν ~ Fν0
+    θν ~ 3*k*Fν[1]/4
+    σν ~ Fν[2]/2
+
+    # massive neutrinos
+    mh ~ mh_eV * eV/c^2
+    yh0 ~ mh*c^2 / (kB*Th0)
+    Iρh0 ~ ∫dx_x²_f₀(@. √(x^2 + yh0^2))
+    Ωh0 ~ Nh * 8*Num(π)/3 * 2/(2*Num(π)^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H100*h*c)^2/GN)
+    Th ~ Th0 / a
+    yh ~ yh0 * a
+    Iρh ~ ∫dx_x²_f₀(Eh)
+    IPh ~ ∫dx_x²_f₀(x.^2 ./ Eh)
+    ρh ~ 2Nh/(2*π^2) * (kB*Th)^4 / (ħ*c)^3 * Iρh / ((H100*h*c)^2/GN)
+    Ph ~ 2Nh/(6*π^2) * (kB*Th)^4 / (ħ*c)^3 * IPh / ((H100*h*c)^2/GN)
+    wh ~ Ph / ρh
+    Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
+    δh ~ Iδρh / Iρh
+    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
+    θh ~ k * uh
+    σh ~ (2//3) * ∫dx_x²_f₀(x.^2 ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
+    csh2 ~ ∫dx_x²_f₀(x.^2 ./ Eh .* ψh0) / Iδρh
+    [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
+    [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [D(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2*ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [D(ψh[i,l]) ~ k/(2*l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
+    [D(ψh[i,lhmax]) ~ k/(2*lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2*lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
+
+    # cosmological constant
+    ρΛ ~ 3/(8*Num(π)) * ΩΛ0
+    wΛ ~ -1
+    PΛ ~ wΛ * ρΛ
+]
+
+initialization_eqs = [
+    # metric/gravity
+    Ψ ~ 20C / (15 + 4fν)
+
+    # baryons
+    δb ~ -3//2 * Ψ
+    θb ~ 1//2 * (k^2*τ) * Ψ
+
+    # photons
+    Fγ0 ~ -2*Ψ
+    Fγ[1] ~ 2//3 * k*τ*Ψ
+    Fγ[2] ~ -8//15 * k/κ̇ * Fγ[1]
+    [Fγ[l] ~ -l//(2*l+1) * k/κ̇ * Fγ[l-1] for l in 3:lγmax]...
+    Gγ0 ~ 5//16 * Fγ[2]
+    Gγ[1] ~ -1//16 * k/κ̇ * Fγ[2]
+    Gγ[2] ~ 1//16 * Fγ[2]
+    [Gγ[l] ~ -l//(2l+1) * k/κ̇ * Gγ[l-1] for l in 3:lγmax]...
+
+    # cold dark matter
+    δc ~ -3//2 * Ψ
+    θc ~ 1//2 * (k^2*τ) * Ψ
+
+    # massless neutrinos
+    δν ~ -2 * Ψ
+    θν ~ 1//2 * (k^2*τ) * Ψ
+    σν ~ 1//15 * (k*τ)^2 * Ψ
+    [Fν[l] ~ +l//(2*l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
+
+    # massive neutrinos
+    [ψh0[i] ~ -1//4 * (-2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,1] ~ -1//3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,2] ~ -1//2 * (1//15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
+]
+
+defaults = [
+    D(a) =&gt; a / τ
+    τ0 =&gt; NaN
+    fν =&gt; (ρν + ρh) / (ρν + ρh + ργ)
+    C =&gt; 1//2
+    XHe⁺ =&gt; 1.0
+    XH⁺ =&gt; 1.0
+    κ =&gt; 0.0
+    ΔT =&gt; 0.0
+    zre1 =&gt; 7.6711
+    Δzre1 =&gt; 0.5
+    nre1 =&gt; 3/2
+    zre2 =&gt; 3.5
+    Δzre2 =&gt; 0.5
+    nre2 =&gt; 1
+    Tν0 =&gt; (4/11)^(1/3) * Tγ0
+    Ων0 =&gt; Neff * 7/8 * (4/11)^(4/3) * Ωγ0
+    Nh =&gt; 3
+    Th0 =&gt; (4/11)^(1/3) * Tγ0
+    ΩΛ0 =&gt; 1 - Ωγ0 - Ωc0 - Ωb0
+]
+
+guesses = [
+    a =&gt; τ
+]
+
+M = System(eqs, τ, vars, pars; initialization_eqs, defaults, guesses, name = :ΛCDM)</code></pre><p class="math-container">\[ \begin{align*}
+z\left( \tau \right) &amp;= -1 + \frac{1}{a\left( \tau \right)} \\
+\mathscr{H}\left( \tau \right) &amp;= \frac{\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau}}{a\left( \tau \right)} \\
+H\left( \tau \right) &amp;= \frac{\mathscr{H}\left( \tau \right)}{a\left( \tau \right)} \\
+\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} &amp;= \left( a\left( \tau \right) \right)^{2} \sqrt{\frac{8}{3} \rho\left( \tau \right) \pi} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \left( a\left( \tau \right) \right)^{2} \mathtt{\delta\rho}\left( \tau, k \right) \pi}{\mathscr{H}\left( \tau \right)} + \frac{ - k^{2} \Phi\left( \tau, k \right)}{3 \mathscr{H}\left( \tau \right)} - \mathscr{H}\left( \tau \right) \Psi\left( \tau, k \right) \\
+k^{2} \left( \Phi\left( \tau, k \right) - \Psi\left( \tau, k \right) \right) &amp;= 12 \left( a\left( \tau \right) \right)^{2} \Pi\left( \tau, k \right) \pi \\
+\rho\left( \tau \right) &amp;= \mathtt{{\rho}b}\left( \tau \right) + \mathtt{{\rho}c}\left( \tau \right) + \mathtt{\rho\gamma}\left( \tau \right) + \mathtt{\rho\Lambda}\left( \tau \right) + \mathtt{{\rho}h}\left( \tau \right) + \mathtt{\rho\nu}\left( \tau \right) \\
+P\left( \tau \right) &amp;= \mathtt{P\Lambda}\left( \tau \right) + \mathtt{P\nu}\left( \tau \right) + \mathtt{P\gamma}\left( \tau \right) + \mathtt{Ph}\left( \tau \right) \\
+\mathtt{\delta\rho}\left( \tau, k \right) &amp;= \mathtt{{\rho}b}\left( \tau \right) \mathtt{{\delta}b}\left( \tau, k \right) + \mathtt{{\rho}c}\left( \tau \right) \mathtt{{\delta}c}\left( \tau, k \right) + \mathtt{\rho\gamma}\left( \tau \right) \mathtt{\delta\gamma}\left( \tau, k \right) + \mathtt{{\rho}h}\left( \tau \right) \mathtt{{\delta}h}\left( \tau, k \right) + \mathtt{\rho\nu}\left( \tau \right) \mathtt{\delta\nu}\left( \tau, k \right) \\
+\Pi\left( \tau, k \right) &amp;= \mathtt{\rho\gamma}\left( \tau \right) \mathtt{\sigma\gamma}\left( \tau, k \right) \left( 1 + \mathtt{w\gamma}\left( \tau \right) \right) + \left( 1 + \mathtt{wh}\left( \tau \right) \right) \mathtt{{\sigma}h}\left( \tau, k \right) \mathtt{{\rho}h}\left( \tau \right) + \left( 1 + \mathtt{w\nu}\left( \tau \right) \right) \mathtt{\rho\nu}\left( \tau \right) \mathtt{\sigma\nu}\left( \tau, k \right) \\
+\beta\left( \tau \right) &amp;= \frac{1}{1.3806 \cdot 10^{-23} \mathtt{Tb}\left( \tau \right)} \\
+\mathtt{{\lambda}e}\left( \tau \right) &amp;= \frac{6.6261 \cdot 10^{-34}}{\sqrt{\frac{5.7236 \cdot 10^{-30}}{\beta\left( \tau \right)}}} \\
+\mathtt{Hrec}\left( \tau \right) &amp;= 3.2408 \cdot 10^{-18} h H\left( \tau \right) \\
+\mathtt{fHe} &amp;= \frac{\mathtt{YHe}}{3.9708 \left( 1 - \mathtt{YHe} \right)} \\
+\frac{\mathrm{d} \kappa\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{ - 1.9944 \cdot 10^{-20} a\left( \tau \right) \mathtt{ne}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{\dot{\kappa}}\left( \tau \right) &amp;= \frac{\mathrm{d} \kappa\left( \tau \right)}{\mathrm{d}\tau} \\
+\mathtt{csb2}\left( \tau \right) &amp;= \frac{1.3806 \cdot 10^{-23} \left( \mathtt{Tb}\left( \tau \right) + \frac{ - \frac{\mathrm{d} \mathtt{Tb}\left( \tau \right)}{\mathrm{d}\tau}}{3 \mathscr{H}\left( \tau \right)} \right)}{\mathtt{{\mu}c^2}\left( \tau \right)} \\
+\mathtt{{\mu}c^2}\left( \tau \right) &amp;= \frac{1.5044 \cdot 10^{-10}}{1 - 0.74816 \mathtt{YHe} + \left( 1 - \mathtt{YHe} \right) \mathtt{Xe}\left( \tau \right)} \\
+\mathtt{DTb}\left( \tau \right) &amp;= \frac{ - 0.00015165 \left( \mathtt{T\gamma}\left( \tau \right) \right)^{4} a\left( \tau \right) \mathtt{{\Delta}T}\left( \tau \right) \mathtt{Xe}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{Xe}\left( \tau \right) \right) h} - 2 \mathtt{Tb}\left( \tau \right) \mathscr{H}\left( \tau \right) \\
+\mathtt{DT\gamma}\left( \tau \right) &amp;= \frac{\mathrm{d} \mathtt{T\gamma}\left( \tau \right)}{\mathrm{d}\tau} \\
+\frac{\mathrm{d} \mathtt{{\Delta}T}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \mathtt{DTb}\left( \tau \right) - \mathtt{DT\gamma}\left( \tau \right) \\
+\mathtt{Tb}\left( \tau \right) &amp;= \mathtt{{\Delta}T}\left( \tau \right) + \mathtt{T\gamma}\left( \tau \right) \\
+\mathtt{nH}\left( \tau \right) &amp;= 94.012 h^{2} \left( 1 - \mathtt{YHe} \right) \mathtt{{\rho}b}\left( \tau \right) \\
+\mathtt{nHe}\left( \tau \right) &amp;= \mathtt{fHe} \mathtt{nH}\left( \tau \right) \\
+\mathtt{ne}\left( \tau \right) &amp;= \mathtt{nH}\left( \tau \right) \mathtt{Xe}\left( \tau \right) \\
+\mathtt{Xe}\left( \tau \right) &amp;= \mathtt{Xre2}\left( \tau \right) + \mathtt{XHe^{+ +}}\left( \tau \right) + \mathtt{Xre1}\left( \tau \right) + \mathtt{XH^+}\left( \tau \right) + \mathtt{fHe} \mathtt{XHe^+}\left( \tau \right) \\
+\mathtt{{\alpha}H}\left( \tau \right) &amp;= \frac{4.8476 \cdot 10^{-19}}{0.0034166 \left( \mathtt{Tb}\left( \tau \right) \right)^{0.6166} \left( 1 + 0.0050847 \left( \mathtt{Tb}\left( \tau \right) \right)^{0.53} \right)} \\
+\mathtt{{\beta}H}\left( \tau \right) &amp;= \frac{\mathtt{{\alpha}H}\left( \tau \right) e^{ - 5.4468 \cdot 10^{-19} \beta\left( \tau \right)}}{\left( \mathtt{{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{KHfitfactor}\left( \tau \right) &amp;= 1 + 0.079 e^{ - 9.1827 \left( 6.73 + \log\left( a\left( \tau \right) \right) \right)^{2}} - 0.14 e^{ - 30.864 \left( 7.28 + \log\left( a\left( \tau \right) \right) \right)^{2}} \\
+\mathtt{KH}\left( \tau \right) &amp;= \frac{7.1484 \cdot 10^{-23} \mathtt{KHfitfactor}\left( \tau \right)}{\mathtt{Hrec}\left( \tau \right)} \\
+\mathtt{CH}\left( \tau \right) &amp;= 0.5 \left( 1 + \frac{1 + 8.2246 \mathtt{nH}\left( \tau \right) \left( 1 - \mathtt{XH^+}\left( \tau \right) \right) \mathtt{KH}\left( \tau \right)}{1 + \mathtt{nH}\left( \tau \right) \left( 1 - \mathtt{XH^+}\left( \tau \right) \right) \mathtt{KH}\left( \tau \right) \left( 8.2246 + \mathtt{{\beta}H}\left( \tau \right) \right)} + \tanh\left( 1000 \left( -0.99 + \mathtt{XH^+}\left( \tau \right) \right) \right) \left( 1 + \frac{-1 - 8.2246 \mathtt{nH}\left( \tau \right) \left( 1 - \mathtt{XH^+}\left( \tau \right) \right) \mathtt{KH}\left( \tau \right)}{1 + \mathtt{nH}\left( \tau \right) \left( 1 - \mathtt{XH^+}\left( \tau \right) \right) \mathtt{KH}\left( \tau \right) \left( 8.2246 + \mathtt{{\beta}H}\left( \tau \right) \right)} \right) \right) \\
+\frac{\mathrm{d} \mathtt{XH^+}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{ - a\left( \tau \right) \left(  - e^{ - 1.634 \cdot 10^{-18} \beta\left( \tau \right)} \left( 1 - \mathtt{XH^+}\left( \tau \right) \right) \mathtt{{\beta}H}\left( \tau \right) + \mathtt{ne}\left( \tau \right) \mathtt{{\alpha}H}\left( \tau \right) \mathtt{XH^+}\left( \tau \right) \right) \mathtt{CH}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{{\alpha}He}\left( \tau \right) &amp;= \frac{1.803 \cdot 10^{-17}}{\left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{Tb}\left( \tau \right)} \right)^{1.711} \left( 1 + \sqrt{0.33333 \mathtt{Tb}\left( \tau \right)} \right)^{0.289} \sqrt{0.33333 \mathtt{Tb}\left( \tau \right)}} \\
+\mathtt{{\beta}He}\left( \tau \right) &amp;= \frac{4 e^{ - 6.3633 \cdot 10^{-19} \beta\left( \tau \right)} \mathtt{{\alpha}He}\left( \tau \right)}{\left( \mathtt{{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{KHe}\left( \tau \right) &amp;= \frac{1}{\mathtt{invKHe1}\left( \tau \right) + \mathtt{invKHe0}\left( \tau \right) + \mathtt{invKHe2}\left( \tau \right)} \\
+\mathtt{invKHe0}\left( \tau \right) &amp;= 1.2597 \cdot 10^{23} \mathtt{Hrec}\left( \tau \right) \\
+\mathtt{{\tau}He}\left( \tau \right) &amp;= \frac{5.3949 \cdot 10^{9} \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{\mathtt{invKHe0}\left( \tau \right)} \\
+\mathtt{invKHe1}\left( \tau \right) &amp;=  - e^{ - \mathtt{{\tau}He}\left( \tau \right)} \mathtt{invKHe0}\left( \tau \right) \\
+\mathtt{{\gamma}2ps}\left( \tau \right) &amp;= \frac{4.8487 \cdot 10^{26} \mathtt{fHe} \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{4.8748 \cdot 10^{26} \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \beta\left( \tau \right)}} \left( 1 - \mathtt{XH^+}\left( \tau \right) \right)} \\
+\mathtt{invKHe2}\left( \tau \right) &amp;= \frac{5.3949 \cdot 10^{9} \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{1 + 0.36 \left( \mathtt{{\gamma}2ps}\left( \tau \right) \right)^{0.86}} \\
+\mathtt{CHe}\left( \tau \right) &amp;= 0.5 \left( 1 + \frac{e^{ - 9.6491 \cdot 10^{-20} \beta\left( \tau \right)} + 51.3 \mathtt{KHe}\left( \tau \right) \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{e^{ - 9.6491 \cdot 10^{-20} \beta\left( \tau \right)} + \left( 51.3 + \mathtt{{\beta}He}\left( \tau \right) \right) \mathtt{KHe}\left( \tau \right) \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)} + \left( 1 + \frac{ - e^{ - 9.6491 \cdot 10^{-20} \beta\left( \tau \right)} - 51.3 \mathtt{KHe}\left( \tau \right) \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{e^{ - 9.6491 \cdot 10^{-20} \beta\left( \tau \right)} + \left( 51.3 + \mathtt{{\beta}He}\left( \tau \right) \right) \mathtt{KHe}\left( \tau \right) \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)} \right) \tanh\left( 1000 \left( -0.99 + \mathtt{XHe^+}\left( \tau \right) \right) \right) \right) \\
+\mathtt{DXHe^+}\left( \tau \right) &amp;= \frac{ - a\left( \tau \right) \left( \mathtt{ne}\left( \tau \right) \mathtt{{\alpha}He}\left( \tau \right) \mathtt{XHe^+}\left( \tau \right) - \mathtt{{\beta}He}\left( \tau \right) e^{ - 3.303 \cdot 10^{-18} \beta\left( \tau \right)} \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right) \right) \mathtt{CHe}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{{\alpha}Het}\left( \tau \right) &amp;= \frac{4.9431 \cdot 10^{-17}}{\left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{Tb}\left( \tau \right)} \right)^{1.761} \left( 1 + \sqrt{0.33333 \mathtt{Tb}\left( \tau \right)} \right)^{0.239} \sqrt{0.33333 \mathtt{Tb}\left( \tau \right)}} \\
+\mathtt{{\beta}Het}\left( \tau \right) &amp;= \frac{1.3333 e^{ - 7.6388 \cdot 10^{-19} \beta\left( \tau \right)} \mathtt{{\alpha}Het}\left( \tau \right)}{\left( \mathtt{{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{{\tau}Het}\left( \tau \right) &amp;= \frac{1.102 \cdot 10^{-19} \mathtt{nHe}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{25.133 \mathtt{Hrec}\left( \tau \right)} \\
+\mathtt{pHet}\left( \tau \right) &amp;= \frac{1 - e^{ - \mathtt{{\tau}Het}\left( \tau \right)}}{\mathtt{{\tau}Het}\left( \tau \right)} \\
+\mathtt{{\gamma}2pt}\left( \tau \right) &amp;= \frac{4.788 \cdot 10^{19} \mathtt{fHe} \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right)}{4.861 \cdot 10^{26} \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \beta\left( \tau \right)}} \left( 1 - \mathtt{XH^+}\left( \tau \right) \right)} \\
+\mathtt{CHetnum}\left( \tau \right) &amp;= 177.58 e^{ - 1.8337 \cdot 10^{-19} \beta\left( \tau \right)} \left( \frac{\frac{1}{3}}{1 + 0.66 \left( \mathtt{{\gamma}2pt}\left( \tau \right) \right)^{0.9}} + \mathtt{pHet}\left( \tau \right) \right) \\
+\mathtt{CHet}\left( \tau \right) &amp;= \frac{1 \cdot 10^{-9} + \mathtt{CHetnum}\left( \tau \right)}{1 \cdot 10^{-9} + \mathtt{{\beta}Het}\left( \tau \right) + \mathtt{CHetnum}\left( \tau \right)} \\
+\mathtt{DXHet^+}\left( \tau \right) &amp;= \frac{ - a\left( \tau \right) \left( \mathtt{ne}\left( \tau \right) \mathtt{XHe^+}\left( \tau \right) \mathtt{{\alpha}Het}\left( \tau \right) - 3 e^{ - 3.1755 \cdot 10^{-18} \beta\left( \tau \right)} \mathtt{{\beta}Het}\left( \tau \right) \left( 1 - \mathtt{XHe^+}\left( \tau \right) \right) \right) \mathtt{CHet}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\frac{\mathrm{d} \mathtt{XHe^+}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \mathtt{DXHe^+}\left( \tau \right) + \mathtt{DXHet^+}\left( \tau \right) \\
+\mathtt{RHe^+}\left( \tau \right) &amp;= \frac{e^{ - 8.7187 \cdot 10^{-18} \beta\left( \tau \right)}}{\left( \mathtt{{\lambda}e}\left( \tau \right) \right)^{3} \mathtt{nH}\left( \tau \right)} \\
+\mathtt{XHe^{+ +}}\left( \tau \right) &amp;= \frac{2 \mathtt{fHe} \mathtt{RHe^+}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{RHe^+}\left( \tau \right) \right) \left( 1 + \sqrt{1 + \frac{4 \mathtt{fHe} \mathtt{RHe^+}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{RHe^+}\left( \tau \right) \right)^{2}}} \right)} \\
+\mathtt{Xre1}\left( \tau \right) &amp;= 0.5 \left( 1 + \mathtt{fHe} + \left( 1 + \mathtt{fHe} \right) \tanh\left( \frac{ - \left( 1 + z\left( \tau \right) \right)^{\mathtt{nre1}} + \left( 1 + \mathtt{zre1} \right)^{\mathtt{nre1}}}{\left( 1 + \mathtt{zre1} \right)^{-1 + \mathtt{nre1}} \mathtt{nre1} \mathtt{{\Delta}zre1}} \right) \right) \\
+\mathtt{Xre2}\left( \tau \right) &amp;= 0.5 \left( \mathtt{fHe} + \mathtt{fHe} \tanh\left( \frac{\left( 1 + \mathtt{zre2} \right)^{\mathtt{nre2}} - \left( 1 + z\left( \tau \right) \right)^{\mathtt{nre2}}}{\left( 1 + \mathtt{zre2} \right)^{-1 + \mathtt{nre2}} \mathtt{nre2} \mathtt{{\Delta}zre2}} \right) \right) \\
+\mathtt{{\rho}b}\left( \tau \right) &amp;= \frac{3 \mathtt{{\Omega}b0}}{8 \left( a\left( \tau \right) \right)^{3} \pi} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\delta}b}\left( \tau, k \right) &amp;=  - \mathtt{{\theta}b}\left( \tau, k \right) + 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) - 3 \mathscr{H}\left( \tau \right) \mathtt{csb2}\left( \tau \right) \mathtt{{\delta}b}\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\theta}b}\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \mathtt{\rho\gamma}\left( \tau \right) \mathtt{\dot{\kappa}}\left( \tau \right) \left( \mathtt{\theta\gamma}\left( \tau, k \right) - \mathtt{{\theta}b}\left( \tau, k \right) \right)}{\mathtt{{\rho}b}\left( \tau \right)} - \mathscr{H}\left( \tau \right) \mathtt{{\theta}b}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) + k^{2} \mathtt{csb2}\left( \tau \right) \mathtt{{\delta}b}\left( \tau, k \right) \\
+\mathtt{T\gamma}\left( \tau \right) &amp;= \frac{\mathtt{T{\gamma}0}}{a\left( \tau \right)} \\
+\mathtt{\Omega{\gamma}0} &amp;= \frac{1.4121 \cdot 10^{-41} \mathtt{T{\gamma}0}^{4}}{3.1508 \cdot 10^{-35} h^{2}} \\
+\mathtt{\rho\gamma}\left( \tau \right) &amp;= \frac{3 \mathtt{\Omega{\gamma}0}}{8 \left( a\left( \tau \right) \right)^{4} \pi} \\
+\mathtt{w\gamma}\left( \tau \right) &amp;= \frac{1}{3} \\
+\mathtt{P\gamma}\left( \tau \right) &amp;= \mathtt{\rho\gamma}\left( \tau \right) \mathtt{w\gamma}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F{\gamma}0}\left( \tau, k \right) &amp;= 4 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) - \mathtt{F\gamma}\_{1}\left( \tau, k \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{1}\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \mathtt{\dot{\kappa}}\left( \tau \right) \left(  - \mathtt{\theta\gamma}\left( \tau, k \right) + \mathtt{{\theta}b}\left( \tau, k \right) \right)}{k} + \frac{1}{3} \left(  - 2 \mathtt{F\gamma}\_{2}\left( \tau, k \right) + \mathtt{F{\gamma}0}\left( \tau, k \right) + 4 \Psi\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 \mathtt{F\gamma}\_{1}\left( \tau, k \right) - 3 \mathtt{F\gamma}\_{3}\left( \tau, k \right) \right) k + \left( \mathtt{F\gamma}\_{2}\left( \tau, k \right) - \frac{1}{10} \mathtt{\Pi\gamma}\left( \tau, k \right) \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 \mathtt{F\gamma}\_{2}\left( \tau, k \right) - 4 \mathtt{F\gamma}\_{4}\left( \tau, k \right) \right) k + \mathtt{F\gamma}\_{3}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 \mathtt{F\gamma}\_{3}\left( \tau, k \right) - 5 \mathtt{F\gamma}\_{5}\left( \tau, k \right) \right) k + \mathtt{F\gamma}\_{4}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 \mathtt{F\gamma}\_{4}\left( \tau, k \right) - 6 \mathtt{F\gamma}\_{6}\left( \tau, k \right) \right) k + \mathtt{F\gamma}\_{5}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\gamma}\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 \mathtt{F\gamma}\_{6}\left( \tau, k \right)}{\tau} + \mathtt{F\gamma}\_{5}\left( \tau, k \right) k + \mathtt{F\gamma}\_{6}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\mathtt{\delta\gamma}\left( \tau, k \right) &amp;= \mathtt{F{\gamma}0}\left( \tau, k \right) \\
+\mathtt{\theta\gamma}\left( \tau, k \right) &amp;= \frac{3}{4} \mathtt{F\gamma}\_{1}\left( \tau, k \right) k \\
+\mathtt{\sigma\gamma}\left( \tau, k \right) &amp;= \frac{1}{2} \mathtt{F\gamma}\_{2}\left( \tau, k \right) \\
+\mathtt{\Pi\gamma}\left( \tau, k \right) &amp;= \mathtt{F\gamma}\_{2}\left( \tau, k \right) + \mathtt{G\gamma}\_{2}\left( \tau, k \right) + \mathtt{G{\gamma}0}\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G{\gamma}0}\left( \tau, k \right) &amp;=  - \mathtt{G\gamma}\_{1}\left( \tau, k \right) k + \mathtt{\dot{\kappa}}\left( \tau \right) \left(  - \frac{1}{2} \mathtt{\Pi\gamma}\left( \tau, k \right) + \mathtt{G{\gamma}0}\left( \tau, k \right) \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{1}\left( \tau, k \right) &amp;= \mathtt{G\gamma}\_{1}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) + \frac{1}{3} \left(  - 2 \mathtt{G\gamma}\_{2}\left( \tau, k \right) + \mathtt{G{\gamma}0}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 \mathtt{G\gamma}\_{1}\left( \tau, k \right) - 3 \mathtt{G\gamma}\_{3}\left( \tau, k \right) \right) k + \left( \mathtt{G\gamma}\_{2}\left( \tau, k \right) - \frac{1}{10} \mathtt{\Pi\gamma}\left( \tau, k \right) \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 \mathtt{G\gamma}\_{2}\left( \tau, k \right) - 4 \mathtt{G\gamma}\_{4}\left( \tau, k \right) \right) k + \mathtt{G\gamma}\_{3}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 \mathtt{G\gamma}\_{3}\left( \tau, k \right) - 5 \mathtt{G\gamma}\_{5}\left( \tau, k \right) \right) k + \mathtt{G\gamma}\_{4}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 \mathtt{G\gamma}\_{4}\left( \tau, k \right) - 6 \mathtt{G\gamma}\_{6}\left( \tau, k \right) \right) k + \mathtt{G\gamma}\_{5}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G\gamma}\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 \mathtt{G\gamma}\_{6}\left( \tau, k \right)}{\tau} + \mathtt{G\gamma}\_{5}\left( \tau, k \right) k + \mathtt{G\gamma}\_{6}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\mathtt{{\rho}c}\left( \tau \right) &amp;= \frac{3 \mathtt{{\Omega}c0}}{8 \left( a\left( \tau \right) \right)^{3} \pi} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\delta}c}\left( \tau, k \right) &amp;=  - \mathtt{{\theta}c}\left( \tau, k \right) + 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\theta}c}\left( \tau, k \right) &amp;=  - \mathscr{H}\left( \tau \right) \mathtt{{\theta}c}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) \\
+\mathtt{\rho\nu}\left( \tau \right) &amp;= \frac{3 \mathtt{\Omega{\nu}0}}{8 \left( a\left( \tau \right) \right)^{4} \pi} \\
+\mathtt{w\nu}\left( \tau \right) &amp;= \frac{1}{3} \\
+\mathtt{P\nu}\left( \tau \right) &amp;= \mathtt{w\nu}\left( \tau \right) \mathtt{\rho\nu}\left( \tau \right) \\
+\mathtt{T\nu}\left( \tau \right) &amp;= \frac{\mathtt{T{\nu}0}}{a\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F{\nu}0}\left( \tau, k \right) &amp;= 4 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) - \mathtt{F\nu}\_{1}\left( \tau, k \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{1}\left( \tau, k \right) &amp;= \frac{1}{3} \left(  - 2 \mathtt{F\nu}\_{2}\left( \tau, k \right) + 4 \Psi\left( \tau, k \right) + \mathtt{F{\nu}0}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 \mathtt{F\nu}\_{1}\left( \tau, k \right) - 3 \mathtt{F\nu}\_{3}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 \mathtt{F\nu}\_{2}\left( \tau, k \right) - 4 \mathtt{F\nu}\_{4}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 \mathtt{F\nu}\_{3}\left( \tau, k \right) - 5 \mathtt{F\nu}\_{5}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 \mathtt{F\nu}\_{4}\left( \tau, k \right) - 6 \mathtt{F\nu}\_{6}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F\nu}\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 \mathtt{F\nu}\_{6}\left( \tau, k \right)}{\tau} + \mathtt{F\nu}\_{5}\left( \tau, k \right) k \\
+\mathtt{\delta\nu}\left( \tau, k \right) &amp;= \mathtt{F{\nu}0}\left( \tau, k \right) \\
+\mathtt{\theta\nu}\left( \tau, k \right) &amp;= \frac{3}{4} \mathtt{F\nu}\_{1}\left( \tau, k \right) k \\
+\mathtt{\sigma\nu}\left( \tau, k \right) &amp;= \frac{1}{2} \mathtt{F\nu}\_{2}\left( \tau, k \right) \\
+\mathtt{mh} &amp;= 1.7827 \cdot 10^{-36} \mathtt{mh\_eV} \\
+\mathtt{yh0} &amp;= \frac{8.9876 \cdot 10^{16} \mathtt{mh}}{1.3806 \cdot 10^{-23} \mathtt{Th0}} \\
+\mathtt{I{\rho}h0} &amp;= 0.24384 \sqrt{43.235 + \mathtt{yh0}^{2}} + 0.55272 \sqrt{1.549 + \mathtt{yh0}^{2}} + 0.99943 \sqrt{10.95 + \mathtt{yh0}^{2}} + 0.0070934 \sqrt{139.32 + \mathtt{yh0}^{2}} \\
+\mathtt{{\Omega}h0} &amp;= \frac{9.1988 \cdot 10^{-15} \mathtt{Th0}^{4} \mathtt{I{\rho}h0} \mathtt{Nh}}{4.2428 \cdot 10^{-8} h^{2} \pi} \\
+\mathtt{Th}\left( \tau \right) &amp;= \frac{\mathtt{Th0}}{a\left( \tau \right)} \\
+\mathtt{yh}\left( \tau \right) &amp;= \mathtt{yh0} a\left( \tau \right) \\
+\mathtt{I{\rho}h}\left( \tau \right) &amp;= 0.55272 \mathtt{Eh}\_{1}\left( \tau \right) + 0.99943 \mathtt{Eh}\_{2}\left( \tau \right) + 0.24384 \mathtt{Eh}\_{3}\left( \tau \right) + 0.0070934 \mathtt{Eh}\_{4}\left( \tau \right) \\
+\mathtt{IPh}\left( \tau \right) &amp;= \frac{0.85619}{\mathtt{Eh}\_{1}\left( \tau \right)} + \frac{10.944}{\mathtt{Eh}\_{2}\left( \tau \right)} + \frac{10.543}{\mathtt{Eh}\_{3}\left( \tau \right)} + \frac{0.98827}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\mathtt{{\rho}h}\left( \tau \right) &amp;= \frac{1.165 \cdot 10^{-16} \left( \mathtt{Th}\left( \tau \right) \right)^{4} \mathtt{Nh} \mathtt{I{\rho}h}\left( \tau \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+\mathtt{Ph}\left( \tau \right) &amp;= \frac{3.8835 \cdot 10^{-17} \left( \mathtt{Th}\left( \tau \right) \right)^{4} \mathtt{Nh} \mathtt{IPh}\left( \tau \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+\mathtt{wh}\left( \tau \right) &amp;= \frac{\mathtt{Ph}\left( \tau \right)}{\mathtt{{\rho}h}\left( \tau \right)} \\
+\mathtt{I\delta{\rho}h}\left( \tau, k \right) &amp;= 0.55272 \mathtt{Eh}\_{1}\left( \tau \right) \mathtt{{\psi}h0}\_{1}\left( \tau, k \right) + 0.99943 \mathtt{Eh}\_{2}\left( \tau \right) \mathtt{{\psi}h0}\_{2}\left( \tau, k \right) + 0.24384 \mathtt{Eh}\_{3}\left( \tau \right) \mathtt{{\psi}h0}\_{3}\left( \tau, k \right) + 0.0070934 \mathtt{Eh}\_{4}\left( \tau \right) \mathtt{{\psi}h0}\_{4}\left( \tau, k \right) \\
+\mathtt{{\delta}h}\left( \tau, k \right) &amp;= \frac{\mathtt{I\delta{\rho}h}\left( \tau, k \right)}{\mathtt{I{\rho}h}\left( \tau \right)} \\
+\mathtt{uh}\left( \tau, k \right) &amp;= \frac{0.68792 \mathtt{{\psi}h}\_{1,1}\left( \tau, k \right) + 3.3072 \mathtt{{\psi}h}\_{2,1}\left( \tau, k \right) + 1.6033 \mathtt{{\psi}h}\_{3,1}\left( \tau, k \right) + 0.083727 \mathtt{{\psi}h}\_{4,1}\left( \tau, k \right)}{\mathtt{I{\rho}h}\left( \tau \right) + \frac{1}{3} \mathtt{IPh}\left( \tau \right)} \\
+\mathtt{{\theta}h}\left( \tau, k \right) &amp;= k \mathtt{uh}\left( \tau, k \right) \\
+\mathtt{{\sigma}h}\left( \tau, k \right) &amp;= \frac{\frac{2}{3} \left( \frac{0.85619 \mathtt{{\psi}h}\_{1,2}\left( \tau, k \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} + \frac{0.98827 \mathtt{{\psi}h}\_{4,2}\left( \tau, k \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} + \frac{10.944 \mathtt{{\psi}h}\_{2,2}\left( \tau, k \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} + \frac{10.543 \mathtt{{\psi}h}\_{3,2}\left( \tau, k \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \right)}{\mathtt{I{\rho}h}\left( \tau \right) + \frac{1}{3} \mathtt{IPh}\left( \tau \right)} \\
+\mathtt{csh2}\left( \tau, k \right) &amp;= \frac{\frac{10.944 \mathtt{{\psi}h0}\_{2}\left( \tau, k \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} + \frac{0.85619 \mathtt{{\psi}h0}\_{1}\left( \tau, k \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} + \frac{10.543 \mathtt{{\psi}h0}\_{3}\left( \tau, k \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} + \frac{0.98827 \mathtt{{\psi}h0}\_{4}\left( \tau, k \right)}{\mathtt{Eh}\_{4}\left( \tau \right)}}{\mathtt{I\delta{\rho}h}\left( \tau, k \right)} \\
+\mathtt{Eh}\_{1}\left( \tau \right) &amp;= \sqrt{1.549 + \left( \mathtt{yh}\left( \tau \right) \right)^{2}} \\
+\mathtt{Eh}\_{2}\left( \tau \right) &amp;= \sqrt{10.95 + \left( \mathtt{yh}\left( \tau \right) \right)^{2}} \\
+\mathtt{Eh}\_{3}\left( \tau \right) &amp;= \sqrt{43.235 + \left( \mathtt{yh}\left( \tau \right) \right)^{2}} \\
+\mathtt{Eh}\_{4}\left( \tau \right) &amp;= \sqrt{139.32 + \left( \mathtt{yh}\left( \tau \right) \right)^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h0}\_{1}\left( \tau, k \right) &amp;= \frac{ - 1.2446 k \mathtt{{\psi}h}\_{1,1}\left( \tau, k \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} + 0.96627 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h0}\_{2}\left( \tau, k \right) &amp;= \frac{ - 3.3091 k \mathtt{{\psi}h}\_{2,1}\left( \tau, k \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} + 3.1924 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h0}\_{3}\left( \tau, k \right) &amp;= \frac{ - 6.5754 k \mathtt{{\psi}h}\_{3,1}\left( \tau, k \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} + 6.5662 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h0}\_{4}\left( \tau, k \right) &amp;= 11.803 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) + \frac{ - 11.804 k \mathtt{{\psi}h}\_{4,1}\left( \tau, k \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,1}\left( \tau, k \right) &amp;= \frac{0.41487 k \left(  - 2 \mathtt{{\psi}h}\_{1,2}\left( \tau, k \right) + \mathtt{{\psi}h0}\_{1}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} + 0.25879 \mathtt{Eh}\_{1}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,1}\left( \tau, k \right) &amp;= \frac{1.103 k \left(  - 2 \mathtt{{\psi}h}\_{2,2}\left( \tau, k \right) + \mathtt{{\psi}h0}\_{2}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} + 0.32158 \mathtt{Eh}\_{2}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,1}\left( \tau, k \right) &amp;= \frac{2.1918 k \left(  - 2 \mathtt{{\psi}h}\_{3,2}\left( \tau, k \right) + \mathtt{{\psi}h0}\_{3}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} + 0.33287 \mathtt{Eh}\_{3}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,1}\left( \tau, k \right) &amp;= \frac{3.9345 k \left(  - 2 \mathtt{{\psi}h}\_{4,2}\left( \tau, k \right) + \mathtt{{\psi}h0}\_{4}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} + 0.33333 \mathtt{Eh}\_{4}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,2}\left( \tau, k \right) &amp;= \frac{0.24892 k \left( 2 \mathtt{{\psi}h}\_{1,1}\left( \tau, k \right) - 3 \mathtt{{\psi}h}\_{1,3}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,2}\left( \tau, k \right) &amp;= \frac{0.66182 k \left( 2 \mathtt{{\psi}h}\_{2,1}\left( \tau, k \right) - 3 \mathtt{{\psi}h}\_{2,3}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,2}\left( \tau, k \right) &amp;= \frac{1.3151 k \left( 2 \mathtt{{\psi}h}\_{3,1}\left( \tau, k \right) - 3 \mathtt{{\psi}h}\_{3,3}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,2}\left( \tau, k \right) &amp;= \frac{2.3607 k \left( 2 \mathtt{{\psi}h}\_{4,1}\left( \tau, k \right) - 3 \mathtt{{\psi}h}\_{4,3}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,3}\left( \tau, k \right) &amp;= \frac{0.1778 k \left( 3 \mathtt{{\psi}h}\_{1,2}\left( \tau, k \right) - 4 \mathtt{{\psi}h}\_{1,4}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,3}\left( \tau, k \right) &amp;= \frac{0.47273 k \left( 3 \mathtt{{\psi}h}\_{2,2}\left( \tau, k \right) - 4 \mathtt{{\psi}h}\_{2,4}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,3}\left( \tau, k \right) &amp;= \frac{0.93934 k \left( 3 \mathtt{{\psi}h}\_{3,2}\left( \tau, k \right) - 4 \mathtt{{\psi}h}\_{3,4}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,3}\left( \tau, k \right) &amp;= \frac{1.6862 k \left( 3 \mathtt{{\psi}h}\_{4,2}\left( \tau, k \right) - 4 \mathtt{{\psi}h}\_{4,4}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,4}\left( \tau, k \right) &amp;= \frac{0.13829 k \left( 4 \mathtt{{\psi}h}\_{1,3}\left( \tau, k \right) - 5 \mathtt{{\psi}h}\_{1,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,4}\left( \tau, k \right) &amp;= \frac{0.36768 k \left( 4 \mathtt{{\psi}h}\_{2,3}\left( \tau, k \right) - 5 \mathtt{{\psi}h}\_{2,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,4}\left( \tau, k \right) &amp;= \frac{0.7306 k \left( 4 \mathtt{{\psi}h}\_{3,3}\left( \tau, k \right) - 5 \mathtt{{\psi}h}\_{3,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,4}\left( \tau, k \right) &amp;= \frac{1.3115 k \left( 4 \mathtt{{\psi}h}\_{4,3}\left( \tau, k \right) - 5 \mathtt{{\psi}h}\_{4,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,5}\left( \tau, k \right) &amp;= \frac{0.11315 k \left( 5 \mathtt{{\psi}h}\_{1,4}\left( \tau, k \right) - 6 \mathtt{{\psi}h}\_{1,6}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,5}\left( \tau, k \right) &amp;= \frac{0.30083 k \left( 5 \mathtt{{\psi}h}\_{2,4}\left( \tau, k \right) - 6 \mathtt{{\psi}h}\_{2,6}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,5}\left( \tau, k \right) &amp;= \frac{0.59776 k \left( 5 \mathtt{{\psi}h}\_{3,4}\left( \tau, k \right) - 6 \mathtt{{\psi}h}\_{3,6}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,5}\left( \tau, k \right) &amp;= \frac{1.073 k \left( 5 \mathtt{{\psi}h}\_{4,4}\left( \tau, k \right) - 6 \mathtt{{\psi}h}\_{4,6}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{1,6}\left( \tau, k \right) &amp;= \frac{0.095739 k \left(  - 7 \left( \frac{10.445 \mathtt{Eh}\_{1}\left( \tau \right) \mathtt{{\psi}h}\_{1,6}\left( \tau, k \right)}{k \tau} - \mathtt{{\psi}h}\_{1,5}\left( \tau, k \right) \right) + 6 \mathtt{{\psi}h}\_{1,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{2,6}\left( \tau, k \right) &amp;= \frac{0.25455 k \left(  - 7 \left( \frac{3.9286 \mathtt{Eh}\_{2}\left( \tau \right) \mathtt{{\psi}h}\_{2,6}\left( \tau, k \right)}{k \tau} - \mathtt{{\psi}h}\_{2,5}\left( \tau, k \right) \right) + 6 \mathtt{{\psi}h}\_{2,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{3,6}\left( \tau, k \right) &amp;= \frac{0.5058 k \left(  - 7 \left( \frac{1.9771 \mathtt{Eh}\_{3}\left( \tau \right) \mathtt{{\psi}h}\_{3,6}\left( \tau, k \right)}{k \tau} - \mathtt{{\psi}h}\_{3,5}\left( \tau, k \right) \right) + 6 \mathtt{{\psi}h}\_{3,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}h}\_{4,6}\left( \tau, k \right) &amp;= \frac{0.90796 k \left(  - 7 \left( \frac{1.1014 \mathtt{Eh}\_{4}\left( \tau \right) \mathtt{{\psi}h}\_{4,6}\left( \tau, k \right)}{k \tau} - \mathtt{{\psi}h}\_{4,5}\left( \tau, k \right) \right) + 6 \mathtt{{\psi}h}\_{4,5}\left( \tau, k \right) \right)}{\mathtt{Eh}\_{4}\left( \tau \right)} \\
+\mathtt{\rho\Lambda}\left( \tau \right) &amp;= \frac{3 \mathtt{\Omega{\Lambda}0}}{8 \pi} \\
+\mathtt{w\Lambda}\left( \tau \right) &amp;= -1 \\
+\mathtt{P\Lambda}\left( \tau \right) &amp;= \mathtt{\rho\Lambda}\left( \tau \right) \mathtt{w\Lambda}\left( \tau \right)
+\end{align*}
+ \]</p><p>Now set parameter values and compile the numerical problem:</p><pre><code class="language-julia hljs">pars = Dict(h =&gt; 0.7, Ωc0 =&gt; 0.3, Ωb0 =&gt; 0.05, YHe =&gt; 0.25, Tγ0 =&gt; 2.7, Neff =&gt; 3.046, mh_eV =&gt; 0.02)
+prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology problem for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: 5 unknowns, 0 splines
+  Perturbations: 54 unknowns, 5 splines
+<span class="sgr1">Parameters &amp; initial conditions:</span>
+  YHe = 0.25
+  Ωb0 = 0.05
+  Tγ0 = 2.7
+  Ωc0 = 0.3
+  Neff = 3.046
+  h = 0.7
+  mh_eV = 0.02</code></pre><p>Now solve it for some wavenumbers:</p><pre><code class="language-julia hljs">ks = [4, 40, 400, 4000]
+sol = solve(prob, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: return code <span class="sgr32">Terminated</span>; solved with Rodas4P; 1301 points
+  Perturbations: return codes <span class="sgr32">Success</span>; solved with KenCarp4; 96-1316 points; x4 k ∈ [4, 4000] H₀/c (interpolation in-between)</code></pre><p>Now plot the evolution of the variables you are interested in:</p><pre><code class="language-julia hljs">using Plots
+p = plot(layout = (3, 1), size = (800, 1000))
+plot!(p[1], sol, τ, a)
+plot!(p[2], sol, log10(a), [Xe, XH⁺, XHe⁺, XHe⁺⁺]; legend_position = :left)
+plot!(p[3], sol, log10(a), [Φ, Ψ], ks)</code></pre><img src="b44982cc.svg" alt="Example block output"/><div class="admonition is-warning" id="Warning-66f8590cc7a3f08"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-66f8590cc7a3f08" title="Permalink"></a></header><div class="admonition-body"><p>This unstructured model is provided as a secondary way to work with SymBoltz in the hope that it is useful. It may not always be up-to-date with the equivalent structured model built from physical components, which is the primary and best supported interface to the code. Because it is unstructured, this model is only available for the standard ΛCDM model. It cannot and will not include all combinations of extended models in a way that scales well in model space. To enable and disable components, you have to manually edit them in and out yourself. For this it can be helpful to look at SymBoltz&#39; library of components in the <a href="https://github.com/hersle/SymBoltz.jl/tree/main/src/models">src/models/</a> directory (this model is essentially a copy-paste of those components).</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../models/">« Cosmologies (full models)</a><a class="docs-footer-nextpage" href="../solve/">Solving models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 24 September 2025 13:25">Wednesday 24 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

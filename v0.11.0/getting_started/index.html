@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting started · SymBoltz</title><meta name="title" content="Getting started · SymBoltz"/><meta property="og:title" content="Getting started · SymBoltz"/><meta property="twitter:title" content="Getting started · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Getting started</a><ul class="internal"><li><a class="tocitem" href="#1.-Create-the-model"><span>1. Create the model</span></a></li><li><a class="tocitem" href="#2.-Solve-the-problem"><span>2. Solve the problem</span></a></li><li><a class="tocitem" href="#3.-Use-the-solution"><span>3. Use the solution</span></a></li></ul></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Getting started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/getting_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h1><p><a href="../#Installation">Install SymBoltz.jl</a> and load it with</p><pre><code class="language-julia hljs">using SymBoltz</code></pre><h2 id="1.-Create-the-model"><a class="docs-heading-anchor" href="#1.-Create-the-model">1. Create the model</a><a id="1.-Create-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Create-the-model" title="Permalink"></a></h2><p>The first step is to define our cosmological model. This is a <em>symbolic</em> representation of the variables and equations that describe the various components in the universe, such as the theory of gravity (like general relativity) and particle species (like the cosmological constant, cold dark matter, photons and baryons).</p><p>To get started, we will simply load the standard ΛCDM model:</p><pre><code class="language-julia hljs">M = ΛCDM()
+hierarchy(M; describe = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">ΛCDM</span>: Standard cosmological constant and cold dark matter cosmological model
+├─ <span class="sgr1">g</span>: Spacetime FLRW metric in Newtonian gauge
+├─ <span class="sgr1">G</span>: General relativity gravity
+├─ <span class="sgr1">γ</span>: Photon radiation
+├─ <span class="sgr1">ν</span>: Massless neutrinos
+├─ <span class="sgr1">c</span>: Cold dark matter
+├─ <span class="sgr1">b</span>: Baryonic matter
+│  ├─ <span class="sgr1">rec</span>: Baryon-photon recombination thermodynamics (RECFAST)
+│  ├─ <span class="sgr1">rei1</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+│  └─ <span class="sgr1">rei2</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+├─ <span class="sgr1">h</span>: Massive neutrino
+├─ <span class="sgr1">Λ</span>: Cosmological constant
+└─ <span class="sgr1">I</span>: Harrison-Zel&#39;dovich inflation</code></pre><p>As shown, the model is structured as a hierarchy of the physical components. Each of these components contains a block of self-contained variables and equations that are independent from the other components, making up interchangeable modules of the entire Einstein-Boltzmann system. A full model joins several such incomplete blocks into a complete set of equations for the entire Einstein-Boltzmann system.</p><p>The hierarchical structure can be inspected interactively (with TAB-completion) in the Julia REPL by evaluating <code>M</code>, <code>M.G</code>, <code>M.G.ρ</code> and so on. For example, to see all equations for the theory of gravity:</p><pre><code class="language-julia hljs">equations(M.G)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} &amp;= \left( a\left( \tau \right) \right)^{2} \sqrt{\frac{8}{3} \rho\left( \tau \right) \pi} \\
+\mathtt{F_1}\left( \tau \right) &amp;= 0 \\
+\mathtt{F_2}\left( \tau \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} + \frac{ - \left( \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} \right)^{2} \left( 1 + \frac{ - 3 P\left( \tau \right)}{\rho\left( \tau \right)} \right)}{2 a\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \left( a\left( \tau \right) \right)^{2} \mathtt{\delta\rho}\left( \tau, k \right) \pi}{\mathscr{H}\left( \tau \right)} + \frac{ - k^{2} \Phi\left( \tau, k \right)}{3 \mathscr{H}\left( \tau \right)} - \mathscr{H}\left( \tau \right) \Psi\left( \tau, k \right) \\
+k^{2} \left( \Phi\left( \tau, k \right) - \Psi\left( \tau, k \right) \right) &amp;= 12 \left( a\left( \tau \right) \right)^{2} \Pi\left( \tau, k \right) \pi \\
+\mathtt{\dot{\Psi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Psi\left( \tau, k \right) \\
+\mathtt{\dot{\Phi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right)
+\end{align*}
+ \]</p><div class="admonition is-success" id="Tip-3e1c45909eda419b"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-3e1c45909eda419b" title="Permalink"></a></header><div class="admonition-body"><p>Are you not a fan of the modular model structure? SymBoltz also provides a <a href="../unstructured/#Unstructured-ΛCDM-model">full unstructured ΛCDM model</a> that lays out all variables and equations in one huge model.</p></div></div><h2 id="2.-Solve-the-problem"><a class="docs-heading-anchor" href="#2.-Solve-the-problem">2. Solve the problem</a><a id="2.-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Solve-the-problem" title="Permalink"></a></h2><p>Next, we create a <em>numerical</em> representation of the cosmological problem we want to solve. This splits the full symbolic model into computational stages (like the background, thermodynamics and perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.</p><pre><code class="language-julia hljs">using Unitful, UnitfulAstro # for interfacing without internal code units
+pars = Dict(
+    M.γ.T₀ =&gt; 2.7,
+    M.c.Ω₀ =&gt; 0.27,
+    M.b.Ω₀ =&gt; 0.05,
+    M.ν.Neff =&gt; 3.0,
+    M.g.h =&gt; 0.7,
+    M.b.YHe =&gt; 0.25,
+    M.h.m_eV =&gt; 0.02,
+    M.I.ln_As1e10 =&gt; 3.0,
+    M.I.ns =&gt; 0.95
+)
+ks = 10 .^ range(-5, 1, length=500) / u&quot;Mpc&quot;
+prob = CosmologyProblem(M, pars)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology problem for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: 5 unknowns, 0 splines
+  Perturbations: 54 unknowns, 5 splines
+<span class="sgr1">Parameters &amp; initial conditions:</span>
+  c₊Ω₀ = 0.27
+  b₊Ω₀ = 0.05
+  γ₊T₀ = 2.7
+  b₊YHe = 0.25
+  h₊m_eV = 0.02
+  h = 0.7
+  I₊ns = 0.95
+  ν₊Neff = 3.0
+  I₊ln_As1e10 = 3.0</code></pre><p>Finally, we can simply solve the problem:</p><pre><code class="language-julia hljs">sol = solve(prob, ks) # or just solve(prob) to solve only the background</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: return code <span class="sgr32">Terminated</span>; solved with Rodas4P; 1307 points
+  Perturbations: return codes <span class="sgr32">Success</span>; solved with KenCarp4; 56-1355 points; x500 k ∈ [0.042827494000000015, 42827.49400000001] H₀/c (interpolation in-between)</code></pre><div class="admonition is-warning" id="Warning-a866d80aba44c57d"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-a866d80aba44c57d" title="Permalink"></a></header><div class="admonition-body"><p>Constructing the <code>CosmologyProblem</code> is an expensive operation! It compiles symbolics to numerics, and should not be used to update parameter values. To just update parameter values, use the <a href="../solve/#Updating-the-parameters">parameter updater</a> function.</p></div></div><div class="admonition is-success" id="Tip-829e3e319511f09e"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-829e3e319511f09e" title="Permalink"></a></header><div class="admonition-body"><p>For maximum performance, use the optimal BLAS backend for your platform, such as <a href="https://github.com/JuliaLinearAlgebra/MKL.jl">MKL</a> for Intel processors. See the <a href="../benchmarks/#Performance-and-benchmarks">performance page</a> for more information. For example:</p><pre><code class="language-julia hljs">using MKL</code></pre></div></div><h2 id="3.-Use-the-solution"><a class="docs-heading-anchor" href="#3.-Use-the-solution">3. Use the solution</a><a id="3.-Use-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Use-the-solution" title="Permalink"></a></h2><p>You are now free to <a href="../solve/#Solving-models">do whatever you want with the solution object</a>. For example, to get the time points used by the solver and corresponding values of the scale factor <span>$a(τ)$</span>:</p><pre><code class="language-julia hljs">τs = sol[M.τ]
+as = sol(M.g.a, τs)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1307-element Vector{Float64}:
+ 1.0716501723720189e-8
+ 1.0745732735560708e-8
+ 1.0756539524593137e-8
+ 1.0777466797009124e-8
+ 1.0798394070035267e-8
+ 1.0821905649421413e-8
+ 1.0846624713302622e-8
+ 1.0873241306797327e-8
+ 1.0901346808433996e-8
+ 1.0931098763287587e-8
+ ⋮
+ 0.7233759670632911
+ 0.7552286688301243
+ 0.7888010926472029
+ 0.8242814135192502
+ 0.8618867138278281
+ 0.9018684355833634
+ 0.9445191263178923
+ 0.9901808527876161
+ 1.0000000000000004</code></pre><p>Similarly, to get <span>$\Phi(k,τ)$</span> for the 500 wavenumbers we solved for at the same times:</p><pre><code class="language-julia hljs">Φs = sol(M.g.Φ, τs, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1307×500 Matrix{Float64}:
+ 0.711124  0.711124  0.711124  …  0.711124    0.711124    0.711124
+ 0.711125  0.711125  0.711125     0.711124    0.711124    0.711123
+ 0.711125  0.711125  0.711125     0.711123    0.711123    0.711123
+ 0.711125  0.711125  0.711125     0.711123    0.711123    0.711122
+ 0.711125  0.711125  0.711125     0.711122    0.711122    0.711122
+ 0.711125  0.711125  0.711125  …  0.711121    0.711121    0.711121
+ 0.711125  0.711125  0.711125     0.711121    0.71112     0.71112
+ 0.711125  0.711125  0.711125     0.71112     0.71112     0.711119
+ 0.711126  0.711126  0.711126     0.711119    0.711119    0.711118
+ 0.711126  0.711126  0.711126     0.711118    0.711118    0.711117
+ ⋮                             ⋱                          
+ 0.53545   0.535449  0.535449     2.6132e-5   2.48653e-5  2.36593e-5
+ 0.528847  0.528847  0.528847     2.58078e-5  2.4557e-5   2.33658e-5
+ 0.52172   0.52172   0.52172   …  2.54582e-5  2.42243e-5  2.30494e-5
+ 0.51404   0.51404   0.51404      2.50818e-5  2.3866e-5   2.27086e-5
+ 0.50578   0.50578   0.50578      2.46771e-5  2.34808e-5  2.2342e-5
+ 0.496911  0.496911  0.496911     2.42426e-5  2.30676e-5  2.19487e-5
+ 0.487406  0.487406  0.487406     2.37773e-5  2.26249e-5  2.15275e-5
+ 0.477238  0.477238  0.477238  …  2.32799e-5  2.21515e-5  2.10771e-5
+ 0.475058  0.475058  0.475058     2.31732e-5  2.205e-5    2.09805e-5</code></pre><p>You could plot this with <code>using Plots; plot(log10.(as), transpose(Φs))</code>, but this is more convenient with the included plot recipe:</p><pre><code class="language-julia hljs">using Plots
+ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+plot(sol, log10(M.g.a), M.g.Φ, ks_plot) # lg(a) vs. Φ for 4 wavenumbers</code></pre><img src="26b17e93.svg" alt="Example block output"/><p>We can also calculate the matter power spectrum:</p><pre><code class="language-julia hljs">Ps = spectrum_matter(sol, ks)
+plot(log10.(ks/u&quot;1/Mpc&quot;), log10.(Ps/u&quot;Mpc^3&quot;); xlabel = &quot;lg(k/Mpc⁻¹)&quot;, ylabel = &quot;lg(P/Mpc³)&quot;, label = nothing)</code></pre><img src="7c73afda.svg" alt="Example block output"/><p>Similarly, we can calculate the angular CMB (TT) power spectrum:</p><pre><code class="language-julia hljs">ls = 10:10:1000
+jl = SphericalBesselCache(ls)
+Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl, unit = u&quot;μK&quot;)
+plot(ls, Dls; xlabel = &quot;l&quot;, ylabel = &quot;l (l+1) Cₗ / 2π&quot;, label = nothing)</code></pre><img src="5e09e803.svg" alt="Example block output"/><p>And here is a condensed plot with several quantities:</p><pre><code class="language-julia hljs">p = plot(layout=(3, 3), size=(900, 700), tickfontsize=6, labelfontsize=6, legendfontsize=5)
+plot!(p[1], sol, log10(M.g.a), [M.b.ρ, M.c.ρ, M.γ.ρ, M.ν.ρ, M.h.ρ, M.Λ.ρ] ./ M.G.ρ)
+plot!(p[2], sol, log10(M.g.a), [M.b.w, M.c.w, M.γ.w, M.ν.w, M.h.w, M.Λ.w])
+plot!(p[3], sol, log10(M.g.a), log10(M.g.H))
+plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.Xe])
+plot!(p[5], sol, log10(M.g.a), log10.([M.γ.T, M.b.T] ./ M.γ.T₀))
+plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.κ)))
+plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks_plot)
+plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), ks_plot; klabel = false)
+plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), ks_plot; klabel = false)</code></pre><img src="f6bc570b.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Introduction</a><a class="docs-footer-nextpage" href="../automatic_differentiation/">Using automatic differentiation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Wednesday 12 November 2025 16:23">Wednesday 12 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
