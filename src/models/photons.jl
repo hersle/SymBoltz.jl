@@ -48,7 +48,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
         F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k*τ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
-        [F[l] ~ -l//(2*l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
+        [F[l] ~ -l/(2l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
     ]
     if polarization
         append!(eqs, [
@@ -61,7 +61,7 @@ function photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)
             G0 ~ 5//16 * F[2],
             G[1] ~ -1//16 * k/κ̇ * F[2],
             G[2] ~ 1//16 * F[2],
-            [G[l] ~ -l//(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
+            [G[l] ~ -l/(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
         ])
     else
         append!(eqs, [collect(G .~ 0)...]) # pin to zero
