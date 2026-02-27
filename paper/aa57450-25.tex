@@ -1,7 +1,14 @@
 \documentclass{aa}
 
+% remove journal name+copyright for preprint (delete for journal submission)
+\makeatletter % interpret @ in commands
+\renewcommand*{\aa@journalname}{} % see aa.cls
+\renewcommand*{\aa@manuscriptname}{} % see aa.cls
+\fancyhead[CE]{\aa@headfont \aa@headings} % same as odd pages from aa.cls
+\makeatother
+
 \usepackage{graphicx}
-\usepackage{txfonts}
+\usepackage[varg]{txfonts}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{mathrsfs}
 \usepackage{tabularx}
@@ -61,14 +68,14 @@
 
 \begin{document}
 
-\title{SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein-Boltzmann solver}
-\authorrunning{H. Sletmoen}
-\titlerunning{SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein-Boltzmann solver}
-\author{Herman Sletmoen}
-\institute{Institute of Theoretical Astrophysics, University of Oslo, P.O.Box 1029 Blindern, N-0315 Oslo, Norway\\\email{herman.sletmoen@astro.uio.no}}
+\title{SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein–Boltzmann solver}
+\authorrunning{Sletmoen, H.}
+\titlerunning{SymBoltz.jl: A symbolic-numeric, approximation-free, and differentiable linear Einstein–Boltzmann solver}
+\author{Herman Sletmoen\thanks{Email: \texttt{herman.sletmoen@astro.uio.no}}}
+\institute{Institute of Theoretical Astrophysics, University of Oslo, PO Box 1029 Blindern, 0315 Oslo, Norway}
 \date{Received XX / Accepted XX}
 \abstract{
-SymBoltz is a new Julia package for solving the linear Einstein-Boltzmann equations in cosmology.
+SymBoltz is a new Julia package for solving the linear Einstein–Boltzmann equations in cosmology.
 It features a symbolic-numeric interface for specifying equations, is free of approximation switching schemes, and is compatible with automatic differentiation.
 Cosmological models are built from replaceable physical components in a way that scales well to extended models, or alternatively written as one compact system of equations.
 The modeler provides their equations, and SymBoltz solves them while reducing friction in the modeling process.
@@ -83,7 +90,7 @@ SymBoltz is publicly available with single-command installation and extensive do
 We welcome all contributions to the code from the community.
 }
 
-\keywords{Cosmology: theory - Methods: numerical}
+\keywords{methods: numerical – cosmology: theory}
 
 \maketitle
 
@@ -96,7 +103,7 @@ Cosmology is at a crossroads \citep{freedmanCosmologyCrossroads2017}, as the pre
 This suggests that the $\Lambda$ cold dark matter (\LCDM{}) model is incomplete, despite successfully explaining many observations.
 On the theoretical side, this situation drives a search for more realistic models through modifications to \LCDM{} \citep{bull$L$CDMProblemsSolutions2016}.
 This exploration benefits from access to numerical tools that are easy to modify, encouraging us to relax model-dependent approximations, create user-friendly interfaces, and structure codes with modular components.
-Linear Einstein-Boltzmann solvers (\enquote{Boltzmann codes}), such as CAMB \citep{lewisEfficientComputationCMB2000a} and CLASS \citep{lesgourguesCosmicLinearAnisotropy2011}, are essential tools in the cosmological modeling toolbox.
+Linear Einstein–Boltzmann solvers (\enquote{Boltzmann codes}), such as CAMB \citep{lewisEfficientComputationCMB2000a} and CLASS \citep{lesgourguesCosmicLinearAnisotropy2011}, are essential tools in the cosmological modeling toolbox.
 
 On the observational frontier, next-generation surveys such as the
 Square Kilometre Array \citep{dewdneySquareKilometreArray2009},
@@ -106,7 +113,7 @@ Simons Observatory \citep{thesimonsobservatorycollaborationSimonsObservatoryScie
 \textit{Euclid} \citep{euclidcollaborationEuclidOverviewEuclid2025}
 promise more precise data.
 Setting models apart with upcoming data involves both theoretical model parameters and experimental nuisance parameters that coexist in large $O(100)$-dimensional spaces \citep{pirasFutureCosmologicalLikelihoodbased2024}.
-In these high dimensions, modern Markov chain Monte Carlo (MCMC) methods, such as Hamiltonian Monte Carlo and the No-U-Turn Sampler \citep{hoffmanNoUTurnSamplerAdaptively2014}, outperform the traditional Metropolis-Hastings algorithm \citep{hastingsMonteCarloSampling1970}.
+In these high dimensions, modern Markov chain Monte Carlo (MCMC) methods, such as Hamiltonian Monte Carlo and the No-U-Turn Sampler \citep{hoffmanNoUTurnSamplerAdaptively2014}, outperform the traditional Metropolis–Hastings algorithm \citep{hastingsMonteCarloSampling1970}.
 They use both the likelihood and its gradient to explore parameter space faster.
 Emulators have become a popular proxy to get gradients from nondifferentiable codes by training differentiable neural networks to reproduce their output \citep[e.g.,][]{bollietHighaccuracyEmulatorsObservables2024,boniciCapsejlEfficientAutodifferentiable2024}.
 Differentiability is also used in forward-modeling field-level inference with simulations and initial conditions from Boltzmann solvers \citep{seljakOptimalExtractionCosmological2017}.
@@ -126,7 +133,7 @@ Section \ref{sec:futurework} outlines paths for future work.
 Section \ref{sec:conclusion} concludes with the current state of the code.
 Appendices \ref{sec:implementation}, \ref{sec:precision} and \ref{sec:testing} list equations and technical details.
 
-Historically, \citet{peeblesPrimevalAdiabaticPerturbation1970} were the first to numerically integrate a comprehensive set of linear Einstein-Boltzmann equations.
+Historically, \citet{peeblesPrimevalAdiabaticPerturbation1970} were the first to numerically integrate a comprehensive set of linear Einstein–Boltzmann equations.
 Their work was refined over several years, and \citet{maCosmologicalPerturbationTheory1995} laid the groundwork for modern Boltzmann solvers with the COSMICS code.
 Shortly after, \citet{seljakLineSightApproach1996} integrated the photon multipoles by parts to reduce thousands of coupled differential equations to independent integral solutions.
 This line-of-sight integration method was first implemented in their CMBFAST code and has become a standard technique that greatly speeds up the calculation, but requires truncating the multipoles in the differential equations.
@@ -148,9 +155,9 @@ Bolt.jl\footnote{\url{https://github.com/xzackli/Bolt.jl}} by \citet{liBoltjl202
 DISCO-EB\footnote{\url{https://github.com/ohahn/DISCO-EB}} by \citet{hahnDISCODJDifferentiableEinsteinBoltzmann2024} in the JAX framework in Python is also differentiable and relaxes approximation schemes to avoid overhead from switching equations on GPUs.
 SymBoltz.jl\footnote{\url{https://github.com/hersle/SymBoltz.jl}} is another Boltzmann code that brings together several of these developments.
 
-The core task of an Einstein-Boltzmann solver is to solve the Einstein-Boltzmann equations for some cosmological model.
+The core task of an Einstein–Boltzmann solver is to solve the Einstein–Boltzmann equations for some cosmological model.
 They are partial differential equations that linearize to ordinary differential equations (ODEs) ${\mathrm{d}\boldsymbol{u}}/{\mathrm{d} \tau} = \boldsymbol{f}(\boldsymbol{u},\boldsymbol{p},\tau)$ for some initial conditions $\boldsymbol{u}(\tau_i)$ and parameters $\boldsymbol{p}$, including several perturbation wavenumbers.
-Any output from Einstein-Boltzmann codes is derived from the solution of these ODEs, such as the matter and CMB power spectra.
+Any output from Einstein–Boltzmann codes is derived from the solution of these ODEs, such as the matter and CMB power spectra.
 
 However, several properties of the equations complicate this task.
 First, the equations separate into computational stages that benefit substantially from being solved sequentially for performance and stability, such as the background, perturbations, and line-of-sight integration stages.
@@ -185,7 +192,7 @@ They are also incompatible with each other unless we merge them into one code, w
 
 The two-language problem amplifies this issue, as data analysis often happens in slower high-level languages such as Python.
 This shapes Boltzmann solvers to rigid pipelines that must compute everything at once and avoid interception at all costs, in order to maximize performance in the low-level language before passing output back to the high-level language.
-Some features really just post-process the ODE solutions, but are appended to the pipeline even if they are peripheral to the core task of an Einstein-Boltzmann solver.
+Some features really just post-process the ODE solutions, but are appended to the pipeline even if they are peripheral to the core task of an Einstein–Boltzmann solver.
 For example, features such as nonlinear boosting and CMB lensing could be outsourced to smaller and interoperating modular packages, but they often become part of \enquote{all-in-one} Boltzmann codes instead.
 
 These patterns lead to big monolithic Boltzmann solvers
@@ -193,7 +200,7 @@ that become increasingly complex as they incorporate more models and features be
 This complexity has even driven development of specialized AI assistants for CLASS \citep{casasCLAPPCLASSLLM2025}.
 While existing Boltzmann solvers are impressively well-engineered and such tools are only helpful, we think these are symptoms of unnecessary complexity.
 
-The Einstein-Boltzmann equations are notoriously stiff \citep{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017}.
+The Einstein–Boltzmann equations are notoriously stiff \citep{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017}.
 This property of differential equations means their numerical solution is unstable with standard explicit integrators and requires tiny step sizes, making them hard to solve.
 Stiffness can arise when multiple and very different time scales appear in the same problem.
 This is very common in cosmology, where particles interact very rapidly in a universe that expands very slowly, particularly in the tightly coupled baryon-photon fluid.
@@ -217,7 +224,7 @@ This process must generally be repeated with modifications to the model, as they
 They also complicate the numerics, as time series from each ODE solution must be stitched together, each separate ODE system can use different tolerances, ODE integrators must be reinitialized, and so on.
 
 Another way to integrate stiff equations is to use appropriate implicit solvers.
-PyCosmo first solved the full stiff Einstein-Boltzmann equations with an implicit integrator, followed by Bolt and DISCO-EB.
+PyCosmo first solved the full stiff Einstein–Boltzmann equations with an implicit integrator, followed by Bolt and DISCO-EB.
 CLASS also has an implicit solver, but does not permit disabling the tight-coupling approximation, for example.
 Historically, implicit solvers may have been underutilized because they are harder to implement than explicit solvers and have a reputation for being slower,
 and due to iterative evolution from initial Boltzmann codes that were centered around approximations.
@@ -225,7 +232,7 @@ However, new life has recently been breathed into the field of implicit methods,
 
 Derivatives are important in scientific computing and in cosmological applications.
 For example, algorithms that optimize likelihoods and MCMC samplers for Bayesian parameter inference can take advantage of derivatives of the likelihood with respect to each parameter to intelligently step in a direction where the likelihood increases.
-In machine learning, the same applies when training neural networks emulators for cosmological observables by minimizing a scalar loss function of parameters.
+In machine learning, the same applies when training neural network emulators for cosmological observables by minimizing a scalar loss function of parameters.
 Some cosmologies are parameterized as boundary-value problems with the shooting method and use nonlinear root solvers such as Newton's method, which needs Jacobians.
 Implicit ODE solvers also use Jacobians to solve for values at the next time step.
 Fisher forecasting uses the Hessian (double derivative) of the likelihood with respect to parameters to predict how strong parameter constraints that can be placed by data with some uncertainty.
@@ -348,7 +355,7 @@ The core of SymBoltz is built around a symbolic-numeric interface illustrated in
 A model defines what equations should be solved; a problem decides how they are solved; and a solution holds what was solved.
 Variables and equations are specified in a high-level user-friendly symbolic modeling language, then compiled to low-level numerical code that is integrated by ODE solvers.
 With knowledge of the symbolic equations, SymBoltz analyzes their structure programmatically to ease model specification, automates mechanical boilerplate tasks, and generates fast and stable code that avoids approximations.
-In our opinion, there are three properties that motivate such a symbolic abstraction layer around the Einstein-Boltzmann equations.
+In our opinion, there are three properties that motivate such a symbolic abstraction layer around the Einstein–Boltzmann equations.
 
 First, the equations are most easily written as one large ODE, but optimally solved as several ODEs in stages such as the background, perturbations, and line-of-sight integration.
 Mathematically, the Jacobian matrix of the single ODE encodes which variables are independent and belong to which stages.
@@ -399,7 +406,7 @@ while the equivalent code to browse in CLASS is spread over 10 files with 27721 
 
 PyCosmo's symbolic interface also generates code for ODEs and sparse Jacobians,
 but does not focus on component-based modeling or automating tasks such as stage separation.
-In this way, SymBoltz' interface simplifies the solution and modification of the Einstein-Boltzmann equations.
+In this way, SymBoltz' interface simplifies the solution and modification of the Einstein–Boltzmann equations.
 It aims to maximize speed, stability, and convenience with minimal user input.
 The next subsections explain how the symbolic features work in detail,
 and Sect. \ref{sec:examples} shows them in action in a concrete example.
@@ -421,7 +428,7 @@ This is helpful as Boltzmann solvers tend to have large $\boldsymbol{f}$, and OD
 \label{sec:observed}
 
 A general ODE \eqref{eq:ode} has two types of variables: \enquote{unknowns} $\boldsymbol{u}(\tau)$ are integrated with respect to time, while \enquote{observed} variables are any functions of the unknowns.
-The Einstein-Boltzmann equations are usually written with many observed variables.
+The Einstein–Boltzmann equations are usually written with many observed variables.
 
 For example, consider the metric and gravity equations in Appendices \ref{sec:metric} and \ref{sec:gravity} sourced by some known $\rho(\tau)$, $\delta\rho(\tau,k)$, and $\Pi(\tau,k)$.
 Here, $a(\tau)$ and $\Phi(\tau,k)$ are the only unknown (differential) variables that the ODE is integrated for,
@@ -442,7 +449,7 @@ This is tedious, error-prone, and can tempt users to unnecessarily make simplify
 \subsubsection{Automatic stage separation and splining of unknowns}
 \label{sec:splining}
 
-In principle, the entire Einstein-Boltzmann system (i.e., background and perturbations) can be integrated all at once.
+In principle, the entire Einstein–Boltzmann system (i.e., background and perturbations) can be integrated all at once.
 However, it can be broken down into sequential computational stages that each depend only on those before it.
 To alleviate stiffness in each stage, avoid recomputing the background for every perturbation mode, and to improve performance by integrating smaller ODEs, all Boltzmann codes solve the system stage-by-stage and spline variables from one stage as input to the next.
 
@@ -458,11 +465,11 @@ One vector-valued spline is used to avoid repeatedly looking up $\tau$ for every
 Hermite splines are optimal for interpolating ODEs, as they take both $\boldsymbol{u}(\tau)$ and $\boldsymbol{u}^\prime(\tau)$ into account for better accuracy, and $\boldsymbol{u}^\prime(\tau)$ is known analytically from $\boldsymbol{u}(\tau)$ through the ODE \eqref{eq:ode}.
 In contrast, observed variables (e.g., $\scrH(\tau)$) are computed from the (splined) unknowns, as their derivatives are not known directly and splining them is less accurate.
 This makes any background variable available in the perturbations \enquote{for free.}
-All stages of the Einstein-Boltzmann equations are solved as if they are one common system of equations,
+All stages of the Einstein–Boltzmann equations are solved as if they are one common system of equations,
 while stage separation is done automatically under the hood.
 
 The separation into background and perturbation stages is guaranteed.
-It just reflects the perturbative structure of the linear Einstein-Boltzmann equations, where each order depends only on lower orders.
+It just reflects the perturbative structure of the linear Einstein–Boltzmann equations, where each order depends only on lower orders.
 However, they can often be broken further down: most thermodynamics (recombination) models can be separated from the background, and integral solutions (e.g., the optical depth $\kappa(\tau) = \int_{\tau_0}^\tau \kappa^\prime(\bar\tau) \mathrm{d}\bar\tau$ and line-of-sight integration) can be computed after solving the differential equations.
 Future work could extend SymBoltz' background-perturbations separation to split all finer stages by symbolically inspecting the dependencies between variables in the equations.
 
@@ -510,7 +517,7 @@ This is a major advantage with the symbolic approach, as in PyCosmo.
 \subsection{Approximation-freeness}
 \label{sec:approx-free}
 
-SymBoltz treats stiffness in the Einstein-Boltzmann equations with modern implicit ODE solvers that integrate the full equations at all times.
+SymBoltz treats stiffness in the Einstein–Boltzmann equations with modern implicit ODE solvers that integrate the full equations at all times.
 It is therefore free of approximation schemes, such as the TCA, UFA, RSA, NCDMFA, and Saha approximation.
 This is friendlier to the modeler, who now has to provide only one set of equations, instead of deriving, implementing, and validating approximations.
 This approach is also well-suited to the high-level equation-oriented symbolic interface.
@@ -548,16 +555,16 @@ We tested these ODE solvers from OrdinaryDiffEq:
 Backward differentiation formula (BDF) methods,
 such as \texttt{FBDF} and \texttt{QNDF} \citep{shampineMATLABODESuite1997}, are
 multi-step methods that use several past points to solve for the next.
-They do not have Runge-Kutta \enquote{stages} and solve just one implicit equation per step,
+They do not have Runge–Kutta \enquote{stages} and solve just one implicit equation per step,
 so they scale well to large ODEs and can reuse Jacobians heavily.
 They have variable order of 1-5, but are \enquote{L-stable} only up to second order.
 This makes them take short steps in stiff regimes without utilizing their high orders.
 We find them to be slowest.
 The solvers \texttt{ndf15} in CLASS and \texttt{BDF2} in PyCosmo also belong to this family.
-\citet{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein-Boltzmann equations.
+\citet{nadkarni-ghoshEinsteinBoltzmannEquationsRevisited2017} also discuss BDF methods in the context of the Einstein–Boltzmann equations.
 
 \item
-Explicit singly diagonal implicit Runge-Kutta (ESDIRK) methods \citep[e.g.,][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge-Kutta methods designed to preserve most stability properties of fully implicit (FIRK) methods at a cheaper computational cost.
+Explicit singly diagonal implicit Runge–Kutta (ESDIRK) methods \citep[e.g.,][]{jorgensenFamilyESDIRKIntegration2018} are a class of implicit Runge–Kutta methods designed to preserve most stability properties of fully implicit (FIRK) methods at a cheaper computational cost.
 An $s$-stage FIRK method has excellent stability, but a dense Butcher tableau $a_{ij}$, and must solve a system of $n \times s$ equations at every step.
 D in ESDIRK means that $a_{ij}$ has only lower triangular and diagonal nonzeros, decoupling the system into $s$ systems of $n$ equations that are faster to solve sequentially.
 S means that all diagonal nonzeros $a_{ii} = \gamma$ are equal, so all stages share the same $\boldsymbol{W}$-matrix, and only one must be factorized and can be reused as in BDF methods.
@@ -594,7 +601,7 @@ In the long run, approximation schemes can of course be explored as a secondary 
 \label{sec:diff}
 
 SymBoltz is compatible with automatic differentiation.
-It can compute derivatives of any output quantity (e.g., ODE variables, $P(k)$ or $C_l$) with respect to any input parameters (e.g., $h$ or $\Omega_{c0}$).
+It can compute derivatives of any output quantity (e.g., ODE variables, $P(k)$, or $C_l$) with respect to any input parameters (e.g., $h$ or $\Omega_{c0}$).
 For example, it can be used to learn the sensitivity of the output to the input, perform Fisher forecasts, or compute the Jacobian in the shooting method for boundary-value parameterized models.
 It can also compute the ODE Jacobian, but SymBoltz does this symbolically to get it analytically with its sparsity pattern.
 
@@ -615,8 +622,8 @@ This code is as of SymBoltz version 1.0.0 and available in a notebook in the pro
 
 \begin{figure*}
     \centering
-    \includegraphics[scale=0.43]{figures/evolution.pdf}
-    \caption{SymBoltz includes plotting recipes that make it easy to visualize any symbolic variable or expression thereof from a solution of the Einstein-Boltzmann equations. This plot was made with one short line of code per subplot. Wavenumbers $k$ are in units of $H_0/c$.}
+    \includegraphics[scale=0.425]{figures/evolution.pdf}
+    \caption{SymBoltz includes plotting recipes that make it easy to visualize any symbolic variable or expression thereof from a solution of the Einstein–Boltzmann equations. This plot was made with one short line of code per subplot. Wavenumbers $k$ are in units of $H_0/c$.}
     \label{fig:output}
 \end{figure*}
 
@@ -653,7 +660,7 @@ Omitting \texttt{ks} solves only the background.
 The resulting solution object \texttt{sol} provides convenient access to all model variables.
 Internally, it stores values of all ODE unknowns at the time steps taken by the solvers for every requested wavenumber.
 However, it can be queried with any time, wavenumber, and symbolic expression, and will automatically compute it from the unknowns and interpolate between stored times and wavenumbers, as explained in Sect. \ref{sec:interpolation}.
-For example, \texttt{sol(1.0, 2.0, g.Φ+g.Ψ)} computes $\Phi+\Psi$ at $k = 1 \, H_0/c$ and $\tau = 2 \, H_0^{-1}$ by expanding $\Psi$ in terms of $\Phi$ and other unknowns.
+For example, \texttt{sol(g.Φ+g.Ψ, 1.0, 2.0)} computes $\Phi+\Psi$ at $\tau = 1 \, H_0^{-1}$ and $k = 2 \, H_0/c$ by expanding $\Psi$ in terms of $\Phi$ and other unknowns.
 This interface is also used to plot the evolution of several variables in Fig. \ref{fig:output} with very compact code.
 
 Most Boltzmann solvers save only a fixed set of variables, such as only the unknowns.
@@ -751,8 +758,8 @@ We proceed with the $w_0 w_a \text{CDM}$ model to the next section.
 
 \begin{figure*}[ht!]
     \centering
-    \includegraphics[scale=0.43]{figures/spectra.pdf}
-    \caption{Matter and CMB (TT, TE, and EE) power spectra computed by SymBoltz (SB; colored lines) compared to CLASS (CL; gray dashes) with relative errors $P_k^\text{SB}/P_k^\text{CL}-1$ and $C_l^\text{SB}/C_l^\text{CL}-1$ for the $w_0 w_a \text{CDM}$ model. CLASS uses the precision parameters in Appendix \ref{sec:precision}.}
+    \includegraphics[scale=0.425]{figures/spectra.pdf}
+    \caption{Matter and CMB (TT, EE, and TE) power spectra computed by SymBoltz (colored lines) compared to CLASS (gray dashes) with relative errors $P(k)_\text{SymBoltz}/P(k)_\text{CLASS}-1$ and $C_{l,\text{SymBoltz}}/C_{l,\text{CLASS}}-1$ for the $w_0 w_a \text{CDM}$ model. CLASS uses the precision parameters in Appendix \ref{sec:precision}.}
     \label{fig:spectra}
 \end{figure*}
 
@@ -771,7 +778,7 @@ CLASS (all approximations) & 0.5 s & 1.6 s \\
 \end{tabularx}
 \end{table}
 
-SymBoltz can compute the matter power spectrum $P(k)$, and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{TE}$, and $C_l^\text{EE}$:
+SymBoltz can compute the matter power spectrum $P(k)$, and the angular CMB power spectra $C_l^\text{TT}$, $C_l^\text{EE}$, and $C_l^\text{TE}$:
 \begin{codebox}
 \begin{Verbatim}
 ks = 10 .^ range(-1, 4, length = 100)
@@ -812,7 +819,7 @@ where $\boldsymbol{F}$ is the Fisher information matrix with elements
 \label{eq:fisher_general}
 \end{equation}
 Intuitively, $\boldsymbol{F}$ measures how sharp the peak is or how sensitive $L$ is in different directions in parameter space.
-Fisher forecasting is powered by the Cramér-Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
+Fisher forecasting is powered by the Cramér–Rao bound $\big\lvert \smash{C_{ij}} \big\rvert \geq \big\lvert \smash{F^{-1}_{ij}} \big\rvert $ for the covariance $C_{ij}$ between parameters $p_i$ and $p_j$.
 It is an equality for a Gaussian, for which the likelihood expansion \eqref{eq:likelihood_expansion} is exact.
 Thus, inverting $\boldsymbol{F}(\bar{\boldsymbol{p}})$ gives the tightest possible parameter constraints.
 
@@ -852,19 +859,19 @@ This prepares a vector-to-vector function \texttt{Cl(p)} that is differentiated 
 to compute $\partial C_l / \partial p_i$ with dual numbers, as shown in Fig. \ref{fig:derivatives}.
 Computing and inverting the Fisher matrix \eqref{eq:fisher_special} forecasts the constraints in Fig. \ref{fig:forecast}.
 They agree with finite difference results from CLASS, but these required significant tuning of precision parameters and step sizes.
-Differentiable Fisher forecasts have also been demonstrated with an Eisenstein-Hu transfer function fit by \citet{campagneJAXCOSMOEndtoEndDifferentiable2023},
-and through the Einstein-Boltzmann solver DISCO-EB by \citet{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
+Differentiable Fisher forecasts have also been demonstrated with an Eisenstein–Hu transfer function fit by \citet{campagneJAXCOSMOEndtoEndDifferentiable2023},
+and through the Einstein–Boltzmann solver DISCO-EB by \citet{hahnDISCODJDifferentiableEinsteinBoltzmann2024}.
 
 \begin{figure}
     \centering
-    \includegraphics[scale=0.43]{figures/derivatives.pdf}
+    \includegraphics[scale=0.425]{figures/derivatives.pdf}
     \caption{Normalized derivatives $(\partial C_l / \partial p_i) / C_l$ of a CMB TT power spectrum with respect to cosmological parameters $p_i$ from SymBoltz and automatic differentiation (AD; colored lines) versus CLASS and central finite differences (FD; gray dashes). CLASS uses the precision parameters in Appendix \ref{sec:precision} and finite differences with $5 \%$ relative step sizes.}
     \label{fig:derivatives}
 \end{figure}
 
 \begin{figure}
     \centering
-    \includegraphics[scale=0.43]{figures/forecast.pdf}
+    \includegraphics[scale=0.425]{figures/forecast.pdf}
     \caption{Marginalized 68\% and 95\% 2D confidence ellipses for parameter constraints from a Fisher forecast on a cosmic variance-dominated CMB TT-only survey using the derivatives in Fig. \ref{fig:derivatives}.}
     \label{fig:forecast}
 \end{figure}
@@ -872,7 +879,7 @@ and through the Einstein-Boltzmann solver DISCO-EB by \citet{hahnDISCODJDifferen
 \subsection{Differentiable MCMC sampling with supernova data}
 
 Finally, SymBoltz can output differentiable results for gradient-based MCMC samplers, such as the No-U-Turn Sampler (NUTS).
-It uses gradients to sample parameter space more efficiently than the random walking Metropolis-Hastings algorithm.
+It uses gradients to sample parameter space more efficiently than the random walking Metropolis–Hastings algorithm.
 
 We fit 1048 Pantheon observations $(z_i, m_i)$ of Type Ia supernovae by \citet{scolnicCompleteLightcurveSample2018} to predicted apparent magnitudes $m(z) = M + \mu(z)$ at redshift $z$.
 Their standard absolute magnitude is $M \approx -19.3$, and $\mu(z) = 5 \lg (d_L(z) / 10\text{ pc})$ is the distance modulus of the background-derived luminosity distance%
@@ -907,7 +914,7 @@ but \citet{campagneJAXCOSMOEndtoEndDifferentiable2023} has done more advanced MC
 
 \begin{figure}
     \centering
-    \includegraphics[scale=0.43]{figures/work_precision.pdf}
+    \includegraphics[scale=0.425]{figures/work_precision.pdf}
     \caption{%
         Work versus precision for computing the matter power spectrum $P(k)$ with SymBoltz and CLASS.
         SymBoltz is approximation-free and run with several implicit ODE solvers.
@@ -915,7 +922,7 @@ but \citet{campagneJAXCOSMOEndtoEndDifferentiable2023} has done more advanced MC
         For each setup, $P(k)$ is computed by integrating perturbation $k$-modes with ODE solver tolerances $10^{-2}$-$10^{-9}$ that controls the adaptive stepping.
         For each tolerance, we record the best of 3 runtimes and the $L_2$-compressed error $\smash{\big(\sum_{i=1}^N \!\big(P(k_i)/\bar{P}(k_i)-1\big)^2/N\big)^{1/2}}$ relative to high-precision spectra $\bar{P}(k)$ from both codes with approximations off, tolerance $10^{-10}$, and \texttt{FBDF}/\texttt{ndf15}.
         Both codes solve a $w_0 w_a \text{CDM}$ model with equal parameters, $N=114$ equal wavenumbers $k_i$, multipole cutoff $\lmax=16$ for all species, default sampling of massive neutrino momenta, and parallelization over $k$.
-        Times are from a Linux laptop with a Intel i7-12800H CPU.}
+        Times are from a Linux laptop with an Intel i7-12800H CPU.}
     \label{fig:workprec}
 \end{figure}
 
@@ -930,7 +937,7 @@ When CLASS uses approximations and its explicit \texttt{rk} evolver, SymBoltz is
 To make this comparison as fair as possible, we configured both codes to integrate identical $k$-modes (decided by CLASS) without $k$-interpolation and use equal multipole cutoffs $\lmax$ for all species.
 However, the codes sample massive neutrino momenta $q$ differently.
 This greatly impacts the number of perturbation equations (see Appendix \ref{sec:massiveneutrinos}).
-SymBoltz' 4 default momenta gives 127 perturbation equations in total.
+SymBoltz' 4 default momenta give 127 perturbation equations in total.
 CLASS' default $\texttt{tol\_ncdm\_newtonian} = 10^{-5}$ gives 11 momenta and 245 equations (before approximations).
 Increasing this tolerance to $10^{-3}$ gives 5 momenta and 143 equations.
 This runs around $245/143 \approx 1.7$ times faster, but introduces errors beyond $1\%$ in $P(k)$.
@@ -971,7 +978,7 @@ as writing $\boldsymbol{u}(\tau,\boldsymbol{p})$ in the ODE \eqref{eq:ode} and d
 $\mathrm{d}\boldsymbol{v}_i/\mathrm{d}\tau = \boldsymbol{J} \boldsymbol{v}_i + \partial \boldsymbol{f} / \partial p_i$, which could be constructed analytically.
 
 Future work could also generalize the code from scalar to vector and tensor perturbations, from flat to curved spacetimes, and from adiabatic to other initial conditions.
-Some additional models for quintessence dark energy and Brans-Dicke gravity are in the works, and we invite others to add extended models.
+Some additional models for quintessence dark energy and Brans–Dicke gravity are in the works, and we invite others to add extended models.
 
 We hope SymBoltz can foster growth of modular interoperating packages for cosmology in Julia.
 For example, applications such as higher order perturbation theory (e.g., CLASS-PT by \citealt{chudaykinNonlinearPerturbationTheory2020} and PyBird by \citealt{damicoLimits$w$CDMEFTofLSS2021}), nonlinear boosting (e.g., HALOFIT by \citealt{takahashiRevisingHalofitModel2012} and HMCODE by \citealt{meadHMcode2020ImprovedModelling2021}), CMB lensing (e.g., CMBLensing.jl by \citealt{milleaBayesianDelensingDelight2020}), and nonlinear $N$-body simulations all rely on output from Boltzmann solvers.
@@ -982,7 +989,7 @@ A recent example of this is DISCO-DJ's coupling of differentiable Boltzmann and 
 \section{Conclusion}
 \label{sec:conclusion}
 
-SymBoltz is a fresh Julia package for solving the linear Einstein-Boltzmann equations.
+SymBoltz is a fresh Julia package for solving the linear Einstein–Boltzmann equations.
 It features a symbolic-numeric interface where models are built from symbolic equations and compiled to efficient numerical code.
 This lets users prototype new models with few lines of high-level code.
 It relaxes all approximation schemes found in older codes by solving a single set of stiff equations at all times with implicit integrators.
@@ -1035,6 +1042,7 @@ I thank Aayush Sabharwal and Christopher Rackauckas for developing ModelingToolk
 I thank Hans A. Winther for helpful suggestions and feedback on the code and drafts of this paper.
 I thank Julien Lesgourgues, Thomas Tram, and others for developing and thoroughly documenting CLASS.
 I thank the anonymous referee for detailed and constructive comments that helped improve the quality of this paper.
+This research was supported by the Research Council of Norway under project number 325113.
 \end{acknowledgements}
 
 \bibliographystyle{aa}
