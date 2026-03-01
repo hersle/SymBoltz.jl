@@ -46,7 +46,7 @@ pars = @parameters begin
     k, τ0, # wavenumber and conformal time today
     h, # reduced Hubble parameter (overwrites Planck constant above!)
     Ωc0, # cold dark matter
-    Ωb0, YHe, fHe, # baryons and recombination
+    Ωb0, YHe, fHe, κ0, # baryons and recombination
     Tγ0, Ωγ0, # photons
     Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
@@ -58,10 +58,10 @@ pars = @parameters begin
 end
 
 vars = @variables begin
-    a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), # metric
+    a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), χ(τ), # metric
     ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
     ρb(τ), Tb(τ), θb(τ,k), δb(τ,k), θb(τ,k), # baryons
-    κ(τ), κ̇(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), DTγ(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), Hrec(τ), # recombination
+    κ(τ), κ̇(τ), _κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), DTγ(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), Hrec(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ) # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
@@ -71,6 +71,7 @@ vars = @variables begin
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
     fν(τ) # misc
+    ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
 end
 
 eqs = [
@@ -78,6 +79,7 @@ eqs = [
     z ~ 1/a - 1
     ℋ ~ D(a) / a
     H ~ ℋ / a
+    χ ~ τ0 - τ
 
     # gravity equations
     D(a) ~ √(8*Num(π)/3 * ρ) * a^2 # 1st Friedmann equation
@@ -92,8 +94,10 @@ eqs = [
     β ~ 1 / (kB*Tb)
     λe ~ 2π*ħ / √(2π*me/β)
     Hrec ~ H100 * h * H
-    D(κ) ~ -a/(H100*h) * ne * σT * c
-    κ̇ ~ D(κ)
+    D(_κ) ~ -a/(H100*h) * ne * σT * c
+    κ̇ ~ D(_κ)
+    κ ~ _κ - κ0
+    v ~ D(exp(-κ)) |> expand_derivatives
     csb2 ~ kB/μc² * (Tb - D(Tb)/3ℋ)
     μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
     DTb ~ -2*Tb*ℋ - a/h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT
@@ -214,6 +218,15 @@ eqs = [
 
     # misc
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
+
+    # CMB source functions
+    ST_SW ~ v * (δγ/4 + Ψ + Πγ/16)
+    ST_ISW ~ exp(-κ) * D(Ψ + Φ) |> expand_derivatives
+    ST_Doppler ~ D(v*θb) / k^2 |> expand_derivatives
+    ST_polarization ~ 3/(16*k^2) * D(D(v*Πγ)) |> expand_derivatives
+    ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
+    SE_kχ² ~ 3/16 * v*Πγ
+    Sψ ~ 0 # ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0) # TODO # hide
 ]
 
 initialization_eqs = [
@@ -257,7 +270,8 @@ initial_conditions = [
     C => 1//2
     XHe⁺ => 1.0
     XH⁺ => 1.0
-    κ => 0.0
+    _κ => 0.0
+    κ0 => NaN
     ΔT => 0.0
     zre1 => 7.6711
     Δzre1 => 0.5
@@ -311,6 +325,18 @@ Now compute the primordial power spectrum:
 ks = 10 .^ range(-1, 4, length=100)
 P0s = spectrum_primordial(ks, sol)
 plot(log10.(ks), log10.(P0s), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)")
+```
+
+Now compute the CMB power spectrum:
+```@example LCDM
+# TODO: streamline # hide
+jl = SphericalBesselCache(25:25:3000)
+ls = 25:3000
+modes = [:TT, :EE, :TE]
+Dls = spectrum_cmb(modes, prob, jl, ls; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()), reltol = 1e-4, abstol = 1e-4), sourceopts = (refine = false,), normalization = :Dl, kτ0s = 0.05*jl.l[begin]:2π/2:1.8*jl.l[end], coarse_length = 300, verbose=true)
+plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (3, 1), size = (600, 1000), margin=10*Plots.mm)
+plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2)
+plot!(ls, Dls[:,3]*1e12, ylabel = "10¹² D(ℓ)", label = "TE", subplot = 3, color = 3, xlabel = "ℓ")
 ```
 
 !!! warning
