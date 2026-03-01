@@ -53,7 +53,8 @@ pars = @parameters begin
     ΩΛ0, # cosmological constant
     zre1, Δzre1, nre1, # 1st reionization
     zre2, Δzre2, nre2, # 2nd reionization
-    C # integration constant in initial conditions
+    C, # integration constant in initial conditions
+    As, ns # primordial power spectrum
 end
 
 vars = @variables begin
@@ -286,7 +287,7 @@ M = System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses,
 
 Now set parameter values and compile the numerical problem:
 ```@example LCDM
-p = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02)
+p = Dict(h => 0.7, Ωc0 => 0.3, Ωb0 => 0.05, YHe => 0.25, Tγ0 => 2.7, Neff => 3.046, mh_eV => 0.02, As => 2e-9, ns => 1.0)
 prob = CosmologyProblem(M, p)
 ```
 
@@ -303,6 +304,13 @@ p = plot(layout = (3, 1), size = (800, 1000))
 plot!(p[1], sol, τ, a)
 plot!(p[2], sol, log10(a), [Xe, XH⁺, XHe⁺, XHe⁺⁺]; legend_position = :left)
 plot!(p[3], sol, log10(a), [Φ, Ψ], ks)
+```
+
+Now compute the primordial power spectrum:
+```@example LCDM
+ks = 10 .^ range(-1, 4, length=100)
+P0s = spectrum_primordial(ks, sol)
+plot(log10.(ks), log10.(P0s), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)")
 ```
 
 !!! warning

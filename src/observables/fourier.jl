@@ -23,7 +23,10 @@ function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
 end
 function spectrum_primordial(k, sol::CosmologySolution)
     M = sol.prob.M
-    return spectrum_primordial(k, sol[M.g.h], sol[M.I.As], sol[M.I.ns])
+    h = hasproperty(M, :g) ? sol[M.g.h] : sol[M.h]
+    As = hasproperty(M, :I) ? sol[M.I.As] : sol[M.As]
+    ns = hasproperty(M, :I) ? sol[M.I.ns] : sol[M.ns]
+    return spectrum_primordial(k, h, As, ns)
 end
 function spectrum_primordial(k, M::System, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
