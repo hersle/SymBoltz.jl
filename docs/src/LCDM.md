@@ -60,17 +60,18 @@ end
 vars = @variables begin
     a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), χ(τ), # metric
     ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
-    ρb(τ), Tb(τ), θb(τ,k), δb(τ,k), θb(τ,k), # baryons
+    ρb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
     κ(τ), κ̇(τ), _κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), DTγ(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), Hrec(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ) # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
     ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ,k), Fγ(τ,k)[1:lγmax], Gγ0(τ,k), Gγ(τ,k)[1:lγmax], δγ(τ,k), θγ(τ,k), σγ(τ,k), Πγ(τ,k) # photons
-    ρc(τ), δc(τ,k), θc(τ,k) # cold dark matter
+    ρc(τ), δc(τ,k), Δc(τ,k), θc(τ,k) # cold dark matter
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
-    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
+    ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
     fν(τ) # misc
+    Δm(τ,k) # matter source functions
     ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
 end
 
@@ -154,6 +155,7 @@ eqs = [
     ρb ~ 3/(8*Num(π)) * Ωb0 / a^3
     D(δb) ~ -θb - 3*ℋ*csb2*δb + 3*D(Φ)
     D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4//3*κ̇*ργ/ρb*(θγ-θb)
+    Δb ~ δb + 3ℋ*θb/k^2
 
     # photons
     Tγ ~ Tγ0 / a
@@ -177,6 +179,7 @@ eqs = [
     ρc ~ 3/(8*Num(π)) * Ωc0 / a^3
     D(δc) ~ -(θc-3*D(Φ))
     D(θc) ~ -ℋ*θc + k^2*Ψ
+    Δc ~ δc + 3ℋ*θc/k^2
 
     # massless neutrinos
     ρν ~ 3/(8*Num(π)) * Ων0 / a^4
@@ -201,6 +204,7 @@ eqs = [
     wh ~ Ph / ρh
     Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
     δh ~ Iδρh / Iρh
+    Δh ~ δh + 3ℋ*(1+wh)*θh/k^2
     uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
     θh ~ k * uh
     σh ~ (2//3) * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
@@ -218,6 +222,9 @@ eqs = [
 
     # misc
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
+
+    # matter source functions
+    Δm ~ (ρb*Δb + ρc*Δc + ρh*Δh) / (ρb + ρc + ρh)
 
     # CMB source functions
     ST_SW ~ v * (δγ/4 + Ψ + Πγ/16)
@@ -325,6 +332,12 @@ Now compute the primordial power spectrum:
 ks = 10 .^ range(-1, 4, length=100)
 P0s = spectrum_primordial(ks, sol)
 plot(log10.(ks), log10.(P0s), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)")
+```
+
+Now compute the matter power spectrum:
+```@example LCDM
+Ps = spectrum_matter(prob, ks)
+plot(log10.(ks), log10.(Ps), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)")
 ```
 
 Now compute the CMB power spectrum:

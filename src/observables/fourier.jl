@@ -62,7 +62,18 @@ function spectrum_matter(species::AbstractVector, sol::CosmologySolution, k, τ 
     end
     =#
 
-    S = [getproperty(sol.prob.M, s).Δ for s in species]
+    M = sol.prob.M
+    S = []
+    for s in species
+        if hasproperty(M, s)
+            s = getproperty(M, s)
+            Δ = getproperty(s, :Δ)
+        else
+            Δ = Symbol(:Δ, s) # e.g. :Δm
+            Δ = getproperty(M, Δ)
+        end
+        push!(S, Δ)
+    end
     P0 = spectrum_primordial(k, sol)
     P = transpose(P0) .* sol(S, τ, k) .^ 2
 
