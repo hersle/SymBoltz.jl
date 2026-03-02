@@ -1,6 +1,6 @@
 # Getting started
 
-[Install SymBoltz.jl](@ref "Installation") and load it with
+[Install SymBoltz](@ref "Installation and usage") and load it with
 ```@example getting_started
 using SymBoltz
 ```
