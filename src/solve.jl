@@ -147,16 +147,23 @@ function CosmologyProblem(
             error("Don't know what to do when independent variable is $iv.")
         end
         parsymbols = Symbol.(parameters(bg))
-        haveτ0 = Symbol(iv) == :τ && Symbol("τ0") in parsymbols
-        haveκ0 = Symbol("b₊κ0") in parsymbols
-        τ0idx = haveτ0 ? ModelingToolkit.parameter_index(bg, :τ0) : nothing
-        _κidx = haveκ0 ? ModelingToolkit.variable_index(bg, M.b._κ) : nothing
-        κ0idx = haveκ0 ? ModelingToolkit.parameter_index(bg, M.b.κ0) : nothing
+        τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? ModelingToolkit.parameter_index(bg, :τ0) : nothing
+        # TODO: specify callbacks symbolically
+        if hasproperty(M, :b)
+            _κidx = ModelingToolkit.variable_index(bg, M.b._κ)
+            κ0idx = ModelingToolkit.parameter_index(bg, M.b.κ0)
+        elseif hasproperty(M, :κ)
+            _κidx = ModelingToolkit.variable_index(bg, M._κ)
+            κ0idx = ModelingToolkit.parameter_index(bg, :κ0)
+        else
+            κ0idx = nothing
+            _κidx = nothing
+        end
         function affect!(integrator)
-            if haveτ0
+            if !isnothing(τ0idx)
                 integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
             end
-            if haveκ0
+            if !isnothing(κ0idx)
                 integrator.ps[κ0idx] = integrator.u[_κidx]
             end
             terminate_today && terminate!(integrator) # stop integration if desired
