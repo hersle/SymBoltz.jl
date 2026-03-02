@@ -1,0 +1,4 @@
+#documenter .docs-logo > img {
+    max-height: 16rem !important;
+    margin-bottom: 0.5rem !important;
+}
