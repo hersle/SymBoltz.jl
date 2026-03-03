@@ -1,11 +1,9 @@
 # Comparison to CLASS
 
-This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) for the ΛCDM model.
+This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver [CLASS](https://github.com/lesgourg/class_public/) for the w₀wₐCDM model.
 
-```@raw html
-<details>
-<summary><h2 style="display: inline-block">Setup</h2></summary>
-```
+## Setup
+
 ```@example class
 using SymBoltz
 using CLASS
