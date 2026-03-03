@@ -1,13 +1,13 @@
 # Introduction
 
 SymBoltz.jl is a package for solving the Einstein–Boltzmann equations in cosmology.
-It can solve the background and linear perturbations, and compute derived observables such as supernova distances and matter and CMB power spectra.
+It solves the background and linear perturbations, and computes derived observables such as supernova distances and matter and CMB power spectra.
 It is easy to use and extend, and integrates with other Julia packages for scientific analysis.
 
 Compared to traditional codes like [CAMB](https://camb.info/) and [CLASS](http://class-code.net/), SymBoltz offers three main features:
 
 - **Symbolic-numeric:** Represents the Einstein–Boltzmann equations symbolically and solves them numerically, and makes it easier to implement modified cosmological models (using [ModelingToolkit.jl](https://docs.sciml.ai/ModelingToolkit/)).
-- **Approximation-free:** Integrates the full stiff equations with implicit solvers (using [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/)). Remains as fast as approximation-based codes (e.g. the [TCA, UFA and RSA](https://arxiv.org/abs/1104.2933)) due to analytical and sparse Jacobians.
+- **Approximation-free:** Integrates the full stiff equations with implicit solvers (using [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/)). Remains as fast as approximation-based codes (e.g. with the [TCA, UFA and RSA](https://arxiv.org/abs/1104.2933)) due to analytical and sparse Jacobians.
 - **Differentiable:** Computes accurate gradients of any output with respect to any input parameters with automatic differentiation (using [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/)).
 
 ## Installation and usage
@@ -36,7 +36,7 @@ To modify the package source code, install SymBoltz in development mode:
 ```julia
 using Pkg; Pkg.develop("SymBoltz")
 ```
-Please feel free to open [issues](https://github.com/hersle/SymBoltz.jl/issues) and [pull requests](https://github.com/hersle/SymBoltz.jl/pulls) in SymBoltz repository.
+Please feel free to open [issues](https://github.com/hersle/SymBoltz.jl/issues) and [pull requests](https://github.com/hersle/SymBoltz.jl/pulls) in SymBoltz' repository.
 
 !!! tip "Smoother development workflow with Revise"
     Use [Revise.jl](https://timholy.github.io/Revise.jl/) to automatically reload changes to source files without restarting Julia.
