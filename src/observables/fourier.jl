@@ -23,9 +23,9 @@ function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
 end
 function spectrum_primordial(k, sol::CosmologySolution)
     M = sol.prob.M
-    h = hasproperty(M, :g) ? sol[M.g.h] : sol[M.h]
-    As = hasproperty(M, :I) ? sol[M.I.As] : sol[M.As]
-    ns = hasproperty(M, :I) ? sol[M.I.ns] : sol[M.ns]
+    h = have(M, :g) ? sol[M.g.h] : sol[M.h]
+    As = have(M, :I) ? sol[M.I.As] : sol[M.As]
+    ns = have(M, :I) ? sol[M.I.ns] : sol[M.ns]
     return spectrum_primordial(k, h, As, ns)
 end
 function spectrum_primordial(k, M::System, pars::Dict)
@@ -75,7 +75,7 @@ function spectrum_matter(species::AbstractVector, sol::CosmologySolution, k::Abs
     M = sol.prob.M
     S = []
     for s in species
-        if hasproperty(M, s)
+        if have(M, s)
             s = getproperty(M, s)
             Δ = getproperty(s, :Δ)
         else
