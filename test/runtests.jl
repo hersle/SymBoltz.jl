@@ -518,16 +518,16 @@ end
 end
 
 @testset "Matter power spectrum with different arguments" begin
-    species = [:m, :c, :b]
+    modes = [:m, :c, :b, :cb, :cbh, :h]
     ks = [1e-4, 1e-3, 1e-2, 1e-1] / u"Mpc"
     τs = [1.5, 3.0]
     sol = solve(prob, ks)
-    @test size(spectrum_matter(species, prob, ks, τs)) == (3, 2, 4) # general form
-    @test size(spectrum_matter(species, sol,  ks, τs)) == (3, 2, 4)
-    @test size(spectrum_matter(species, prob, ks)) == (3, 4) # omit τ; should use τ0
-    @test size(spectrum_matter(species, sol,  ks)) == (3, 4)
-    @test size(spectrum_matter(prob, ks, τs)) == (2, 4) # omit species; should use :m
+    @test size(spectrum_matter(modes, prob, ks, τs)) == (6, 2, 4) # general form
+    @test size(spectrum_matter(modes, sol,  ks, τs)) == (6, 2, 4)
+    @test size(spectrum_matter(modes, prob, ks)) == (6, 4) # omit τ; should use τ0
+    @test size(spectrum_matter(modes, sol,  ks)) == (6, 4)
+    @test size(spectrum_matter(prob, ks, τs)) == (2, 4) # omit modes; should use :m
     @test size(spectrum_matter(sol,  ks, τs)) == (2, 4)
-    @test size(spectrum_matter(prob, ks)) == (4,) # omit species and τ; should use :m and τ0
+    @test size(spectrum_matter(prob, ks)) == (4,) # omit modes and τ; should use :m and τ0
     @test size(spectrum_matter(sol,  ks)) == (4,)
 end

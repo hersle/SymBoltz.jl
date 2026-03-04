@@ -71,7 +71,7 @@ vars = @variables begin
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ) # cosmological constant
     fν(τ) # misc
-    Δm(τ,k) # matter source functions
+    ρm(τ,k), Δm(τ,k) # matter source functions
     ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
 end
 
@@ -224,7 +224,8 @@ eqs = [
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
 
     # matter source functions
-    Δm ~ (ρb*Δb + ρc*Δc + ρh*Δh) / (ρb + ρc + ρh)
+    ρm ~ ρb + ρc + ρh
+    Δm ~ (ρb*Δb + ρc*Δc + ρh*Δh) / ρm
 
     # CMB source functions
     ST_SW ~ v * (δγ/4 + Ψ + Πγ/16)
@@ -336,8 +337,9 @@ plot(log10.(ks), log10.(P0s), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P 
 
 Now compute the matter power spectrum:
 ```@example LCDM
-Ps = spectrum_matter(prob, ks)
-plot(log10.(ks), log10.(Ps), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)")
+modes = [:bc, :m, :h]
+Ps = spectrum_matter(modes, prob, ks)
+plot(log10.(ks), log10.(transpose(Ps)), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)", ylims = (-10, -6), label = permutedims(string.(modes)))
 ```
 
 Now compute the CMB power spectrum:

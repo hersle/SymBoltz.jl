@@ -36,8 +36,23 @@ function spectrum_primordial(k, prob::CosmologyProblem)
     return spectrum_primordial(k, prob.bg.ps[M.g.h], prob.bg.ps[M.I.As], prob.bg.ps[M.I.ns])
 end
 
+function total_symbolic_gauge_invariant_overdensities(M::System, mode::Symbol)
+    ρtot = 0
+    Δρtot = 0
+    mode = String(mode)
+    for s in mode
+        s = Symbol(s)
+        Δ = have(M, s) ? getproperty(getproperty(M, s), :Δ) : getproperty(M, Symbol(:Δ, s))
+        length(mode) == 1 && return Δ # short circuit, don't need to do weighting
+        ρ = have(M, s) ? getproperty(getproperty(M, s), :ρ) : getproperty(M, Symbol(:ρ, s))
+        ρtot += ρ
+        Δρtot += ρ*Δ
+    end
+    return Δρtot / ρtot # e.g. (ρb*Δb+ρc*Δc)/(ρb+ρc)
+end
+
 """
-    spectrum_matter([species,] prob::CosmologyProblem, k[, τ]; kwargs...)
+    spectrum_matter([modes,] prob::CosmologyProblem, k[, τ]; kwargs...)
 
 Compute the matter power spectrum
 ```math
@@ -45,57 +60,47 @@ P(k,τ) = P₀(k) |Δ(k,τ)|²
 ```
 of the total gauge-invariant overdensity
 ```math
-Δ = δ + (3ℋ/k²) θ = (∑ₛδρ)/(∑ₛρₛ) + (3ℋ/k²) (∑ₛ(ρₛ+Pₛ)θₛ) / (∑ₛ(ρₛ+Pₛ))
+Δ = (∑ₛρₛΔₛ) / (∑ₛρₛ)
 ```
-for one or more `species` at wavenumbers `k` and conformal time(s) `τ` from the problem `prob`.
+for one or more `modes` at wavenumbers `k` and conformal time(s) `τ` from the problem `prob`.
 The problem is solved for the given ``k``, and the matter power spectrum is saved at the given ``τ``.
 
-- `species` must be `:c` (CDM), `:b` (baryons), `:h` (massive neutrinos), `:m` (matter; equivalent to ``c+b+h``), a vector thereof, or unspecified to use `:m`.
+- `modes` must be `:c` (CDM), `:b` (baryons), `:h` (massive neutrinos), `:m` (matter; equivalent to ``c+b+h``), a vector thereof, or unspecified to use `:m`.
 - `k` must be a vector of wavenumbers.
 - `τ` must be a single or a vector of conformal times, or unspecified to use ``τ = τ₀`` today.
 - `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
 """
-function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kwargs...)
     ptextraopts = (saveat = τ,)
     sol = solve(prob, k; ptextraopts, kwargs...)
-    return spectrum_matter(species, sol, k, τ)
+    return spectrum_matter(modes, sol, k, τ)
 end
-function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k; kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kwargs...)
     ptextraopts = (save_everystep = false, save_start = false, save_end = true)
     sol = solve(prob, k; ptextraopts, kwargs...)
-    return spectrum_matter(species, sol, k)
+    return spectrum_matter(modes, sol, k)
 end
 
 """
-    spectrum_matter([species,] sol::CosmologySolution, k[, τ]; kwargs...)
+    spectrum_matter([modes,] sol::CosmologySolution, k[, τ]; kwargs...)
 
 Compute the matter power spectrum in the same way, but interpolate between wavenumbers and times already stored in the solution `sol`.
 """
-function spectrum_matter(species::AbstractVector, sol::CosmologySolution, k::AbstractVector, τ::AbstractVector)
+function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::AbstractVector, τ::AbstractVector)
     M = sol.prob.M
-    S = []
-    for s in species
-        if have(M, s)
-            s = getproperty(M, s)
-            Δ = getproperty(s, :Δ)
-        else
-            Δ = Symbol(:Δ, s) # e.g. :Δm
-            Δ = getproperty(M, Δ)
-        end
-        push!(S, Δ)
-    end
+    S = map(mode -> total_symbolic_gauge_invariant_overdensities(M, mode), modes)
     P0 = spectrum_primordial(k, sol)
     P0 = reshape(P0, 1, 1, :)
     P = P0 .* sol(S, τ, k) .^ 2
     return P
 end
-spectrum_matter(species::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(species, sol, k, sol.bg.t[end]; kwargs...) # fallback without time
-spectrum_matter(species::AbstractVector, probsol, k, τ::Number; kwargs...) = spectrum_matter(species, probsol, k, [τ])[:, 1, :] # fallback with single time
-spectrum_matter(species::Symbol, probsol, args...; kwargs...) = selectdim(spectrum_matter([species], probsol, args...; kwargs...), 1, 1) # fallback with single species specified
-spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with species unspecified
+spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, sol.bg.t[end]; kwargs...) # fallback without time
+spectrum_matter(modes::AbstractVector, probsol, k, τ::Number; kwargs...) = spectrum_matter(modes, probsol, k, [τ])[:, 1, :] # fallback with single time
+spectrum_matter(mode::Symbol, probsol, args...; kwargs...) = selectdim(spectrum_matter([mode], probsol, args...; kwargs...), 1, 1) # fallback with single mode specified
+spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with modes unspecified
 
 """
-    spectrum_matter([species,] prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
+    spectrum_matter([modes,] prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
 
 Compute the matter power spectrum on the interval ``k`` with adaptively chosen wavenumbers.
 Returns wavenumbers and power spectrum values.
@@ -103,7 +108,7 @@ Returns wavenumbers and power spectrum values.
 The interval is first divided into a grid with `coarse_length` logarithmically spaced wavenumbers.
 It is then adaptively refined with the absolute and relative tolerances in `sourceopts`.
 """
-function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k::NTuple{2, Number}, τs = nothing; sourceopts = (atol = 4.0, rtol = 4e-3), coarse_length = 9, kwargs...)
     # Initial coarse k-grid
     kmin, kmax = k
     ks = exp.(range(log(kmin), log(kmax), length = coarse_length))
@@ -111,7 +116,7 @@ function spectrum_matter(species::AbstractVector, prob::CosmologyProblem, k::NTu
     ks[end] = kmax # exp(log(k)) ≠ k with floats; ensure ends are exactly what the user passed
 
     ktransform = (log, exp)
-    Ss = [getproperty(prob.M, s).Δ for s in species]
+    Ss = map(mode -> total_symbolic_gauge_invariant_overdensities(prob.M, mode), modes)
     ks, Δs = source_grid_adaptive(prob, Ss, τs, ks; ktransform, sourceopts..., kwargs...)
     Ps = Δs[:, 1, :] .^ 2
     P0s = spectrum_primordial(ks, prob)

@@ -39,20 +39,20 @@ ks = 10 .^ range(-5, +2, length=100) / u"Mpc"
 sol = solve(prob, ks)
 
 # Linear power spectrum
-species = [:m, :c, :b]
-Ps = spectrum_matter(species, sol, ks)
+modes = [:m, :cb, :h]
+Ps = spectrum_matter(modes, sol, ks)
 plot(
     log10.(ks*u"Mpc"), transpose(log10.(Ps/u"Mpc^3"));
     xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)",
-    label = permutedims("linear (SymBoltz), " .* ["matter", "cold dark matter", "baryons"]),
-    linestyle = [:solid :dash :dot], linewidth = 2, legend_position = :bottomleft
+    label = permutedims("linear (SymBoltz), " .* string.(modes)), ylims = (-4, 5),
+    linestyle = [:solid :dash :dot :dashdot :dashdotdot], legend_position = :bottomleft
 )
 
 # Nonlinear power spectrum (from halofit)
 Ps = spectrum_matter_nonlinear(sol, ks)
 plot!(
     log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3");
-    label = "non-linear (halofit), matter", linewidth = 2, legend_position = :bottomleft
+    label = "non-linear (halofit), matter", legend_position = :bottomleft
 )
 ```
 
@@ -73,13 +73,13 @@ plot(
 With adaptively chosen wavenumbers on an interval:
 
 ```@example matter
-ks, Ps = spectrum_matter(species, prob, (1e0, 1e3))
+ks, Ps = spectrum_matter(modes, prob, (1e0, 1e3))
 
 plot(
     log10.(ks), transpose(log10.(Ps));
     xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³",
-    label = "$(length(ks)) × k (adaptive), linear",
-    legend_position = :bottomleft
+    label = permutedims("$(length(ks)) × k (adaptive), linear, " .* string.(modes)),
+    ylims = (-8, -6), legend_position = :bottomleft,
 )
 ```
 
