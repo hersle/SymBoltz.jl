@@ -116,8 +116,8 @@ function MvNormal(μ, Σ)
     return Distributions.MvNormal(μ, Σ)
 end
 
-sn_w0waCDM = supernova(μ, data.mb, C);
-sn_ΛCDM = fix(sn_w0waCDM, w0 = -1.0, wa = 0.0);
+sn_w0waCDM = supernova(μ, data.mb, C)
+sn_ΛCDM = sn_w0waCDM | (w0 = -1.0, wa = 0.0)
 nothing # hide
 ```
 We can now sample from the model to obtain a MCMC chain for the ΛCDM model:
@@ -142,7 +142,7 @@ pp = pairplot(chain => layout)
 ```
 We can easily repeat this for another model:
 ```@example fit
-sn_w0CDM_flat = fix(sn_w0waCDM, Ωk0 = 0.0, wa = 0.0);
+sn_w0CDM_flat = sn_w0waCDM | (Ωk0 = 0.0, wa = 0.0)
 # TODO: describe Turing model more, e.g. loglikelihood(sn_fc, (h = 0.70, Ωm0 = 0.26, Ωk0 = 0.10, w0 = -1.01, wa = -0.07)) # hide
 chain = sample(sn_w0CDM_flat, NUTS(), 1000; initial_params = InitFromParams((h = 0.5, Ωm0 = 0.5, w0 = -1.0)))
 @assert all(std(Array(chain); dims = 1) .> 0) # hide
@@ -156,8 +156,8 @@ Here we show how one can perform forecasting by combining SymBoltz.jl with Turin
 
 To start, create another probabilistic supernova model, but instead of observed luminosity distances, we now use simulated luminosity distances in a fiducial cosmology:
 ```@example fit
-sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C));
-sn_fc_w0CDM_flat = fix(sn_fc_w0waCDM, Ωk0 = 0.0, wa = 0.0);
+sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C))
+sn_fc_w0CDM_flat = sn_fc_w0waCDM | (Ωk0 = 0.0, wa = 0.0)
 nothing # hide
 ```
 
@@ -186,8 +186,10 @@ Under certain assumptions, the Fisher matrix is the inverse of the covariance ma
 
 First, we ask Turing to [estimate the maximum likelihood mode](https://turinglang.org/docs/usage/mode-estimation/) of the probabilistic model:
 ```@example fit
-maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = [0.5, 0.5, -1.0]) # TODO: or MAP?
-@assert all(isapprox.(maxl_fc.values.array, [pars0[M.g.h], pars0[M.m.Ω₀], pars0[M.X.w0]]; atol = 1e-4)) # hide
+maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = InitFromParams((h = 0.5, Ωm0 = 0.5, w0 = -1.0))) # TODO: or MAP?
+@assert isapprox(maxl_fc.params.data.h, pars0[M.g.h]; atol = 1e-4) # hide
+@assert isapprox(maxl_fc.params.data.Ωm0, pars0[M.m.Ω₀]; atol = 1e-4) # hide
+@assert isapprox(maxl_fc.params.data.w0, pars0[M.X.w0]; atol = 1e-4) # hide
 maxl_fc # hide
 ```
 As expected, the maximum likelihood corresponds to our chosen fiducial parameters.
@@ -225,10 +227,10 @@ end
 for i in eachindex(IndexCartesian(), C_fc)
     ix, iy = i[1], i[2]
     ix >= iy && continue
-    μx = maxl_fc.values[ix]
-    μy = maxl_fc.values[iy]
+    μx = maxl_fc.params.data[ix]
+    μy = maxl_fc.params.data[iy]
     for nstd in 1:2
-        xs, ys = ellipse(C_fc.array, ix, iy, (μx, μy); nstd)
+        xs, ys = ellipse(C_fc, ix, iy, (μx, μy); nstd)
         lines!(pp_fc[iy,ix], xs, ys; color = :red)
     end
 end
