@@ -149,7 +149,7 @@ function CosmologyProblem(
         parsymbols = Symbol.(parameters(bg))
         τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? ModelingToolkit.parameter_index(bg, :τ0) : nothing
         # TODO: specify callbacks symbolically
-        if hasproperty(M, :b)
+        if have(M, :b)
             _κidx = ModelingToolkit.variable_index(bg, M.b._κ)
             κ0idx = ModelingToolkit.parameter_index(bg, M.b.κ0)
         elseif hasproperty(M, :κ)
