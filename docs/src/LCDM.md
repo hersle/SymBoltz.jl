@@ -304,7 +304,7 @@ guesses = [
     a => τ
 ]
 
-M = System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, name = :ΛCDM)
+M = complete(System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, name = :ΛCDM))
 ```
 
 Now set parameter values and compile the numerical problem:
