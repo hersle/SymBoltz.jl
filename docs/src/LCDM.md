@@ -9,6 +9,7 @@ and makes it **very easy** to modify the model!
     Copy-paste the code below, for example into a Jupyter notebook.
     Modify the equations as you wish, but look out for collisions between variable names!
     Comment out equations and species to disable them.
+    Equations to generalize the cosmological constant to $w_0 w_a$ dark energy are included below, but commented by default.
     You can also adapt other components already implemented in the [`src/models/`](https://github.com/hersle/SymBoltz.jl/tree/main/src/models) library in SymBoltz.
 
 ```@example LCDM
@@ -50,7 +51,7 @@ pars = @parameters begin
     Tγ0, Ωγ0, # photons
     Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
-    ΩΛ0, # cosmological constant
+    ΩΛ0, w0, wa, cΛs2, # dark energy (cosmological constant or w0wa)
     zre1, Δzre1, nre1, # 1st reionization
     zre2, Δzre2, nre2, # 2nd reionization
     C, # integration constant in initial conditions
@@ -70,7 +71,7 @@ vars = @variables begin
     ρc(τ), δc(τ,k), Δc(τ,k), θc(τ,k), # cold dark matter
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
-    ρΛ(τ), PΛ(τ), wΛ(τ), # cosmological constant
+    ρΛ(τ), PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
     fν(τ), # misc
     ρm(τ,k), Δm(τ,k), # matter source functions
     ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
@@ -91,7 +92,7 @@ eqs = [
     k^2 * (Φ - Ψ) ~ 12π * a^2 * Π
     ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
     P ~ Pγ + Pν + Ph + PΛ
-    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν + δh*ρh
+    δρ ~ δc*ρc + δb*ρb + δγ*ργ + δν*ρν + δh*ρh + δΛ*ρΛ
     Π ~ (1+wγ)*ργ*σγ + (1+wν)*ρν*σν + (1+wh)*ρh*σh
 
     # baryon recombination
@@ -216,10 +217,16 @@ eqs = [
     [D(ψh[i,l]) ~ k/(2l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
     [D(ψh[i,lhmax]) ~ k/(2lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
 
-    # cosmological constant
-    ρΛ ~ 3/8π * ΩΛ0
-    wΛ ~ -1
-    PΛ ~ wΛ * ρΛ
+    # dark energy (cosmological constant or w0wa)
+    wΛ ~ w0 + wa*(1-a)
+    ρΛ ~ 3/8π*ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a))
+    PΛ ~ wΛ*ρΛ
+    δΛ ~ 0 # for CC
+    θΛ ~ 0 # for CC
+    #cΛa2 ~ wΛ - D(wΛ)/(3ℋ*(1+wΛ)) # for w0wa
+    #D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ # for w0wa
+    #D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ # for w0wa
+    ΔΛ ~ δΛ + 3ℋ*(1+wΛ)*θΛ/k^2
 
     # neutrino-to-radiation fraction
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
@@ -273,6 +280,10 @@ initialization_eqs = [
     [ψh[i,1] ~ -1/3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [ψh[i,2] ~ -1/2 * (1/15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
+
+    # dark energy (w0wa)
+    #δΛ ~ -3/2 * (1+wΛ) * Ψ # for w0wa
+    #θΛ ~ 1/2 * (k^2*τ) * Ψ # for w0wa
 ]
 
 # 6) Initial guess for variables solved for in initial conditions (modify or add your own)
@@ -308,6 +319,9 @@ initial_conditions = [
     Iρh0 => ∫dx_x²_f₀(@. √(x^2 + yh0^2))
     Ωh0 => Nh * 8π/3 * 2/(2π^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H0SI*c)^2/GN)
     fHe => YHe / (mHe/mH*(1-YHe))
+    w0 => -1
+    wa => 0
+    cΛs2 => 1
 ]
 
 # 8) Pack everything down into a symbolic system (modify the name to fit your modified model)
