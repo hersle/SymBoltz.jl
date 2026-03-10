@@ -307,7 +307,7 @@ function ptalg(prob::ODEProblem; accuracy = 1)
     elseif accuracy == 1
         return KenCarp4(; linsolve, nlsolve)
     else
-        return Rodas5P(; linsolve, nlsolve)
+        return Rodas5P(; linsolve)
     end
 end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
