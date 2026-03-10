@@ -508,13 +508,19 @@ end
     @test issuccess(sol)
 end
 
-@testset "Check compatibility between dense/sparse Jacobian and linear solver" begin
+@testset "Check compatibility between dense/sparse Jacobian and (non)linear solver" begin
     @test !issuccess(solve(prob; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
     @test issuccess(solve(prob, 1.0)) # should automatically find compatible linsolves
     @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
     @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
     @test_throws "dense Jacobian must be solved with dense" solve(prob_sparse; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.KLUFactorization()),)) # has dense background
     @test_throws "sparse Jacobian must be solved with sparse" solve(prob_sparse, 1.0; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()),)) # has sparse perturbations
+    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 0),)))
+    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 1),)))
+    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 2),)))
+    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 0),)))
+    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 1),)))
+    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 2),)))
 end
 
 @testset "Matter power spectrum with different arguments" begin
