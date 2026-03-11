@@ -26,8 +26,7 @@ equations(M.G)
 ```
 
 !!! tip
-    Are you not a fan of the modular model structure?
-    SymBoltz also provides a [full unstructured ΛCDM model](@ref "Unstructured ΛCDM model") that lays out all variables and equations in one huge model.
+    If you do not want to work with the component-based interface, SymBoltz also provides a [minimal ΛCDM model](@ref "Minimal ΛCDM model") that lays out all variables and equations in one single component.
 
 ## 2. Solve the problem
 
