@@ -32,9 +32,7 @@ Since $Cₗ$ is an expensive but smooth function of $l$, we make one function fo
 probgen = parameter_updater(prob0, pars_varying)
 jl = SphericalBesselCache(40:20:1000)
 ls = 40:1:1000
-function Cl(θ; bgopts = (alg = SymBoltz.Rodas4P(), reltol = 1e-9, abstol = 1e-9), ptopts = (alg = SymBoltz.KenCarp4(), reltol = 1e-8, abstol = 1e-8))
-    return spectrum_cmb(:TT, probgen(θ), jl, ls; bgopts, ptopts)
-end
+Cl(θ) = spectrum_cmb(:TT, probgen(θ), jl, ls)
 ```
 We can now compute $Cₗ$ and the cosmic variance uncertainties
 ```math
@@ -61,6 +59,7 @@ We can compute the derivatives using automatic differentiation, and compare them
 using ForwardDiff, FiniteDiff
 dCl_dθ_ad = ForwardDiff.jacobian(Cl, θ0)
 dCl_dθ_fd = FiniteDiff.finite_difference_jacobian(Cl, θ0, Val{:central}; relstep = 5e-3) # TODO: 4e-2 is good for m_eV
+# decrease perturbations tolerance to improve agreement # hide
 
 θnames = replace.(string.(pars_varying), "₊" => ".")
 color = permutedims(eachindex(θnames))

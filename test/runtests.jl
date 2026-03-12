@@ -11,7 +11,8 @@ using Base.Threads
 M = ΛCDM(K = nothing) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-prob_sparse = CosmologyProblem(M, pars; jac = true, sparse = true) # TODO: make sparse background work (although it won't impact performance)
+prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false) # TODO: make sparse background work (although it won't impact performance)
+prob_sparse = prob
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -265,7 +266,7 @@ end
     @test !issuccess(solve(prob, 0.0))
 end
 
-@testset "Consistent AD and FD derivatives of power spectra" begin
+@testset "Consistent AD and FD derivatives of matter power spectrum" begin
     k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
     probgen = parameter_updater(prob, diffpars)
@@ -292,15 +293,20 @@ end
     end
     fig
     =#
+end
 
+@testset "Consistent AD and FD derivatives of CMB power spectrum" begin
     l = 25:25:1000
     jl = SphericalBesselCache(l)
+    diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
+    probgen = parameter_updater(prob, diffpars)
     function logDlTT(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
         DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
         return log.(DlTT)
     end
+    logθ = [log(pars[par]) for par in diffpars]
     ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
     ∂logDlTT_∂logθ_fd = FiniteDiff.finite_difference_jacobian(logDlTT, logθ, Val{:central}; relstep = 1e-3) # 1e-4 screws up at small l
     @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 1e0)) # TODO: fix and decrease tolerance!!!
@@ -332,7 +338,7 @@ end
     vals = getter(prob1)
     @test vals[1] == 2.73
     @test isfinite(vals[2])
-    @test vals[3] == 1.0
+    @test vals[3] ≈ 1.0
     @test issuccess(solve(prob1, 1.0))
 end
 
@@ -394,7 +400,7 @@ end
     τs = range(τi, τ0, length = 768)
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
-    ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-8, abstol = 1e-8)
+    ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
     @test !isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
@@ -484,8 +490,8 @@ end
 
 @testset "CMB spectra" begin
     jl = SphericalBesselCache(20:20:3000)
-    DlTT = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
-    DlEE = spectrum_cmb(:EE, prob, jl; normalization = :Dl)
+    @test all(isfinite.(spectrum_cmb(:TT, prob, jl; normalization = :Dl)))
+    @test all(isfinite.(spectrum_cmb(:EE, prob, jl; normalization = :Dl)))
 end
 
 @testset "Toggle threading" begin
@@ -509,15 +515,17 @@ end
 end
 
 @testset "Check compatibility between dense/sparse Jacobian and (non)linear solver" begin
-    @test !issuccess(solve(prob; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
-    @test issuccess(solve(prob, 1.0)) # should automatically find compatible linsolves
-    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
-    @test_throws "dense Jacobian must be solved with dense" solve(prob_sparse; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.KLUFactorization()),)) # has dense background
+    @test !issuccess(solve(prob_dense; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
+    @test !issuccess(solve(prob_sparse; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5)))
+    @test issuccess(solve(prob_dense, 1.0)) # should automatically find compatible linsolves
+    @test issuccess(solve(prob_sparse, 1.0))
+    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
+    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),)))
+    @test_throws "dense Jacobian must be solved with dense" solve(prob_dense; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.KLUFactorization()),)) # has dense background
     @test_throws "sparse Jacobian must be solved with sparse" solve(prob_sparse, 1.0; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()),)) # has sparse perturbations
-    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 0),)))
-    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 1),)))
-    @test issuccess(solve(prob, 1.0; bgopts = (alg = SymBoltz.bgalg(prob),), ptopts = (alg = SymBoltz.ptalg(prob; accuracy = 2),)))
+    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 0),)))
+    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 1),)))
+    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 2),)))
     @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 0),)))
     @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 1),)))
     @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 2),)))

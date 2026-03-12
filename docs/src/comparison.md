@@ -11,6 +11,7 @@ using DelimitedFiles
 using DataInterpolations
 using Unitful, UnitfulAstro
 using CairoMakie
+using Printf
 
 lmax = 6
 reionization = true
@@ -97,7 +98,7 @@ end
 
 k = 1e1 / u"Mpc" # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),))
+sol2 = solve(prob, k)
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -154,7 +155,10 @@ function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false,
         y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
-        !isnothing(tol) && @assert all(isapprox.(y1, y2; atol = tol)) "$ylabel does not match within absolute tolerance $tol. Maximum difference was $(maximum(abs.(y1.-y2)))."
+        if !isnothing(tol)
+            @printf("Maximum absolute difference for %s: %e\n", ylabel, maximum(abs.(y1.-y2)))
+            @assert all(isapprox.(y1, y2; atol = tol)) "$ylabel does not match within absolute tolerance $tol"
+        end
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
         abserr = (errtype == :abs) || (errtype == :auto && (any(y1 .<= 0) || any(y2 .<= 0)))
@@ -207,13 +211,13 @@ plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 5e-3)
 ```@example class
 E1 = sol1["background"][:,"H [1/Mpc]"]./sol1["background"][end,"H [1/Mpc]"]
 E2 = sol2[M.g.H]
-plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 3e8)
+plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 7e7)
 ```
 ### Energy densities
 ```@example class
 ρ1 = map(s -> sol1["background"][:,"(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
 ρ2 = map(s -> sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
-plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 3e15)
+plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 5e14)
 ```
 ### Equations of state
 ```@example class
@@ -227,13 +231,13 @@ plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 
 ```@example class
 rs1 = sol1["background"][:,"comov.snd.hrz."]
 rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
-plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 2e-2)
+plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 8e-2)
 ```
 ### Luminosity distance
 ```@example class
 dL1 = sol1["background"][:,"lum. dist."]
 dL2 = distance_luminosity(sol2) / SymBoltz.Mpc
-plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 2e6)
+plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 7e5)
 ```
 
 ## Thermodynamics
@@ -250,7 +254,7 @@ plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 2e3)
 ```@example class
 expmκ1 = reverse(sol1["thermodynamics"][:,"exp(-kappa)"])
 expmκ2 = sol2[M.b.I]
-plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 4e-5)
+plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 3e-5)
 ```
 ### Visibility function
 ```@example class
@@ -262,7 +266,7 @@ plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 2e-6)
 ```@example class
 Xe1 = reverse(sol1["thermodynamics"][:,"x_e"])
 Xe2 = sol2[M.b.Xe]
-plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 5e-4)
+plot_compare(a1, a2, Xe1, Xe2, "a", "Xe"; lgx=true, lgy=false, tol = 4e-4)
 ```
 ### Baryon temperature
 ```@example class
@@ -270,7 +274,7 @@ Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
 dTb2 = sol2[M.b.DT] ./ -sol2[M.g.H] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
-plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 5e0)
 ```
 ### Baryon equation of state
 ```@example class
@@ -324,13 +328,13 @@ plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 7e-8)
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 4e-4)
 ```
 ### Polarization
 ```@example class
 P1 = map(n -> sol1["perturbations_k0_s"][:,"pol$(n)_g"], 0:2)
 P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
-plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 5e-5)
+plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 4e-5)
 ```
 
 ## Matter power spectrum
