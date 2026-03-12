@@ -19,19 +19,19 @@ pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.YHe, M.h.m_eV, M.
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 probgen = parameter_updater(prob0, pars)
-P(k, θ) = spectrum_matter(probgen(θ), k; verbose = true, ptopts = (reltol = 1e-3,))
+P(k, θ) = spectrum_matter(probgen(θ), k; verbose = true, ptopts = (reltol = 1e-3, abstol = 1e-3))
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad
 using Unitful, UnitfulAstro
 θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.02, 3.0, 0.95]
-ks = 10 .^ range(-3, 0, length=100) / u"Mpc"
+ks = 10 .^ range(0.5, 3.5, length=100)
 Ps = P(ks, θ)
 ```
 This can be plotted with
 ```@example ad
 using Plots
-plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
+plot(log10.(ks), log10.(Ps); xlabel = "lg(k / (H₀/c))", ylabel = "lg(P / (c/H₀)³)", label = nothing)
 ```
 
 ## 2. Calculate the derivatives
@@ -39,15 +39,15 @@ plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel
 To get $\partial \lg P / \partial \lg \theta$, we can simply pass the wrapper function `P(k, θ)` through [`ForwardDiff.jacobian`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.jacobian):
 ```@example ad
 using ForwardDiff
-lgP(lgθ) = log10.(P(ks, 10 .^ lgθ) / u"Mpc^3") # in log-space
+lgP(lgθ) = log10.(P(ks, 10 .^ lgθ)) # in log-space
 dlgP_dlgθs = ForwardDiff.jacobian(lgP, log10.(θ))
 ```
 The matrix element `dlgP_dlgθs[i, j]` now contains $\partial \lg P(k_i) / \partial \lg \theta_j$.
 We can plot them all at once:
 ```@example ad
 plot(
-    log10.(ks/u"1/Mpc"), dlgP_dlgθs;
-    xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
+    log10.(ks), dlgP_dlgθs;
+    xlabel = "lg(k / (H₀/c))", ylabel = "∂ lg(P/(c/H₀)³) / ∂ lg(θᵢ)",
     labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 ```
@@ -60,18 +60,18 @@ If you need both, it is faster to calculate them simultaneously with the package
 using DiffResults
 
 # Following DiffResults documentation:
-Pres = DiffResults.JacobianResult(ks/u"1/Mpc", θ) # allocate buffer for values+derivatives for a function with θ-sized input and ks-sized output
+Pres = DiffResults.JacobianResult(ks, θ) # allocate buffer for values+derivatives for a function with θ-sized input and ks-sized output
 Pres = ForwardDiff.jacobian!(Pres, lgP, log10.(θ)) # evaluate values+derivatives of lgP(log10.(θ)) and store the results in Pres
 lgPs = DiffResults.value(Pres) # extract values
 dlgP_dlgθs = DiffResults.jacobian(Pres) # extract derivatives
 
 p1 = plot(
-   log10.(ks/u"1/Mpc"), lgPs;
-   ylabel = "lg(P/Mpc³)", label = nothing
+   log10.(ks), lgPs;
+   ylabel = "lg(P / (c/H₀)³)", label = nothing
 )
 p2 = plot(
-   log10.(ks/u"1/Mpc"), dlgP_dlgθs;
-   xlabel = "lg(k/Mpc⁻¹)", ylabel = "∂ lg(P) / ∂ lg(θᵢ)",
+   log10.(ks), dlgP_dlgθs;
+   xlabel = "lg(k / (H₀/c))", ylabel = "∂ lg(P/(c/H₀)³) / ∂ lg(θᵢ)",
    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 plot(p1, p2, layout=(2, 1), size = (600, 600))

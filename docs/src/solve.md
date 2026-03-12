@@ -98,14 +98,12 @@ solvept
 
 ## Choice of ODE solver
 
-In principle, models can be solved with any [DifferentialEquations.jl ODE solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/).
+In principle, models can be solved with any [OrdinaryDiffEq.jl ODE solver](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/).
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
-For the [standard ΛCDM model](@ref "Standard ΛCDM"), some good solvers are:
+For the stiff [standard ΛCDM model](@ref "Standard ΛCDM"), we find success with these solvers (from best to worst):
 
-- `Rodas4P`: Slow for large systems. Very accurate. Handles extreme stiffness. Default background solver.
-- `Rodas5P`: Slow for large systems. Very accurate. Handles severe stiffness.
-- `KenCarp4` (and `KenCarp47`): Fast. Handles medium stiffness. Default perturbation solver.
-- `Kvaerno5`: Behaves similar to `KenCarp4`. Slightly more accurate. Slightly slower.
-- `TRBDF2`: Very fast. Decent accuracy. Handles severe stiffness.
+1. **[Rosenbrock methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/semiimplicit/Rosenbrock):** `Rodas5P`, `Rodas4P`, `Rodas5`, `Rodas4`.
+2. **[ESDIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/SDIRK):** `KenCarp4`, `KenCarp47`, `Kvaerno5`, `TRBDF2`.
+3. **[BDF methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/BDF):** `FBDF`, `QNDF`.
 
-See also the [solver benchmarks](@ref "Performance and benchmarks").
+See the [solver benchmarks](@ref "Performance and benchmarks") for comparisons between them.

@@ -369,11 +369,10 @@ plot(log10.(ks), log10.(transpose(Ps)), xlabel = "log10(k / (H₀/c))", ylabel =
 
 Now compute the CMB power spectrum:
 ```@example LCDM
-# TODO: streamline # hide
 jl = SphericalBesselCache(25:25:3000)
 ls = 25:3000
 modes = [:TT, :EE, :TE]
-Dls = spectrum_cmb(modes, prob, jl, ls; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.KLUFactorization()), reltol = 1e-4, abstol = 1e-4), sourceopts = (refine = false,), normalization = :Dl, kτ0s = 0.05*jl.l[begin]:2π/2:1.8*jl.l[end], coarse_length = 300, verbose=true)
+Dls = spectrum_cmb(modes, prob, jl, ls; normalization = :Dl)
 plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (3, 1), size = (600, 1000), left_margin=5*Plots.mm)
 plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2)
 plot!(ls, Dls[:,3]*1e12, ylabel = "10¹² D(ℓ)", label = "TE", subplot = 3, color = 3, xlabel = "ℓ")

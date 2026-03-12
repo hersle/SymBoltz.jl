@@ -28,7 +28,7 @@ This plot shows the time to solve the background using different (implicit) Rose
 bench = BenchmarkGroup()
 bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P()]
 for alg in bgalgs
-    bgopts = (alg = alg, abstol = 1e-9, reltol = 1e-9)
+    bgopts = (alg = alg, abstol = 1e-7, reltol = 1e-7)
     bench[nameof(typeof(alg))] = @benchmarkable $solve($prob; bgopts = $bgopts)
 end
 results = run(bench; verbose = true)
@@ -87,7 +87,7 @@ This plot shows the time to solve several perturbation $k$-modes using different
 bench = BenchmarkGroup()
 ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, Kvaerno5, QNDF, FBDF, Rodas5P]]
 for alg in ptalgs
-    ptopts = (alg = alg, abstol = 1e-7, reltol = 1e-7)
+    ptopts = (alg = alg, abstol = 1e-5, reltol = 1e-5)
     bench[nameof(typeof(alg))] = @benchmarkable $solve($prob, $ks; ptopts = $ptopts)
 end
 results = run(bench; verbose = true)
@@ -133,7 +133,7 @@ This plot shows the time spent solving individual perturbation $k$-modes using d
 
 ```@example bench
 ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
-solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-7, abstol = 1e-7)
+solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
 
 ks = 10 .^ range(-2, 4, length = 50)
 times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
