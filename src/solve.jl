@@ -104,7 +104,7 @@ end
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         ivspan = (1e-6, 100.0), terminate_today = true,
-        bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+        bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
         bgopts = (), ptopts = (), kwargs...
     )
 
@@ -120,7 +120,7 @@ If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     ivspan = (1e-6, 100.0), terminate_today = true,
-    bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = false,
+    bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), kwargs...
 )
     if !isempty(shoot_pars) # merging with empty dict gives Any-dict
