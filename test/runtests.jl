@@ -187,6 +187,22 @@ end
     @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-3)
     y2s = sol([s.σ/M.k^2 for s in [M.ν, M.h]], τini, ks) # should be equal for massless and massive neutrinos
     @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-3)
+
+    # Start perturbations at same τ as background
+    sol = solve(prob, [1e0, 1e1])
+    @test all([ptsol.t[begin] == sol.bg.t[begin] && ptsol.t[end] == sol.bg.t[end] for ptsol in sol.pts])
+
+    # Start perturbations at fixed τ
+    sol = solve(prob, [1e0, 1e1]; ptivini = 1e-3)
+    @test all([ptsol.t[begin] == 1e-3 && ptsol.t[end] == sol.bg.t[end] for ptsol in sol.pts])
+
+    # Start perturbations at fixed kτ; initial τ should be clamped to background timespan
+    kτini = 1e-2
+    sol = solve(prob, [1e-4, 1e0, 1e4]; ptivini = k -> kτini/k)
+    τspans = [(ptsol.t[begin], ptsol.t[end]) for ptsol in sol.pts]
+    @test τspans[1] == (sol.bg.t[end], sol.bg.t[end]) # very low k; should start (and end) today
+    @test τspans[2] == (1e-2, sol.bg.t[end]) # normal k; should start at τ=1e-2/k
+    @test τspans[3] == (sol.bg.t[begin], sol.bg.t[end]) # very high k; should start at same time as background
 end
 
 @testset "Automatic background/thermodynamics splining" begin
@@ -544,4 +560,12 @@ end
     @test size(spectrum_matter(sol,  ks, τs)) == (2, 4)
     @test size(spectrum_matter(prob, ks)) == (4,) # omit modes and τ; should use :m and τ0
     @test size(spectrum_matter(sol,  ks)) == (4,)
+end
+
+@testset "Matter power spectrum converged to 0.1%" begin
+    k = 10 .^ range(-1, 4, length=100)
+    @time P0 = spectrum_matter(prob, k; kτini = 0.0, τinimax = 0.0, bgextraopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
+    @time P  = spectrum_matter(prob, k)
+    errs = abs.(P./P0 .- 1)
+    @test all(errs .< 1e-3)
 end

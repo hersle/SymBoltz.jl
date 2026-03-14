@@ -68,16 +68,17 @@ The problem is solved for the given ``k``, and the matter power spectrum is save
 - `modes` must be `:c` (CDM), `:b` (baryons), `:h` (massive neutrinos), `:m` (matter; equivalent to ``c+b+h``), a vector thereof, or unspecified to use `:m`.
 - `k` must be a vector of wavenumbers.
 - `τ` must be a single or a vector of conformal times, or unspecified to use ``τ = τ₀`` today.
+- `kτini` and `τinimax` specify initial values of ``kτ`` for each perturbation mode, no later than `τinimax` and no earlier than the initial background time.
 - `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
 """
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kτini = 1e-2, τinimax = 1e-4, kwargs...)
     ptextraopts = (saveat = τ,)
-    sol = solve(prob, k; ptextraopts, kwargs...)
+    sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
     return spectrum_matter(modes, sol, k, τ)
 end
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kτini = 1e-2, τinimax = 1e-4, kwargs...)
     ptextraopts = (save_everystep = false, save_start = false, save_end = true)
-    sol = solve(prob, k; ptextraopts, kwargs...)
+    sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
     return spectrum_matter(modes, sol, k)
 end
 

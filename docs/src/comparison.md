@@ -156,8 +156,9 @@ function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false,
         y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
 
         if !isnothing(tol)
-            @printf("Maximum absolute difference for %s: %e\n", ylabel, maximum(abs.(y1.-y2)))
-            @assert all(isapprox.(y1, y2; atol = tol)) "$ylabel does not match within absolute tolerance $tol"
+            msg = @sprintf("Maximum absolute difference for %s: %e\n", ylabel, maximum(abs.(y1.-y2)))
+            println(msg)
+            @assert all(isapprox.(y1, y2; atol = tol)) "$ylabel does not match within absolute tolerance $tol. $msg."
         end
 
         # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
@@ -360,7 +361,7 @@ k, P1 = P_class(pars)
 P1 = P1[k .> 9e-5]
 k = k[k .> 9e-5]
 P2 = P_symboltz(k, pars)
-plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 4e0)
+plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 2e1)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
