@@ -23,7 +23,7 @@ pars = Dict(
 )
 # TODO: more parameters, try one-by-one: Neff is a bit iffy # hide
 pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
-prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varying to NaN
+prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN)); sparse = false) # set varying to NaN; dense faster for AD
 ```
 
 Next, create a function for computing $Cₗ$ of the CMB TT power spectrum.

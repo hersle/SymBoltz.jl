@@ -25,7 +25,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.cₛ² => 0.9
 ))
 h = pars[M.g.h] # needed later
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; sparse = false) # dense faster for AD
 
 function solve_class(pars, k = nothing)
     prob = CLASSProblem(
