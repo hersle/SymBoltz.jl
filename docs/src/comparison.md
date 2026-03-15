@@ -13,6 +13,7 @@ using Unitful, UnitfulAstro
 using CairoMakie
 using Printf
 
+# lmax > 6 slows down AD examples below # TODO: increase when fast enough # hide
 lmax = 6
 reionization = true
 Hswitch = 1

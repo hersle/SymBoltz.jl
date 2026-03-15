@@ -8,7 +8,8 @@ First, create a base ΛCDM cosmological model and problem:
 # inspiration: e.g. https://github.com/xzackli/fishchips-public/blob/master/notebooks/Introduction%20to%20Fisher%20Forecasting.ipynb # hide
 # TODO: start by getting equal ad/fd results with these, then include more parameters # hide
 using SymBoltz, Plots
-M = ΛCDM(K = nothing) # flat
+# TODO: use higher lmax when AD is faster # hide
+M = ΛCDM(K = nothing, lmax = 6) # flat; low lmax for documentation run
 pars = Dict(
     M.g.h => 0.70,
     M.c.Ω₀ => 0.27,
