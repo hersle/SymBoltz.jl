@@ -8,7 +8,8 @@ First, create a base ΛCDM cosmological model and problem:
 # inspiration: e.g. https://github.com/xzackli/fishchips-public/blob/master/notebooks/Introduction%20to%20Fisher%20Forecasting.ipynb # hide
 # TODO: start by getting equal ad/fd results with these, then include more parameters # hide
 using SymBoltz, Plots
-M = ΛCDM(K = nothing) # flat
+# TODO: use higher lmax when AD is faster # hide
+M = ΛCDM(K = nothing, lmax = 6) # flat; low lmax for documentation run
 pars = Dict(
     M.g.h => 0.70,
     M.c.Ω₀ => 0.27,
@@ -22,7 +23,7 @@ pars = Dict(
 )
 # TODO: more parameters, try one-by-one: Neff is a bit iffy # hide
 pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
-prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varying to NaN
+prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN)); sparse = false) # set varying to NaN; dense faster for AD
 ```
 
 Next, create a function for computing $Cₗ$ of the CMB TT power spectrum.

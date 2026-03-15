@@ -13,6 +13,7 @@ using Unitful, UnitfulAstro
 using CairoMakie
 using Printf
 
+# lmax > 6 slows down AD examples below # TODO: increase when fast enough # hide
 lmax = 6
 reionization = true
 Hswitch = 1
@@ -24,7 +25,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.cₛ² => 0.9
 ))
 h = pars[M.g.h] # needed later
-prob = CosmologyProblem(M, pars)
+prob = CosmologyProblem(M, pars; sparse = false) # dense faster for AD
 
 function solve_class(pars, k = nothing)
     prob = CLASSProblem(
