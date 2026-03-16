@@ -223,8 +223,14 @@ end
     @test checkvar(M.b.Xe, 1e-5, 0)
 end
 
-@testset "Whole model without autosplining" begin
-    @test mtkcompile(M) isa Any
+@testset "Solve background+perturbations together (without splining background)" begin
+    prob_nospline_dense = CosmologyProblem(M, pars; spline = false, jac = true, sparse = false)
+    prob_nospline_sparse = CosmologyProblem(M, pars; spline = false, jac = true, sparse = true)
+    ks = [1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3]
+    @test issuccess(solve(prob_nospline_dense, ks))
+    @test issuccess(solve(prob_nospline_sparse, ks))
+    # TODO: compare number of timesteps with different tolerances? looks like runtime difference is proportional to difference in number of steps
+    # TODO: although not splining is slower for normal values, can be opposite be true for AD?
 end
 
 # TODO: optionally spline observables, too, with cubic hermite splines using analytic derivatives, to save computations in perturbations (e.g. visibility function and derivatives for CMB)
