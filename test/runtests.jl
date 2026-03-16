@@ -7,11 +7,12 @@ using ForwardDiff
 using FiniteDiff
 using BenchmarkTools
 using Base.Threads
+using Statistics
 
 M = ΛCDM(K = nothing) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false) # TODO: make sparse background work (although it won't impact performance)
+prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
 
 # Must come first because warnings are only given once
@@ -522,6 +523,11 @@ end
 end
 
 @testset "Sparse Jacobian" begin
+    # sparse background should work for ΛCDM, but since it is a small system the dense version should be a bit faster
+    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgopts = (jac = true, sparse = true))
+    @test SymBoltz.issparse(prob_sparse_bg.bg)
+    @test issuccess(solve(prob_sparse_bg))
+
     # with ΛCDM model
     k = [1e0, 1e1, 1e2, 1e3]
     sol = solve(prob_sparse, k; bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),))
