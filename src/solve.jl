@@ -180,21 +180,21 @@ function CosmologyProblem(
     end
 
     if pt
+        pt = perturbations(M)
         if spline == true
             spline = unknowns(bg.f.sys)
-        elseif spline == false
-            spline = []
-        else
-            # then spline should already be a vector of variables, so leave it unmodified
         end
-        pt = perturbations(M)
-        pt, splpar = mtkcompile_spline(pt, spline)
-        parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
+        if spline isa AbstractVector && !isempty(spline)
+            pt, splpar = mtkcompile_spline(pt, spline)
+            parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
+            # also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
+            parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
+        else
+            pt = mtkcompile(pt)
+        end
         if debug
             pt = debug_system(pt)
         end
-        # also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
-        parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
@@ -434,9 +434,13 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     ivspanbg = (bgsol.t[begin], bgsol.t[end])
     bgspline = spline(bgsol)
     newp = ptprob.p # has abstractly typed nonnumeric spline parameter
-    @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
     SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
-    ptprob = remake(ptprob; p = newp)
+
+    hasspline = !isempty(ptprob.p.nonnumeric)
+    if hasspline
+        @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+        ptprob = remake(ptprob; p = newp)
+    end
 
     kset! = ModelingToolkit.setp(ptprob, k)
     return ptprob, (ptprob, k) -> begin
@@ -445,7 +449,9 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
         ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
         ivspan = (ivi, ivspanbg[end])
         ptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
-        ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        if hasspline # need to do this to get solving with splined background type-stable
+            ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        end
         return ptprob
     end
 end
