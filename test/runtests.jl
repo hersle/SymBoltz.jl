@@ -9,7 +9,8 @@ using BenchmarkTools
 using Base.Threads
 using Statistics
 
-M = ΛCDM(K = nothing) # flat
+lmax = 5
+M = ΛCDM(K = nothing; lmax) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
@@ -493,13 +494,13 @@ ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
     @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
 
-    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
     @test stability(M1, ks, vary, 100; verbose = true) == 1.0
 
-    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
     @test stability(M2, ks, vary, 100; verbose = true) == 1.0
 
-    M3 = ΛCDM(K = nothing; reionization = false)
+    M3 = ΛCDM(K = nothing, reionization = false; lmax)
     @test stability(M3, ks, vary, 100; verbose = true) == 1.0
 end
 
