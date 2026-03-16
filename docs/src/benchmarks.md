@@ -144,6 +144,24 @@ plot(
 )
 ```
 
+## Perturbations: timesteps
+
+```@example bench
+ks = [1e0, 1e1, 1e2, 1e3]
+p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
+for (i, k) in enumerate(ks)
+    for ptalg in ptalgs
+        ptprob = ptprobgen(k)
+        ptsol = solvept(ptprob; alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+        τs = ptsol.t
+        Δτs = diff(τs)
+        τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
+        plot!(p, τs, Δτs; marker = :vline, markersize = 1.0, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c",subplot = i)
+    end
+end
+p
+```
+
 ## Perturbations: Jacobian method
 
 The Jacobian of the perturbation ODEs can be computed in three ways:
