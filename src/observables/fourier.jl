@@ -289,11 +289,11 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         ptsaveopts = (saveat = τs,)
     end
 
-    ptprob0, ptprobgen = setuppt(prob.pt, bgsol)
+    ptprobgen = setuppt(prob.pt, bgsol)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function sourcek!(k, ik, Ss)
-        ptprob = ptprobgen(ptprob0, k)
+        ptprob = ptprobgen(k)
         ptsol = solvept(ptprob; ptsaveopts..., ptopts...)
         for iS in eachindex(getSs)
             Ss[iS, :, ik] .= getSs[iS](ptsol)

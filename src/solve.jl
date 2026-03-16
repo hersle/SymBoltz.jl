@@ -439,20 +439,19 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     hasspline = !isempty(ptprob.p.nonnumeric)
     if hasspline
         @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
-        ptprob = remake(ptprob; p = newp)
     end
 
     kset! = ModelingToolkit.setp(ptprob, k)
-    return ptprob, (ptprob, k) -> begin
+    return k -> begin
         p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
         kset!(p, k)
         ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
         ivspan = (ivi, ivspanbg[end])
-        ptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
+        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
         if hasspline # need to do this to get solving with splined background type-stable
-            ptprob = remake(ptprob; u0 = ptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
+            newptprob = remake(newptprob; u0 = newptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
         end
-        return ptprob
+        return newptprob
     end
 end
 setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, bgsol, k -> ptivini)
@@ -478,7 +477,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
     end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprob, ptprobgen = setuppt(ptprob, bgsol, ptivini)
+    ptprobgen = setuppt(ptprob, bgsol, ptivini)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
@@ -488,7 +487,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
         end
         return output_func(sol, i)
     end
-    ptsols = [@spawnif output_func_warn(solve(ptprobgen(ptprob, ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)]
+    ptsols = [@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)]
     ptsols = fetch.(ptsols)
     verbose && println()
     return ptsols
@@ -505,9 +504,9 @@ Its wavenumber and background spline must already be initialized, for example wi
 # ...
 prob = CosmologyProblem(M, pars)
 bgsol = solvebg(prob.bg)
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
+ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 k = 1.0
-ptprob = ptprobgen(ptprob0, k)
+ptprob = ptprobgen(k)
 ptsol = solvept(ptprob)
 ```
 """
