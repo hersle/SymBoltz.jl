@@ -472,12 +472,17 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
     hi = [bound[2] for bound in values(vary)] # uppper corner of parameter space
     samples = QuasiMonteCarlo.sample(nsamples, lo, hi, LatinHypercubeSample())
     nsuccess = 0
-    verbose && println("Varying ", keys(vary))
+    if verbose
+        println("Varying ", keys(vary))
+        println("Solving for wavenumbers ", ks)
+    end
     for sample in eachcol(samples)
         prob = probgen(sample)
-        sol = solve(prob, ks; verbose, kwargs...)
+        sol = solve(prob, ks; kwargs...)
         if issuccess(sol)
             nsuccess += 1
+        else
+            solve(prob, ks; verbose, kwargs...) # solve again with verbose output for debugging
         end
         verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
     end
