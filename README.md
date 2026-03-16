@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/github/v/release/hersle/SymBoltz.jl?color=000000)](https://github.com/hersle/SymBoltz.jl/releases)
 [![Documentation](https://img.shields.io/badge/documentation%20-%20stable%20-%20%232e63b8)](https://hersle.github.io/SymBoltz.jl/stable/)
 [![Journal paper](https://img.shields.io/badge/paper%20-%20Astronomy%20&%20Astrophysics%20-%20%23004e7c)](http://dx.doi.org/10.1051/0004-6361/202557450)
-[![ArXiv paper](https://img.shields.io/badge/preprint%20-%20arXiv%20-%20%23b31b1b)](http://dx.doi.org/10.1051/0004-6361/202557450)
+[![ArXiv paper](https://img.shields.io/badge/preprint%20-%20arXiv%20-%20%23b31b1b)](https://arxiv.org/abs/2509.24740)
 [![Build status](https://img.shields.io/github/actions/workflow/status/hersle/SymBoltz.jl/ContinuousIntegration.yml)](https://github.com/hersle/SymBoltz.jl/actions/workflows/ContinuousIntegration.yml)
 [![License](https://img.shields.io/github/license/hersle/SymBoltz.jl)](https://github.com/hersle/SymBoltz.jl/blob/main/LICENSE)
 
