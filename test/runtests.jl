@@ -569,3 +569,24 @@ end
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
 end
+
+@testset "Zero allocations in ODE functions" begin
+    for prob in [prob_dense, prob_sparse]
+        sol = solve(prob, 1.0)
+        for (subname, subsol) in [(:bg, sol.bg), (:pt, sol.pts[1])]
+            subprob = subsol.prob
+            u0 = subsol.u[begin]
+            p = subprob.p
+            t = subprob.tspan[begin]
+            fout = similar(u0)
+            Jout = isnothing(subprob.f.jac_prototype) ? zeros(length(u0), length(u0)) : subprob.f.jac_prototype
+            fform = hasproperty(subprob.f, :f) ? "analytical" : "numerical"
+            Jform = hasproperty(subprob.f, :jac) ? "analytical" : "numerical"
+            Jform *= SymBoltz.issparse(subprob) ? "+sparse" : "+dense"
+            println("Checking allocations for $subname with $fform f with output type $(typeof(fout)) and size $(size(fout))")
+            @test (@ballocated $(subprob.f)($fout, $u0, $p, $t)) == 0
+            println("Checking allocations for $subname with $Jform J with output type $(typeof(Jout)) and size $(size(Jout))")
+            @test (@ballocated $(subprob.f.jac)($Jout, $u0, $p, $t)) == 0
+        end
+    end
+end
