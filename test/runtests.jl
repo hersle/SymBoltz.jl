@@ -637,3 +637,20 @@ end
     @test isempty(SymBoltz.remove_background_initial_conditions!([D(M.g.a) ~ M.g.a/M.τ])) # should remove
     @test !isempty(SymBoltz.remove_background_initial_conditions!([M.g.Ψ ~ 20M.C / (15+4M.fν)])) # should keep
 end
+
+@testset "Shooting method" begin
+    M = BDΛCDM()
+
+    # 1) unspecified ΩΛ0, constrained ℋ = 1 today
+    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0, M.G.ϕ => 0.95))
+    prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+    sol1 = solve(prob1)
+    @test issuccess(sol1) && sol1[M.g.ℋ][end] ≈ 1.0 && sol1[D(M.G.ϕ)][begin] == 0.0
+    # TODO: also make work with bracketing root finder
+
+    # 2) unspecified ΩΛ0 and ϕini
+    pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
+    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
+    sol2 = solve(prob2)
+    @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
+end
