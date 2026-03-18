@@ -406,8 +406,6 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     getfuns = getsym(bgprob, map(eq -> eq.rhs - eq.lhs, conditions)) # efficient getter
 
     function f(vals, oldbgprob)
-        #println("vals = $vals")
-
         # slow but "safe"
         #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
         #newbgprob = remake(oldbgprob; u0, p)
@@ -422,7 +420,15 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
 
     guess = map(var -> getsym(bgprob, var)(bgprob), vars)
     prob = NonlinearProblem(f, guess, bgprob)
-    sol = solve(prob; show_trace = Val(verbose), shootopts...)
+    verbose && println("Shooting method:")
+    sol = solve(prob; show_trace = Val(verbose), store_trace = Val(verbose), trace_level = TraceAll(), shootopts...)
+
+    if verbose
+        varstr = join(vars, ", ")
+        for (i, hist) in enumerate(sol.trace.history)
+            println("Shooting iteration #$i: $varstr = $(join(hist.storage.u, ", "))")
+        end
+    end
 
     u0, p = setvars(bgprob, sol.u)
     bgprob = remake(bgprob; u0, p, build_initializeprob)
