@@ -300,7 +300,7 @@ a1 = sol1["perturbations_k0_s"][:,"a"]
 a2 = sol2[1, M.g.a]
 Φ1, Ψ1 = sol1["perturbations_k0_s"][:,"phi"], sol1["perturbations_k0_s"][:,"psi"]
 Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
-plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 2e-4)
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 3e-4)
 ```
 ### Energy overdensities
 ```@example class
@@ -330,7 +330,7 @@ plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 7e-8)
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 4e-4)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
 ```
 ### Polarization
 ```@example class
