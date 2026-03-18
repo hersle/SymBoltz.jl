@@ -187,11 +187,11 @@ function mtkcompile_spline(sys::System, vars)
 
         # Do not solve for splined variables during initialization, and add dummy defaults for all splines
         ieqs = ModelingToolkit.get_initialization_eqs(sys)
-        ieqs = remove_initial_conditions!(ieqs, vars)
+        ieqs = remove_background_initial_conditions!(ieqs)
         @set! sys.initialization_eqs = ieqs
 
         ics = ModelingToolkit.get_initial_conditions(sys)
-        ics = remove_initial_conditions!(ics, vars)
+        ics = remove_background_initial_conditions!(ics)
         @set! sys.initial_conditions = ics
 
         return sys
@@ -202,14 +202,14 @@ function mtkcompile_spline(sys::System, vars)
     return sys, spl
 end
 
-function remove_initial_conditions!(ics, vars; maxorder=2)
-    for var in vars
-        for order in 0:maxorder
-            f = ics isa Vector{Equation} ? (eq -> eq.lhs) : first
-            ics = filter!(eq -> !isequal(f(eq), (D^order)(var)), ics)
-        end
+lhs(p::Pair) = first(p) # for Dict entries
+lhs(eq::Equation) = eq.lhs # for equations
+
+function remove_background_initial_conditions!(ics)
+    filter!(ics) do ic
+        var = only(find_inner_variables(lhs(ic)))
+        return !iscall(var) || length(arguments(var)) != 1 # keep parameters and functions of (τ,k)
     end
-    return ics
 end
 
 # https://github.com/JuliaQuantumControl/QuantumControlBase.jl/blob/master/src/conditionalthreads.jl

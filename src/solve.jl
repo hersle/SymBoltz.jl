@@ -187,8 +187,7 @@ function CosmologyProblem(
         if spline isa AbstractVector && !isempty(spline)
             pt, splpar = mtkcompile_spline(pt, spline)
             parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
-            # also remove_initial_conditions! from pt system (if initialization_eqs contain equations for splined variables)
-            parsk = remove_initial_conditions!(parsk, spline) # must remove ICs of splined variables to avoid overdetermined initialization system
+            remove_background_initial_conditions!(parsk) # remove ICs of all background to avoid overdetermined initialization system
         else
             pt = mtkcompile(pt)
         end
@@ -226,7 +225,7 @@ function remake(
     pars = isempty(pars) ? missing : pars
     bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.bg.f.initialization_data)}, kwargs...) : nothing
     if !ismissing(vars)
-        vars = remove_initial_conditions!(vars, unknowns(prob.bg.f.sys)) # must filter ICs in remake, too
+        remove_background_initial_conditions!(vars) # must filter ICs in remake, too
     end
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
     shoot_pars = shoot ? prob.shoot : keys(Dict())
