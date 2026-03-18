@@ -50,7 +50,7 @@ fig
 
 ## Predicting distances
 
-To predict [luminosity distances](@ref "Luminosity distance") theoretically, we solve the w0waCDM model:
+To predict [luminosity distances](@ref "Distance measures") theoretically, we solve the w0waCDM model:
 ```@example fit
 using SymBoltz, OrdinaryDiffEqTsit5
 g = SymBoltz.metric()
