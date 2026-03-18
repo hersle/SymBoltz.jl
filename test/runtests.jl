@@ -16,6 +16,8 @@ prob = CosmologyProblem(M, pars)
 prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
 
+D = Differential(M.τ)
+
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
     Ωc0 = prob.bg.ps[M.c.Ω₀]
@@ -64,7 +66,6 @@ end
 @testset "Accessing derivative variables" begin
     ks = 1.0 / u"Mpc"
     sol = solve(prob, ks)
-    D = Differential(M.τ)
     τ0 = sol[M.τ0]
     @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
     @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
@@ -607,4 +608,27 @@ end
             @test (@ballocated $(subprob.f.jac)($Jout, $u0, $p, $t)) == 0
         end
     end
+end
+
+@testset "Find and classify inner variables" begin
+    # Parameters
+    @test SymBoltz.isbackground(M.h.Ω₀)
+    @test SymBoltz.isperturbation(M.h.Ω₀)
+    @test string(only(SymBoltz.find_inner_variables(M.h.Ω₀))) == "h₊Ω₀"
+
+    # Background variables (are also perturbation variables)
+    @test SymBoltz.isbackground(M.h.ρ) && SymBoltz.isperturbation(M.h.ρ) && string(only(SymBoltz.find_inner_variables(M.h.ρ))) == "h₊ρ(τ)"
+    @test SymBoltz.isbackground(D(M.h.ρ)) && SymBoltz.isperturbation(D(M.h.ρ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ρ)))) == "h₊ρ(τ)" # differentiated
+    @test SymBoltz.isbackground(M.h.E) && SymBoltz.isperturbation(M.h.E) && string(only(SymBoltz.find_inner_variables(M.h.E))) == "h₊E(τ)" # indexable
+    @test SymBoltz.isbackground(M.h.E[1]) && SymBoltz.isperturbation(M.h.E[1]) && string(only(SymBoltz.find_inner_variables(M.h.E[1]))) == "h₊E(τ)" # indexed
+    @test SymBoltz.isbackground(D(M.h.E)) && SymBoltz.isperturbation(D(M.h.E)) && string(only(SymBoltz.find_inner_variables(D(M.h.E)))) == "h₊E(τ)" # differentiated+indexable
+    @test SymBoltz.isbackground(D(M.h.E[1])) && SymBoltz.isperturbation(D(M.h.E[1])) && string(only(SymBoltz.find_inner_variables(D(M.h.E[1])))) == "h₊E(τ)" # differentiated+indexed
+
+    # Perturbation variables (are not background variables)
+    @test !SymBoltz.isbackground(M.h.δ) && SymBoltz.isperturbation(M.h.δ) && string(only(SymBoltz.find_inner_variables(M.h.δ))) == "h₊δ(τ, k)"
+    @test !SymBoltz.isbackground(D(M.h.δ)) && SymBoltz.isperturbation(D(M.h.δ)) && string(only(SymBoltz.find_inner_variables(D(M.h.δ)))) == "h₊δ(τ, k)" # differentiated
+    @test !SymBoltz.isbackground(M.h.ψ) && SymBoltz.isperturbation(M.h.ψ) && string(only(SymBoltz.find_inner_variables(M.h.ψ))) == "h₊ψ(τ, k)" # indexable
+    @test !SymBoltz.isbackground(M.h.ψ[1,1]) && SymBoltz.isperturbation(M.h.ψ[1,1]) && string(only(SymBoltz.find_inner_variables(M.h.ψ[1,1]))) == "h₊ψ(τ, k)" # indexed
+    @test !SymBoltz.isbackground(D(M.h.ψ)) && SymBoltz.isperturbation(D(M.h.ψ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ)))) == "h₊ψ(τ, k)" # differentiated+indexable
+    @test !SymBoltz.isbackground(D(M.h.ψ[1,1])) && SymBoltz.isperturbation(D(M.h.ψ[1,1])) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ[1,1])))) == "h₊ψ(τ, k)" # differentiated+indexed
 end

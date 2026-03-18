@@ -38,27 +38,15 @@ function debugize(sys::System)
     return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
-function isbackground(expr)
-    vars = Symbolics.get_variables(expr)
-    for var in vars
-        # peel off any derivative operators
-        while iscall(var) && operation(var) isa Differential
-            var = only(arguments(var))
-        end
-        if iscall(var)
-            if operation(var) === getindex
-                var = arguments(var)[1] # e.g. F(τ, k)[1] to F(τ, k)
-            end
-            for arg in arguments(var)
-                isequal(arg, k) && return false # function of k, e.g. f(τ, k)?
-            end
-        end
-    end
-    return true
+function find_inner_variables(expr)
+    vars = Set{Symbolics.SymbolicT}()
+    is_atomic = x -> SymbolicUtils.default_is_atomic(x) && !(iscall(x) && (operation(x) isa Differential || operation(x) === getindex))
+    SymbolicUtils.search_variables!(vars, expr; is_atomic)
+    return vars
 end
-function isperturbation(expr)
-    return true # function of k⁰ or k¹? always yes
-end
+
+isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, find_inner_variables(expr)) # functions of at most τ
+isperturbation(expr) = true # functions of at most τ, k (always yes)
 
 function filter_system(f::Function, sys::System)
     iv = ModelingToolkit.get_iv(sys)
