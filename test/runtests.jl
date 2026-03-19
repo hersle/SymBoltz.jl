@@ -653,4 +653,7 @@ end
     prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
     sol2 = solve(prob2)
     @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
+
+    # error with different number of shooting parameters and conditions
+    @test_throws "Different number of shooting" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
 end

@@ -123,6 +123,8 @@ function CosmologyProblem(
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), kwargs...
 )
+    length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
+
     if !isempty(shoot_pars) # merging with empty dict gives Any-dict
         pars = merge(pars, shoot_pars) # save full dictionary for constructor
     end
