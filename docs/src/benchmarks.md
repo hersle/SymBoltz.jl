@@ -102,14 +102,14 @@ Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
+ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
 refalg = FBDF()
 abstols = 1 ./ 10 .^ (5:9)
 reltols = 1 ./ 10 .^ (5:9)
 
 function plot_precision_work_perturbations(k; numruns = 8, print_names = true, kwargs...)
-    ptprob = ptprobgen(ptprob0, k)
+    ptprob = ptprobgen(k)
     ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use Rodas4P which is also used in CLASS comparison)
     wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2, numruns, print_names, kwargs...)
     return plot(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
@@ -132,8 +132,7 @@ pk4 = plot_precision_work_perturbations(1e4)
 This plot shows the time spent solving individual perturbation $k$-modes using different ODE solvers with fixed tolerance.
 
 ```@example bench
-ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
-solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+solvemode(k, ptalg) = solve(ptprobgen(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
 
 ks = 10 .^ range(-2, 4, length = 50)
 times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
@@ -143,6 +142,24 @@ plot(
     xlabel = "lg(k)", ylabel = "lg(time / s)", xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
     label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft
 )
+```
+
+## Perturbations: timesteps
+
+```@example bench
+ks = [1e0, 1e1, 1e2, 1e3]
+p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
+for (i, k) in enumerate(ks)
+    for ptalg in ptalgs
+        ptprob = ptprobgen(k)
+        ptsol = solvept(ptprob; alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+        τs = ptsol.t
+        Δτs = diff(τs)
+        τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
+        plot!(p, τs, Δτs; marker = :vline, markersize = 1.0, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c",subplot = i)
+    end
+end
+p
 ```
 
 ## Perturbations: Jacobian method

@@ -150,7 +150,7 @@ R8 = 8 * u"Mpc"/h
 scatter!((log10(R8/(u"Mpc"/h)), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
 ```
 
-## Luminosity distance
+## Distance measures
 
 ```@docs
 SymBoltz.distance_luminosity

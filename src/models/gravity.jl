@@ -102,5 +102,5 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     push!(ieqs, D(δϕ) ~ 0.0) # works better than having it in ics # TODO: set properly
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
-    return System(eqs, τ; name, description, initialization_eqs = ieqs, initial_conditions = ics, guesses, kwargs...)
+    return System(eqs, τ, vars, pars; name, description, initialization_eqs = ieqs, initial_conditions = ics, guesses, kwargs...)
 end

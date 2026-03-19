@@ -5,7 +5,7 @@ and its (logarithmic) derivatives
 ```math
 \frac{\partial \lg P}{\partial \lg \theta_i}
 ```
-using automatic differentiation with [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl).
+using automatic differentiation with [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/).
 This technique [can also differentiate any other quantity](@ref "General approach").
 
 ## 1. Wrap the evaluation

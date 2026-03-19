@@ -7,12 +7,16 @@ using ForwardDiff
 using FiniteDiff
 using BenchmarkTools
 using Base.Threads
+using Statistics
 
-M = ΛCDM(K = nothing) # flat
+lmax = 5
+M = ΛCDM(K = nothing; lmax) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false) # TODO: make sparse background work (although it won't impact performance)
+prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
+
+D = Differential(M.τ)
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -62,7 +66,6 @@ end
 @testset "Accessing derivative variables" begin
     ks = 1.0 / u"Mpc"
     sol = solve(prob, ks)
-    D = Differential(M.τ)
     τ0 = sol[M.τ0]
     @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
     @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
@@ -223,8 +226,14 @@ end
     @test checkvar(M.b.Xe, 1e-5, 0)
 end
 
-@testset "Whole model without autosplining" begin
-    @test mtkcompile(M) isa Any
+@testset "Solve background+perturbations together (without splining background)" begin
+    prob_nospline_dense = CosmologyProblem(M, pars; spline = false, jac = true, sparse = false)
+    prob_nospline_sparse = CosmologyProblem(M, pars; spline = false, jac = true, sparse = true)
+    ks = [1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3]
+    @test issuccess(solve(prob_nospline_dense, ks))
+    @test issuccess(solve(prob_nospline_sparse, ks))
+    # TODO: compare number of timesteps with different tolerances? looks like runtime difference is proportional to difference in number of steps
+    # TODO: although not splining is slower for normal values, can be opposite be true for AD?
 end
 
 # TODO: optionally spline observables, too, with cubic hermite splines using analytic derivatives, to save computations in perturbations (e.g. visibility function and derivatives for CMB)
@@ -465,12 +474,17 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
     hi = [bound[2] for bound in values(vary)] # uppper corner of parameter space
     samples = QuasiMonteCarlo.sample(nsamples, lo, hi, LatinHypercubeSample())
     nsuccess = 0
-    verbose && println("Varying ", keys(vary))
+    if verbose
+        println("Varying ", keys(vary))
+        println("Solving for wavenumbers ", ks)
+    end
     for sample in eachcol(samples)
         prob = probgen(sample)
-        sol = solve(prob, ks; verbose, kwargs...)
+        sol = solve(prob, ks; kwargs...)
         if issuccess(sol)
             nsuccess += 1
+        else
+            solve(prob, ks; verbose, kwargs...) # solve again with verbose output for debugging
         end
         verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
     end
@@ -481,13 +495,13 @@ ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
     @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
 
-    M1 = ΛCDM(K = nothing; Hswitch = 0)
+    M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
     @test stability(M1, ks, vary, 100; verbose = true) == 1.0
 
-    M2 = ΛCDM(K = nothing; Heswitch = 0)
+    M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
     @test stability(M2, ks, vary, 100; verbose = true) == 1.0
 
-    M3 = ΛCDM(K = nothing; reionization = false)
+    M3 = ΛCDM(K = nothing, reionization = false; lmax)
     @test stability(M3, ks, vary, 100; verbose = true) == 1.0
 end
 
@@ -516,6 +530,11 @@ end
 end
 
 @testset "Sparse Jacobian" begin
+    # sparse background should work for ΛCDM, but since it is a small system the dense version should be a bit faster
+    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgopts = (jac = true, sparse = true))
+    @test SymBoltz.issparse(prob_sparse_bg.bg)
+    @test issuccess(solve(prob_sparse_bg))
+
     # with ΛCDM model
     k = [1e0, 1e1, 1e2, 1e3]
     sol = solve(prob_sparse, k; bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.KLUFactorization()),))
@@ -568,4 +587,70 @@ end
     @time P  = spectrum_matter(prob, k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
+end
+
+@testset "Zero allocations in ODE functions" begin
+    for prob in [prob_dense, prob_sparse]
+        sol = solve(prob, 1.0)
+        for (subname, subsol) in [(:bg, sol.bg), (:pt, sol.pts[1])]
+            subprob = subsol.prob
+            u0 = subsol.u[begin]
+            p = subprob.p
+            t = subprob.tspan[begin]
+            fout = similar(u0)
+            Jout = isnothing(subprob.f.jac_prototype) ? zeros(length(u0), length(u0)) : subprob.f.jac_prototype
+            fform = hasproperty(subprob.f, :f) ? "analytical" : "numerical"
+            Jform = hasproperty(subprob.f, :jac) ? "analytical" : "numerical"
+            Jform *= SymBoltz.issparse(subprob) ? "+sparse" : "+dense"
+            println("Checking allocations for $subname with $fform f with output type $(typeof(fout)) and size $(size(fout))")
+            @test (@ballocated $(subprob.f)($fout, $u0, $p, $t)) == 0
+            println("Checking allocations for $subname with $Jform J with output type $(typeof(Jout)) and size $(size(Jout))")
+            @test (@ballocated $(subprob.f.jac)($Jout, $u0, $p, $t)) == 0
+        end
+    end
+end
+
+@testset "Find and classify inner variables" begin
+    # Parameters
+    @test SymBoltz.isbackground(M.h.Ω₀)
+    @test SymBoltz.isperturbation(M.h.Ω₀)
+    @test string(only(SymBoltz.find_inner_variables(M.h.Ω₀))) == "h₊Ω₀"
+
+    # Background variables (are also perturbation variables)
+    @test SymBoltz.isbackground(M.h.ρ) && SymBoltz.isperturbation(M.h.ρ) && string(only(SymBoltz.find_inner_variables(M.h.ρ))) == "h₊ρ(τ)"
+    @test SymBoltz.isbackground(D(M.h.ρ)) && SymBoltz.isperturbation(D(M.h.ρ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ρ)))) == "h₊ρ(τ)" # differentiated
+    @test SymBoltz.isbackground(M.h.E) && SymBoltz.isperturbation(M.h.E) && string(only(SymBoltz.find_inner_variables(M.h.E))) == "h₊E(τ)" # indexable
+    @test SymBoltz.isbackground(M.h.E[1]) && SymBoltz.isperturbation(M.h.E[1]) && string(only(SymBoltz.find_inner_variables(M.h.E[1]))) == "h₊E(τ)" # indexed
+    @test SymBoltz.isbackground(D(M.h.E)) && SymBoltz.isperturbation(D(M.h.E)) && string(only(SymBoltz.find_inner_variables(D(M.h.E)))) == "h₊E(τ)" # differentiated+indexable
+    @test SymBoltz.isbackground(D(M.h.E[1])) && SymBoltz.isperturbation(D(M.h.E[1])) && string(only(SymBoltz.find_inner_variables(D(M.h.E[1])))) == "h₊E(τ)" # differentiated+indexed
+
+    # Perturbation variables (are not background variables)
+    @test !SymBoltz.isbackground(M.h.δ) && SymBoltz.isperturbation(M.h.δ) && string(only(SymBoltz.find_inner_variables(M.h.δ))) == "h₊δ(τ, k)"
+    @test !SymBoltz.isbackground(D(M.h.δ)) && SymBoltz.isperturbation(D(M.h.δ)) && string(only(SymBoltz.find_inner_variables(D(M.h.δ)))) == "h₊δ(τ, k)" # differentiated
+    @test !SymBoltz.isbackground(M.h.ψ) && SymBoltz.isperturbation(M.h.ψ) && string(only(SymBoltz.find_inner_variables(M.h.ψ))) == "h₊ψ(τ, k)" # indexable
+    @test !SymBoltz.isbackground(M.h.ψ[1,1]) && SymBoltz.isperturbation(M.h.ψ[1,1]) && string(only(SymBoltz.find_inner_variables(M.h.ψ[1,1]))) == "h₊ψ(τ, k)" # indexed
+    @test !SymBoltz.isbackground(D(M.h.ψ)) && SymBoltz.isperturbation(D(M.h.ψ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ)))) == "h₊ψ(τ, k)" # differentiated+indexable
+    @test !SymBoltz.isbackground(D(M.h.ψ[1,1])) && SymBoltz.isperturbation(D(M.h.ψ[1,1])) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ[1,1])))) == "h₊ψ(τ, k)" # differentiated+indexed
+end
+
+@testset "Remove background initial conditions" begin
+    @test isempty(SymBoltz.remove_background_initial_conditions!([D(M.g.a) ~ M.g.a/M.τ])) # should remove
+    @test !isempty(SymBoltz.remove_background_initial_conditions!([M.g.Ψ ~ 20M.C / (15+4M.fν)])) # should keep
+end
+
+@testset "Shooting method" begin
+    M = BDΛCDM()
+
+    # 1) unspecified ΩΛ0, constrained ℋ = 1 today
+    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0, M.G.ϕ => 0.95))
+    prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+    sol1 = solve(prob1)
+    @test issuccess(sol1) && sol1[M.g.ℋ][end] ≈ 1.0 && sol1[D(M.G.ϕ)][begin] == 0.0
+    # TODO: also make work with bracketing root finder
+
+    # 2) unspecified ΩΛ0 and ϕini
+    pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
+    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
+    sol2 = solve(prob2)
+    @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
 end
