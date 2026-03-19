@@ -1,4 +1,4 @@
-using SymBoltz
+using SymBoltz, Plots
 
 # Constants, some functions and atomic energy levels defined in internal files
 @unpack kB, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s = SymBoltz
@@ -41,6 +41,7 @@ pars = @parameters begin
     zre2, Δzre2, nre2, # 2nd reionization
     C, # integration constant in initial conditions
     As, ns # primordial power spectrum
+    αcb # interactions
 end
 
 # 3) Background (τ) and perturbation (τ,k) variables (add your own)
@@ -57,6 +58,7 @@ vars = @variables begin
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
     ρΛ(τ), PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
+    Qcb(τ), # interactions
     fν(τ), # misc
     ρm(τ,k), Δm(τ,k), # matter source functions
     ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
@@ -138,7 +140,7 @@ eqs = [
     Xre2 ~ smoothifelse((1+zre2)^nre2 - (1+z)^nre2, 0, 0 + fHe; k = 1/(nre2*(1+zre2)^(nre2-1)*Δzre2))
 
     # baryons
-    ρb ~ 3/8π * Ωb0 / a^3
+    D(ρb) ~ -3ℋ *ρb + Qcb
     D(δb) ~ -θb - 3ℋ*csb2*δb + 3*D(Φ)
     D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4/3*D(κ)*ργ/ρb*(θγ-θb)
     Δb ~ δb + 3ℋ*θb/k^2
@@ -162,7 +164,7 @@ eqs = [
     D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + D(κ) * Gγ[lγmax]
 
     # cold dark matter
-    ρc ~ 3/8π * Ωc0 / a^3
+    D(ρc) ~ -3ℋ *ρc - Qcb
     D(δc) ~ -θc + 3*D(Φ)
     D(θc) ~ -ℋ*θc + k^2*Ψ
     Δc ~ δc + 3ℋ*θc/k^2
@@ -209,6 +211,9 @@ eqs = [
     D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ # for w0wa
     D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ # for w0wa
     ΔΛ ~ δΛ + 3ℋ*(1+wΛ)*θΛ/k^2
+
+    # interactions
+    Qcb ~ αcb * ℋ * (ρc + ρb)
 
     # neutrino-to-radiation fraction
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
@@ -319,7 +324,50 @@ p = Dict(
     M.w0 => -0.9,
     M.wa => 0.1,
 )
-prob = CosmologyProblem(M, p)
+p1 = merge(p, Dict(M.αcb => 0))
+p2 = merge(p, Dict(M.αcb => -0.03))
 
-ks = [4e0, 4e1, 4e2, 4e3]
-sol = solve(prob, ks)
+shooting_guesses = Dict(
+    ρc => 1e15,
+    ρb => 1e15,
+)
+
+shooting_conditions = [
+    ρc ~ 3/8π*Ωc0
+    ρb ~ 3/8π*Ωb0
+]
+
+prob1 = CosmologyProblem(M, p1, shooting_guesses, shooting_conditions)
+prob2 = CosmologyProblem(M, p2, shooting_guesses, shooting_conditions)
+
+ks = 1e3
+
+println("Problem 1 with αcb = $(p1[M.αcb])")
+sol1 = solve(prob1, ks; verbose = true)
+println("Ωc(τ₀) = $(sol1[8π/3*M.ρc][end])")
+println("Ωb(τ₀) = $(sol1[8π/3*M.ρb][end])")
+println("H(τ₀) = $(sol1[M.H][end])")
+println("a(τ₀) = $(sol1[M.a][end])")
+
+println("Problem 2 with αcb = $(p2[M.αcb])")
+sol2 = solve(prob2, ks; verbose = true)
+println("Ωc(τ₀) = $(sol2[8π/3*M.ρc][end])")
+println("Ωb(τ₀) = $(sol2[8π/3*M.ρb][end])")
+println("H(τ₀) = $(sol2[M.H][end])")
+println("a(τ₀) = $(sol2[M.a][end])")
+
+plt = plot(layout = (2, 2), size = (1200, 900))
+plot!(plt[1,1], sol1, log10(M.a), log10.(abs.([M.ρc, M.ρb, M.H])), linestyle = :dot, color = [1 2 3])
+plot!(plt[1,1], sol2, log10(M.a), log10.(abs.([M.ρc, M.ρb, M.H, M.Qcb])), linestyle = :solid, color = [1 2 3 4])
+plot!(plt[1,2], sol1, log10(M.a), log10.(abs.([M.δc, M.δb])), ks, linestyle = :dot, color = [1 2], legend = nothing)
+plot!(plt[1,2], sol2, log10(M.a), log10.(abs.([M.δc, M.δb])), ks, linestyle = :solid, color = [1 2], legend = nothing)
+plot!(plt[2,1], sol1, log10(M.a), [M.Φ, M.Ψ], ks, linestyle = :dot, color = [1 2], legend = nothing)
+plot!(plt[2,1], sol2, log10(M.a), [M.Φ, M.Ψ], ks, linestyle = :solid, color = [1 2], legend = nothing)
+
+ks = 10 .^ range(-0.5, 3.5, length=200)
+Ps1 = spectrum_matter(prob1, ks)
+Ps2 = spectrum_matter(prob2, ks)
+plot!(plt[2,2], log10.(ks), log10.(Ps1), linestyle = :dot, color = 1, label = nothing, xlabel = "log10(k/(H₀/c))")
+plot!(plt[2,2], log10.(ks), log10.(Ps2), linestyle = :solid, color = 1, label = nothing, xlabel = "log10(k/(H₀/c))")
+
+# TODO: fix CMB in combination with shooting method
