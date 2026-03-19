@@ -205,11 +205,9 @@ eqs = [
     wΛ ~ w0 + wa*(1-a)
     ρΛ ~ 3/8π*ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a))
     PΛ ~ wΛ*ρΛ
-    δΛ ~ 0 # for CC
-    θΛ ~ 0 # for CC
-    #cΛa2 ~ wΛ - D(wΛ)/(3ℋ*(1+wΛ)) # for w0wa
-    #D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ # for w0wa
-    #D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ # for w0wa
+    cΛa2 ~ wΛ - D(wΛ)/(3ℋ*(1+wΛ)) # for w0wa
+    D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ # for w0wa
+    D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ # for w0wa
     ΔΛ ~ δΛ + 3ℋ*(1+wΛ)*θΛ/k^2
 
     # neutrino-to-radiation fraction
@@ -266,8 +264,8 @@ initialization_eqs = [
     [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
 
     # dark energy (w0wa)
-    #δΛ ~ -3/2 * (1+wΛ) * Ψ # for w0wa
-    #θΛ ~ 1/2 * (k^2*τ) * Ψ # for w0wa
+    δΛ ~ -3/2 * (1+wΛ) * Ψ # for w0wa
+    θΛ ~ 1/2 * (k^2*τ) * Ψ # for w0wa
 ]
 
 # 6) Initial guess for variables solved for in initial conditions (modify or add your own)
@@ -302,8 +300,6 @@ initial_conditions = [
     Iρh0 => ∫dx_x²_f₀(@. √(x^2 + yh0^2))
     Ωh0 => Nh * 8π/3 * 2/(2π^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H0SI*c)^2/GN)
     fHe => YHe / (mHe/mH*(1-YHe))
-    w0 => -1
-    wa => 0
     cΛs2 => 1
 ]
 
@@ -320,6 +316,8 @@ p = Dict(
     M.mh_eV => 0.02,
     M.As => 2e-9,
     M.ns => 1.0,
+    M.w0 => -0.9,
+    M.wa => 0.1,
 )
 prob = CosmologyProblem(M, p)
 
