@@ -1,5 +1,6 @@
-using SymBoltz
+using SymBoltz, Plots
 
+function model(; analytical_noninteracting_continuity = true, name = :QΛCDM)
 # Constants, some functions and atomic energy levels defined in internal files
 @unpack kB, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s = SymBoltz
 lγmax = 10
@@ -40,23 +41,25 @@ pars = @parameters begin
     zre1, Δzre1, nre1, # 1st reionization
     zre2, Δzre2, nre2, # 2nd reionization
     C, # integration constant in initial conditions
-    As, ns # primordial power spectrum
+    As, ns, # primordial power spectrum
+    αbc, αcΛ, αbΛ # interactions
 end
 
 # 3) Background (τ) and perturbation (τ,k) variables (add your own)
 vars = @variables begin
     a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), χ(τ), # metric
     ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
-    ρb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
+    ρb(τ), [shoot=true], Pb(τ), wb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
     κ(τ), _κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), HSI(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ), # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
     ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ,k), Fγ(τ,k)[1:lγmax], Gγ0(τ,k), Gγ(τ,k)[1:lγmax], δγ(τ,k), θγ(τ,k), σγ(τ,k), Πγ(τ,k), # photons
-    ρc(τ), δc(τ,k), Δc(τ,k), θc(τ,k), # cold dark matter
+    ρc(τ), [shoot=true], Pc(τ), wc(τ), δc(τ,k), Δc(τ,k), θc(τ,k), # cold dark matter
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
-    ρΛ(τ), PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
+    ρΛ(τ), [shoot=true], PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
+    Qb(τ), Qc(τ), QΛ(τ), Qbc(τ), QbΛ(τ), QcΛ(τ), δQbc(τ), fQbc(τ), θ(τ) # interactions
     fν(τ), # misc
     ρm(τ,k), Δm(τ,k), # matter source functions
     ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
@@ -138,9 +141,8 @@ eqs = [
     Xre2 ~ smoothifelse((1+zre2)^nre2 - (1+z)^nre2, 0, 0 + fHe; k = 1/(nre2*(1+zre2)^(nre2-1)*Δzre2))
 
     # baryons
-    ρb ~ 3/8π * Ωb0 / a^3
-    D(δb) ~ -θb - 3ℋ*csb2*δb + 3*D(Φ)
-    D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4/3*D(κ)*ργ/ρb*(θγ-θb)
+    wb ~ 0
+    Pb ~ wb*ρb
     Δb ~ δb + 3ℋ*θb/k^2
 
     # photons
@@ -162,9 +164,8 @@ eqs = [
     D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + D(κ) * Gγ[lγmax]
 
     # cold dark matter
-    ρc ~ 3/8π * Ωc0 / a^3
-    D(δc) ~ -θc + 3*D(Φ)
-    D(θc) ~ -ℋ*θc + k^2*Ψ
+    wc ~ 0
+    Pc ~ wc*ρc
     Δc ~ δc + 3ℋ*θc/k^2
 
     # massless neutrinos
@@ -203,11 +204,8 @@ eqs = [
 
     # dark energy (cosmological constant or w0wa)
     wΛ ~ w0 + wa*(1-a)
-    ρΛ ~ 3/8π*ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a))
     PΛ ~ wΛ*ρΛ
     cΛa2 ~ wΛ - D(wΛ)/(3ℋ*(1+wΛ)) # for w0wa
-    D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ # for w0wa
-    D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ # for w0wa
     ΔΛ ~ δΛ + 3ℋ*(1+wΛ)*θΛ/k^2
 
     # neutrino-to-radiation fraction
@@ -225,6 +223,28 @@ eqs = [
     ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
     SE_kχ² ~ 3/16 * v*Πγ
     Sψ ~ 0 # ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0) # TODO
+
+    # Modified equations below:
+    # Interactions: c-b-Λ triangle (the following is extremely model dependent and extremely frame dependent).
+    # Pert equations for components now are general so only change here the coupling
+    Qbc ~ 3αbc * ℋ/a * (ρb + ρc) # b-c interaction
+    QbΛ ~ 3αbΛ * ℋ/a * (ρb + ρΛ) # b-Λ interaction
+    QcΛ ~ 3αcΛ * ℋ/a * (ρc + ρΛ) # c-Λ interaction
+    Qb ~ +Qbc + QbΛ # total interaction on b
+    Qc ~ -Qbc + QcΛ # total interaction on c
+    QΛ ~ -QcΛ - QbΛ # total interaction on Λ
+    δQbc ~ 3αbc * ℋ/a * (ρc*δc + ρb*δb)
+    fQbc ~ 3αbc * ℋ/a * (ρc + ρb) * (θb-θ) / k^2 # B frame chosen, for DM frame replace \theta_B for \theta_c. For pure energy transfer is zero (theta_b replaced by theta_frame so 0)
+    θ ~ ((ρΛ+PΛ)*θΛ + (ρh+Ph)*θh + (ρν+Pν)*θν + (ρc+Pc)*θc + (ργ+Pγ)*θγ + (ρb+Pb)*θb) / ((ρΛ+PΛ) + (ρh+Ph) + (ρν+Pν) + (ρc+Pc) + (ργ+Pγ) + (ρb+Pb)) # general variable regardless of the interaction, it is a "averaged" velocity: θframe= SUM[(rho_i+P_i)*theta_i]/SUM[rho_i+P_i]
+    D(ρb) ~ -3ℋ *(1+wb)*ρb + a*Qb
+    D(ρc) ~ -3ℋ *(1+wc)*ρc + a*Qc
+    D(ρΛ) ~ -3ℋ *(1+wΛ)*ρΛ + a*QΛ
+    D(δb) ~ -θb - 3ℋ*csb2*δb + 3*D(Φ) + (a * Qbc / ρb) * (Ψ - δb + 3ℋ*csb2*θb/k^2) + (a * δQbc / ρb)
+    D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4/3*D(κ)*ργ/ρb*(θγ-θb) + (a * Qbc / ρb) * (θ - θb*(1+csb2)) + (a * k^2 / ρb) * fQbc
+    D(δc) ~ -θc + 3*D(Φ) - (a * Qbc / ρc) * (Ψ - δc) - (a * δQbc / ρc)
+    D(θc) ~ -ℋ*θc + k^2*Ψ - (a * Qbc / ρc) * (θ - θc) - (a * k^2 / ρc) * fQbc
+    D(δΛ) ~ -(1+wΛ)*(θΛ-3*D(Φ)) - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ
+    D(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ
 ]
 
 # 5) Equations for initial conditions (modify or add your own)
@@ -268,12 +288,22 @@ initialization_eqs = [
     θΛ ~ 1/2 * (k^2*τ) * Ψ # for w0wa
 ]
 
-# 6) Initial guess for variables solved for in initial conditions (modify or add your own)
+# 6) Initial guess for variables solved for in initial conditions and shooting method (modify or add your own)
 guesses = [
     a => τ # a(τini) is solved for in a nonlinear system constrained to ℋ(aini) ~ 1/τini (see initialization_eqs)
+    ρb => τ^(-3)
+    ρc => τ^(-3)
+    ρΛ => τ^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
 ]
 
-# 7) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
+# 7) Shooting constraints (evaluated today)
+constraints = [
+    ρb ~ 3/8π*Ωb0
+    ρc ~ 3/8π*Ωc0
+    ρΛ ~ 3/8π*ΩΛ0
+]
+
+# 8) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
     H0SI => H100*h
     τ0 => NaN
@@ -303,10 +333,24 @@ initial_conditions = [
     cΛs2 => 1
 ]
 
-# 8) Pack everything down into a symbolic system (modify the name to fit your modified model)
-M = complete(System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, name = :ΛCDM))
+# Optional: use analytical solutions for noninteracting continuity equations
+if analytical_noninteracting_continuity
+isequal(expandeq(eqs, Qb), 0) && push!(eqs, ρb ~ 3/8π * Ωb0 / a^3)
+isequal(expandeq(eqs, Qc), 0) && push!(eqs, ρc ~ 3/8π * Ωc0 / a^3)
+isequal(expandeq(eqs, QΛ), 0) && push!(eqs, ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a)))
+anal = intersect(Set([ρΛ, ρb, ρc]), Set(eq.lhs for eq in eqs)) # which energy densities do we have the analytical solution for?
+Danal = Set(D.(anal))
+filter!(eq -> !(eq.lhs in Danal), eqs) # remove ODEs where we have the analytical solution
+filter!(eq -> !(eq.lhs in anal), constraints) # remove shooting constraint
+filter!(guess -> !(guess[1] in anal), guesses) # remove shooting guess
+end
 
-p = Dict(
+# 9) Pack everything down into a symbolic system (modify the name to fit your modified model)
+return complete(System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, constraints, name))
+end
+M = model()
+
+p1 = Dict(
     M.h => 0.7,
     M.Ωc0 => 0.3,
     M.Ωb0 => 0.05,
@@ -318,8 +362,45 @@ p = Dict(
     M.ns => 1.0,
     M.w0 => -0.9,
     M.wa => 0.1,
+    M.αbc => 0.0,
+    M.αbΛ => 0.0,
+    M.αcΛ => 0.0,
 )
-prob = CosmologyProblem(M, p)
+p2 = merge(p1, Dict(M.αbc => -1e-2, M.αbΛ => 0, M.αcΛ => 0)) # Larger than this in abs failed
 
-ks = [4e0, 4e1, 4e2, 4e3]
-sol = solve(prob, ks)
+prob1 = CosmologyProblem(M, p1)
+prob2 = CosmologyProblem(M, p2)
+
+ks = 1e3
+
+println("Problem 1 with αbc = $(p1[M.αbc]), αbΛ = $(p1[M.αbΛ]), αcΛ = $(p1[M.αcΛ])")
+sol1 = solve(prob1, ks; verbose = true)
+println("Ωc(τ₀) = $(sol1[8π/3*M.ρc][end])")
+println("Ωb(τ₀) = $(sol1[8π/3*M.ρb][end])")
+println("ΩΛ(τ₀) = $(sol1[8π/3*M.ρΛ][end])")
+println("H(τ₀) = $(sol1[M.H][end])")
+println("a(τ₀) = $(sol1[M.a][end])")
+
+println("Problem 2 with αbc = $(p2[M.αbc]), αbΛ = $(p2[M.αbΛ]), αcΛ = $(p2[M.αcΛ])")
+sol2 = solve(prob2, ks; verbose = true)
+println("Ωc(τ₀) = $(sol2[8π/3*M.ρc][end])")
+println("Ωb(τ₀) = $(sol2[8π/3*M.ρb][end])")
+println("ΩΛ(τ₀) = $(sol2[8π/3*M.ρΛ][end])")
+println("H(τ₀) = $(sol2[M.H][end])")
+println("a(τ₀) = $(sol2[M.a][end])")
+
+plt = plot(layout = (2, 2), size = (1200, 900))
+plot!(plt[1,1], sol1, log10(M.a), log10.(abs.([M.ρc, M.ρb, M.ρΛ, M.H])), linestyle = :dot, color = [1 2 3 4])
+plot!(plt[1,1], sol2, log10(M.a), log10.(abs.([M.ρc, M.ρb, M.ρΛ, M.H, M.Qbc])), linestyle = :solid, color = [1 2 3 4 5])
+plot!(plt[1,2], sol1, log10(M.a), log10.(abs.([M.δc, M.δb])), ks, linestyle = :dot, color = [1 2], legend = nothing)
+plot!(plt[1,2], sol2, log10(M.a), log10.(abs.([M.δc, M.δb])), ks, linestyle = :solid, color = [1 2], legend = nothing)
+plot!(plt[2,1], sol1, log10(M.a), [M.Φ, M.Ψ], ks, linestyle = :dot, color = [1 2], legend = nothing)
+plot!(plt[2,1], sol2, log10(M.a), [M.Φ, M.Ψ], ks, linestyle = :solid, color = [1 2], legend = nothing)
+
+ks = 10 .^ range(-0.5, 3.5, length=200)
+Ps1 = spectrum_matter(prob1, ks)
+Ps2 = spectrum_matter(prob2, ks)
+plot!(plt[2,2], log10.(ks), log10.(Ps1), linestyle = :dot, color = 1, label = nothing, xlabel = "log10(k/(H₀/c))")
+plot!(plt[2,2], log10.(ks), log10.(Ps2), linestyle = :solid, color = 1, label = nothing, xlabel = "log10(k/(H₀/c))")
+
+# TODO: fix CMB in combination with shooting method
