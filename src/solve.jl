@@ -55,11 +55,16 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
 
     printstyled(io, "\nParameters & initial conditions:"; bold = true)
     for par in prob.pars
-        val = getsym(prob, par)(prob)
-        print(io, '\n', indent, "$par = $val", par in prob.shoot ? " (shooting)" : "")
+        par in prob.shoot && continue # skip; print these below
+        print(io, '\n', indent, par, " = ", getsym(prob, par)(prob))
     end
 
-    !isempty(prob.conditions) && printstyled(io, "\nFinal conditions:"; bold = true) # TODO: initial vs final conditions
+    !isempty(prob.shoot) && printstyled(io, "\nShooting initial guesses:"; bold = true)
+    for par in prob.shoot
+        print(io, '\n', indent, par, " = ", getsym(prob, par)(prob))
+    end
+
+    !isempty(prob.conditions) && printstyled(io, "\nShooting final conditions:"; bold = true)
     for condition in prob.conditions
         print(io, '\n', indent, condition)
     end
