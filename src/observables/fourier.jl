@@ -362,6 +362,8 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     thread && foreach(wait, tasks) # all tasks must finish
     close(queue) # clean up
 
+    idx[] > nmaxks && error("Source function refinement needs more than $nmaxks k-refinements. Reduce refinement criteria.")
+
     # sort according to k
     ks = ks[1:idx[]]
     if sort

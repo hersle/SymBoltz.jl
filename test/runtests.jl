@@ -522,6 +522,10 @@ end
     jl = SphericalBesselCache(20:20:3000)
     @test all(isfinite.(spectrum_cmb(:TT, prob, jl; normalization = :Dl)))
     @test all(isfinite.(spectrum_cmb(:EE, prob, jl; normalization = :Dl)))
+
+    # should error if too many refinements are needed
+    jl = SphericalBesselCache([50])
+    @test_throws "Source function refinement needs more" spectrum_cmb(:TT, prob, jl; sourceopts = (rtol = 0.0, atol = 0.0)) # needs infinite refinements
 end
 
 @testset "Toggle threading" begin
