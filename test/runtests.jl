@@ -656,4 +656,8 @@ end
 
     # error with different number of shooting parameters and conditions
     @test_throws "Different number of shooting" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+
+    # helpful error with stupid initial guess
+    prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
+    @test_throws "Shooting failed when solving background" solve(prob_stupid)
 end

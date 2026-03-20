@@ -237,3 +237,5 @@ macro spawnif(args...)
         end
     end
 end
+
+varvalstr(vars, vals) = join(("$var = $val" for (var, val) in zip(vars, vals)), ", ")

@@ -404,10 +404,13 @@ end
 function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
+    conditions = map(eq -> eq.lhs - eq.rhs, conditions)
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
-    getfuns = getsym(bgprob, map(eq -> eq.rhs - eq.lhs, conditions)) # efficient getter
+    getfuns = getsym(bgprob, conditions) # efficient getter
 
-    function f(vals, oldbgprob)
+    function f(vals, (oldbgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
+        verbose && !(vals isa Vector{<:ForwardDiff.Dual}) && println("Shooting with parameters: ", varvalstr(varstrs, vals))
+
         # slow but "safe"
         #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
         #newbgprob = remake(oldbgprob; u0, p)
@@ -416,20 +419,21 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         newu0, newp = setvars(oldbgprob, vals)
         newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
 
-        bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true)
-        return only(getfuns(bgsol)) # get final values
+        bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
+        !successful_retcode(bgsol) && error("Shooting failed when solving background with $(varvalstr(varstrs, vals)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
+        conditions = only(getfuns(bgsol)) # get final values
+        verbose && !(vals isa Vector{<:ForwardDiff.Dual}) && println("Shooting gave conditions: ", varvalstr(constrs, conditions))
+        return conditions
     end
 
     guess = map(var -> getsym(bgprob, var)(bgprob), vars)
-    prob = NonlinearProblem(f, guess, bgprob)
-    verbose && println("Shooting method:")
-    sol = solve(prob; show_trace = Val(verbose), store_trace = Val(verbose), trace_level = TraceAll(), shootopts...)
+    vars = string.(vars)
+    conditions = string.(conditions)
+    prob = NonlinearProblem(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, vars, conditions))
+    sol = solve(prob; shootopts...)
 
-    if verbose
-        varstr = join(vars, ", ")
-        for (i, hist) in enumerate(sol.trace.history)
-            println("Shooting iteration #$i: $varstr = $(join(hist.storage.u, ", "))")
-        end
+    if !successful_retcode(sol)
+        error("Shooting failed to converge. Last result was $(varvalstr(string.(vars), sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
     u0, p = setvars(bgprob, sol.u)
