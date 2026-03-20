@@ -503,8 +503,8 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
         end
         return output_func(sol, i)
     end
-    ptsols = [@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)]
-    ptsols = fetch.(ptsols)
+
+    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
     verbose && println()
     return ptsols
 end

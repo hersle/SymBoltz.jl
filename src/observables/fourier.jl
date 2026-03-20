@@ -310,23 +310,32 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     idx = Atomic{Int}(length(ks))
 
     ninitks = length(ks)
-    Ss = similar(bgsol, length(Ss), Nτs, 1024)
-    ks = resize!(collect(ks), 1024)
+    nmaxks = 1024
+    Ss = similar(bgsol, length(Ss), Nτs, nmaxks)
+    ks = resize!(collect(ks), nmaxks)
     iτs = 1 : max(size(Ss, 2) - 1, 1) # exclude χ=0 from refinement comparison (where some CMB sources with 1/χ diverge); except if it is the only point (e.g. matter power spectrum is well-defined)
 
-    @sync begin
-    queue = Channel{Tuple{Int, Int}}(1024)
+    queue = Channel{Tuple{Int, Int}}(nmaxks)
+    tasks = Task[]
+    thread && sizehint!(tasks, nmaxks)
     for i in 1:ninitks
-        @spawnif begin
+        task = @spawnif begin
         sourcek!(ks[i], i, Ss)
         i ≥ 2 && put!(queue, (i-1, i))
         verbose && println("Solved k = $(ks[i]) on thread $(threadid()) to $i total points")
         end thread
+        thread && push!(tasks, task)
     end
 
-    for (i1, i2) in queue # equivalent to "while true" with "try take!(queue) catch break end"
-        @spawnif begin
+    while true # equivalent to for (i1, i2) in queue, but rely on sentinel value instead of closing queue
+        i1, i2 = take!(queue)
+        i1 == -1 && break # kill on sentinel value
+        task = @spawnif begin
         i = atomic_add!(idx, +1) + 1 # atomic_add! returns old value of idx
+        if i > nmaxks
+            put!(queue, (-1, -1)) # kill with sentinel value if no more space for ks
+            return
+        end
         k1 = f(ks[i1]) # e.g. k1 → log(k1)
         k2 = f(ks[i2])
         k = (k1 + k2) / 2
@@ -345,12 +354,13 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
             put!(queue, (i1, i))
         end
 
-        atomic_add!(counter, -1) # finished processing
-
-        counter[] == 0 && close(queue) # close channel when all tasks are done
+        atomic_add!(counter, -1) == 1 && put!(queue, (-1, -1)) # kill with sentinel value if counter reaches 0 (atomic_add! returns old value)
         end thread
+        thread && push!(tasks, task)
     end
-    end
+
+    thread && foreach(wait, tasks) # all tasks must finish
+    close(queue) # clean up
 
     # sort according to k
     ks = ks[1:idx[]]
