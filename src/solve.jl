@@ -21,9 +21,9 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     bg::Tbg
     pt::Tpt
 
-    pars::Base.KeySet
-    shoot::Base.KeySet
-    conditions::AbstractArray
+    pars::Vector{Symbolics.SymbolicT}
+    shoot::Dict
+    conditions::Vector{Equation}
 end
 
 struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
@@ -55,13 +55,13 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
 
     printstyled(io, "\nParameters & initial conditions:"; bold = true)
     for par in prob.pars
-        par in prob.shoot && continue # skip; print these below
+        par in keys(prob.shoot) && continue # skip; print these below
         print(io, '\n', indent, par, " = ", getsym(prob, par)(prob))
     end
 
     !isempty(prob.shoot) && printstyled(io, "\nShooting initial guesses:"; bold = true)
-    for par in prob.shoot
-        print(io, '\n', indent, par, " = ", getsym(prob, par)(prob))
+    for (par, val) in prob.shoot
+        print(io, '\n', indent, par, " = ", val)
     end
 
     !isempty(prob.conditions) && printstyled(io, "\nShooting final conditions:"; bold = true)
@@ -134,7 +134,6 @@ function CosmologyProblem(
         pars = merge(pars, shoot_pars) # save full dictionary for constructor
     end
     parsk = merge(pars, Dict(k => NaN)) # k is unused, but must be set
-    shoot_pars = keys(shoot_pars)
 
     if bg
         bg = background(M)
@@ -209,7 +208,9 @@ function CosmologyProblem(
         pt = nothing
     end
 
-    return CosmologyProblem(M, bg, pt, keys(pars), shoot_pars, shoot_conditions)
+    pars = [unwrap(par) for (par, val) in pars]
+    shoot_conditions = convert(Vector{Equation}, shoot_conditions)
+    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions)
 end
 
 """
@@ -235,7 +236,7 @@ function remake(
         remove_background_initial_conditions!(vars) # must filter ICs in remake, too
     end
     pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
-    shoot_pars = shoot ? prob.shoot : keys(Dict())
+    shoot_pars = shoot ? prob.shoot : Dict()
     shoot_conditions = shoot ? prob.conditions : []
     return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions)
 end
@@ -353,7 +354,7 @@ function solve(
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
-        bgsol = solvebg(prob.bg, collect(prob.shoot), prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
     else
         bgsol = solvebg(prob.bg; verbose, bgopts..., bgextraopts..., kwargs...)
     end
@@ -409,6 +410,8 @@ end
 function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
+    guess = collect(values(vars))
+    vars = collect(keys(vars))
     conditions = map(eq -> eq.lhs - eq.rhs, conditions)
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
     getfuns = getsym(bgprob, conditions) # efficient getter
@@ -431,14 +434,13 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         return conditions
     end
 
-    guess = map(var -> getsym(bgprob, var)(bgprob), vars)
-    vars = string.(vars)
-    conditions = string.(conditions)
-    prob = NonlinearProblem(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, vars, conditions))
+    varstrs = string.(vars)
+    constrs = string.(conditions)
+    prob = NonlinearProblem(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
     if !successful_retcode(sol)
-        error("Shooting failed to converge. Last result was $(varvalstr(string.(vars), sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
+        error("Shooting failed to converge. Last result was $(varvalstr(varstrs, sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
     u0, p = setvars(bgprob, sol.u)
