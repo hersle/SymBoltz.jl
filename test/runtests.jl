@@ -522,11 +522,15 @@ end
     jl = SphericalBesselCache(20:20:3000)
     @test all(isfinite.(spectrum_cmb(:TT, prob, jl; normalization = :Dl)))
     @test all(isfinite.(spectrum_cmb(:EE, prob, jl; normalization = :Dl)))
+
+    # should error if too many refinements are needed
+    jl = SphericalBesselCache([50])
+    @test_throws "Source function refinement needs more" spectrum_cmb(:TT, prob, jl; sourceopts = (rtol = 0.0, atol = 0.0)) # needs infinite refinements
 end
 
 @testset "Toggle threading" begin
-    @test length(unique(fetch.([SymBoltz.@spawnif threadid() true for i in 1:10 ]))) > 1
-    @test only(unique(fetch.([SymBoltz.@spawnif threadid() false for i in 1:10 ]))) == 1
+    @test length(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), true), 1:10)))) > 1
+    @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
 end
 
 @testset "Sparse Jacobian" begin
@@ -653,4 +657,27 @@ end
     prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
     sol2 = solve(prob2)
     @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
+
+    # error with different number of shooting parameters and conditions
+    @test_throws "Different number of shooting" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+
+    # helpful error with stupid initial guess
+    prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
+    @test_throws "Shooting failed when solving background" solve(prob_stupid)
+end
+
+@testset "Underdetermined/overdetermined initialization" begin
+    # Underdetermined
+    M2 = flatten(M)
+    ieqs = ModelingToolkit.get_initialization_eqs(M2)
+    deleteat!(ieqs, findfirst(eq -> isequal(eq.lhs, D(M2.a)), ieqs)) # delete ℋ = 1/τ
+    @test_throws ModelingToolkit.StateSelection.ExtraVariablesSystemException CosmologyProblem(M2, pars)
+
+    # Overdetermined
+    M2 = flatten(M)
+    ieqs = ModelingToolkit.get_initialization_eqs(M2)
+    eq = ieqs[findfirst(eq -> isequal(eq.lhs, M2.Ψ), ieqs)] # IC for Ψ
+    push!(ieqs, eq.lhs ~ 2eq.rhs) # overconstrain
+    @test CosmologyProblem(M2, pars; pt = false) isa CosmologyProblem
+    @test_throws ModelingToolkit.StateSelection.ExtraEquationsSystemException CosmologyProblem(M2, pars)
 end

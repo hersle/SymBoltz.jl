@@ -7,14 +7,14 @@ function displayname(var)
 end
 
 RecipesBase.@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
+    xlabel --> (x isa AbstractArray ? "" : displayname(x))
+    ylabel --> (y isa AbstractArray ? "" : displayname(y))
     if !(y isa AbstractArray)
         y = [y]
     end
     τs = timeseries(sol; Nextra)
     xs = sol(x, τs)
     ys = sol(y, τs)
-    xlabel --> (x isa AbstractArray ? "" : displayname(x))
-    ylabel --> (y isa AbstractArray ? "" : displayname(y))
     line_z = get(plotattributes, :line_z, nothing)
     if line_z isa Num
         line_z := sol(line_z, τs)
@@ -24,48 +24,27 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
     return xs, permutedims(stack(ys))
 end
 
-RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, klabel = true)
+RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, transpose_cycle = false)
+    xlabel --> (x isa AbstractArray ? "" : displayname(x))
+    ylabel --> (y isa AbstractArray ? "" : displayname(y))
     if !(y isa AbstractArray)
         y = [y]
     end
     if !(k isa AbstractArray)
         k = [k]
     end
-
-    xlabel --> (x isa AbstractArray ? "" : displayname(x))
-    ylabel --> (y isa AbstractArray ? "" : displayname(y))
-
+    linestyles = [:solid, :dash, :dot, :dashdot, :dashdotdot]
     for iv in eachindex(y)
-        linestyle = [:solid :dash :dot :dashdot :dashdotdot][iv]
         for ik in eachindex(k)
             τs = timeseries(sol, k[ik]; Nextra)
-            color = ik
             xs = sol(x, τs, k[ik])
             ys = sol(y[iv], τs, k[ik])
             RecipesBase.@series begin
-                linestyle --> linestyle
-                color --> color
-                label := ""
-                xs, stack(ys)
+                linestyle --> (linestyles[mod1(transpose_cycle ? iv : ik, 5)])
+                color --> (transpose_cycle ? ik : iv)
+                label --> "$(displayname(y[iv])), k = $(k[ik])"
+                xs, ys
             end
-
-            # label wavenumber with dummy plot
-            if iv == 1 && klabel
-                RecipesBase.@series begin
-                    linestyle := :solid
-                    color := color
-                    label := "k = $(k[ik])"
-                    [NaN], [NaN]
-                end
-            end
-        end
-
-        # label variable with dummy plot
-        RecipesBase.@series begin
-            linestyle := linestyle
-            color := :black
-            label := displayname(y[iv])
-            [NaN], [NaN]
         end
     end
 end
