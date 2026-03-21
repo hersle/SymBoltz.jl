@@ -665,3 +665,19 @@ end
     prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
     @test_throws "Shooting failed when solving background" solve(prob_stupid)
 end
+
+@testset "Underdetermined/overdetermined initialization" begin
+    # Underdetermined
+    M2 = flatten(M)
+    ieqs = ModelingToolkit.get_initialization_eqs(M2)
+    deleteat!(ieqs, findfirst(eq -> isequal(eq.lhs, D(M2.a)), ieqs)) # delete ℋ = 1/τ
+    @test_throws ModelingToolkit.StateSelection.ExtraVariablesSystemException CosmologyProblem(M2, pars)
+
+    # Overdetermined
+    M2 = flatten(M)
+    ieqs = ModelingToolkit.get_initialization_eqs(M2)
+    eq = ieqs[findfirst(eq -> isequal(eq.lhs, M2.Ψ), ieqs)] # IC for Ψ
+    push!(ieqs, eq.lhs ~ 2eq.rhs) # overconstrain
+    @test CosmologyProblem(M2, pars; pt = false) isa CosmologyProblem
+    @test_throws ModelingToolkit.StateSelection.ExtraEquationsSystemException CosmologyProblem(M2, pars)
+end
