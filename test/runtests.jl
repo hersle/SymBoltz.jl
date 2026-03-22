@@ -663,12 +663,18 @@ end
     sol2 = solve(prob2)
     @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
 
-    # error with different number of shooting parameters and conditions
-    @test_throws "Different number of shooting" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
-
     # helpful error with stupid initial guess
     prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
     @test_throws "Shooting failed when solving background" solve(prob_stupid)
+    prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => (0.0, 0.5)), [M.g.ℋ ~ 1])
+    @test_throws "Shooting failed to converge" solve(prob_stupid)
+
+    # illegal input
+    @test_throws "Different number of shooting" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+    @test_throws "requires scalar guesses" CosmologyProblem(M, pars2, Dict(M.G.ϕ => (0.5, 1.5), M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1, M.G.G ~ 1])
+    @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
+    @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
+    @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
 end
 
 @testset "Underdetermined/overdetermined initialization" begin

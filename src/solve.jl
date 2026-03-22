@@ -130,6 +130,7 @@ function CosmologyProblem(
     bgopts = (), ptopts = (), kwargs...
 )
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
+    length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
 
     for (par, guess) in shoot_pars
         pars[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
@@ -441,7 +442,19 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         return conditions
     end
 
-    NonlinearProblemT = shootopts.alg isa AbstractBracketingAlgorithm ? IntervalNonlinearProblem : NonlinearProblem
+    if guess isa Tuple
+        if shootopts.alg isa AbstractBracketingAlgorithm
+            NonlinearProblemT = IntervalNonlinearProblem
+        else
+            error("Shooting with interval guess requires bracketing nonlinear solver")
+        end
+    else # guess isa Vector
+        if shootopts.alg isa AbstractBracketingAlgorithm
+            error("Shooting with scalar guesses requires nonbracketing nonlinear solver")
+        else
+            NonlinearProblemT = NonlinearProblem
+        end
+    end
     prob = NonlinearProblemT(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
