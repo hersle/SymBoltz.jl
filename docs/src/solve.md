@@ -88,6 +88,38 @@ plot(p1, p2, p3, layout=(3, 1), size=(600, 800))
 
 More examples are shown on the [models page](@ref "Cosmologies (full models)").
 
+## Shooting method
+
+Some problems require tuning parameters or initial conditions to satisfy constraints at a later time.
+This is handled by the shooting method, which uses a rootfinder to repeatedly solve the background for different parameters to find the values that satisfies the constraints.
+As a trivial example, we can construct a model where the continuity equation for the cosmological constant is integrated numerically and not analytically:
+```@example sol
+g = SymBoltz.metric()
+Λ = SymBoltz.cosmological_constant(g; analytical = false)
+M = ΛCDM(; g, Λ)
+equations(background(M.Λ))
+```
+We specify to shoot for $\rho_\Lambda(\tau_\text{ini})$ and give an initial guess that is used as the starting point in Newton's method.
+We also specify that the constraint $H/H₀ = 1$ (in code units) must hold today:
+```@example sol
+shoot = Dict(M.Λ.ρ => 0.0)
+conditions = [M.g.H ~ 1]
+prob = CosmologyProblem(M, pars, shoot, conditions)
+sol = solve(prob; verbose = true)
+@assert sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end] ≈ 1 # hide
+nothing # hide
+```
+You can specify any number of shooting variables and conditions, but they must be equal in number to form a well-defined rootfinding problem.
+When there is only one shooting variable, we can also use bracketing rootfinders instead of Newton's method.
+To do this, replace the scalar guess with an interval:
+```@example sol
+shoot = Dict(M.Λ.ρ => (0.0, 0.5))
+prob = CosmologyProblem(M, pars, shoot, conditions)
+sol = solve(prob; verbose = true)
+@assert sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end] ≈ 1 # hide
+nothing # hide
+```
+
 ## Solve background and perturbations directly
 
 For lower-level control, you can solve the background and perturbations separately:

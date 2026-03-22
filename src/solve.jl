@@ -118,8 +118,10 @@ Create a numerical cosmological problem from the model `M` with parameters `pars
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
 
 If `bg` and `pt`, the model is split into the background and perturbations stages.
+
 If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
+
 If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
 If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
 """
@@ -391,9 +393,10 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
+    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
+If the background requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is and an array of equations that should hold at the final integration time (usually today).
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
