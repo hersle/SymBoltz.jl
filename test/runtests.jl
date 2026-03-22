@@ -650,7 +650,12 @@ end
     prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     sol1 = solve(prob1)
     @test issuccess(sol1) && sol1[M.g.ℋ][end] ≈ 1.0 && sol1[D(M.G.ϕ)][begin] == 0.0
-    # TODO: also make work with bracketing root finder
+
+    # 1) same, but with bracketing root-finder
+    prob1_bracket = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1])
+    sol1_bracket = solve(prob1_bracket)
+    @test issuccess(sol1_bracket) && sol1_bracket[M.g.ℋ][end] ≈ 1.0 && sol1_bracket[D(M.G.ϕ)][begin] == 0.0
+    @test sol1_bracket[M.Λ.Ω₀] ≈ sol1[M.Λ.Ω₀]
 
     # 2) unspecified ΩΛ0 and ϕini
     pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
