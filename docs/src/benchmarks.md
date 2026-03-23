@@ -204,28 +204,28 @@ This plot compares the time to solve several perturbation $k$-modes with differe
 #using LinearSolve: SparspakFactorization # hide
 #using LinearSolve: MKLPardisoFactorize # hide
 ks = 10 .^ range(-2, 4, length=100)
-ptopts_dense1 = (alg = KenCarp4(linsolve = LUFactorization()), save_everystep = false)
-ptopts_dense2 = (alg = KenCarp4(linsolve = RFLUFactorization()), save_everystep = false)
-ptopts_sparse1 = (alg = KenCarp4(linsolve = KLUFactorization()), save_everystep = false)
-ptopts_sparse2 = (alg = KenCarp4(linsolve = UMFPACKFactorization()), save_everystep = false)
-ts_dense1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts_dense1) for i in 1:3) for prob in probs_dense]
-ts_dense2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts_dense2) for i in 1:3) for prob in probs_dense]
-ts_sparse1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts_sparse1) for i in 1:3) for prob in probs_sparse]
-ts_sparse2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts_sparse2) for i in 1:3) for prob in probs_sparse]
+ptopts1 = (alg = KenCarp4(linsolve = LUFactorization()), save_everystep = false)
+ptopts2 = (alg = KenCarp4(linsolve = RFLUFactorization()), save_everystep = false)
+ptopts3 = (alg = KenCarp4(linsolve = KLUFactorization()), save_everystep = false)
+ptopts4 = (alg = KenCarp4(linsolve = UMFPACKFactorization()), save_everystep = false)
+ts1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts1, verbose = true) for i in 1:3) for prob in probs_dense]
+ts2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts2, verbose = true) for i in 1:3) for prob in probs_dense]
+ts3 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts3, verbose = true) for i in 1:3) for prob in probs_sparse]
+ts4 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts4, verbose = true) for i in 1:3) for prob in probs_sparse]
 
-p1 = plot(ylabel = "time / s", xticks = (lmaxs, ""), ylims = (0.0, ceil(max(maximum(ts_dense1), maximum(ts_dense2)))))
+p1 = plot(ylabel = "time / s", xticks = (lmaxs, ""), ylims = (0.0, ceil(max(maximum(ts1), maximum(ts2), maximum(ts3), maximum(ts4)))))
 marker = :circle
-plot!(p1, lmaxs, ts_sparse1; label = "sparse $(nameof(typeof(ptopts_sparse1.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts_sparse2; label = "sparse $(nameof(typeof(ptopts_sparse2.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts_dense1; label = "dense $(nameof(typeof(ptopts_dense1.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts_dense2; label = "dense $(nameof(typeof(ptopts_dense2.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts1; label = "dense $(nameof(typeof(ptopts1.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts2; label = "dense $(nameof(typeof(ptopts2.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts3; label = "sparse $(nameof(typeof(ptopts3.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts4; label = "sparse $(nameof(typeof(ptopts4.alg.linsolve))), $(length(ks))×k", marker)
 text(prob::CosmologyProblem) = "$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse"
 annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
 
-speedups1 = [ts_dense2[i]/ts_sparse1[i] for i in eachindex(lmaxs)]
-speedups2 = [ts_dense2[i]/ts_sparse2[i] for i in eachindex(lmaxs)]
-speedups3 = [ts_dense2[i]/ts_dense1[i] for i in eachindex(lmaxs)]
-speedups4 = [ts_dense2[i]/ts_dense2[i] for i in eachindex(lmaxs)]
+speedups1 = [ts2[i]/ts1[i] for i in eachindex(lmaxs)]
+speedups2 = [ts2[i]/ts2[i] for i in eachindex(lmaxs)]
+speedups3 = [ts2[i]/ts3[i] for i in eachindex(lmaxs)]
+speedups4 = [ts2[i]/ts4[i] for i in eachindex(lmaxs)]
 ymax = Int(ceil(maximum(maximum.([speedups1, speedups2, speedups3, speedups4]))))
 ylims = (0, ymax)
 yticks = 0:1:ymax
