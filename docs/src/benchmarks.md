@@ -20,21 +20,6 @@ println("BLAS threads: ", LinearAlgebra.BLAS.get_num_threads())
 nothing # hide
 ```
 
-## Background: ODE solver
-
-This plot shows the time to solve the background using different (implicit) Rosenbrock methods with a fixed tolerance.
-
-```@example bench
-bench = BenchmarkGroup()
-bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P()]
-for alg in bgalgs
-    bgopts = (alg = alg, abstol = 1e-7, reltol = 1e-7)
-    bench[nameof(typeof(alg))] = @benchmarkable $solve($prob; bgopts = $bgopts)
-end
-results = run(bench; verbose = true)
-plot(results; size = (800, 400))
-```
-
 ## Background: precision-work diagram
 
 This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances.
@@ -42,7 +27,7 @@ Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
-# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
+# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590 # hide
 using DiffEqDevTools
 
 refalg = Rodas4P()
@@ -77,23 +62,6 @@ results = run(bench; verbose = true)
 plot(results; size = (800, 400))
 ```
 
-## Perturbations: ODE solver
-
-This plot shows the time to solve several perturbation $k$-modes using different implicit ODE solvers with fixed tolerance.
-
-```@example bench
-# TODO: test different nlsolve # hide
-# Rodas methods very slow with massive neutrinos included (they scale worse with system size)
-bench = BenchmarkGroup()
-ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, Kvaerno5, QNDF, FBDF, Rodas5P]]
-for alg in ptalgs
-    ptopts = (alg = alg, abstol = 1e-5, reltol = 1e-5)
-    bench[nameof(typeof(alg))] = @benchmarkable $solve($prob, $ks; ptopts = $ptopts)
-end
-results = run(bench; verbose = true)
-plot(results; size = (800, 400))
-```
-
 ## Perturbations: precision-work diagram
 
 This plot compares the time to solve a perturbation $k$-mode vs. accuracy of the solution using different ODE solvers and tolerances.
@@ -102,6 +70,8 @@ Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
+# TODO: test different nlsolve # hide
+ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, Kvaerno5, QNDF, FBDF, Rodas5P]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
 refalg = FBDF()
