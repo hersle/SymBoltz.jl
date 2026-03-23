@@ -35,7 +35,7 @@ bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solut
 
 abstols = 1 ./ 10 .^ (7:11)
 reltols = 1 ./ 10 .^ (7:11)
-bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P(), FBDF(), QNDF()] # FBDF/QNDF unstable for some tolerances
+bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P(), Rodas6P(), FBDF(), QNDF()] # FBDF/QNDF unstable for some tolerances
 setups = [Dict(:alg => alg) for alg in bgalgs]
 wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
 plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
@@ -71,7 +71,8 @@ The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
 # TODO: test different nlsolve # hide
-ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, Kvaerno5, QNDF, FBDF, Rodas5P]]
+# TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
+ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
 refalg = FBDF()
@@ -126,7 +127,7 @@ for (i, k) in enumerate(ks)
         τs = ptsol.t
         Δτs = diff(τs)
         τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
-        plot!(p, τs, Δτs; marker = :vline, markersize = 1.0, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c",subplot = i)
+        plot!(p, τs, Δτs; marker = :auto, markerstrokewidth = 0, markersize = 2, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c",subplot = i)
     end
 end
 p
@@ -202,7 +203,6 @@ This plot compares the time to solve several perturbation $k$-modes with differe
 #import Pardiso # hide
 #using LinearSolve: SparspakFactorization # hide
 #using LinearSolve: MKLPardisoFactorize # hide
-# hide
 ks = 10 .^ range(-2, 4, length=100)
 ptopts_dense1 = (alg = KenCarp4(linsolve = LUFactorization()), save_everystep = false)
 ptopts_dense2 = (alg = KenCarp4(linsolve = RFLUFactorization()), save_everystep = false)

@@ -134,8 +134,9 @@ In principle, models can be solved with any [OrdinaryDiffEq.jl ODE solver](https
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
 For the stiff [standard ΛCDM model](@ref "Standard ΛCDM"), we find success with these solvers (from best to worst):
 
-1. **[Rosenbrock methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/semiimplicit/Rosenbrock):** `Rodas5P`, `Rodas4P`, `Rodas5`, `Rodas4`.
-2. **[ESDIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/SDIRK):** `KenCarp4`, `KenCarp47`, `Kvaerno5`, `TRBDF2`.
-3. **[BDF methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/BDF):** `FBDF`, `QNDF`.
+1. **[Rosenbrock methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/semiimplicit/Rosenbrock/):** `Rodas5P`, `Rodas4P`, `Rodas6P`, `Rodas5`, `Rodas4`.
+2. **[ESDIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/SDIRK/):** `KenCarp4`, `KenCarp47`, `KenCarp5`, `Kvaerno5`, `TRBDF2`.
+3. **[BDF methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/BDF/):** `FBDF`, `QNDF`.
+4. **[FIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/FIRK/):** `AdaptiveRadau`, `RadauIIA5` ([currently only with dense Jacobians](https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892)).
 
 See the [solver benchmarks](@ref "Performance and benchmarks") for comparisons between them.
