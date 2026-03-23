@@ -53,10 +53,10 @@ It [can be disabled](@ref "Solving models"), for example if your application per
 
 ```@example bench
 bench = BenchmarkGroup()
-ks = 10 .^ range(-1, 4, length = 100)
+ks = 10 .^ range(-1, 4, length = 50)
 for thread in [true, false]
     label = thread ? "$(nthreads()) threads" : "1 thread"
-    bench[label] = @benchmarkable $solve($prob, $ks; thread = $thread)
+    bench[label] = @benchmarkable $solve($prob, $ks; thread = $thread) samples=5 seconds=30
 end
 results = run(bench; verbose = true)
 plot(results; size = (800, 400))
@@ -146,21 +146,21 @@ In all cases, the Jacobian is made sparse from the analytical sparsity pattern.
 
 ```@example bench
 bench = BenchmarkGroup()
-ks = 10 .^ range(-2, 4, length = 100)
+ks = 10 .^ range(-2, 4, length = 50)
 prob_jac = prob # CosmologyProblem(M, pars; jac = true, sparse = true)
 prob_nojac = CosmologyProblem(M, pars; jac = false, sparse = true)
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
 ptopts = (alg = Rodas5P(linsolve = KLUFactorization(),), save_everystep = false) # generate function for J symbolically
-bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),)
 ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = true), save_everystep = false) # compute J with forward-mode AD
-bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),) # fails with finite diff background J
 ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = false), save_everystep = false) # compute J with finite differences
-bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 results = run(bench; verbose = true)
 plot(results; size = (800, 400))
