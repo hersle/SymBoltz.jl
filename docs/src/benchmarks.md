@@ -30,7 +30,7 @@ The points on each curve correspond to a sequence of tolerances.
 # following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590 # hide
 using DiffEqDevTools
 
-refalg = Rodas4P()
+refalg = Rodas5P(linsolve = RFLUFactorization())
 bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
 abstols = 1 ./ 10 .^ (7:11)
@@ -75,13 +75,13 @@ The points on each curve correspond to a sequence of tolerances.
 ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
-refalg = FBDF()
+refalg = Rodas5P(linsolve = KLUFactorization())
 abstols = 1 ./ 10 .^ (5:9)
 reltols = 1 ./ 10 .^ (5:9)
 
 function plot_precision_work_perturbations(k; numruns = 8, print_names = true, kwargs...)
     ptprob = ptprobgen(k)
-    ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use Rodas4P which is also used in CLASS comparison)
+    ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use standard Rodas5P which is also used in CLASS comparison)
     wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2, numruns, print_names, kwargs...)
     return plot(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
 end
@@ -150,16 +150,16 @@ ks = 10 .^ range(-2, 4, length = 100)
 prob_jac = prob # CosmologyProblem(M, pars; jac = true, sparse = true)
 prob_nojac = CosmologyProblem(M, pars; jac = false, sparse = true)
 
-bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(),),)
-ptopts = (alg = KenCarp4(linsolve = KLUFactorization(),), save_everystep = false) # generate function for J symbolically
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
+ptopts = (alg = Rodas5P(linsolve = KLUFactorization(),), save_everystep = false) # generate function for J symbolically
 bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts)
 
-bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true),)
-ptopts = (alg = KenCarp4(linsolve = KLUFactorization(), autodiff = true), save_everystep = false) # compute J with forward-mode AD
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),)
+ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = true), save_everystep = false) # compute J with forward-mode AD
 bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
 
-bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true),) # fails with finite diff background J
-ptopts = (alg = KenCarp4(linsolve = KLUFactorization(), autodiff = false), save_everystep = false) # compute J with finite differences
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),) # fails with finite diff background J
+ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = false), save_everystep = false) # compute J with finite differences
 bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
 
 results = run(bench; verbose = true)
@@ -203,11 +203,11 @@ This plot compares the time to solve several perturbation $k$-modes with differe
 #import Pardiso # hide
 #using LinearSolve: SparspakFactorization # hide
 #using LinearSolve: MKLPardisoFactorize # hide
-ks = 10 .^ range(-2, 4, length=100)
-ptopts1 = (alg = KenCarp4(linsolve = LUFactorization()), save_everystep = false)
-ptopts2 = (alg = KenCarp4(linsolve = RFLUFactorization()), save_everystep = false)
-ptopts3 = (alg = KenCarp4(linsolve = KLUFactorization()), save_everystep = false)
-ptopts4 = (alg = KenCarp4(linsolve = UMFPACKFactorization()), save_everystep = false)
+ks = 10 .^ range(-2, 4, length=75)
+ptopts1 = (alg = Rodas5P(linsolve = LUFactorization()), save_everystep = false)
+ptopts2 = (alg = Rodas5P(linsolve = RFLUFactorization()), save_everystep = false)
+ptopts3 = (alg = Rodas5P(linsolve = KLUFactorization()), save_everystep = false)
+ptopts4 = (alg = Rodas5P(linsolve = UMFPACKFactorization()), save_everystep = false)
 ts1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts1, verbose = true) for i in 1:3) for prob in probs_dense]
 ts2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts2, verbose = true) for i in 1:3) for prob in probs_dense]
 ts3 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts3, verbose = true) for i in 1:3) for prob in probs_sparse]
@@ -215,10 +215,10 @@ ts4 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts4, verbose = true) for i 
 
 p1 = plot(ylabel = "time / s", xticks = (lmaxs, ""), ylims = (0.0, ceil(max(maximum(ts1), maximum(ts2), maximum(ts3), maximum(ts4)))))
 marker = :circle
-plot!(p1, lmaxs, ts1; label = "dense $(nameof(typeof(ptopts1.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts2; label = "dense $(nameof(typeof(ptopts2.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts3; label = "sparse $(nameof(typeof(ptopts3.alg.linsolve))), $(length(ks))×k", marker)
-plot!(p1, lmaxs, ts4; label = "sparse $(nameof(typeof(ptopts4.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts1; label = "$(SymBoltz.algname(ptopts1.alg)), dense $(nameof(typeof(ptopts1.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts2; label = "$(SymBoltz.algname(ptopts2.alg)), dense $(nameof(typeof(ptopts2.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts3; label = "$(SymBoltz.algname(ptopts3.alg)), sparse $(nameof(typeof(ptopts3.alg.linsolve))), $(length(ks))×k", marker)
+plot!(p1, lmaxs, ts4; label = "$(SymBoltz.algname(ptopts4.alg)), sparse $(nameof(typeof(ptopts4.alg.linsolve))), $(length(ks))×k", marker)
 text(prob::CosmologyProblem) = "$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse"
 annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
 
