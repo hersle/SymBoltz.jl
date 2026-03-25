@@ -5,7 +5,7 @@ Model setup and hardware information:
 ```@example bench
 using MKL, LinearSolve
 using SymBoltz
-using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF
+using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, OrdinaryDiffEqFIRK
 using Base.Threads, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
 M = ΛCDM()
 pars = parameters_Planck18(M)
@@ -72,7 +72,7 @@ The points on each curve correspond to a sequence of tolerances.
 ```@example bench
 # TODO: test different nlsolve # hide
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
-ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
+ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF, RadauIIA5, AdaptiveRadau]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
 refalg = Rodas5P(linsolve = KLUFactorization())
