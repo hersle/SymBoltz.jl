@@ -675,6 +675,18 @@ end
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
+
+    # detect shooting variables and constraints from System
+    M = BDΛCDM()
+    newconstraints = [M.G.G ~ 1.0, M.g.ℋ ~ 1.0]
+    newguesses = Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5)
+    append!(ModelingToolkit.get_constraints(M), newconstraints)
+    merge!(ModelingToolkit.get_guesses(M), newguesses)
+    pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0)) # TODO: do not modify in problem constructor!!!
+    prob2 = CosmologyProblem(M, pars2)
+    @test issubset(Set(keys(newguesses)), Set(keys(ModelingToolkit.get_guesses(M)))) # should not modify M
+    @test issubset(Set(newconstraints), Set(ModelingToolkit.get_constraints(M))) # should not modify M
+    @test Set(keys(pars2)) == union(Set(keys(parameters_Planck18(M))), [M.G.ω, D(M.G.ϕ)]) # CosmologyProblem should not modify input parameters
 end
 
 @testset "Underdetermined/overdetermined initialization" begin

@@ -31,7 +31,8 @@ function identity(sys::System)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
+    constraints = ModelingToolkit.get_constraints(sys)
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses, constraints, name=nameof(sys), description=get_description(sys))
 end
 
 function debugize(sys::System)
@@ -56,7 +57,8 @@ function filter_system(f::Function, sys::System)
     bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
     pars = ModelingToolkit.get_ps(sys)
-    guesses = ModelingToolkit.get_guesses(sys)
+    guesses = copy(ModelingToolkit.get_guesses(sys)) # copy; specially handled/modified by CosmologyProblem
+    constraints = copy(ModelingToolkit.get_constraints(sys)) # copy; specially handled/modified by CosmologyProblem
 
     # extract requested orders
     eqs = filter(f, eqs)
@@ -65,7 +67,7 @@ function filter_system(f::Function, sys::System)
     vars = filter(f, vars)
     pars = filter(!isinitial, pars) # remove Initial(...) # TODO: shouldn't have to touch this
 
-    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
+    return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses, constraints, name=nameof(sys), description=get_description(sys))
 end
 
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
