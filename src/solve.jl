@@ -151,6 +151,7 @@ function CosmologyProblem(
         guesses = intersect(keys(ModelingToolkit.get_guesses(bg)), union(ModelingToolkit.get_unknowns(bg), ModelingToolkit.get_ps(bg))) # only consider unknowns/parameters with guesses as shooting variables
         guesses = setdiff(guesses, keys(pars), keys(ModelingToolkit.get_initialization_eqs(bg)), keys(ModelingToolkit.get_bindings(bg))) # remove variables with initial conditions
         guesses = setdiff(guesses, find_inner_variables.(ModelingToolkit.get_initialization_eqs(bg))...) # remove variables that appear explicitly in initialization equations
+        guesses = filter!(var -> hasproperty(ModelingToolkit.get_guesses(bg)[var], :val), guesses) # only keep variables with explicit numeric guesses
         for var in guesses
             val = ModelingToolkit.get_guesses(bg)[var].val
             shoot_pars[var] = val
