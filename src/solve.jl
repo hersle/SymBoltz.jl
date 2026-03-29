@@ -131,20 +131,39 @@ function CosmologyProblem(
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), kwargs...
 )
-    length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
-    length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
-
-    for (par, guess) in shoot_pars
-        pars[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
-    end
-    parsk = merge(pars, Dict(k => NaN)) # k is unused, but must be set
+    # Do not modify user input
+    pars = copy(pars)
+    shoot_pars = copy(shoot_pars)
+    shoot_conditions = copy(shoot_conditions)
 
     if bg
+        # Append constraints defined in model to shooting conditions
         bg = background(M)
+        append!(shoot_conditions, ModelingToolkit.get_constraints(bg))
+        empty!(ModelingToolkit.get_constraints(bg)) # remove from system; not accepted by ODEProblem
+
         bg = mtkcompile(bg)
         if debug
             bg = debug_system(bg)
         end
+
+        # Heuristic to automatically determine shooting variables
+        guesses = intersect(keys(ModelingToolkit.get_guesses(bg)), union(ModelingToolkit.get_unknowns(bg), ModelingToolkit.get_ps(bg))) # only consider unknowns/parameters with guesses as shooting variables
+        guesses = setdiff(guesses, keys(pars), keys(ModelingToolkit.get_initialization_eqs(bg)), keys(ModelingToolkit.get_bindings(bg))) # remove variables with initial conditions
+        guesses = setdiff(guesses, find_inner_variables.(ModelingToolkit.get_initialization_eqs(bg))...) # remove variables that appear explicitly in initialization equations
+        for var in guesses
+            val = ModelingToolkit.get_guesses(bg)[var].val
+            shoot_pars[var] = val
+        end
+        filter!(x -> !(x[1] in guesses), ModelingToolkit.get_guesses(bg)) # remove from system; used for shooting and should not influence initialization
+
+        length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
+        length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
+
+        for (par, guess) in shoot_pars
+            pars[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
+        end
+        parsk = merge(pars, Dict(k => NaN)) # k is unused, but must be set
 
         # Set up callback for today # TODO: specify callbacks symbolically?
         iv = ModelingToolkit.get_iv(M)
@@ -191,6 +210,8 @@ function CosmologyProblem(
 
     if pt
         pt = perturbations(M)
+        empty!(ModelingToolkit.get_constraints(pt)) # remove from system; not accepted by ODEProblem
+        filter!(x -> !(x[1] in guesses), ModelingToolkit.get_guesses(pt)) # remove frmo system; used for shooting and should not influence initialization
         if spline == true
             spline = unknowns(bg.f.sys)
         end
