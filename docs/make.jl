@@ -39,5 +39,6 @@ makedocs(
 )
 deploydocs(
     repo = "github.com/hersle/SymBoltz.jl.git",
+    push_preview = true, # deploy docs for PRs at https://hersle.github.io/SymBoltz.jl/previews/PR##
     forcepush = true # don't keep gh-pages history
 )
