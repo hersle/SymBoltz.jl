@@ -134,10 +134,15 @@ function CosmologyProblem(
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
 
+    parsk = copy(pars) # don't modify user input
     for (par, guess) in shoot_pars
-        pars[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
+        parsk[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
     end
-    parsk = merge(pars, Dict(k => NaN)) # k is unused, but must be set
+
+    pt = pt && k in Set(ModelingToolkit.get_ps(M))
+    if pt
+        parsk[k] = NaN
+    end
 
     if bg
         bg = background(M)
