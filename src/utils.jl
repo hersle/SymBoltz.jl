@@ -4,6 +4,16 @@ import Base: identity, replace
 using QuadGK
 using ModelingToolkit: get_description, get_systems
 
+# Register custom shooting metadata (https://docs.sciml.ai/Symbolics/stable/manual/metadata)
+struct ShootMetadata <: Symbolics.AbstractVariableMetadata end
+Symbolics.option_to_metadata_type(::Val{:shoot}) = ShootMetadata
+getshoot(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), ShootMetadata, false)
+function shootvars(M::System)
+    shootvars = Set(filter!(getshoot, union(ModelingToolkit.get_unknowns(M), ModelingToolkit.get_ps(M))))
+    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.get_guesses(M))
+    return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
+end
+
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 

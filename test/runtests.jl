@@ -16,7 +16,7 @@ prob = CosmologyProblem(M, pars)
 prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
 
-D = Differential(M.τ)
+τ, D = SymBoltz.τ, SymBoltz.D
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -675,6 +675,21 @@ end
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
+
+    # shooting in model
+    vars = @variables a(τ) ℋ(τ)
+    pars = @parameters Ωr0 Ωm0 ΩΛ0 [shoot=true]
+    eqs = [ℋ ~ √(Ωr0/a^4 + Ωm0/a^3 + ΩΛ0) * a, D(a) ~ a*ℋ]
+    initialization_eqs = [ℋ ~ 1/τ]
+    guesses = Dict(ΩΛ0 => 0, a => τ)
+    constraints = [ℋ ~ 1]
+    @named M = System(eqs, τ, vars, pars; initialization_eqs, guesses, constraints)
+    @test Set(keys(SymBoltz.shootvars(M))) == Set(ΩΛ0)
+    pars = Dict(Ωr0 => 1e-5, Ωm0 => 0.3)
+    prob = CosmologyProblem(M, pars)
+    @test isnothing(prob.pt)
+    sol = solve(prob)
+    @test sol[ℋ][end] ≈ 1 && sol[Ωr0 + Ωm0 + ΩΛ0] ≈ 1
 end
 
 @testset "Underdetermined/overdetermined initialization" begin

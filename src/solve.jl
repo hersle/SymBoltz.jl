@@ -131,6 +131,15 @@ function CosmologyProblem(
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), kwargs...
 )
+    shoot_pars_sys = shootvars(M)
+    conditions_sys = ModelingToolkit.get_constraints(M)
+    if !isempty(shoot_pars_sys) # otherwise arbitrary eltype
+        shoot_pars = merge(shoot_pars, shootvars(M)) # read from system
+    end
+    if !isempty(conditions_sys) # otherwise arbitrary eltype
+        shoot_conditions = union(shoot_conditions, conditions_sys) # read from system
+    end
+
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
 
