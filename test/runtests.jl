@@ -659,7 +659,7 @@ end
 
     # 2) unspecified ΩΛ0 and ϕini
     pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
-    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
+    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 1-1/(1+M.G.ω/5), M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1]) # ω-dependent ϕini ≈ 0.95
     sol2 = solve(prob2)
     @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
 
@@ -681,7 +681,7 @@ end
     pars = @parameters Ωr0 Ωm0 ΩΛ0 [shoot=true]
     eqs = [ℋ ~ √(Ωr0/a^4 + Ωm0/a^3 + ΩΛ0) * a, D(a) ~ a*ℋ]
     initialization_eqs = [ℋ ~ 1/τ]
-    guesses = Dict(ΩΛ0 => 0, a => τ)
+    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => τ)
     constraints = [ℋ ~ 1]
     @named M = System(eqs, τ, vars, pars; initialization_eqs, guesses, constraints)
     @test Set(keys(SymBoltz.shootvars(M))) == Set(ΩΛ0)

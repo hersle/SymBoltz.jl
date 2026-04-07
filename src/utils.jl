@@ -55,6 +55,8 @@ function find_inner_variables(expr)
     return vars
 end
 
+issymbolic(x) = !isempty(find_inner_variables(x))
+
 isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, find_inner_variables(expr)) # functions of at most τ
 isperturbation(expr) = true # functions of at most τ, k (always yes)
 

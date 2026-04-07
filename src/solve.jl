@@ -143,9 +143,10 @@ function CosmologyProblem(
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
 
-    parsk = copy(pars) # don't modify user input
-    for (par, guess) in shoot_pars
-        parsk[par] = first(guess) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
+    if isempty(shoot_pars)
+        parsk = copy(pars) # don't modify user input
+    else
+        parsk = merge(pars, Dict(par => first(guess) for (par, guess) in shoot_pars)) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
     end
 
     pt = pt && k in Set(ModelingToolkit.get_ps(M))
@@ -435,6 +436,9 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     conditions = map(eq -> eq.lhs - eq.rhs, conditions)
     varstrs = string.(vars)
     constrs = string.(conditions)
+    if issymbolic(guess)
+        guess = bgprob[guess] # evaluate numerical values
+    end
     if length(vars) == 1 # work with scalars instead of vectors to support interval methods
         guess = only(guess)
         vars = only(vars)
