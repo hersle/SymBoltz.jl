@@ -14,6 +14,18 @@ function shootvars(M::System)
     return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
 end
 
+# merge/copy collections that are safe to mutate and are type-stable when one is empty
+function mergesafe(a, b)
+    isempty(a) && !isempty(b) && return copy(b)
+    !isempty(a) && isempty(b) && return copy(a)
+    return merge(a, b)
+end
+function unionsafe(a, b)
+    isempty(a) && !isempty(b) && return copy(b)
+    !isempty(a) && isempty(b) && return copy(a)
+    return union(a, b)
+end
+
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 

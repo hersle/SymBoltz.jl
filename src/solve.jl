@@ -133,21 +133,13 @@ function CosmologyProblem(
 )
     shoot_pars_sys = shootvars(M)
     conditions_sys = ModelingToolkit.get_constraints(M)
-    if !isempty(shoot_pars_sys) # otherwise arbitrary eltype
-        shoot_pars = merge(shoot_pars, shootvars(M)) # read from system
-    end
-    if !isempty(conditions_sys) # otherwise arbitrary eltype
-        shoot_conditions = union(shoot_conditions, conditions_sys) # read from system
-    end
+    shoot_pars = mergesafe(shoot_pars, shoot_pars_sys) # read from system
+    shoot_conditions = unionsafe(shoot_conditions, conditions_sys) # read from system
 
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
 
-    if isempty(shoot_pars)
-        parsk = copy(pars) # don't modify user input
-    else
-        parsk = merge(pars, Dict(par => first(guess) for (par, guess) in shoot_pars)) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
-    end
+    parsk = mergesafe(pars, Dict(par => first(guess) for (par, guess) in shoot_pars)) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
 
     pt = pt && k in Set(ModelingToolkit.get_ps(M))
     if pt
