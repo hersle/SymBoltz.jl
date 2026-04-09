@@ -26,6 +26,11 @@ function unionsafe(a, b)
     return union(a, b)
 end
 
+function expandeq(eqs::Vector{Equation}, var; protect = Set())
+    subs = Dict(eq.lhs => eq.rhs for eq in eqs if !(eq.lhs in protect))
+    return Symbolics.value(Symbolics.fixpoint_sub(var, subs))
+end
+
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 

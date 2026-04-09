@@ -707,3 +707,13 @@ end
     @test CosmologyProblem(M2, pars; pt = false) isa CosmologyProblem
     @test_throws ModelingToolkit.StateSelection.ExtraEquationsSystemException CosmologyProblem(M2, pars)
 end
+
+@testset "Expand" begin
+    @variables w(τ) ρ(τ) ℋ(τ)
+    eqs = [
+        D(ρ) ~ -3ℋ*(1+w)ρ
+        w ~ 1//3
+        ℋ  ~ 123
+    ]
+    @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
+end
