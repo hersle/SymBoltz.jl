@@ -16,7 +16,7 @@ prob = CosmologyProblem(M, pars)
 prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
 
-D = Differential(M.τ)
+τ, D = SymBoltz.τ, SymBoltz.D
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -659,7 +659,7 @@ end
 
     # 2) unspecified ΩΛ0 and ϕini
     pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
-    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
+    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 1-1/(1+M.G.ω/5), M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1]) # ω-dependent ϕini ≈ 0.95
     sol2 = solve(prob2)
     @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
 
@@ -675,6 +675,21 @@ end
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
+
+    # shooting in model
+    vars = @variables a(τ) ℋ(τ)
+    pars = @parameters Ωr0 Ωm0 ΩΛ0 [shoot=true]
+    eqs = [ℋ ~ √(Ωr0/a^4 + Ωm0/a^3 + ΩΛ0) * a, D(a) ~ a*ℋ]
+    initialization_eqs = [ℋ ~ 1/τ]
+    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => τ)
+    constraints = [ℋ ~ 1]
+    @named M = System(eqs, τ, vars, pars; initialization_eqs, guesses, constraints)
+    @test Set(keys(SymBoltz.shootvars(M))) == Set(ΩΛ0)
+    pars = Dict(Ωr0 => 1e-5, Ωm0 => 0.3)
+    prob = CosmologyProblem(M, pars)
+    @test isnothing(prob.pt)
+    sol = solve(prob)
+    @test sol[ℋ][end] ≈ 1 && sol[Ωr0 + Ωm0 + ΩΛ0] ≈ 1
 end
 
 @testset "Underdetermined/overdetermined initialization" begin
@@ -691,4 +706,14 @@ end
     push!(ieqs, eq.lhs ~ 2eq.rhs) # overconstrain
     @test CosmologyProblem(M2, pars; pt = false) isa CosmologyProblem
     @test_throws ModelingToolkit.StateSelection.ExtraEquationsSystemException CosmologyProblem(M2, pars)
+end
+
+@testset "Expand" begin
+    @variables w(τ) ρ(τ) ℋ(τ)
+    eqs = [
+        D(ρ) ~ -3ℋ*(1+w)ρ
+        w ~ 1//3
+        ℋ  ~ 123
+    ]
+    @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
 end

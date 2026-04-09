@@ -4,6 +4,33 @@ import Base: identity, replace
 using QuadGK
 using ModelingToolkit: get_description, get_systems
 
+# Register custom shooting metadata (https://docs.sciml.ai/Symbolics/stable/manual/metadata)
+struct ShootMetadata <: Symbolics.AbstractVariableMetadata end
+Symbolics.option_to_metadata_type(::Val{:shoot}) = ShootMetadata
+getshoot(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), ShootMetadata, false)
+function shootvars(M::System)
+    shootvars = Set(filter!(getshoot, union(ModelingToolkit.get_unknowns(M), ModelingToolkit.get_ps(M))))
+    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.get_guesses(M))
+    return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
+end
+
+# merge/copy collections that are safe to mutate and are type-stable when one is empty
+function mergesafe(a, b)
+    isempty(a) && !isempty(b) && return copy(b)
+    !isempty(a) && isempty(b) && return copy(a)
+    return merge(a, b)
+end
+function unionsafe(a, b)
+    isempty(a) && !isempty(b) && return copy(b)
+    !isempty(a) && isempty(b) && return copy(a)
+    return union(a, b)
+end
+
+function expandeq(eqs::Vector{Equation}, var; protect = Set())
+    subs = Dict(eq.lhs => eq.rhs for eq in eqs if !(eq.lhs in protect))
+    return Symbolics.value(Symbolics.fixpoint_sub(var, subs))
+end
+
 ∫(f, a, b) = quadgk(f, a, b)[1]
 ∫(f, w) = sum(w .*  f) # ≈ ∫f(x)dx over weights found from QuadGK.gauss()
 
@@ -44,6 +71,8 @@ function find_inner_variables(expr)
     SymbolicUtils.search_variables!(vars, expr; is_atomic)
     return vars
 end
+
+issymbolic(x) = !isempty(find_inner_variables(x))
 
 isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, find_inner_variables(expr)) # functions of at most τ
 isperturbation(expr) = true # functions of at most τ, k (always yes)
