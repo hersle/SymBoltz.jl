@@ -208,6 +208,15 @@ end
     @test τspans[3] == (sol.bg.t[begin], sol.bg.t[end]) # very high k; should start at same time as background
 end
 
+@testset "Background splining" begin
+    bgsol = solve(prob).bg
+    spl = SymBoltz.spline(bgsol)
+    t = range(bgsol.t[begin], bgsol.t[end], length=500)
+    u1 = stack(bgsol(t))
+    u2 = stack(spl.(t))
+    @test isapprox(u1, u2)
+end
+
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
     τs = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax

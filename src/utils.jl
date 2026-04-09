@@ -1,4 +1,4 @@
-import DataInterpolations: CubicSpline, CubicHermiteSpline
+using FastInterpolations
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
@@ -105,14 +105,13 @@ function spline(y, x)
     dx[end] == 0 && return spline(y[begin:end-1], x[begin:end-1]) # endpoints are duplicated when ODE solver ends with callback; in that case remove it
     all(diff(x) .< 0) && return spline(reverse(y), reverse(x)) # reverse if monotonically decreasing
     all(diff(x) .> 0) || error("x is not monotonically increasing")
-    return CubicSpline(y, x; extrapolation = ExtrapolationType.Linear)
+    return cubic_interp(x, y)
 end
 
 function spline(y, ẏ, x)
-    dx = diff(x)
     all(diff(x) .< 0) && return spline(reverse(y), reverse(ẏ), reverse(x)) # reverse if monotonically decreasing
     all(diff(x) .> 0) || error("x is not monotonically increasing")
-    return CubicHermiteSpline(ẏ, y, x) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
+    return hermite_interp(x, y, ẏ) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
 function spline(sol::ODESolution)
@@ -120,12 +119,12 @@ function spline(sol::ODESolution)
     Nu, _ = size(sol)
     us = map(u -> SVector{Nu}(u), sol(ts, Val{0}))
     dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}))
-    return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
+    return hermite_interp(ts, us, dus) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
 function dummyspline(N)
     nans = SVector{N}(zeros(N))
-    return CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
+    return hermite_interp([0.0, 1.0], [nans, nans], [nans, nans])
 end
 
 # https://github.com/SciML/ModelingToolkit.jl/issues/4202#issuecomment-3799583124
@@ -183,7 +182,7 @@ function mtkcompile_spline(sys::System, vars)
     # Build mapping from variables to spline parameters
     splname = :bgspline
     spldummy = dummyspline(length(vars))
-    uprototype = spldummy.u[begin]
+    uprototype = spldummy.y[begin]
     spl, = @parameters $splname::Any
 
     iv = ModelingToolkit.get_iv(sys)
