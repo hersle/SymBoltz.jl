@@ -131,6 +131,7 @@ end
 # https://github.com/SciML/ModelingToolkit.jl/issues/4202#issuecomment-3799583124
 splvalue(s::Any, t, uprototype) = s(t)
 @register_array_symbolic splvalue(s::Any, t, uprototype::AbstractArray) begin
+    ndims = 1
     size = size(uprototype)
     eltype = eltype(uprototype)
 end
