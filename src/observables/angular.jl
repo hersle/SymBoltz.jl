@@ -171,6 +171,28 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
     return los_integrate(Ss, ls, τs, ks, jl; kwargs...)
 end
 
+function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jlint::SphericalBesselIntegralCache; kw...) where {T <: Real}
+    @assert size(Ss, 1) == 1
+    Ss = @view Ss[1, :, :]
+    τ0 = τs[end]
+    reverse!(τs) # reverse, i.e. integrate back in time (jlint set up to handle increasing x)
+    reverse!(Ss, dims=1)
+    Is = similar(Ss, length(ls), length(ks))
+    xs = similar(τs)
+    for ik in eachindex(ks)
+        k = ks[ik]
+        xs .= k .* (τ0 .- τs)
+        ys = @view Ss[:, ik]
+        is = @view Is[:, ik]
+        SymBoltz.integrate(is, jlint, xs, ys)
+        is ./= k # handle change of var!
+    end
+    Is = transpose(Is)
+    reverse!(τs) # undo
+    reverse!(Ss, dims=1) # undo
+    return reshape(Is, (1, size(Is, 1), size(Is, 2)))
+end
+
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, thread = true)
@@ -209,7 +231,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::Union{SphericalBesselCache, SphericalBesselIntegralCache}; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -235,7 +257,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::Union{SphericalBesselCache, SphericalBesselIntegralCache}; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
