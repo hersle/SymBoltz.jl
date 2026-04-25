@@ -717,3 +717,37 @@ end
     ]
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
 end
+
+@testset "Filon integration" begin
+    ls = 0:100
+    jlint = SymBoltz.SphericalBesselIntegralCache(ls, 0.0, 100.0; mindx_grid = 2π/128, mindx_integral = 2π/1024, method = SymBoltz.SimpsonEven())
+
+    # Test analytical result exactly at grid points
+    I1s = jlint.I1[1, :]
+    I1s_anal = 1 .- cos.(jlint.x)
+    @test all(isapprox.(I1s, I1s_anal; atol = 1e-10))
+
+    # Test analytical result exactly between grid points (where interpolation error should be largest)
+    xmid = (jlint.x[begin:end-1] .+ jlint.x[begin+1:end]) ./ 2
+    I1s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [0.0, x])[begin], xmid)
+    I1s_anal = 1 .- cos.(xmid)
+    @test all(isapprox.(I1s, I1s_anal; atol = 1e-3))
+
+    # Test that integrals interpolate almost exactly at grid points
+    I0s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [1.0, 1.0])[begin], jlint.x[2:end])
+    I1s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [0.0, x])[begin], jlint.x[2:end])
+    @test all(isapprox.(I0s, jlint.I0[1, 2:end]; atol = 1e-15))
+    @test all(isapprox.(I1s, jlint.I1[1, 2:end]; atol = 1e-13))
+
+    # Test against finer brute-force integral
+    f = x -> SymBoltz.sphericalbesselj(0, x/10.0)
+
+    xs = range(jlint.x[begin], jlint.x[end], length = 1000)
+    ys = f.(xs) .* SymBoltz.sphericalbesselj.(transpose(ls), xs)
+    IA = SymBoltz.NumericalIntegration.integrate(xs, ys, SymBoltz.SimpsonEven())
+
+    xs = range(jlint.x[begin], jlint.x[end], length = 100)
+    ys = f.(xs)
+    IB = SymBoltz.integrate(jlint, xs, ys)
+    @test all(isapprox.(IA, IB; atol = 1e-3))
+end
