@@ -13,6 +13,7 @@ using Base.Threads
 using Setfield
 using StaticArrays
 using FastChebInterp
+using NumericalIntegration
 
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
@@ -42,6 +43,7 @@ include("models/curvature.jl")
 include("models/inflation.jl")
 include("models/cosmologies.jl")
 include("solve.jl")
+include("filon.jl")
 include("observables/distances.jl")
 include("observables/fourier.jl")
 include("observables/angular.jl")
@@ -53,7 +55,7 @@ export CosmologyProblem, CosmologySolution
 export background, perturbations, expandeq
 export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_adaptive, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_adaptive, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache, SphericalBesselIntegralCache
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
