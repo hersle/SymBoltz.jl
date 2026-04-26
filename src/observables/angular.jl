@@ -31,14 +31,15 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
 end
 
 # TODO: define chain rule like in https://github.com/JuliaDiff/ForwardDiff.jl/blob/master/src/dual.jl?
-function (jl::SphericalBesselCache)(l, x)
+@fastmath function (jl::SphericalBesselCache)(l, x)
     il = jl.i[l]
     ix₋ = 1+trunc(Int, x*jl.invdx) # faster than searchsortedfirst(jl.x, x)
     ix₊ = min(ix₋ + 1, length(jl.x))
     x₋ = jl.x[ix₋]
     y₋ = jl.y[ix₋, il]
     y₊ = jl.y[ix₊, il]
-    return y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
+    w = (x - x₋) * jl.invdx
+    return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
 end
 
 # Out-of-place spherical Bessel function variants
