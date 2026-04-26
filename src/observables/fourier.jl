@@ -223,7 +223,9 @@ Conformal times are unchanged.
 function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity, thread = true)
     size_coarse = size(Ss_coarse)
     size_fine = (size_coarse[1], size_coarse[2], length(ks_fine))
-    Ns, Nτ, _ = size(Ss_coarse)
+    Ns, Nτ, Nk = size(Ss_coarse)
+
+    Nk == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
 
     Ss_fine = similar(Ss_coarse, size_fine)
     xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
