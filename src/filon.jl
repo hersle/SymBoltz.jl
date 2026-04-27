@@ -86,12 +86,12 @@ Base.@propagate_inbounds @fastmath function (jlint::SphericalBesselIntegralCache
     return nothing
 end
 
-@fastmath function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, ys::AbstractArray)
+@fastmath function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, ys::AbstractArray, I0₋ = jlint.tmp1, I0₊ = jlint.tmp2, I1₋ = jlint.tmp3, I1₊ = jlint.tmp4; thread = false)
     xs[2] > xs[1] || error("x-domain is not strictly increasing")
     xs[begin] ≥ jlint.x[begin] || error("$(xs[begin]) is outside integral cache left bound $(jlint.x[begin])")
     xs[end] ≤ jlint.x[end] || error("$(xs[end]) is outside integral cache right bound $(jlint.x[end])")
-    I0₋, I0₊, I1₋, I1₊ = jlint.tmp1, jlint.tmp2, jlint.tmp3, jlint.tmp4 # TODO: thread-unsafe
     length(I0₋) == length(I0₊) == length(I1₋) == length(I1₊) == length(jlint.l) || error("Workspaces have wrong size")
+    thread && I0₋ === jlint.tmp1 && I0₊ === jlint.tmp2 && I1₋ === jlint.tmp3 && I1₊ === jlint.tmp4 && error("Multithreading requires task-local workspaces")
     fill!(out, zero(eltype(out)))
     i₋ = 1
     x₋ = xs[i₋]

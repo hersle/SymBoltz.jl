@@ -185,7 +185,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     return Is
 end
 
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jlint::SphericalBesselIntegralCache; kw...) where {T}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jlint::SphericalBesselIntegralCache; thread = true, kw...) where {T}
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert collect(ls) == collect(jlint.l) "ls must match the l-values stored in the Bessel integral cache"
@@ -199,12 +199,20 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     reverse!(τs) # reverse, i.e. integrate back in time (jlint set up to handle increasing x)
     reverse!(Ss, dims=1)
     Is = zeros(eltype(Ss), length(ls), length(ks))
-    for ik in eachindex(ks)
+    @localize Is @tasks for ik in eachindex(ks) # parallellize independent loop iterations
+        @set scheduler = thread ? :dynamic : :serial
+        @local begin # define task-local values (declared once for all loop iterations)
+            xs = similar(τs)
+            tmp1 = zeros(eltype(jlint.x), length(ls)) # jₗ(x) interpolation workspace (always real, unlike Ss/Is which may hold SVectors of multiple sources)
+            tmp2 = zeros(eltype(jlint.x), length(ls))
+            tmp3 = zeros(eltype(jlint.x), length(ls))
+            tmp4 = zeros(eltype(jlint.x), length(ls))
+        end
         k = ks[ik]
         xs .= k .* (τ0 .- τs)
         ys = @view Ss[:, ik]
         is = @view Is[:, ik]
-        SymBoltz.integrate(is, jlint, xs, ys)
+        SymBoltz.integrate(is, jlint, xs, ys, tmp1, tmp2, tmp3, tmp4)
         is ./= k # handle change of var!
     end
     reverse!(τs) # undo
