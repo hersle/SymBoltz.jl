@@ -3,6 +3,7 @@ using Bessels
 struct SphericalBesselIntegralCache{Tl, T <: AbstractFloat}
     l::Tl
     x::Vector{T} # uniform grid
+    w::Matrix{T} # jₗ(x) at this x-point
     I0::Matrix{T} # ∫dx jₗ(x) x⁰ cumulatively to this x-point
     I1::Matrix{T} # ∫dx jₗ(x) x¹ cumulatively to this x-point
     invdx::T # 1/dx (constant because grid is uniform)
@@ -13,7 +14,7 @@ struct SphericalBesselIntegralCache{Tl, T <: AbstractFloat}
 end
 
 # TODO: adaptively grid size from tolerance parameter? can compare to sin
-function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_integral = 2π/128, method = TrapezoidalEven())
+function SphericalBesselIntegralCache(ls, x1 = 0.0, x2 = 10*ls[end]; mindx_grid = 2π/26, mindx_integral = 2π/2048, method = SimpsonEven())
     Nx = 1 + Int(ceil((x2 - x1) / mindx_grid))
     xs = range(x1, x2, length=Nx)
     dx = step(xs)
@@ -24,6 +25,7 @@ function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_int
     T = typeof(x1)
     I0s = zeros(T, length(ls), length(xs)) # TODO: add dummy for final+1 lookup?
     I1s = zeros(T, length(ls), length(xs))
+    ws = zeros(T, length(ls), length(xs))
 
     Nsubx = 1 + Int(ceil((xs[2] - xs[1]) / mindx_integral))
     subis = zeros(T, Nsubx)
@@ -37,13 +39,14 @@ function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_int
             subis .*= subxs # jₗ(x) x¹
             I1s[il, ix+1] = I1s[il, ix] + NumericalIntegration.integrate(subxs, subis, method) # cumulative ∫ jₗ(x) x¹ dx
         end
+        ws[il, :] = sphericalbesselj.(l, xs)
     end
 
     tmp1 = zeros(T, length(ls))
     tmp2 = zeros(T, length(ls))
     tmp3 = zeros(T, length(ls))
     tmp4 = zeros(T, length(ls))
-    return SphericalBesselIntegralCache{typeof(ls), T}(ls, xs, I0s, I1s, 1.0/dx, tmp1, tmp2, tmp3, tmp4)
+    return SphericalBesselIntegralCache{typeof(ls), T}(ls, xs, ws, I0s, I1s, 1.0/dx, tmp1, tmp2, tmp3, tmp4)
 end
 
 function Base.show(io::IO, jlint::SphericalBesselIntegralCache)
@@ -54,24 +57,36 @@ function Base.show(io::IO, jlint::SphericalBesselIntegralCache)
 end
 
 # TODO: Hermite interpolation, have derivative for free: could use both (I0, w) and (I1, w*x)? https://en.wikipedia.org/wiki/Cubic_Hermite_spline
-Base.@propagate_inbounds function (jlint::SphericalBesselIntegralCache)(out0::AbstractArray{<:AbstractFloat}, out1::AbstractArray{<:AbstractFloat}, x)
+Base.@propagate_inbounds @fastmath function (jlint::SphericalBesselIntegralCache)(out0::AbstractArray{<:AbstractFloat}, out1::AbstractArray{<:AbstractFloat}, x)
     x1 = jlint.x[begin]
-    ix₋ = 1 + unsafe_trunc(Int, (x-x1)*jlint.invdx) # O(1) uniform grid lookup (corresponding to left point) # TODO: floor(Int, instead?
+    ix₋ = 1 + unsafe_trunc(Int, (x - x1) * jlint.invdx) # O(1) uniform grid lookup (corresponding to left point) # TODO: floor(Int, instead?
     ix₊ = min(ix₋ + 1, length(jlint.x))
     x₋ = jlint.x[ix₋]
-    w = (x - x₋) * jlint.invdx
-    @inbounds @fastmath #=@simd=# for il in eachindex(out0)
+    x₊ = jlint.x[ix₊]
+    dx = x₊ - x₋
+    t = (x - x₋) * jlint.invdx
+    h00 = (1 + 2t) * (1 - t)^2 # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+    h01 = t^2 * (3 - 2t)
+    h10 = t * (1 - t)^2 * dx # derivatives scaled by dx to map from x to t ∈ [0, 1]
+    h11 = t^2 * (t - 1) * dx # derivatives scaled by dx to map from x to t ∈ [0, 1]
+    @inbounds #=@simd=# for il in eachindex(out0)
+        w₋ = jlint.w[il, ix₋]
         I0₋ = jlint.I0[il, ix₋]
         I1₋ = jlint.I1[il, ix₋]
+        I0₋′ = w₋
+        I1₋′ = w₋ * x₋
+        w₊ = jlint.w[il, ix₊]
         I0₊ = jlint.I0[il, ix₊]
         I1₊ = jlint.I1[il, ix₊]
-        out0[il] = muladd(w, I0₊ - I0₋, I0₋)
-        out1[il] = muladd(w, I1₊ - I1₋, I1₋)
+        I0₊′ = w₊
+        I1₊′ = w₊ * x₊
+        out0[il] = h00 * I0₋ + h10 * I0₋′ + h01 * I0₊ + h11 * I0₊′
+        out1[il] = h00 * I1₋ + h10 * I1₋′ + h01 * I1₊ + h11 * I1₊′
     end
     return nothing
 end
 
-function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, ys::AbstractArray)
+@fastmath function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, ys::AbstractArray)
     xs[2] > xs[1] || error("x-domain is not strictly increasing")
     xs[begin] ≥ jlint.x[begin] || error("$(xs[begin]) is outside integral cache left bound $(jlint.x[begin])")
     xs[end] ≤ jlint.x[end] || error("$(xs[end]) is outside integral cache right bound $(jlint.x[end])")
@@ -82,7 +97,8 @@ function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, 
     x₋ = xs[i₋]
     y₋ = ys[i₋]
     jlint(I0₋, I1₋, x₋)
-    @inbounds @fastmath for i₊ in 2:length(xs) # TODO: write out and unroll loop to look up jlint(x) once per x and l without setindex?
+    @inbounds while i₋ < length(xs) # TODO: write out and unroll loop to look up jlint(x) once per x and l without setindex?
+        i₊ = i₋ + 1
         x₊ = xs[i₊]
         y₊ = ys[i₊]
         A = (y₊ - y₋) / (x₊ - x₋) # A in y = Ax + B
@@ -92,7 +108,7 @@ function integrate(out, jlint::SphericalBesselIntegralCache, xs::AbstractArray, 
         #=@simd=# for il in eachindex(out)
             I0 = I0₊[il] - I0₋[il] # ∫dx jₗ(x) x⁰ from x₋ to x₊
             I1 = I1₊[il] - I1₋[il] # ∫dx jₗ(x) x¹ from x₋ to x₊ # TODO: interpolate differences instead?
-            out[il] = muladd(A, I1, muladd(B, I0, out[il])) # i.e. out[il] += A*I1 + B*I0
+            out[il] += A*I1 + B*I0
         end
         I0₋, I1₋, I0₊, I1₊ = I0₊, I1₊, I0₋, I1₋ # pointer-like swap for next iteration
         i₋, x₋, y₋ = i₊, x₊, y₊ # pass to next iteration
