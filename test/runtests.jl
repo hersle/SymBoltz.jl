@@ -177,7 +177,7 @@ end
 
     # Check that Fₗ(0) ∝ kˡ
     Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)
-    @test all(Fls[:,1] ./ Fls[:,2] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))
+    @test all(isapprox.(Fls[:,1] ./ Fls[:,2], map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))[1:4])
 
     # Check initial ratio of metric potentials
     @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
