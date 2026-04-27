@@ -717,3 +717,9 @@ end
     ]
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
 end
+
+@testset "High lmax" begin
+    M = ΛCDM(lmax = 32)
+    prob = CosmologyProblem(M, pars)
+    @test issuccess(solve(prob, [1e-1, 1e0, 1e1, 1e2, 1e3]))
+end
