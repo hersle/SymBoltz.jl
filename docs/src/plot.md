@@ -38,7 +38,7 @@ Visualize the CMB source function $S₀(k,τ)$ in a 3D plot:
 ```@example plot
 using CairoMakie
 τs = range(0.05, 0.08; length=50)
-ks = range(0.0, 0.3, length=100) / u"Mpc"
+ks = range(0.0, 0.3, length=100)[2:end] / u"Mpc"
 sol = solve(prob, ks)
 
 xs = τs
@@ -46,7 +46,7 @@ ys = ks*u"Mpc"
 zs = sol(M.ST, τs, ks)
 
 fig = Figure()
-ax = Axis3(fig[1,1], azimuth = π/4, xlabel = "k/Mpc⁻¹", ylabel = "τ/H₀⁻¹", zlabel = "S₀(τ,k)")
+ax = Axis3(fig[1,1], azimuth = π/4, xlabel = "τ/H₀⁻¹", ylabel = "k/Mpc⁻¹", zlabel = "S₀(τ,k)")
 cmax = min(-minimum(filter(!isnan, zs)), maximum(filter(!isnan, zs))) # saturate both ends of color scale
 surface!(ax, xs, ys, zs; alpha = 0.9, colormap = :seismic, colorrange = (-cmax, +cmax))
 
