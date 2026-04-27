@@ -5,8 +5,6 @@ struct SphericalBesselIntegralCache{T <: AbstractFloat}
     x::Vector{T} # uniform grid
     I0::Matrix{T} # ∫dx jₗ(x) x⁰ cumulatively to this x-point
     I1::Matrix{T} # ∫dx jₗ(x) x¹ cumulatively to this x-point
-    dI0::Matrix{T} # ∫dx jₗ(x) x⁰ from this to next x-point (0 for last point)
-    dI1::Matrix{T} # ∫dx jₗ(x) x¹ from this to next x-point (0 for last point)
     invdx::T # 1/dx (constant because grid is uniform)
     tmp1::Vector{T} # temporary workspace per l
     tmp2::Vector{T} # temporary workspace per l
@@ -26,8 +24,6 @@ function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_int
     T = typeof(x1)
     I0s = zeros(T, length(ls), length(xs)) # TODO: add dummy for final+1 lookup?
     I1s = zeros(T, length(ls), length(xs))
-    dI0s = zeros(T, length(ls), length(xs))
-    dI1s = zeros(T, length(ls), length(xs))
 
     Nsubx = 1 + Int(ceil((xs[2] - xs[1]) / mindx_integral))
     subis = zeros(T, Nsubx)
@@ -37,11 +33,9 @@ function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_int
         for ix in 1:length(xs)-1
             subxs = range(xs[ix], xs[ix+1]; length = Nsubx) # fine integration grid
             subis .= sphericalbesselj.(l, subxs) # jₗ(x) x⁰
-            dI0s[il, ix] = NumericalIntegration.integrate(subxs, subis, method) # ∫ jₗ(x) x⁰ dx
+            I0s[il, ix+1] = I0s[il, ix] + NumericalIntegration.integrate(subxs, subis, method) # cumulative ∫ jₗ(x) x⁰ dx
             subis .*= subxs # jₗ(x) x¹
-            dI1s[il, ix] = NumericalIntegration.integrate(subxs, subis, method) # ∫ jₗ(x) x¹ dx
-            I0s[il, ix+1] = I0s[il, ix] + dI0s[il, ix] # cumulative
-            I1s[il, ix+1] = I1s[il, ix] + dI1s[il, ix] # cumulative
+            I1s[il, ix+1] = I1s[il, ix] + NumericalIntegration.integrate(subxs, subis, method) # cumulative ∫ jₗ(x) x¹ dx
         end
     end
 
@@ -49,7 +43,7 @@ function SphericalBesselIntegralCache(ls, x1, x2; mindx_grid = 2π/32, mindx_int
     tmp2 = zeros(T, length(ls))
     tmp3 = zeros(T, length(ls))
     tmp4 = zeros(T, length(ls))
-    return SphericalBesselIntegralCache{T}(ls, xs, I0s, I1s, dI0s, dI1s, 1.0/dx, tmp1, tmp2, tmp3, tmp4)
+    return SphericalBesselIntegralCache{T}(ls, xs, I0s, I1s, 1.0/dx, tmp1, tmp2, tmp3, tmp4)
 end
 
 function Base.show(io::IO, jlint::SphericalBesselIntegralCache)
@@ -62,18 +56,17 @@ end
 # TODO: Hermite interpolation, have derivative for free: could use both (I0, w) and (I1, w*x)? https://en.wikipedia.org/wiki/Cubic_Hermite_spline
 Base.@propagate_inbounds function (jlint::SphericalBesselIntegralCache)(out0::AbstractArray{<:AbstractFloat}, out1::AbstractArray{<:AbstractFloat}, x)
     x1 = jlint.x[begin]
-    ix = 1 + unsafe_trunc(Int, (x-x1)*jlint.invdx) # O(1) uniform grid lookup (corresponding to left point) # TODO: floor(Int, instead?
-    x₋ = jlint.x[ix]
+    ix₋ = 1 + unsafe_trunc(Int, (x-x1)*jlint.invdx) # O(1) uniform grid lookup (corresponding to left point) # TODO: floor(Int, instead?
+    ix₊ = min(ix₋ + 1, length(jlint.x))
+    x₋ = jlint.x[ix₋]
     w = (x - x₋) * jlint.invdx
-    ibase = (ix - 1) * length(jlint.l)
     @inbounds @fastmath #=@simd=# for il in eachindex(out0)
-        i = ibase + il
-        I0 = jlint.I0[i]
-        I1 = jlint.I1[i]
-        dI0 = jlint.dI0[i] # TODO: don't look up; keep stored for prev/next point in main integrate loop
-        dI1 = jlint.dI1[i]
-        out0[il] = muladd(w, dI0, I0) # TODO: avoid doing this so many times; make function that computes I(b)-I(a) instead
-        out1[il] = muladd(w, dI1, I1)
+        I0₋ = jlint.I0[il, ix₋]
+        I1₋ = jlint.I1[il, ix₋]
+        I0₊ = jlint.I0[il, ix₊]
+        I1₊ = jlint.I1[il, ix₊]
+        out0[il] = muladd(w, I0₊ - I0₋, I0₋)
+        out1[il] = muladd(w, I1₊ - I1₋, I1₋)
     end
     return nothing
 end
