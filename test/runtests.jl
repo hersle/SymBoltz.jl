@@ -750,4 +750,14 @@ end
     ys = f.(xs)
     IB = SymBoltz.integrate(jlint, xs, ys)
     @test all(isapprox.(IA, IB; atol = 1e-6))
+
+    # Multithreading / workspaces
+    tmp1 = zeros(length(jlint.l))
+    tmp2 = zeros(length(jlint.l))
+    tmp3 = zeros(length(jlint.l))
+    tmp4 = zeros(length(jlint.l))
+    @test SymBoltz.integrate(jlint, [0.0, π], [0.0, π], tmp1, tmp2, tmp3, tmp4; thread = true)[begin] ≈ 2.0
+    tmp3 = zeros(length(jlint.l)+1)
+    @test_throws "wrong size" SymBoltz.integrate(jlint, [0.0, π], [0.0, π], tmp1, tmp2, tmp3, tmp4)
+    @test_throws "requires task-local" SymBoltz.integrate(jlint, [0.0, 1.0], [0.0, 1.0]; thread = true)
 end

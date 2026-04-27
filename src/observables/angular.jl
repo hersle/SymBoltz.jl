@@ -171,20 +171,27 @@ function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::Abstract
     return los_integrate(Ss, ls, τs, ks, jl; kwargs...)
 end
 
-function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jlint::SphericalBesselIntegralCache; kw...) where {T <: Real}
+function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jlint::SphericalBesselIntegralCache; thread = true, kw...) where {T <: Real}
     @assert size(Ss, 1) == 1
     Ss = @view Ss[1, :, :]
     τ0 = τs[end]
     reverse!(τs) # reverse, i.e. integrate back in time (jlint set up to handle increasing x)
     reverse!(Ss, dims=1)
-    Is = similar(Ss, length(ls), length(ks))
-    xs = similar(τs)
-    for ik in eachindex(ks)
+    Is = zeros(eltype(Ss), length(ls), length(ks))
+    @localize Is @tasks for ik in eachindex(ks) # parallellize independent loop iterations
+        @set scheduler = thread ? :dynamic : :serial
+        @local begin # define task-local values (declared once for all loop iterations)
+            xs = similar(τs)
+            tmp1 = similar(Ss, length(ls))
+            tmp2 = similar(Ss, length(ls))
+            tmp3 = similar(Ss, length(ls))
+            tmp4 = similar(Ss, length(ls))
+        end
         k = ks[ik]
         xs .= k .* (τ0 .- τs)
         ys = @view Ss[:, ik]
         is = @view Is[:, ik]
-        SymBoltz.integrate(is, jlint, xs, ys)
+        SymBoltz.integrate(is, jlint, xs, ys, tmp1, tmp2, tmp3, tmp4)
         is ./= k # handle change of var!
     end
     Is = transpose(Is)
