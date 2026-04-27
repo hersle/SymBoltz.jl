@@ -9,7 +9,6 @@ import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
-import NumericalIntegration: cumul_integrate
 using SparseArrays
 import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 

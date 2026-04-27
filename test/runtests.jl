@@ -717,3 +717,47 @@ end
     ]
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
 end
+
+@testset "Filon integration" begin
+    ls = 0:10:1000
+    jlint = SymBoltz.SphericalBesselIntegralCache(ls, 0.0, 1000.0; mindx_grid = 2π/26, mindx_integral = 2π/2048, method = SymBoltz.SimpsonEven())
+
+    # Test analytical result exactly at grid points (depends on mindx_integral)
+    I1s = jlint.I1[1, :]
+    I1s_anal = 1 .- cos.(jlint.x)
+    @test all(isapprox.(I1s, I1s_anal; atol = 1e-10))
+
+    # Test analytical result exactly between grid points (where interpolation error should be largest)
+    xmid = (jlint.x[begin:end-1] .+ jlint.x[begin+1:end]) ./ 2
+    I1s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [0.0, x])[begin], xmid)
+    I1s_anal = 1 .- cos.(xmid)
+    @test all(isapprox.(I1s, I1s_anal; atol = 1e-5))
+
+    # Test that integrals interpolate exactly at grid points
+    I0s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [1.0, 1.0])[begin], jlint.x[2:end])
+    I1s = map(x -> SymBoltz.integrate(jlint, [0.0, x], [0.0, x])[begin], jlint.x[2:end])
+    @test all(isequal.(I0s, jlint.I0[1, 2:end]))
+    @test all(isequal.(I1s, jlint.I1[1, 2:end]))
+
+    # Test against finer brute-force integral
+    f = x -> SymBoltz.sphericalbesselj(0, x/10.0)
+
+    xs = range(jlint.x[begin], jlint.x[end], step = 2π/1024)
+    ys = f.(xs) .* SymBoltz.sphericalbesselj.(transpose(ls), xs)
+    IA = SymBoltz.NumericalIntegration.integrate(xs, ys, SymBoltz.TrapezoidalEven())
+
+    xs = range(jlint.x[begin], jlint.x[end], step = 2π/128)
+    ys = f.(xs)
+    IB = SymBoltz.integrate(jlint, xs, ys)
+    @test all(isapprox.(IA, IB; atol = 1e-6))
+
+    # Multithreading / workspaces
+    tmp1 = zeros(length(jlint.l))
+    tmp2 = zeros(length(jlint.l))
+    tmp3 = zeros(length(jlint.l))
+    tmp4 = zeros(length(jlint.l))
+    @test SymBoltz.integrate(jlint, [0.0, π], [0.0, π], tmp1, tmp2, tmp3, tmp4; thread = true)[begin] ≈ 2.0
+    tmp3 = zeros(length(jlint.l)+1)
+    @test_throws "wrong size" SymBoltz.integrate(jlint, [0.0, π], [0.0, π], tmp1, tmp2, tmp3, tmp4)
+    @test_throws "requires task-local" SymBoltz.integrate(jlint, [0.0, 1.0], [0.0, 1.0]; thread = true)
+end
