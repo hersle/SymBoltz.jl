@@ -388,7 +388,8 @@ end
 
 l = 20:2000 # CLASS default is lmax = 2500
 jl = SphericalBesselCache(PiecewiseChebyshevInterpolator((2.0, 100.0, 2000.0), (20, 80)))
-Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl, l; normalization = :Dl, kw...)
+jlint = SphericalBesselIntegralCache(PiecewiseChebyshevInterpolator((2.0, 100.0, 2000.0), (20, 80)))
+Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jlint, l; normalization = :Dl, kw...)
 
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 Dl2 = Dl(p0)
