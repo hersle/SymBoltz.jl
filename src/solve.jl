@@ -289,25 +289,22 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     ptinitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptinit))[1]))
     end
 
-    function updater(p)
-        bgprobu0, bgprobp = bgprobsetsym(bgprob, p)
-        bginitu0, bginitp = bginitsetsym(bginit, p)
-        newbgprob = remake(bgprob; u0 = bgprobu0, p = bgprobp, kwargs...)
-        newbginit = remake(bginit; u0 = bginitu0, p = bginitp, kwargs...)
-
-        if !isnothing(ptprob) && !isnothing(ptinit)
-        ptprobu0, ptprobp = ptprobsetsym(ptprob, p)
-        ptinitu0, ptinitp = ptinitsetsym(ptinit, p)
-        newptprob = remake(ptprob; u0 = ptprobu0, p = ptprobp, kwargs...)
-        newptinit = remake(ptinit; u0 = ptinitu0, p = ptinitp, kwargs...)
-        else
-        newptprob = nothing
-        newptinit = nothing
+    function updater(prob::CosmologyProblem, newp)
+        bgprob, bginit = prob.bg, prob.bginit
+        if !isnothing(bgprob) && !isnothing(bginit)
+            u0, p = bgprobsetsym(bgprob, newp); bgprob = remake(bgprob; u0, p, kwargs...)
+            u0, p = bginitsetsym(bginit, newp); bginit = remake(bginit; u0, p, kwargs...)
         end
 
-        return CosmologyProblem(prob.M, newbgprob, newptprob, newbginit, newptinit, prob.pars, prob.shoot, prob.conditions)
+        ptprob, ptinit = prob.pt, prob.ptinit
+        if !isnothing(ptprob) && !isnothing(ptinit)
+            u0, p = ptprobsetsym(ptprob, newp); ptprob = remake(ptprob; u0, p, kwargs...)
+            u0, p = ptinitsetsym(ptinit, newp); ptinit = remake(ptinit; u0, p, kwargs...)
+        end
+
+        return CosmologyProblem(prob.M, bgprob, ptprob, bginit, ptinit, prob.pars, prob.shoot, prob.conditions)
     end
-    function updater(p::Dict)
+    function updater(prob::CosmologyProblem, p::Dict)
         p = [p[var] for var in idxs]
         return updater(p)
     end

@@ -19,7 +19,7 @@ pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.YHe, M.h.m_eV, M.
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN); sparse = false) # dense Jacobian faster for AD
 
 probgen = parameter_updater(prob0, pars)
-P(k, θ) = spectrum_matter(probgen(θ), k; ptopts = (reltol = 1e-3, abstol = 1e-3))
+P(k, θ) = spectrum_matter(probgen(prob0, θ), k; ptopts = (reltol = 1e-3, abstol = 1e-3))
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad

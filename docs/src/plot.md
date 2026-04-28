@@ -98,7 +98,7 @@ function plot_interactive(prob::CosmologyProblem, xvar::SymBoltz.Num, yvar::SymB
     end
     probgen = parameter_updater(prob, [par for (par, _) in obspars])
     function xyfunc(θ)
-        prob = probgen(θ)
+        prob = probgen(prob, θ)
         sol = solve(prob)
         τ = τs(sol)
         xs = sol(xvar, τ)
@@ -135,7 +135,7 @@ obspars = [
 ]
 probgen = parameter_updater(prob, [par for (par, _) in obspars])
 function xyfunc(θ)
-    prob = probgen(θ)
+    prob = probgen(prob, θ)
     lgks = unique([-4:0.5:-3; -3:0.2:-2; -2:0.05:0]) # as few points as possible
     ks = 10 .^ lgks / u"Mpc"
     Ps = spectrum_matter(prob, ks; ptopts = (alg = SymBoltz.TRBDF2(), reltol = 1e-4, abstol = 1e-4))
