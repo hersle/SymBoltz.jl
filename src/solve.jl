@@ -379,12 +379,10 @@ function solve(
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
-    u0 = initbg(prob.bg, prob.bginit) # TODO: do inside solvebg?
-    bgprob = remake(prob.bg; u0)
     if !isempty(prob.shoot)
-        bgsol = solvebg(bgprob, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(prob.bg, prob.bginit, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
     else
-        bgsol = solvebg(bgprob; verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(prob.bg, prob.bginit; verbose, bgopts..., bgextraopts..., kwargs...)
     end
 
     if isnothing(ks) || isempty(ks)
@@ -415,37 +413,27 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
     return msg
 end
 
-function init(init::NonlinearProblem, unknowns; kwargs...)
-    sol = solve(init; kwargs...)
-    return sol[unknowns]
-end
-function initbg(bgprob::ODEProblem, bginit::NonlinearProblem)
-    # TODO: handle shooting ICs
-    return init(bginit, unknowns(bgprob.f.sys))
-end
-function initpt(ptprob::ODEProblem, ptinit::NonlinearProblem, k, bgsol::ODESolution)
-    p = ptinit.p
-    SciMLStructures.replace!(Tunable(), p, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy background parameters
-    @set! p.nonnumeric = ([spline(bgsol)],) # add background spline parameter
-    p[ModelingToolkit.parameter_index(ptinit, :k)] = k # set k value
-
-    ptinit = remake(ptinit; p)
-    return init(ptinit, unknowns(ptprob.f.sys))
-end
-
 """
     solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 If the background requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is and an array of equations that should hold at the final integration time (usually today).
 """
-function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
+
+    # 1) Get and set initial conditions
+    initsol = solve(bginit)
+    u0 = initsol[unknowns(bgprob.f.sys)]
+    bgprob = remake(bgprob; u0)
+
+    # 2) Solve ODE
     bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
 
+    # 3) Post-process
     τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
     if !isnothing(τrecidx)
         bgsol.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
@@ -515,23 +503,43 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
 end
 
 function setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Function)
-    ivspanbg = (bgsol.t[begin], bgsol.t[end])
-    newp = ptprob.p # has abstractly typed nonnumeric spline parameter
-    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
+    tspanbg = (bgsol.t[begin], bgsol.t[end])
 
-    hasspline = !isempty(ptprob.p.nonnumeric)
-    if hasspline
-        @set! newp.nonnumeric = ([spline(bgsol)],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+    probp = ptprob.p # has abstractly typed nonnumeric spline parameter
+    initp = ptinit.p
+
+    # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
+    bgp = parameter_values(bgsol)[1] # i.e. .tunable
+    size(bgp) != size(probp.tunable) && error("Incompatible size of tunable parameters in background and perturbations")
+    SciMLStructures.replace!(Tunable(), probp, canonicalize(Tunable(), bgp)[1])
+
+    if !isempty(ptprob.p.nonnumeric) # do we spline the background?
+        bgspline = spline(bgsol)
+        @set! probp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+        @set! initp.nonnumeric = ([bgspline],)
     end
 
-    kset! = ModelingToolkit.setp(ptprob, k)
+    # Getters and setters
+    ksetprob! = ModelingToolkit.setp(ptprob, :k)
+    ksetinit! = ModelingToolkit.setp(ptinit, :k)
+    getu0 = ModelingToolkit.getsym(ptinit, unknowns(ptprob.f.sys))
+
     return k -> begin
-        p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        kset!(p, k)
-        ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
-        ivspan = (ivi, ivspanbg[end])
-        u0 = initpt(ptprob, ptinit, k, bgsol)
-        newptprob = remake(ptprob; u0, p, tspan = ivspan, build_initializeprob = false) # solve for u0 # TODO: separate function?
+        tini = clamp(ptivini(k), tspanbg[begin], tspanbg[end]) # clamp to background
+        tend = tspanbg[end]
+        tspan = (tini, tend)
+
+        # 1) Get initial conditions
+        p = copy(initp)
+        ksetinit!(p, k)
+        newptinit = remake(ptinit; p, tspan)
+        ptinitsol = solve(newptinit)
+        u0 = getu0(ptinitsol)
+
+        # 2) Set up ODE with initial conditions
+        p = copy(probp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        ksetprob!(p, k)
+        newptprob = remake(ptprob; u0, p, tspan)
         return newptprob
     end
 end

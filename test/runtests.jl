@@ -22,12 +22,12 @@ prob_sparse = prob
 @testset "Solve failure warnings" begin
     Ωc0 = prob.bg.ps[M.c.Ω₀]
     prob.bg.ps[M.c.Ω₀] = NaN # bad
-    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
+    bgsol = @test_warn "Background solution failed" solvebg(prob.bg, prob.bginit)
     prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
-    bgsol = @test_nowarn solvebg(prob.bg)
+    bgsol = @test_nowarn solvebg(prob.bg, prob.bginit)
 
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN]; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0]; thread = false)
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, prob.ptinit, bgsol, [NaN]; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, prob.ptinit, bgsol, [1.0]; thread = false)
 end
 
 @testset "Solution accessing" begin
@@ -390,11 +390,11 @@ end
 end
 
 @testset "Dedicated background/perturbation solvers" begin
-    bgsol = solvebg(prob.bg) # TODO: @inferred
+    bgsol = solvebg(prob.bg, prob.bginit) # TODO: @inferred
     @test bgsol isa SymBoltz.ODESolution
 
     ks = 1.0:1.0:10.0
-    ptsol = solvept(prob.pt, bgsol, ks) # TODO: @inferred
+    ptsol = solvept(prob.pt, prob.ptinit, bgsol, ks) # TODO: @inferred
     @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
@@ -403,7 +403,7 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    Ss = solvept(prob.pt, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = solvept(prob.pt, prob.ptinit, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
     Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
