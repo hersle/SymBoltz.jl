@@ -157,7 +157,8 @@ function CosmologyProblem(
         end
 
         # Background initialization problem
-        bginit = InitializationProblem(bg, first(ivspan), parsk)
+        parsk_numeric = Dict(par => issymbolic(val) ? NaN : val for (par, val) in parsk) # TODO: prevent adding e.g. ΦBD ~ 1-1/(1+ωBD) as equation if it is a shooting guess
+        bginit = InitializationProblem(bg, first(ivspan), parsk_numeric; fully_determined)
 
         # Set up callback for today # TODO: specify callbacks symbolically?
         iv = ModelingToolkit.get_iv(M)
@@ -417,18 +418,13 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 If the background requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is and an array of equations that should hold at the final integration time (usually today).
 """
-function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
+function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
-
-    # 1) Get and set initial conditions
-    initsol = solve(bginit)
-    u0 = initsol[unknowns(bgprob.f.sys)]
-    bgprob = remake(bgprob; u0)
 
     # 2) Solve ODE
     bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
@@ -444,8 +440,14 @@ function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; alg = bgalg(bgpro
 
     return bgsol
 end
+function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; kwargs...)
+    initsol = solve(bginit)
+    u0 = initsol[unknowns(bgprob.f.sys)]
+    bgprob = remake(bgprob; u0)
+    return solvebg(bgprob; kwargs...)
+end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -461,19 +463,23 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         vars = only(vars)
         conditions = only(conditions)
     end
-    setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
+    vars = (var -> ModelingToolkit.is_parameter(bginit, var) ? var : Initial(var)).(vars) # turn time-dependent variables into Initial(...) (map fails for scalar case)
+    setinitvars = SymbolicIndexingInterface.setsym_oop(bginit, vars) # efficient setter
+    setprobvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars)
+    getics = SymbolicIndexingInterface.getsym(bginit, unknowns(bgprob.f.sys))
     getfuns = getsym(bgprob, conditions) # efficient getter
 
-    function f(vals, (oldbgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
-        # slow but "safe"
-        #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
-        #newbgprob = remake(oldbgprob; u0, p)
+    function f(vals, (oldbgprob, oldbginit, setinitvars, setprobvars, getfuns, verbose, varstrs, constrs))
+        u0, p = setinitvars(oldbginit, vals)
+        bginit = remake(oldbginit; u0, p)
 
-        # fast but "unsafe"
-        newu0, newp = setvars(oldbgprob, vals)
-        newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
+        # TODO: use DiffCache by refactoring parameter_updater into one function for bg and another for pt
+        initsol = solve(bginit)
+        u0 = getics(initsol)
+        _, p = setprobvars(oldbgprob, vals)
+        bgprob = remake(oldbgprob; u0, p)
 
-        bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
+        bgsol = solvebg(bgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, maxiters = 2000, verbose)
         !successful_retcode(bgsol) && error("Shooting failed when solving background with $(varvalstr(varstrs, vals)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
         conditions = only(getfuns(bgsol)) # get final values
         verbose && !(eltype(vals) <: ForwardDiff.Dual) && println("Shooting: ", varvalstr(varstrs, vals), " -> ", varvalstr(constrs, conditions))
@@ -493,15 +499,15 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(f, guess, (bgprob, bginit, setinitvars, setprobvars, getfuns, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
     if !successful_retcode(sol)
         error("Shooting failed to converge. Last result was $(varvalstr(varstrs, sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
-    u0, p = setvars(bgprob, sol.u)
-    bgprob = remake(bgprob; u0, p, build_initializeprob)
+    u0, p = setprobvars(bgprob, sol.u)
+    bgprob = remake(bgprob; u0, p)
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
 end
 
