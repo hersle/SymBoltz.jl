@@ -379,10 +379,12 @@ function solve(
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
+    u0 = initbg(prob.bg, prob.bginit) # TODO: do inside solvebg?
+    bgprob = remake(prob.bg; u0)
     if !isempty(prob.shoot)
-        bgsol = solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(bgprob, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
     else
-        bgsol = solvebg(prob.bg; verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(bgprob; verbose, bgopts..., bgextraopts..., kwargs...)
     end
 
     if isnothing(ks) || isempty(ks)
@@ -390,7 +392,7 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, prob.ptinit, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
@@ -411,6 +413,24 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
     end
     msg *= "\nCheck the parameters and precision settings!"
     return msg
+end
+
+function init(init::NonlinearProblem, unknowns; kwargs...)
+    sol = solve(init; kwargs...)
+    return sol[unknowns]
+end
+function initbg(bgprob::ODEProblem, bginit::NonlinearProblem)
+    # TODO: handle shooting ICs
+    return init(bginit, unknowns(bgprob.f.sys))
+end
+function initpt(ptprob::ODEProblem, ptinit::NonlinearProblem, k, bgsol::ODESolution)
+    p = ptinit.p
+    SciMLStructures.replace!(Tunable(), p, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy background parameters
+    @set! p.nonnumeric = ([spline(bgsol)],) # add background spline parameter
+    p[ModelingToolkit.parameter_index(ptinit, :k)] = k # set k value
+
+    ptinit = remake(ptinit; p)
+    return init(ptinit, unknowns(ptprob.f.sys))
 end
 
 """
@@ -494,15 +514,14 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
 end
 
-function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
+function setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Function)
     ivspanbg = (bgsol.t[begin], bgsol.t[end])
-    bgspline = spline(bgsol)
     newp = ptprob.p # has abstractly typed nonnumeric spline parameter
     SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
 
     hasspline = !isempty(ptprob.p.nonnumeric)
     if hasspline
-        @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+        @set! newp.nonnumeric = ([spline(bgsol)],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
     end
 
     kset! = ModelingToolkit.setp(ptprob, k)
@@ -511,14 +530,12 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
         kset!(p, k)
         ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
         ivspan = (ivi, ivspanbg[end])
-        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
-        if hasspline # need to do this to get solving with splined background type-stable
-            newptprob = remake(newptprob; u0 = newptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        end
+        u0 = initpt(ptprob, ptinit, k, bgsol)
+        newptprob = remake(ptprob; u0, p, tspan = ivspan, build_initializeprob = false) # solve for u0 # TODO: separate function?
         return newptprob
     end
 end
-setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, bgsol, k -> ptivini)
+setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, ptinit, bgsol, k -> ptivini)
 
 """
     solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
@@ -528,7 +545,7 @@ If `thread` and Julia is running with multiple threads, the solution of independ
 `ptivini` is a number or a function of ``k`` that sets the initial time of integration for each perturbation mode, but is always clamped to the background timespan.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -541,7 +558,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
     end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprobgen = setuppt(ptprob, bgsol, ptivini)
+    ptprobgen = setuppt(ptprob, ptinit, bgsol, ptivini)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)

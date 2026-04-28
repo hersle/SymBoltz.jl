@@ -73,7 +73,7 @@ The points on each curve correspond to a sequence of tolerances.
 # TODO: test different nlsolve # hide
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
 ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
-ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
+ptprobgen = SymBoltz.setuppt(prob.pt, prob.ptinit, bgsol)
 setups = [Dict(:alg => alg) for alg in ptalgs]
 refalg = Rodas5P(linsolve = KLUFactorization())
 abstols = 1 ./ 10 .^ (5:9)
