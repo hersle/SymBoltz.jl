@@ -16,11 +16,14 @@ import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
-struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
+struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tbginit <: NonlinearProblem, Tptinit <: Union{NonlinearProblem, Nothing}}
     M::System
 
     bg::Tbg
     pt::Tpt
+
+    bginit::Tbginit
+    ptinit::Tptinit
 
     pars::Vector{Symbolics.SymbolicT}
     shoot::Dict
@@ -153,6 +156,9 @@ function CosmologyProblem(
             bg = debug_system(bg)
         end
 
+        # Background initialization problem
+        bginit = InitializationProblem(bg, first(ivspan), parsk)
+
         # Set up callback for today # TODO: specify callbacks symbolically?
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
@@ -192,8 +198,10 @@ function CosmologyProblem(
         )
 
         bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
+        bg = remake(bg; u0 = fill(NaN, length(bg.u0)), build_initializeprob = Val{false})
     else
         bg = nothing
+        bginit = nothing
     end
 
     if pt
@@ -211,17 +219,23 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
+
+        # Perturbations initialization problem
+        ptinit = InitializationProblem(pt, first(ivspan), parsk)
+
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
         @set! pt.f.sys.tearing_state = ts # restore
+        pt = remake(pt; u0 = fill(NaN, length(pt.u0)), build_initializeprob = Val{false})
     else
+        ptinit = nothing
         pt = nothing
     end
 
     pars = [unwrap(par) for (par, val) in pars]
     shoot_conditions = convert(Vector{Equation}, shoot_conditions)
-    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions)
+    return CosmologyProblem(M, bg, pt, bginit, ptinit, pars, shoot_pars, shoot_conditions)
 end
 
 """
