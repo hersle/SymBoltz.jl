@@ -272,32 +272,40 @@ The returned function is called with numerical values (in the same order as `idx
 """
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
-    # TODO: remove M, etc. for efficiency?
+    bgprob = prob.bg
+    ptprob = prob.pt
+    bginit = prob.bginit
+    ptinit = prob.ptinit
 
-    @unpack bg, pt = prob
+    bgprobsetsym = SymbolicIndexingInterface.setsym_oop(bgprob, idxs)
+    bginitsetsym = SymbolicIndexingInterface.setsym_oop(bginit, idxs)
+    bgprobdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bgprob))[1]))
+    bginitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bginit))[1]))
 
-    bgsetsym = SymbolicIndexingInterface.setsym_oop(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
-    bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
-
-    if !isnothing(pt)
-        ptsetsym = setsym_oop(pt, idxs)
-        ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
+    if !isnothing(ptprob) && !isnothing(ptinit)
+    ptprobsetsym = SymbolicIndexingInterface.setsym_oop(ptprob, idxs)
+    ptinitsetsym = SymbolicIndexingInterface.setsym_oop(ptinit, idxs)
+    ptprobdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptprob))[1]))
+    ptinitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptinit))[1]))
     end
 
     function updater(p)
-        # Update background problem
-        newu0, newp = bgsetsym(bg, p) # set new parameters
-        bg_new = remake(bg; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
+        bgprobu0, bgprobp = bgprobsetsym(bgprob, p)
+        bginitu0, bginitp = bginitsetsym(bginit, p)
+        newbgprob = remake(bgprob; u0 = bgprobu0, p = bgprobp, kwargs...)
+        newbginit = remake(bginit; u0 = bginitu0, p = bginitp, kwargs...)
 
-        # Update perturbation problem
-        if isnothing(pt)
-            pt_new = pt
+        if !isnothing(ptprob) && !isnothing(ptinit)
+        ptprobu0, ptprobp = ptprobsetsym(ptprob, p)
+        ptinitu0, ptinitp = ptinitsetsym(ptinit, p)
+        newptprob = remake(ptprob; u0 = ptprobu0, p = ptprobp, kwargs...)
+        newptinit = remake(ptinit; u0 = ptinitu0, p = ptinitp, kwargs...)
         else
-            newu0, newp = ptsetsym(pt, p)
-            pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
+        newptprob = nothing
+        newptinit = nothing
         end
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions)
+        return CosmologyProblem(prob.M, newbgprob, newptprob, newbginit, newptinit, prob.pars, prob.shoot, prob.conditions)
     end
     function updater(p::Dict)
         p = [p[var] for var in idxs]
