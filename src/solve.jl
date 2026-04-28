@@ -253,18 +253,16 @@ function remake(
     bg = true, pt = true, shoot = true,
     kwargs...
 )
-    vars, pars = split_vars_pars(prob.M, pars)
-    vars = isempty(vars) ? missing : vars
-    pars = isempty(pars) ? missing : pars
-    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.bg.f.initialization_data)}, kwargs...) : nothing
-    if !ismissing(vars)
-        remove_background_initial_conditions!(vars) # must filter ICs in remake, too
-    end
-    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
+    u0, p = split_vars_pars(prob.M, pars)
+    bg     = isnothing(prob.bg)     ? nothing : remake(prob.bg;     p, kwargs...)
+    bginit = isnothing(prob.bginit) ? nothing : remake(prob.bginit; p, kwargs...)
+    pt     = isnothing(prob.pt)     ? nothing : remake(prob.pt;     p, kwargs...)
+    ptinit = isnothing(prob.ptinit) ? nothing : remake(prob.ptinit; p, kwargs...)
     shoot_pars = shoot ? prob.shoot : Dict()
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions)
+    return CosmologyProblem(prob.M, bg, pt, bginit, ptinit, prob.pars, shoot_pars, shoot_conditions)
 end
+remake(prob::CosmologyProblem, pars::AbstractArray; kwargs...) = remake(prob, Dict(pars); kwargs...)
 
 """
     parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
