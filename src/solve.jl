@@ -265,12 +265,12 @@ end
 remake(prob::CosmologyProblem, pars::AbstractArray; kwargs...) = remake(prob, Dict(pars); kwargs...)
 
 """
-    parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+    parameter_updater(prob::CosmologyProblem, idxs)
 
 Create and return a function that updates the symbolic parameters `idxs` of the cosmological problem `prob`.
 The returned function is called with numerical values (in the same order as `idxs`) and returns a new problem with the updated parameters.
 """
-function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+function parameter_updater(prob::CosmologyProblem, idxs)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
     bgprob = prob.bg
     ptprob = prob.pt
@@ -289,7 +289,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     ptinitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptinit))[1]))
     end
 
-    function updater(prob::CosmologyProblem, newp)
+    function updater(prob::CosmologyProblem, newp; kwargs...)
         bgprob, bginit = prob.bg, prob.bginit
         if !isnothing(bgprob) && !isnothing(bginit)
             u0, p = bgprobsetsym(bgprob, newp); bgprob = remake(bgprob; u0, p, kwargs...)
