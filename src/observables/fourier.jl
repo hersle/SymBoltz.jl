@@ -384,3 +384,29 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     bgsol = solvebg(prob.bg; bgopts...)
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
+
+# TODO: weight interpolation by τ
+Base.@propagate_inbounds function source_grid_downsample_refine(is, Ss, τs, i1, i2, Sint; kwargs...)
+    i = trunc(Int, (i1+i2)/2)
+    if i ≠ i1
+        w = (τs[i] - τs[i1]) / (τs[i2] - τs[i1]) # ∈ [0, 1]; interpolation point may not be exactly halfway
+        Sint .= Ss[:, i1, :] .+ w .* (Ss[:, i2, :] .- Ss[:, i1, :])
+        S = @view Ss[:, i, :]
+        if !isapprox(S, Sint; kwargs...)
+            source_grid_downsample_refine(is, Ss, τs, i1, i, Sint; kwargs...) # refine left half-interval
+            source_grid_downsample_refine(is, Ss, τs, i, i2, Sint; kwargs...) # refine right half-interval
+            return
+        end
+    end
+    push!(is, i1) # don't refine; reached end of refinement; add left point to list
+end
+
+@inbounds function source_grid_downsample(Ss, τs; tol = 1e-3, atol = tol, rtol = tol)
+    i1 = 1
+    i2 = length(τs)
+    is = sizehint!(Int[], i2)
+    Sint = similar(Ss, (size(Ss, 1), size(Ss, 3))) # workspace for interpolated values
+    source_grid_downsample_refine(is, Ss, τs, i1, i2, Sint; atol, rtol)
+    push!(is, i2) # add rightmost point
+    return Ss[:, is, :], τs[is]
+end
