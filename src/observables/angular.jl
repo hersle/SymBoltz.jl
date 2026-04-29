@@ -18,6 +18,7 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
+    xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
 
     is = zeros(Int, maximum(ls))
     ys = zeros(Float64, (length(xs), length(ls)))
@@ -26,7 +27,6 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
         ys[:, i] .= jl.(l, xs)
     end
 
-    xs = collect(xs)
     return SphericalBesselCache{typeof(xs)}(ls, is, ys, invdx, xs)
 end
 
@@ -34,7 +34,7 @@ end
 @fastmath function (jl::SphericalBesselCache)(l, x)
     il = jl.i[l]
     ix₋ = 1+trunc(Int, x*jl.invdx) # faster than searchsortedfirst(jl.x, x)
-    ix₊ = min(ix₋ + 1, length(jl.x))
+    ix₊ = ix₋ + 1
     x₋ = jl.x[ix₋]
     y₋ = jl.y[ix₋, il]
     y₊ = jl.y[ix₊, il]
