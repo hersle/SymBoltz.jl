@@ -137,18 +137,24 @@ function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::Abstrac
                     end
                 end
             else
-                prevs .= .0 # jl = 0 when χ = 0
-                _Is .= 0.0
-                for iτ in length(τs)-1:-1:1
+                χ = χs[1] # set up first point
+                _jl = jl(l, k*χ)
+                @inbounds @simd for iS in 1:NS
+                    prevs[iS]  = Ss[iS, 1, ik] * _jl
+                    _Is[iS] = 0.0
+                end
+                for iτ in 2:length(τs)
                     χ = χs[iτ]
-                    _jl = jl(l, k*χ)
-                    halfdτ = halfdτs[iτ]
+                    kχ = k * χ
+                    _jl = jl(l, kχ)
+                    halfdτ = halfdτs[iτ-1]
                     @inbounds @simd for iS in 1:NS
                         prev = prevs[iS]
                         curr = Ss[iS, iτ, ik] * _jl
                         _Is[iS] += halfdτ * (curr + prev)
                         prevs[iS] = curr
                     end
+                    kχ < l && isapprox(_jl, 0.0; atol = 1e-20) && break # time cut approximation
                 end
             end
             for iS in 1:NS
