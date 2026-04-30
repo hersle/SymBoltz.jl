@@ -116,7 +116,7 @@ function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::Abstrac
         @inbounds begin
         l = ls[il]
         verbose && print("\rLOS integrating with l = $l")
-        for ik in eachindex(ks)
+        for ik in reverse(eachindex(ks))
             k = ks[ik]
             if l ≥ l_limber
                 χ = (l+1/2) / k
@@ -160,6 +160,7 @@ function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::Abstrac
             for iS in 1:NS
                 Is[iS, ik, il] = _Is[iS]
             end
+            maximum(abs.(_Is)) < 1e-20 && break # multipole cut approximation
         end
         end
     end
