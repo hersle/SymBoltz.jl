@@ -118,10 +118,10 @@ is used for `l ≥ l_limber`.
                 χ = (l+1/2) / k
                 if χ ≤ χs[1] # otherwise χ > χini > χrec and source function is definitely zero
                     # interpolate between two closest points in saved array
-                    iχ₋ = searchsortedfirst(χs, χ; rev = true)
-                    iχ₊ = iχ₋ - 1
-                    χ₋, χ₊ = χs[iχ₋], χs[iχ₊] # now χ₋ < χ < χ₊
-                    S₋, S₊ = Ss[iχ₋, ik], Ss[iχ₊, ik]
+                    i₋ = searchsortedfirst(τs, τ0 - χ)
+                    i₊ = i₋ - 1 # χ is sorted in descending order
+                    χ₋, χ₊ = χs[i₋], χs[i₊] # now χ₋ < χ < χ₊
+                    S₋, S₊ = Ss[i₋, ik], Ss[i₊, ik]
                     S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
                     I = √(π/(2l+1)) * S / k
                 end
