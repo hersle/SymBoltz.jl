@@ -441,9 +441,7 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
     return bgsol
 end
 function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; kwargs...)
-    initsol = solve(bginit)
-    u0 = initsol[unknowns(bgprob.f.sys)]
-    bgprob = remake(bgprob; u0)
+    bgprob = setupbg(bgprob, bginit)
     return solvebg(bgprob; kwargs...)
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
@@ -509,6 +507,12 @@ function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem, vars, conditions;
     u0, p = setprobvars(bgprob, sol.u)
     bgprob = remake(bgprob; u0, p)
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
+end
+
+function setupbg(bgprob::ODEProblem, bginit::NonlinearProblem)
+    initsol = solve(bginit)
+    u0 = initsol[unknowns(bgprob.f.sys)]
+    return remake(bgprob; u0)
 end
 
 function setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Function)

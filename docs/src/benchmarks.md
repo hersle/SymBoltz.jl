@@ -31,13 +31,14 @@ The points on each curve correspond to a sequence of tolerances.
 using DiffEqDevTools
 
 refalg = Rodas5P(linsolve = RFLUFactorization())
-bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+bgprob = SymBoltz.setupbg(prob.bg, prob.bginit)
+bgsol = solve(bgprob, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
 abstols = 1 ./ 10 .^ (7:11)
 reltols = 1 ./ 10 .^ (7:11)
 bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P(), Rodas6P(), FBDF(), QNDF()] # FBDF/QNDF unstable for some tolerances
 setups = [Dict(:alg => alg) for alg in bgalgs]
-wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
+wp = WorkPrecisionSet(bgprob, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
 plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
 ```
 
