@@ -390,7 +390,7 @@ Base.@propagate_inbounds function source_grid_downsample_refine(is, Ss, τs, i1,
     i = trunc(Int, (i1+i2)/2)
     if i ≠ i1
         w = (τs[i] - τs[i1]) / (τs[i2] - τs[i1]) # ∈ [0, 1]; interpolation point may not be exactly halfway
-        Sint .= Ss[:, i1, :] .+ w .* (Ss[:, i2, :] .- Ss[:, i1, :])
+        @. Sint = Ss[:, i1, :] + w * (Ss[:, i2, :] - Ss[:, i1, :])
         S = @view Ss[:, i, :]
         if !isapprox(S, Sint; kwargs...)
             source_grid_downsample_refine(is, Ss, τs, i1, i, Sint; kwargs...) # refine left half-interval
