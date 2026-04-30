@@ -214,16 +214,16 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = t
 end
 
 """
-    source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity, thread = true)
+    source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
 Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wavenumber grid `ks_coarse` to a fine grid `ks_fine`.
 The interpolation is linear in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``.
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = identity, thread = true)
+function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
     size_coarse = size(Ss_coarse)
-    size_fine = (size_coarse[1], size_coarse[2], length(ks_fine))
-    Ns, Nτ, Nk = size(Ss_coarse)
+    size_fine = (size_coarse[1], length(ks_fine))
+    Nτ, Nk = size(Ss_coarse)
 
     Nk == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
 
@@ -232,10 +232,8 @@ function source_grid(Ss_coarse::AbstractArray, ks_coarse, ks_fine; ktransform = 
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
         @set scheduler = thread ? :dynamic : :static
-        for iS in 1:Ns
-            interp = LinearInterpolation(@view(Ss_coarse[iS, iτ, :]), xs_coarse)
-            Ss_fine[iS, iτ, :] .= interp.(xs_fine)
-        end
+        interp = LinearInterpolation(@view(Ss_coarse[iτ, :]), xs_coarse)
+        Ss_fine[iτ, :] .= interp.(xs_fine)
     end
     return Ss_fine
 end
@@ -390,8 +388,8 @@ Base.@propagate_inbounds function source_grid_downsample_refine(is, Ss, τs, i1,
     i = trunc(Int, (i1+i2)/2)
     if i ≠ i1
         w = (τs[i] - τs[i1]) / (τs[i2] - τs[i1]) # ∈ [0, 1]; interpolation point may not be exactly halfway
-        @. Sint = Ss[:, i1, :] + w * (Ss[:, i2, :] - Ss[:, i1, :])
-        S = @view Ss[:, i, :]
+        @. Sint = Ss[i1, :] + w * (Ss[i2, :] - Ss[i1, :])
+        S = @view Ss[i, :]
         if !isapprox(S, Sint; kwargs...)
             source_grid_downsample_refine(is, Ss, τs, i1, i, Sint; kwargs...) # refine left half-interval
             source_grid_downsample_refine(is, Ss, τs, i, i2, Sint; kwargs...) # refine right half-interval
@@ -401,12 +399,12 @@ Base.@propagate_inbounds function source_grid_downsample_refine(is, Ss, τs, i1,
     push!(is, i1) # don't refine; reached end of refinement; add left point to list
 end
 
-@inbounds function source_grid_downsample(Ss, τs; tol = 1e-3, atol = tol, rtol = tol)
+@inbounds function source_grid_downsample(Ss::AbstractMatrix{<:Real}, τs; tol = 1e-3, atol = tol, rtol = tol)
     i1 = 1
     i2 = length(τs)
     is = sizehint!(Int[], i2)
-    Sint = similar(Ss, (size(Ss, 1), size(Ss, 3))) # workspace for interpolated values
+    Sint = similar(Ss, size(Ss, 2)) # workspace for interpolated values
     source_grid_downsample_refine(is, Ss, τs, i1, i2, Sint; atol, rtol)
     push!(is, i2) # add rightmost point
-    return Ss[:, is, :], τs[is]
+    return Ss[is, :], τs[is]
 end
