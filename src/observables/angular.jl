@@ -6,32 +6,35 @@ using ForwardDiff
 using ForwardDiffChainRules
 import ChainRulesCore
 
-struct SphericalBesselCache{Tx}
+struct SphericalBesselCache{Tdy <: Union{Matrix{Float64}, Nothing}}
     l::Vector{Int}
     i::Vector{Int}
     y::Matrix{Float64}
+    dy::Tdy
+    dx::Float64
     invdx::Float64
-    x::Tx
+    x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48)
+function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/15, hermite = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
 
     is = zeros(Int, maximum(ls))
-    ys = zeros(Float64, (length(xs), length(ls)))
     for (i, l) in enumerate(ls)
         is[l] = i
-        ys[:, i] .= jl.(l, xs)
     end
 
-    return SphericalBesselCache{typeof(xs)}(ls, is, ys, invdx, xs)
+    ys = jl.(ls', xs)
+    dys = hermite ? jl′.(ls', xs) : nothing
+
+    return SphericalBesselCache{typeof(dys)}(ls, is, ys, dys, dx, invdx, xs)
 end
 
 # TODO: define chain rule like in https://github.com/JuliaDiff/ForwardDiff.jl/blob/master/src/dual.jl?
-Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache)(l, x)
+Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Nothing})(l, x)
     il = jl.i[l]
     w = x * jl.invdx # 0-based float index (assume x0 = 0)
     i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
@@ -39,6 +42,19 @@ Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache)(l, x)
     y₋ = jl.y[i+1, il] # +1 for 1-based indexing
     y₊ = jl.y[i+2, il]
     return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
+end
+
+Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Matrix{Float64}})(l, x)
+    il = jl.i[l]
+    w = x * jl.invdx
+    i = trunc(Int, w)
+    w = w - i
+    wm1 = w - 1.0
+    y₋ = jl.y[i+1, il]
+    y₊ = jl.y[i+2, il]
+    dy₋ = jl.dy[i+1, il]
+    dy₊ = jl.dy[i+2, il]
+    return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
 end
 
 # Out-of-place spherical Bessel function variants
