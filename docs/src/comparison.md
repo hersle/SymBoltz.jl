@@ -417,19 +417,19 @@ Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars)
 plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 4e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 8e-15)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 4], Dl2[:, 4], "l", "Dₗ(ψψ)"; tol = 5e-13)
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 4], "l", "Dₗ(ψψ)"; tol = 4e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 3e-13)
+plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 5e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 3e-15)
+plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 5e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]

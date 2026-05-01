@@ -18,6 +18,7 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
+    xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
 
     is = zeros(Int, maximum(ls))
     ys = zeros(Float64, (length(xs), length(ls)))
@@ -26,19 +27,17 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/48
         ys[:, i] .= jl.(l, xs)
     end
 
-    xs = collect(xs)
     return SphericalBesselCache{typeof(xs)}(ls, is, ys, invdx, xs)
 end
 
 # TODO: define chain rule like in https://github.com/JuliaDiff/ForwardDiff.jl/blob/master/src/dual.jl?
-@fastmath function (jl::SphericalBesselCache)(l, x)
+Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache)(l, x)
     il = jl.i[l]
-    ix₋ = 1+trunc(Int, x*jl.invdx) # faster than searchsortedfirst(jl.x, x)
-    ix₊ = min(ix₋ + 1, length(jl.x))
-    x₋ = jl.x[ix₋]
-    y₋ = jl.y[ix₋, il]
-    y₊ = jl.y[ix₊, il]
-    w = (x - x₋) * jl.invdx
+    w = x * jl.invdx # 0-based float index (assume x0 = 0)
+    i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
+    w = w - i # remainder ∈ [0, 1]
+    y₋ = jl.y[i+1, il] # +1 for 1-based indexing
+    y₊ = jl.y[i+2, il]
     return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
 end
 
@@ -79,83 +78,68 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
 Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
-The element `Ss[i,j,k]` holds the source function value ``Sᵢ(kⱼ, τₖ)``.
+The element `Ss[i,j]` holds the source function value ``S(τᵢ, kⱼ)``.
 The limber approximation
 ```math
-Iₗ ≈ √(π/(2l+1)) S(k,τ₀-(l+1/2)/k)
+Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractArray{T, 3}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
+@fastmath function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
-    @assert size(Ss, 2) == length(τs) "size(Ss, 2) = $(size(Ss, 2)) and length(τs) = $(length(τs)) differ"
-    @assert size(Ss, 3) == length(ks) "size(Ss, 3) = $(size(Ss, 3)) and length(ks) = $(length(ks)) differ"
+    @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
+    @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
-    χs = τs[end] .- τs
+    τ0 = τs[end]
+    χs = τ0 .- τs
     halfdτs = 0.5 .* (τs[begin+1:end] .- τs[begin:end-1]) # precompute before loops
-    NS = size(Ss, 1)
-    Is = zeros(eltype(Ss), NS, length(ks), length(ls))
+    Is = zeros(T, length(ks), length(ls))
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
     # TODO: skip and set jl to zero if l ≳ kτ0 or another cutoff?
-    @tasks for il in eachindex(ls) # parallellize independent loop iterations
+    @inbounds @tasks for il in eachindex(ls) # parallellize independent loop iterations
         @set scheduler = thread ? :dynamic : :serial
-        @local begin # define task-local values (declared once for all loop iterations)
-            prevs = similar(Ss, NS)
-            _Is = similar(Ss, NS)
-        end
-        @inbounds begin
         l = ls[il]
         verbose && print("\rLOS integrating with l = $l")
-        for ik in eachindex(ks)
+        for ik in reverse(eachindex(ks))
             k = ks[ik]
+            I = 0.0
             if l ≥ l_limber
                 χ = (l+1/2) / k
-                if χ > χs[1]
-                    # χ > χini > χrec, so source function is definitely zero
-                    for iS in 1:NS
-                        _Is[iS] = 0.0
-                    end
-                else
+                if χ ≤ χs[1] # otherwise χ > χini > χrec and source function is definitely zero
                     # interpolate between two closest points in saved array
-                    iχ₋ = searchsortedfirst(χs, χ; rev = true)
-                    iχ₊ = iχ₋ - 1
-                    χ₋, χ₊ = χs[iχ₋], χs[iχ₊] # now χ₋ < χ < χ₊
-                    @inbounds @simd for iS in 1:NS
-                        S₋, S₊ = Ss[iS, iχ₋, ik], Ss[iS, iχ₊, ik]
-                        S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
-                        _Is[iS] = √(π/(2l+1)) * S / k
-                    end
+                    i₋ = searchsortedfirst(τs, τ0 - χ)
+                    i₊ = i₋ - 1 # χ is sorted in descending order
+                    χ₋, χ₊ = χs[i₋], χs[i₊] # now χ₋ < χ < χ₊
+                    S₋, S₊ = Ss[i₋, ik], Ss[i₊, ik]
+                    S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                    I = √(π/(2l+1)) * S / k
                 end
             else
-                prevs .= .0 # jl = 0 when χ = 0
-                _Is .= 0.0
-                for iτ in length(τs)-1:-1:1
-                    χ = χs[iτ]
-                    _jl = jl(l, k*χ)
-                    halfdτ = halfdτs[iτ]
-                    @inbounds @simd for iS in 1:NS
-                        prev = prevs[iS]
-                        curr = Ss[iS, iτ, ik] * _jl
-                        _Is[iS] += halfdτ * (curr + prev)
-                        prevs[iS] = curr
-                    end
+                prev = Ss[1, ik] * jl(l, k*χs[1]) # set up first point
+                for iτ in 2:length(τs)
+                    kχ = k * χs[iτ]
+                    halfdτ = halfdτs[iτ-1]
+                    _jl = jl(l, kχ)
+                    curr = Ss[iτ, ik] * _jl
+                    dI = halfdτ * (curr + prev)
+                    I += dI
+                    kχ < l && abs(_jl) < 1e-20 && break # time cut approximation
+                    prev = curr
                 end
             end
-            for iS in 1:NS
-                Is[iS, ik, il] = _Is[iS]
-            end
-        end
+            Is[ik, il] = I
+            k*τ0 < l && abs(I) < 1e-20 && break # multipole cut approximation
         end
     end
     verbose && println()
@@ -209,7 +193,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), downsampleopts = (Ttol = 4e-3, Etol = 3e-4, ψtol = 1e-3), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -235,7 +219,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 50, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), downsampleopts = (Ttol = 4e-3, Etol = 3e-4, ψtol = 1e-3), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
@@ -255,24 +239,28 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
     Ss = [prob.M.ST, prob.M.SE_kχ², prob.M.Sψ]
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
-    ks_coarse, Ss_coarse = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
+    ks_coarse, Ss = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
 
-    # Interpolate source function to finer k-grid
-    Ss_fine = source_grid(Ss_coarse, ks_coarse, ks_fine; thread)
-    χs = τs[end] .- τs
-    Ss_fine[2, :, :] ./= (ks_fine' .* χs) .^ 2
-    Ss_fine[:, end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
-
-    Θls = zeros(eltype(Ss_fine), max(iT, iE, iψ), length(ks_fine), length(ls))
-    iTE = max(iT, iE)
-    if iTE > 0
-        Θls[1:iTE, :, :] .= los_integrate(@view(Ss_fine[1:iTE, :, :]), ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+    Θls = zeros(eltype(Ss), max(iT, iE, iψ), length(ks_fine), length(ls))
+    if iT > 0
+        STs, τTs = source_grid_downsample(Ss[1, :, :], τs; tol = downsampleopts.Ttol) # downsample in τ
+        verbose && println("Downsampled T source function from ", length(τs), " to ", length(τTs), " time points")
+        STs = source_grid(STs, ks_coarse, ks_fine; thread) # upsample in k
+        Θls[iT, :, :] .= los_integrate(STs, ls, τTs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iE > 0
-        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+        SEs, τEs = source_grid_downsample(Ss[2, :, :], τs; tol = downsampleopts.Etol) # downsample in τ
+        verbose && println("Downsampled E source function from ", length(τs), " to ", length(τEs), " time points")
+        @. SEs ./= (ks_coarse' * (τ0-τEs))^2
+        SEs[end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
+        SEs = source_grid(SEs, ks_coarse, ks_fine; thread) # upsample in k
+        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τEs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iψ > 0
-        Θls[iψ:iψ, :, :] .= los_integrate(@view(Ss_fine[3:3, :, :]), ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
+        Sψs, τψs = source_grid_downsample(Ss[3, :, :], τs; tol = downsampleopts.ψtol) # downsample in τ
+        verbose && println("Downsampled ψ source function from ", length(τs), " to ", length(τψs), " time points")
+        Sψs = source_grid(Sψs, ks_coarse, ks_fine; thread) # upsample in k
+        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τψs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
@@ -292,7 +280,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         error("Unknown CMB power spectrum mode $mode")
     end
 
-    spectra = zeros(eltype(Ss_fine[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
+    spectra = zeros(eltype(Ss[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
         mode = String(mode)
         iA = geti(Symbol(mode[firstindex(mode)]))
