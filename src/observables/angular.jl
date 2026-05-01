@@ -57,6 +57,14 @@ Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Matrix{Flo
     return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
 end
 
+function Base.show(io::IO, jl::SphericalBesselCache{T}) where {T}
+    method = T == Nothing ? "linear" : "Hermite"
+    print(io, "jₗ(x) $method interpolation cache ")
+    print(io, "for $(jl.l[begin]) ≤ l ≤ $(jl.l[end]) and ")
+    print(io, "$(jl.x[begin]) ≤ x ≤ $(jl.x[end]) ")
+    print(io, "($(Base.format_bytes(Base.summarysize(jl))))\n")
+end
+
 # Out-of-place spherical Bessel function variants
 jl(l, x) = sphericalbesselj(l, x) # for l ≥ 0, from Bessels.jl
 jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analytical relation
