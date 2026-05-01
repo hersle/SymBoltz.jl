@@ -16,11 +16,14 @@ import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
-struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
+struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}, Tbginit <: NonlinearProblem, Tptinit <: Union{NonlinearProblem, Nothing}}
     M::System
 
     bg::Tbg
     pt::Tpt
+
+    bginit::Tbginit
+    ptinit::Tptinit
 
     pars::Vector{Symbolics.SymbolicT}
     shoot::Dict
@@ -153,6 +156,10 @@ function CosmologyProblem(
             bg = debug_system(bg)
         end
 
+        # Background initialization problem
+        parsk_numeric = Dict(par => issymbolic(val) ? NaN : val for (par, val) in parsk) # TODO: prevent adding e.g. ΦBD ~ 1-1/(1+ωBD) as equation if it is a shooting guess
+        bginit = InitializationProblem(bg, first(ivspan), parsk_numeric; fully_determined)
+
         # Set up callback for today # TODO: specify callbacks symbolically?
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
@@ -192,8 +199,10 @@ function CosmologyProblem(
         )
 
         bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
+        bg = remake(bg; u0 = fill(NaN, length(bg.u0)), build_initializeprob = Val{false})
     else
         bg = nothing
+        bginit = nothing
     end
 
     if pt
@@ -211,17 +220,23 @@ function CosmologyProblem(
         if debug
             pt = debug_system(pt)
         end
+
+        # Perturbations initialization problem
+        ptinit = InitializationProblem(pt, first(ivspan), parsk)
+
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
         @set! pt.f.sys.tearing_state = ts # restore
+        pt = remake(pt; u0 = fill(NaN, length(pt.u0)), build_initializeprob = Val{false})
     else
+        ptinit = nothing
         pt = nothing
     end
 
     pars = [unwrap(par) for (par, val) in pars]
     shoot_conditions = convert(Vector{Equation}, shoot_conditions)
-    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions)
+    return CosmologyProblem(M, bg, pt, bginit, ptinit, pars, shoot_pars, shoot_conditions)
 end
 
 """
@@ -239,55 +254,58 @@ function remake(
     bg = true, pt = true, shoot = true,
     kwargs...
 )
-    vars, pars = split_vars_pars(prob.M, pars)
-    vars = isempty(vars) ? missing : vars
-    pars = isempty(pars) ? missing : pars
-    bg = bg && !isnothing(prob.bg) ? remake(prob.bg; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.bg.f.initialization_data)}, kwargs...) : nothing
-    if !ismissing(vars)
-        remove_background_initial_conditions!(vars) # must filter ICs in remake, too
-    end
-    pt = pt && !isnothing(prob.pt) ? remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...) : nothing
+    u0, p = split_vars_pars(prob.M, pars)
+    bg     = isnothing(prob.bg)     ? nothing : remake(prob.bg;     p, kwargs...)
+    bginit = isnothing(prob.bginit) ? nothing : remake(prob.bginit; p, kwargs...)
+    pt     = isnothing(prob.pt)     ? nothing : remake(prob.pt;     p, kwargs...)
+    ptinit = isnothing(prob.ptinit) ? nothing : remake(prob.ptinit; p, kwargs...)
     shoot_pars = shoot ? prob.shoot : Dict()
     shoot_conditions = shoot ? prob.conditions : []
-    return CosmologyProblem(prob.M, bg, pt, prob.pars, shoot_pars, shoot_conditions)
+    return CosmologyProblem(prob.M, bg, pt, bginit, ptinit, prob.pars, shoot_pars, shoot_conditions)
 end
+remake(prob::CosmologyProblem, pars::AbstractArray; kwargs...) = remake(prob, Dict(pars); kwargs...)
 
 """
-    parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+    parameter_updater(prob::CosmologyProblem, idxs)
 
 Create and return a function that updates the symbolic parameters `idxs` of the cosmological problem `prob`.
 The returned function is called with numerical values (in the same order as `idxs`) and returns a new problem with the updated parameters.
 """
-function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+function parameter_updater(prob::CosmologyProblem, idxs)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
-    # TODO: remove M, etc. for efficiency?
+    bgprob = prob.bg
+    ptprob = prob.pt
+    bginit = prob.bginit
+    ptinit = prob.ptinit
 
-    @unpack bg, pt = prob
+    bgprobsetsym = SymbolicIndexingInterface.setsym_oop(bgprob, idxs)
+    bginitsetsym = SymbolicIndexingInterface.setsym_oop(bginit, idxs)
+    bgprobdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bgprob))[1]))
+    bginitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bginit))[1]))
 
-    bgsetsym = SymbolicIndexingInterface.setsym_oop(bg, idxs) # TODO: define setsym(::CosmologyProblem)?
-    bgdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(bg))[1]))
-
-    if !isnothing(pt)
-        ptsetsym = setsym_oop(pt, idxs)
-        ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
+    if !isnothing(ptprob) && !isnothing(ptinit)
+    ptprobsetsym = SymbolicIndexingInterface.setsym_oop(ptprob, idxs)
+    ptinitsetsym = SymbolicIndexingInterface.setsym_oop(ptinit, idxs)
+    ptprobdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptprob))[1]))
+    ptinitdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(ptinit))[1]))
     end
 
-    function updater(p)
-        # Update background problem
-        newu0, newp = bgsetsym(bg, p) # set new parameters
-        bg_new = remake(bg; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
-
-        # Update perturbation problem
-        if isnothing(pt)
-            pt_new = pt
-        else
-            newu0, newp = ptsetsym(pt, p)
-            pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
+    function updater(prob::CosmologyProblem, newp; kwargs...)
+        bgprob, bginit = prob.bg, prob.bginit
+        if !isnothing(bgprob) && !isnothing(bginit)
+            u0, p = bgprobsetsym(bgprob, newp); bgprob = remake(bgprob; u0, p, kwargs...)
+            u0, p = bginitsetsym(bginit, newp); bginit = remake(bginit; u0, p, kwargs...)
         end
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions)
+        ptprob, ptinit = prob.pt, prob.ptinit
+        if !isnothing(ptprob) && !isnothing(ptinit)
+            u0, p = ptprobsetsym(ptprob, newp); ptprob = remake(ptprob; u0, p, kwargs...)
+            u0, p = ptinitsetsym(ptinit, newp); ptinit = remake(ptinit; u0, p, kwargs...)
+        end
+
+        return CosmologyProblem(prob.M, bgprob, ptprob, bginit, ptinit, prob.pars, prob.shoot, prob.conditions)
     end
-    function updater(p::Dict)
+    function updater(prob::CosmologyProblem, p::Dict)
         p = [p[var] for var in idxs]
         return updater(p)
     end
@@ -366,9 +384,9 @@ function solve(
     thread = true, verbose = false, kwargs...
 )
     if !isempty(prob.shoot)
-        bgsol = solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(prob.bg, prob.bginit, prob.shoot, prob.conditions; shootopts, verbose, bgopts..., bgextraopts..., kwargs...)
     else
-        bgsol = solvebg(prob.bg; verbose, bgopts..., bgextraopts..., kwargs...)
+        bgsol = solvebg(prob.bg, prob.bginit; verbose, bgopts..., bgextraopts..., kwargs...)
     end
 
     if isnothing(ks) || isempty(ks)
@@ -376,7 +394,7 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, prob.ptinit, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
@@ -400,18 +418,21 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 If the background requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is and an array of equations that should hold at the final integration time (usually today).
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
+
+    # 2) Solve ODE
     bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
 
+    # 3) Post-process
     τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
     if !isnothing(τrecidx)
         bgsol.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
@@ -419,8 +440,12 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
 
     return bgsol
 end
+function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem; kwargs...)
+    bgprob = setupbg(bgprob, bginit)
+    return solvebg(bgprob; kwargs...)
+end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, bginit::NonlinearProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -436,19 +461,23 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         vars = only(vars)
         conditions = only(conditions)
     end
-    setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
+    vars = (var -> ModelingToolkit.is_parameter(bginit, var) ? var : Initial(var)).(vars) # turn time-dependent variables into Initial(...) (map fails for scalar case)
+    setinitvars = SymbolicIndexingInterface.setsym_oop(bginit, vars) # efficient setter
+    setprobvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars)
+    getics = SymbolicIndexingInterface.getsym(bginit, unknowns(bgprob.f.sys))
     getfuns = getsym(bgprob, conditions) # efficient getter
 
-    function f(vals, (oldbgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
-        # slow but "safe"
-        #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
-        #newbgprob = remake(oldbgprob; u0, p)
+    function f(vals, (oldbgprob, oldbginit, setinitvars, setprobvars, getfuns, verbose, varstrs, constrs))
+        u0, p = setinitvars(oldbginit, vals)
+        bginit = remake(oldbginit; u0, p)
 
-        # fast but "unsafe"
-        newu0, newp = setvars(oldbgprob, vals)
-        newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
+        # TODO: use DiffCache by refactoring parameter_updater into one function for bg and another for pt
+        initsol = solve(bginit)
+        u0 = getics(initsol)
+        _, p = setprobvars(oldbgprob, vals)
+        bgprob = remake(oldbgprob; u0, p)
 
-        bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
+        bgsol = solvebg(bgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, maxiters = 2000, verbose)
         !successful_retcode(bgsol) && error("Shooting failed when solving background with $(varvalstr(varstrs, vals)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
         conditions = only(getfuns(bgsol)) # get final values
         verbose && !(eltype(vals) <: ForwardDiff.Dual) && println("Shooting: ", varvalstr(varstrs, vals), " -> ", varvalstr(constrs, conditions))
@@ -468,43 +497,66 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(f, guess, (bgprob, bginit, setinitvars, setprobvars, getfuns, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
     if !successful_retcode(sol)
         error("Shooting failed to converge. Last result was $(varvalstr(varstrs, sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
-    u0, p = setvars(bgprob, sol.u)
-    bgprob = remake(bgprob; u0, p, build_initializeprob)
+    u0, p = setprobvars(bgprob, sol.u)
+    bgprob = remake(bgprob; u0, p)
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
 end
 
-function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
-    ivspanbg = (bgsol.t[begin], bgsol.t[end])
-    bgspline = spline(bgsol)
-    newp = ptprob.p # has abstractly typed nonnumeric spline parameter
-    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
+function setupbg(bgprob::ODEProblem, bginit::NonlinearProblem)
+    initsol = solve(bginit)
+    u0 = initsol[unknowns(bgprob.f.sys)]
+    return remake(bgprob; u0)
+end
 
-    hasspline = !isempty(ptprob.p.nonnumeric)
-    if hasspline
-        @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+function setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Function)
+    tspanbg = (bgsol.t[begin], bgsol.t[end])
+
+    probp = ptprob.p # has abstractly typed nonnumeric spline parameter
+    initp = ptinit.p
+
+    # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
+    bgp = parameter_values(bgsol)[1] # i.e. .tunable
+    size(bgp) != size(probp.tunable) && error("Incompatible size of tunable parameters in background and perturbations")
+    SciMLStructures.replace!(Tunable(), probp, canonicalize(Tunable(), bgp)[1])
+
+    if !isempty(ptprob.p.nonnumeric) # do we spline the background?
+        bgspline = spline(bgsol)
+        @set! probp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+        @set! initp.nonnumeric = ([bgspline],)
     end
 
-    kset! = ModelingToolkit.setp(ptprob, k)
+    # Getters and setters
+    ksetprob! = ModelingToolkit.setp(ptprob, :k)
+    ksetinit! = ModelingToolkit.setp(ptinit, :k)
+    getu0 = ModelingToolkit.getsym(ptinit, unknowns(ptprob.f.sys))
+
     return k -> begin
-        p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        kset!(p, k)
-        ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
-        ivspan = (ivi, ivspanbg[end])
-        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
-        if hasspline # need to do this to get solving with splined background type-stable
-            newptprob = remake(newptprob; u0 = newptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        end
+        tini = clamp(ptivini(k), tspanbg[begin], tspanbg[end]) # clamp to background
+        tend = tspanbg[end]
+        tspan = (tini, tend)
+
+        # 1) Get initial conditions
+        p = copy(initp)
+        ksetinit!(p, k)
+        newptinit = remake(ptinit; p, tspan)
+        ptinitsol = solve(newptinit)
+        u0 = getu0(ptinitsol)
+
+        # 2) Set up ODE with initial conditions
+        p = copy(probp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
+        ksetprob!(p, k)
+        newptprob = remake(ptprob; u0, p, tspan)
         return newptprob
     end
 end
-setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, bgsol, k -> ptivini)
+setuppt(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, ptinit, bgsol, k -> ptivini)
 
 """
     solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
@@ -514,7 +566,7 @@ If `thread` and Julia is running with multiple threads, the solution of independ
 `ptivini` is a number or a function of ``k`` that sets the initial time of integration for each perturbation mode, but is always clamped to the background timespan.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, ptinit::NonlinearProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
     !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
@@ -527,7 +579,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
     end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprobgen = setuppt(ptprob, bgsol, ptivini)
+    ptprobgen = setuppt(ptprob, ptinit, bgsol, ptivini)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)

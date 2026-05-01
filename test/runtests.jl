@@ -22,12 +22,12 @@ prob_sparse = prob
 @testset "Solve failure warnings" begin
     Ωc0 = prob.bg.ps[M.c.Ω₀]
     prob.bg.ps[M.c.Ω₀] = NaN # bad
-    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
+    bgsol = @test_warn "Background solution failed" solvebg(prob.bg, prob.bginit)
     prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
-    bgsol = @test_nowarn solvebg(prob.bg)
+    bgsol = @test_nowarn solvebg(prob.bg, prob.bginit)
 
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN]; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0]; thread = false)
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, prob.ptinit, bgsol, [NaN]; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, prob.ptinit, bgsol, [1.0]; thread = false)
 end
 
 @testset "Solution accessing" begin
@@ -297,7 +297,7 @@ end
     probgen = parameter_updater(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
-        prob′ = probgen(θ)
+        prob′ = probgen(prob, θ)
         P = spectrum_matter(prob′, k)
         return log.(P / u"Mpc^3")
     end
@@ -327,7 +327,7 @@ end
     probgen = parameter_updater(prob, diffpars)
     function logDlTT(logθ)
         θ = exp.(logθ)
-        prob′ = probgen(θ)
+        prob′ = probgen(prob, θ)
         DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
         return log.(DlTT)
     end
@@ -359,7 +359,7 @@ end
     @test all(isnan.(getter(prob0)))
 
     probgen = parameter_updater(prob0, M.γ.T₀)
-    prob1 = probgen(2.73)
+    prob1 = probgen(prob0, 2.73)
     vals = getter(prob1)
     @test vals[1] == 2.73
     @test isfinite(vals[2])
@@ -370,7 +370,7 @@ end
 @testset "Parameter updater and remake" begin
     probgen = parameter_updater(prob, [M.c.Ω₀])
 
-    newprob = probgen([0.3])
+    newprob = probgen(prob, [0.3])
     @test newprob.bg.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
     @test newprob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] ≈ 1.0
 
@@ -379,7 +379,7 @@ end
     @test all(map(SymBoltz.successful_retcode, sol.pts))
 
     function Pk(Ωc0)
-        newprob = probgen([Ωc0])
+        newprob = probgen(prob, [Ωc0])
         return spectrum_matter(newprob, ks)
     end
     isnonzero(x) = isfinite(x) && !iszero(x)
@@ -390,11 +390,11 @@ end
 end
 
 @testset "Dedicated background/perturbation solvers" begin
-    bgsol = solvebg(prob.bg) # TODO: @inferred
+    bgsol = solvebg(prob.bg, prob.bginit) # TODO: @inferred
     @test bgsol isa SymBoltz.ODESolution
 
     ks = 1.0:1.0:10.0
-    ptsol = solvept(prob.pt, bgsol, ks) # TODO: @inferred
+    ptsol = solvept(prob.pt, prob.ptinit, bgsol, ks) # TODO: @inferred
     @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
@@ -403,7 +403,7 @@ end
     τ0 = bgsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    Ss = solvept(prob.pt, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = solvept(prob.pt, prob.ptinit, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
     Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
@@ -442,7 +442,7 @@ end
     diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = parameter_updater(prob, diffpars)
     getτ0 = SymBoltz.getsym(prob, M.τ0)
-    τ0(θ) = getτ0(solve(probgen(θ)))
+    τ0(θ) = getτ0(solve(probgen(prob, θ)))
     θ0 = [pars[par] for par in diffpars]
     dτ0_ad = ForwardDiff.gradient(τ0, θ0)
     dτ0_fd = FiniteDiff.finite_difference_gradient(τ0, θ0)
@@ -479,7 +479,7 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
         println("Solving for wavenumbers ", ks)
     end
     for sample in eachcol(samples)
-        prob = probgen(sample)
+        prob = probgen(prob0, sample)
         sol = solve(prob, ks; kwargs...)
         if issuccess(sol)
             nsuccess += 1

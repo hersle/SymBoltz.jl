@@ -25,16 +25,15 @@ function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; b
     pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
     as = @. 1 / (zs + 1)
     prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
-    probgen = parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
+    probgen = parameter_updater(prob, pars_varying)
 
     geta = getsym(prob, M.g.a)
     getτ = getsym(prob, M.τ)
     geth = getsym(prob, M.g.h)
     getΩk0 = getsym(prob, M.K.Ω₀)
 
-    return p -> begin
-        prob = probgen(p)
-        sol = solve(prob; bgopts, saveat = as, save_end = true)
+    return (p) -> begin
+        sol = solve(probgen(prob, p); bgopts, saveat = as, save_end = true)
         a = geta(sol)
         τ = getτ(sol)
         h = geth(sol)
