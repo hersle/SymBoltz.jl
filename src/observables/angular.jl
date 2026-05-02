@@ -205,7 +205,8 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
         @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlA * ΘlB
-        Cls[il] = integrate(ks_with0, dCl_dks_with0; integrator) # integrate over k (_with0 adds one additional point at (0,0))
+        spline = CubicSpline(dCl_dks_with0, ks_with0)
+        Cls[il] = DataInterpolations.integral(spline, ks_with0[begin], ks_with0[end]) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     if normalization == :Cl
@@ -330,8 +331,11 @@ function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Spheric
     extrema(jl.l) == extrema(ls) || error("jl.l and ls have different extrema $(extrema(jl.l)) != $(ls)")
     spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
+    T = eltype(spectra_coarse)
+    ls_coarse = T.(jl.l)
+    ls = T.(ls)
     for imode in eachindex(modes)
-        spectra_fine[:,imode] = QuadraticSpline(spectra_coarse[:,imode], jl.l)(ls)
+        spectra_fine[:,imode] = CubicSpline(spectra_coarse[:,imode], ls_coarse)(ls)
     end
     return spectra_fine
 end
