@@ -402,19 +402,26 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
 
-function source_grid_chebyshev(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol; order = 10, f = identity, f⁻¹ = identity, verbose = false, thread = true)
-    klims = extrema(ks)
-    flims = f.(klims)
-    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
-    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; thread, verbose)
-
+function source_grid_chebyshev(Ss_chebyshev::Matrix{SVector{N, T}}, ks::AbstractVector, klims::NTuple{2, <:Number}; f = identity, thread = true) where {N, T}
     fks = f.(ks)
-    Ss = similar(Ss_chebyshev, (length(τs), length(fks)))
-    @fastmath @inbounds @tasks for i in eachindex(τs)
+    flims = f.(klims)
+    Ss = similar(Ss_chebyshev, (size(Ss_chebyshev, 1), length(fks)))
+    @fastmath @inbounds @tasks for i in axes(Ss, 1)
         @set scheduler = thread ? :dynamic : :static
-        c = chebinterp(@view(Ss_chebyshev[1, i, :]), flims[1], flims[2])
+        c = chebinterp(Ss_chebyshev[i, :], flims[1], flims[2])
         Ss[i, :] .= c.(fks)
     end
-
-    return τs, ks, Ss
+    return stack(Ss) # back to 3D array # TODO: make 2D-SVector-friendly LOS integration?
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs::AbstractVector, klims::NTuple{2, <:Number}, bgsol::ODESolution; order = 10, f = identity, f⁻¹ = identity, kwargs...) where {N}
+    flims = f.(klims)
+    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
+    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; kwargs...)
+    return Ss_chebyshev, τs, ks_chebyshev
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::SVector, τs::AbstractVector, ks::AbstractVector, bgsol::ODESolution; f = identity, thread = true, kwargs...)
+    klims = extrema(ks)
+    Ss, _, _ = source_grid_chebyshev(prob, Ss, τs, klims, bgsol::ODESolution; thread, f, kwargs...) # Chebyshev grid
+    Ss = source_grid_chebyshev(Ss, ks, klims; thread, f) # interpolate
+    return Ss, τs, ks
 end
