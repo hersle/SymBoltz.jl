@@ -98,6 +98,8 @@ is used for `l ≥ l_limber`.
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
+    @assert τs[2] > τs[1] "τs must be sorted in ascending order"
+    @assert ks[2] > ks[1] "ks must be sorted in ascending order"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     τ0 = τs[end]
     χs = τ0 .- τs
