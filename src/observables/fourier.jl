@@ -411,3 +411,24 @@ end
     push!(is, i2) # add rightmost point
     return Ss[is, :], τs[is]
 end
+
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol; order = 10, f = identity, f⁻¹ = identity, verbose = false, thread = true)
+    klims = extrema(ks)
+    flims = f.(klims)
+    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
+    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; thread, verbose)
+
+    fks = f.(ks)
+    Ss = similar(Ss_chebyshev, (length(τs), length(fks)))
+    @tasks for i in eachindex(τs)
+        @set scheduler = thread ? :dynamic : :static
+        c = chebinterp(@view(Ss_chebyshev[1, i, :]), flims[1], flims[2])
+        Ss[i, :] .= c.(fks)
+    end
+
+    return τs, ks, Ss
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::AbstractVector, ks, bgsol; kwargs...)
+    τs = bgsol.t
+    return source_grid_chebyshev(prob, Ss, τs, ks, bgsol; kwargs...)
+end
