@@ -427,23 +427,25 @@ end
     return Ss[is, :], τs[is]
 end
 
-function source_grid_chebyshev(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol; order = 10, f = identity, f⁻¹ = identity, verbose = false, thread = true)
-    klims = extrema(ks)
-    flims = f.(klims)
-    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
-    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; thread, verbose)
-
+function source_grid_chebyshev(Ss_chebyshev::Matrix{SVector{N, T}}, τs, ks; f = identity, thread = true) where {N, T}
     fks = f.(ks)
-    Ss = similar(Ss_chebyshev, (length(τs), length(fks)))
+    flims = extrema(fks)
+    Ss = similar(Ss_chebyshev, (size(Ss_chebyshev, 1), length(fks)))
     @tasks for i in eachindex(τs)
         @set scheduler = thread ? :dynamic : :static
-        c = chebinterp(@view(Ss_chebyshev[1, i, :]), flims[1], flims[2])
+        c = chebinterp(Ss_chebyshev[i, :], flims[1], flims[2])
         Ss[i, :] .= c.(fks)
     end
-
+    return stack(Ss) # back to 3D array # TODO: make 2D-SVector-friendly LOS integration?
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs, ks, bgsol; order = 10, f = identity, f⁻¹ = identity, verbose = false, thread = true) where {N}
+    flims = f.(extrema(ks))
+    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
+    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; thread, verbose)
+    Ss = source_grid_chebyshev(Ss_chebyshev, τs, ks; f, thread)
     return τs, ks, Ss
 end
-function source_grid_chebyshev(prob::CosmologyProblem, Ss::AbstractVector, ks, bgsol; kwargs...)
-    τs = bgsol.t
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, ks, bgsol; kwargs...)
+    τs = bgsol.t[begin:end-1] # TODO: remove final point to avoid NaN today
     return source_grid_chebyshev(prob, Ss, τs, ks, bgsol; kwargs...)
 end
