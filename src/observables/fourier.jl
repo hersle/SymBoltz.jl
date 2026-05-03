@@ -239,14 +239,13 @@ function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktra
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
+function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks, bgsol; ptopts = (), thread = true, verbose = false)
     getSs = map(S -> getsym(prob.pt, S), Ss)
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
@@ -254,6 +253,25 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
         for iS in eachindex(getSs)
             Ss[iS, :, ik] .= getSs[iS](sol)
         end
+        return nothing
+    end
+    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
+    return Ss
+end
+function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts..., verbose)
+    return source_grid(prob, Ss, τs, ks, bgsol; verbose, kwargs...)
+end
+
+function source_grid(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs, ks, bgsol = nothing; bgopts = (), ptopts = (), thread = true, verbose = false) where {N}
+    if isnothing(bgsol)
+        bgsol = solvebg(prob.bg; bgopts..., verbose)
+    end
+    getSs = getsym(prob.pt, Ss)
+    T = eltype(bgsol)
+    Ss = zeros(SVector{N, T}, length(τs), length(ks))
+    function output_func(sol, ik)
+        Ss[:, ik] = getSs(sol)
         return nothing
     end
     solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
@@ -407,4 +425,27 @@ end
     source_grid_downsample_refine(is, Ss, τs, i1, i2, Sint; atol, rtol)
     push!(is, i2) # add rightmost point
     return Ss[is, :], τs[is]
+end
+
+function source_grid_chebyshev(Ss_chebyshev::Matrix{SVector{N, T}}, τs, ks; f = identity, thread = true) where {N, T}
+    fks = f.(ks)
+    flims = extrema(fks)
+    Ss = similar(Ss_chebyshev, (size(Ss_chebyshev, 1), length(fks)))
+    @tasks for i in eachindex(τs)
+        @set scheduler = thread ? :dynamic : :static
+        c = chebinterp(Ss_chebyshev[i, :], flims[1], flims[2])
+        Ss[i, :] .= c.(fks)
+    end
+    return stack(Ss) # back to 3D array # TODO: make 2D-SVector-friendly LOS integration?
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs, ks, bgsol; order = 10, f = identity, f⁻¹ = identity, verbose = false, thread = true) where {N}
+    flims = f.(extrema(ks))
+    ks_chebyshev = f⁻¹.(chebpoints(order, flims[1], flims[2]))
+    Ss_chebyshev = source_grid(prob, Ss, τs, ks_chebyshev, bgsol; thread, verbose)
+    Ss = source_grid_chebyshev(Ss_chebyshev, τs, ks; f, thread)
+    return τs, ks, Ss
+end
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, ks, bgsol; kwargs...)
+    τs = bgsol.t[begin:end-1] # TODO: remove final point to avoid NaN today
+    return source_grid_chebyshev(prob, Ss, τs, ks, bgsol; kwargs...)
 end

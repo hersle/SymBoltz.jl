@@ -516,7 +516,6 @@ The return value is a vector with one `ODESolution` per wavenumber, or its mappi
 """
 function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
-    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
         thread = false
@@ -695,6 +694,9 @@ Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
     if isnothing(sol.ks) || isempty(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
+    end
+    if !issorted(sol.ks)
+        throw(error("Solution wavenumbers are not sorted in ascending order"))
     end
     ks = k_dimensionless.(ks, Ref(sol.bg))
     kmin, kmax = extrema(sol.ks)
