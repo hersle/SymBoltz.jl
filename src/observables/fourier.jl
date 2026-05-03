@@ -239,14 +239,13 @@ function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktra
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
+function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks, bgsol; ptopts = (), thread = true, verbose = false)
     getSs = map(S -> getsym(prob.pt, S), Ss)
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
@@ -258,6 +257,10 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
     end
     solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
+end
+function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts..., verbose)
+    return source_grid(prob, Ss, τs, ks, bgsol; verbose, kwargs...)
 end
 
 # TODO: Hermite interpolation
