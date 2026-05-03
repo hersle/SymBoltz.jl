@@ -374,3 +374,23 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
     bgsol = solvebg(prob.bg; bgopts...)
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
+
+# Return Chebyshev interpolation objects for each τ
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, klims::NTuple{2, <:Number}, order, args...; f = identity, f⁻¹ = identity, kwargs...)
+    flims = f.(klims)
+    fs = chebpoints(order, flims[begin], flims[end])
+    ks = f⁻¹.(fs)
+    Ss = source_grid(prob, Ss, τs, ks, args...; kwargs...)
+    return [chebinterp(Ss[i, :], flims[begin], flims[end]) for i in axes(Ss, 1)]
+end
+# Return source function interpolated to ks for each τ
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, args...; f = identity, thread = true, kwargs...)
+    cs = source_grid_chebyshev(prob, Ss, τs, extrema(ks), args...; thread, f, kwargs...) # Chebyshev interpolation objects
+    fs = f.(ks)
+    Ss = zeros(eltype(cs[1].coefs), (length(τs), length(ks)))
+    @fastmath @inbounds @tasks for i in eachindex(cs)
+        @set scheduler = thread ? :dynamic : :static
+        Ss[i, :] .= cs[i].(fs)
+    end
+    return Ss
+end
