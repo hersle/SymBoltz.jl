@@ -239,13 +239,13 @@ function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktra
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss::Vector, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks, bgsol; ptopts = (), thread = true, verbose = false)
+function source_grid(prob::CosmologyProblem, Ss::Vector, τs, ks, bgsol; ptopts = (), thread = true, verbose = false)
     getSs = map(S -> getsym(prob.pt, S), Ss)
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
@@ -258,9 +258,25 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks, bgsol; 
     solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
-function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), verbose = false, kwargs...)
+function source_grid(prob::CosmologyProblem, Ss::Vector, τs, ks; bgopts = (), verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts..., verbose)
     return source_grid(prob, Ss, τs, ks, bgsol; verbose, kwargs...)
+end
+
+function source_grid(prob::CosmologyProblem, S, τs, ks, bgsol = nothing; bgopts = (), ptopts = (), thread = true, verbose = false)
+    if isnothing(bgsol)
+        bgsol = solvebg(prob.bg; bgopts..., verbose)
+    end
+    getS = getsym(prob.pt, S)
+    T = eltype(bgsol) # e.g. Float64
+    T = S isa Num ? T : similar_type(S, T) # e.g. Float64 or SVector{3, Float64}
+    Ss = zeros(T, length(τs), length(ks))
+    function output_func(sol, ik)
+        Ss[:, ik] .= getS(sol)
+        return nothing
+    end
+    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
+    return Ss
 end
 
 # TODO: Hermite interpolation

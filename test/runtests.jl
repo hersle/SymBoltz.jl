@@ -9,6 +9,7 @@ using BenchmarkTools
 using Base.Threads
 using Statistics
 using DelimitedFiles
+using StaticArrays
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -171,8 +172,9 @@ end
 @testset "Source grid" begin
     τs = [1.0, 2.0]
     ks = [1.0, 10.0, 100.0]
-    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
-    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+    @test isequal(source_grid(prob, M.τ + M.k, τs, ks), τs .+ transpose(ks))
+    @test isequal(source_grid(prob, SVector(M.τ + M.k), τs, ks), SVector.(τs .+ transpose(ks)))
+    @test isequal(source_grid(prob, [M.τ + M.k], τs, ks), reshape(τs .+ transpose(ks), 1, length(τs), length(ks)))
 end
 
 @testset "Initial conditions" begin
