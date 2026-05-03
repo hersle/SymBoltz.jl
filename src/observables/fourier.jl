@@ -263,6 +263,21 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
     return source_grid(prob, Ss, τs, ks, bgsol; verbose, kwargs...)
 end
 
+function source_grid(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs, ks, bgsol = nothing; bgopts = (), ptopts = (), thread = true, verbose = false) where {N}
+    if isnothing(bgsol)
+        bgsol = solvebg(prob.bg; bgopts..., verbose)
+    end
+    getSs = getsym(prob.pt, Ss)
+    T = eltype(bgsol)
+    Ss = zeros(SVector{N, T}, length(τs), length(ks))
+    function output_func(sol, ik)
+        Ss[:, ik] = getSs(sol)
+        return nothing
+    end
+    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
+    return Ss
+end
+
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
