@@ -232,8 +232,8 @@ function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktra
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
         @set scheduler = thread ? :dynamic : :static
-        interp = LinearInterpolation(@view(Ss_coarse[iτ, :]), xs_coarse)
-        Ss_fine[iτ, :] .= interp.(xs_fine)
+        interp = CubicSpline(@view(Ss_coarse[iτ, :]), xs_coarse) # TODO: try FastInterpolations?
+        interp(@view(Ss_fine[iτ, :]), xs_fine)
     end
     return Ss_fine
 end
