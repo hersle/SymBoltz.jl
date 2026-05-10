@@ -246,7 +246,7 @@ Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss`
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
 function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
+    bgsol = solvebg(prob.bg, prob.bginit; bgopts..., verbose)
     getSs = map(S -> getsym(prob.pt, S), Ss)
     Ss = similar(bgsol, length(Ss), length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
@@ -256,7 +256,7 @@ function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts 
         end
         return nothing
     end
-    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
+    solvept(prob.pt, prob.ptinit, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
 
@@ -289,7 +289,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         ptsaveopts = (saveat = τs,)
     end
 
-    ptprobgen = setuppt(prob.pt, bgsol)
+    ptprobgen = setuppt(prob.pt, prob.ptinit, bgsol)
 
     getSs = map(S -> getsym(prob.pt, S), Ss)
     function sourcek!(k, ik, Ss)
@@ -379,7 +379,7 @@ end
 
 # Dispatch without background solution
 function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), kwargs...)
-    bgsol = solvebg(prob.bg; bgopts...)
+    bgsol = solvebg(prob.bg, prob.bginit; bgopts...)
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
 

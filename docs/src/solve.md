@@ -29,7 +29,7 @@ To do so, use the function `parameter_updater` that returns a function that quic
 
 ```@example sol
 probmaker = parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
-prob = probmaker([0.70, 0.27]) # create updated problem
+prob = probmaker(prob, [0.70, 0.27]) # create updated problem
 ```
 
 ```@docs
