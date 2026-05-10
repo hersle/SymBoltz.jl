@@ -285,24 +285,19 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     # Interpolate with Chebyshev
     τs_full = τs
     τs = @view(τs[begin:end-1]) # interpolate without final time, as some sources diverge there
-    Ss = [S for (S, i) in [(prob.M.ST, iT), (prob.M.SE_kχ², iE), (prob.M.Sψ, iψ)] if i > 0]
+    n = 1 # k-interpolate in k^n * S; then divide by k^n after; to prevent interpolating divergent behavior
+    Ss = [prob.M.k^n * S for (S, i) in [(prob.M.ST, iT), (prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
     Ss = SVector{length(Ss)}(Ss)
     Ss, _, _ = source_grid_chebyshev(prob, Ss, τs, ks, sol.bg; order = coarse_length-1, thread, verbose)
-    Ss = cat(Ss, zeros(eltype(Ss), size(Ss, 1), 1, size(Ss, 3)), dims=2) # set sources to 0 for τ = τ0, as they are weighted by jₗ(0) = 0 (for l ≥ 1)
+    Ss = cat(Ss, zeros(eltype(Ss), 1, size(Ss, 2)), dims=1) # set sources to 0 for τ = τ0, as they are weighted by jₗ(0) = 0 (for l ≥ 1)
     τs = τs_full # add final time point
 
-    Θls = zeros(eltype(Ss), max(iT, iE, iψ), length(ks), length(ls))
-    if iT > 0
-        STs = Ss[iT, :, :]
-        Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks, jl; integrator, verbose, thread, kwargs...)
-    end
+    Θls = los_integrate(Ss, ls, τs, ks, jl; integrator, verbose, thread, kwargs...) # TODO: how to do Limber with everything in one LOS integral?
+    Θls ./= ks .^ n # restore interpolation factor from above # TODO: use k*S directly in k-integral
+    Θls = stack(Θls)
+
     if iE > 0
-        SEs = Ss[iE, :, :]
-        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks, jl; integrator, verbose, thread, kwargs...)
-    end
-    if iψ > 0
-        Sψs = Ss[iψ, :, :]
-        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks, jl; l_limber, integrator, verbose, thread, kwargs...)
+        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # handle unique E-mode prefactor
     end
 
     P0s = spectrum_primordial(ks, sol) # more accurate

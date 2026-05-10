@@ -411,7 +411,7 @@ function source_grid_chebyshev(Ss_chebyshev::Matrix{SVector{N, T}}, ks::Abstract
         c = chebinterp(Ss_chebyshev[i, :], flims[1], flims[2])
         Ss[i, :] .= c.(fks)
     end
-    return stack(Ss) # back to 3D array # TODO: make 2D-SVector-friendly LOS integration?
+    return Ss
 end
 function source_grid_chebyshev(prob::CosmologyProblem, Ss::SVector{N, <:Number}, τs::AbstractVector, klims::NTuple{2, <:Number}, bgsol::ODESolution; order = 10, f = identity, f⁻¹ = identity, kwargs...) where {N}
     flims = f.(klims)
