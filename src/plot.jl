@@ -24,28 +24,42 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y; Nextra = 0)
     return xs, permutedims(stack(ys))
 end
 
-RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, k; Nextra = 0, transpose_cycle = false)
-    xlabel --> (x isa AbstractArray ? "" : displayname(x))
-    ylabel --> (y isa AbstractArray ? "" : displayname(y))
-    if !(y isa AbstractArray)
-        y = [y]
-    end
-    if !(k isa AbstractArray)
-        k = [k]
-    end
-    linestyles = [:solid, :dash, :dot, :dashdot, :dashdotdot]
-    for iv in eachindex(y)
-        for ik in eachindex(k)
-            τs = timeseries(sol, k[ik]; Nextra)
-            xs = sol(x, τs, k[ik])
-            ys = sol(y[iv], τs, k[ik])
-            RecipesBase.@series begin
-                linestyle --> (linestyles[mod1(transpose_cycle ? iv : ik, 5)])
-                color --> (transpose_cycle ? ik : iv)
-                label --> "$(displayname(y[iv])), k = $(k[ik])"
-                xs, ys
+RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, z; Nextra = 0, transpose_cycle = false)
+    if z isa AbstractArray || !issymbolic(z)
+        k = z # plot y(x) for given k
+        xlabel --> (x isa AbstractArray ? "" : displayname(x))
+        ylabel --> (y isa AbstractArray ? "" : displayname(y))
+        if !(y isa AbstractArray)
+            y = [y]
+        end
+        if !(k isa AbstractArray)
+            k = [k]
+        end
+        linestyles = [:solid, :dash, :dot, :dashdot, :dashdotdot]
+        for iv in eachindex(y)
+            for ik in eachindex(k)
+                τs = timeseries(sol, k[ik]; Nextra)
+                xs = sol(x, τs, k[ik])
+                ys = sol(y[iv], τs, k[ik])
+                RecipesBase.@series begin
+                    linestyle --> (linestyles[mod1(transpose_cycle ? iv : ik, 5)])
+                    color --> (transpose_cycle ? ik : iv)
+                    label --> "$(displayname(y[iv])), k = $(k[ik])"
+                    xs, ys
+                end
             end
         end
+    else
+        # plot z(x, y) # TODO: clean up plotting convention recipes and make this a separate one
+        ts = timeseries(sol; Nextra)
+        ks = sol.ks
+        xlabel --> displayname(x)
+        ylabel --> displayname(y)
+        zlabel --> displayname(z)
+        xs = sol(x, ts)
+        ys = sol(y, ts[begin], ks)
+        zs = sol(z, ts, ks)
+        return xs, ys, transpose(zs)
     end
 end
 
