@@ -175,6 +175,14 @@ end
     @test isequal(source_grid(prob, M.τ + M.k, τs, ks), τs .+ transpose(ks))
     @test isequal(source_grid(prob, SVector(M.τ + M.k), τs, ks), SVector.(τs .+ transpose(ks)))
     @test isequal(source_grid(prob, [M.τ + M.k], τs, ks), reshape(τs .+ transpose(ks), 1, length(τs), length(ks)))
+
+    @test source_grid_adaptive(prob, M.τ + M.k, τs, ks; refine = false) == (ks, τs .+ transpose(ks))
+    @test source_grid_adaptive(prob, SVector(M.τ + M.k), τs, ks; refine = false) == (ks, SVector.(τs .+ transpose(ks)))
+
+    kTs, STs = source_grid_adaptive(prob, M.ST, τs, ks; refine = true, atol = 1e-5)
+    kEs, SEs = source_grid_adaptive(prob, M.SE, τs, ks; refine = true, atol = 1e-5)
+    kTEs, STEs = source_grid_adaptive(prob, SVector(M.ST, M.SE), τs, ks; refine = true, atol = 1e-5)
+    @test length(kTEs) == max(length(kTs), length(kEs)) > length(ks)
 end
 
 @testset "Initial conditions" begin
