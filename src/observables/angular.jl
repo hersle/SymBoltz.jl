@@ -292,12 +292,18 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     Ss = cat(Ss, zeros(eltype(Ss), 1, size(Ss, 2)), dims=1) # set sources to 0 for τ = τ0, as they are weighted by jₗ(0) = 0 (for l ≥ 1)
     τs = τs_full # add final time point
 
-    Θls = los_integrate(Ss, ls, τs, ks, jl; integrator, verbose, thread, kwargs...) # TODO: how to do Limber with everything in one LOS integral?
+    Θls = los_integrate(Ss, ls, τs, ks, jl; integrator, verbose, thread, kwargs...)
     Θls ./= ks .^ n # restore interpolation factor from above # TODO: use k*S directly in k-integral
     Θls = stack(Θls)
 
     if iE > 0
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) # handle unique E-mode prefactor
+    end
+    if iψ > 0 && jl.l[end] ≥ l_limber
+        Θls_limber = los_integrate(Ss, ls, τs, ks, jl; l_limber, integrator, verbose, thread, kwargs...) # TODO: how to do Limber with everything in one LOS integral?
+        Θls_limber ./= ks .^ n
+        Θls_limber = stack(Θls_limber)
+        Θls[iψ, :, :] = Θls_limber[iψ, :, :] # overwrite lensing with Limber LOS integration # TODO: avoid repeated LOS integral?
     end
 
     P0s = spectrum_primordial(ks, sol) # more accurate
