@@ -1,3 +1,2 @@
 set_tex_cmds('--shell-escape %O %S' );
-$pdflatex = 'lualatex';
-$pdf_mode = 1;
+$pdf_mode = 4; # lualatex
