@@ -214,13 +214,13 @@ function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = t
 end
 
 """
-    source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
+    source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
 Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wavenumber grid `ks_coarse` to a fine grid `ks_fine`.
 The interpolation is linear in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``.
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
+function source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
     size_coarse = size(Ss_coarse)
     size_fine = (size_coarse[1], length(ks_fine))
     Nτ, Nk = size(Ss_coarse)
