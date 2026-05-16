@@ -71,15 +71,41 @@ The problem is solved for the given ``k``, and the matter power spectrum is save
 - `kτini` and `τinimax` specify initial values of ``kτ`` for each perturbation mode, no later than `τinimax` and no earlier than the initial background time.
 - `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
 """
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kτini = 1e-2, τinimax = 1e-4, kwargs...)
-    ptextraopts = (saveat = τ,)
-    sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
-    return spectrum_matter(modes, sol, k, τ)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kτini = 1e-2, τinimax = 1e-4, kinterpolate = :linear, korder = 150, kwargs...)
+    if kinterpolate == :linear
+        ptextraopts = (saveat = τ,)
+        sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
+        return spectrum_matter(modes, sol, k, τ)
+    elseif kinterpolate == :chebyshev
+        sol = solve(prob; kwargs...)
+        Ss = SVector{length(modes)}(map(mode -> total_symbolic_gauge_invariant_overdensities(prob.M, mode), modes))
+        Ss, _, _ = source_grid_chebyshev(prob, Ss, τ, k, sol.bg; order = korder, kwargs...)
+        Ss = stack(Ss)
+        P0 = spectrum_primordial(k, sol)
+        P0 = reshape(P0, 1, 1, :)
+        return P0 .* Ss .^ 2
+    else
+        error("Unknown kinterpolate option: $kinterpolate")
+    end
 end
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kτini = 1e-2, τinimax = 1e-4, kwargs...)
-    ptextraopts = (save_everystep = false, save_start = false, save_end = true)
-    sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
-    return spectrum_matter(modes, sol, k)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kτini = 1e-2, τinimax = 1e-4, kinterpolate = :linear, korder = 150, kwargs...)
+    if kinterpolate == :linear
+        ptextraopts = (save_everystep = false, save_start = false, save_end = true)
+        sol = solve(prob, k; ptivini = k -> min(kτini / k, τinimax), ptextraopts, kwargs...)
+        return spectrum_matter(modes, sol, k)
+    elseif kinterpolate == :chebyshev
+        sol = solve(prob; kwargs...)
+        τ = [sol.bg.t[end]]
+        Ss = SVector{length(modes)}(map(mode -> total_symbolic_gauge_invariant_overdensities(prob.M, mode), modes))
+        Ss, _, _ = source_grid_chebyshev(prob, Ss, τ, k, sol.bg; order = korder, kwargs...)
+        Ss = stack(Ss)
+        P0 = spectrum_primordial(k, sol)
+        P0 = reshape(P0, 1, 1, :)
+        P = P0 .* Ss .^ 2
+        return P[:, 1, :]
+    else
+        error("Unknown kinterpolate option: $kinterpolate")
+    end
 end
 
 """
