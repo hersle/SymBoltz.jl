@@ -598,7 +598,7 @@ end
 
 @testset "Matter power spectrum with different arguments" begin
     modes = [:m, :c, :b, :cb, :cbh, :h]
-    ks = [1e-4, 1e-3, 1e-2, 1e-1] / u"Mpc"
+    ks = [1e-4, 1e-3, 1e-2, 1e-1]
     τs = [1.5, 3.0]
     sol = solve(prob, ks)
     @test size(spectrum_matter(modes, prob, ks, τs)) == (6, 2, 4) # general form
@@ -613,7 +613,7 @@ end
 
 @testset "Matter power spectrum converged to 0.1%" begin
     k = 10 .^ range(-1, 4, length=100)
-    @time P0 = spectrum_matter(prob, k; kτini = 0.0, τinimax = 0.0, bgextraopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
+    @time P0 = spectrum_matter(prob, k; bgopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
     @time P  = spectrum_matter(prob, k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
