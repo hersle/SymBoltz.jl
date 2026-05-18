@@ -1,17 +1,19 @@
 \PassOptionsToPackage{dvipsnames}{xcolor} % https://tex.stackexchange.com/a/653721/258644
-\documentclass[20pt, a0paper, portrait]{tikzposter}
+\documentclass[25pt, a0paper, portrait]{tikzposter}
 
 % original template: https://rig.cs.luc.edu/~rig/home/tex/tikz/tikzposter-example.tex
 %\usepackage{hyperref} % buggy: https://tex.stackexchange.com/questions/165846/incompatibility-between-tikzposter-class-and-microtype-package and https://bitbucket.org/surmann/tikzposter/issues/42/ctan-does-not-have-a-recent-version
 \usepackage{url}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{svg}
 \usepackage{adjustbox}
-\usepackage{twemojis}
 \usepackage{mathrsfs} % \mathscr
-\usepackage{multicol}
 \usepackage{setspace} % \setstretch etc.
+\usepackage{csquotes}
+\usepackage{fontawesome} % for Github icon
+\usepackage{academicons} % for arXiv icon
 
 \usepackage{fontspec}
 \setmonofont[Scale=MatchLowercase]{JuliaMono}
@@ -22,6 +24,12 @@
 ]
 \newcommand{\emoji}[1]{{\emojifont #1}}
 
+% itemize bullet styles
+%\renewcommand{\labelitemi}{\tiny\blacksquare}
+%\renewcommand{\labelitemii}{\color{blue}$\circ$}
+\usepackage{enumitem}
+\setlist[itemize, 1]{label=\raisebox{0.3ex}[0pt][0pt]{\small$\blacktriangleright$}}
+
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 \usetikzlibrary{arrows}
@@ -29,20 +37,22 @@
 \usetikzlibrary{trees}
 
 \usepackage{tcolorbox}
-\definecolor{codebg}{HTML}{F5F5F5}
-%\definecolor{codefg}{HTML}{444444}
-\definecolor{codeframe}{HTML}{DBDBDB}
-\newtcolorbox{codeinbox}{
-boxrule = 3pt,
-boxsep = 8pt,
+\definecolor{codebg}{HTML}{F8F8F8}
+\definecolor{codeframe}{HTML}{D8D8D8}
+\newtcolorbox{codeinbox}[1][]{
+boxrule = 2pt,
+boxsep = 6pt,
 colback = codebg,
 colframe = codeframe,
+fontupper=\normalsize,
+#1
 }
 \newtcolorbox{codeoutbox}{
 boxrule = 3pt,
 boxsep = 8pt,
 colback = white,
 colframe = codeframe,
+fontupper=\normalsize,
 }
 
 % https://tex.stackexchange.com/a/476488
@@ -50,83 +60,134 @@ colframe = codeframe,
 \usepackage{fancyvrb}
 \fvset{formatcom=\setlength{\lineskip}{0pt}}
 \begin{SaveVerbatim}{code1}
-using SymBoltz, Unitful, UnitfulAstro, ModelingToolkit, ForwardDiff, Plots
+using SymBoltz
 M = ΛCDM()
 \end{SaveVerbatim}
 \begin{SaveVerbatim}{code2}
 equations(M.G)
 \end{SaveVerbatim}
 \begin{SaveVerbatim}{code3}
-params = Dict(
-    M.γ.T₀ => 2.7,  M.ν.Neff => 3.0,  M.g.h      => 0.7,
-    M.c.Ω₀ => 0.27, M.b.Ω₀   => 0.05, M.b.rec.Yp => 0.25,
-    M.I.As => 2e-9, M.I.ns   => 0.95, M.h.m      => 0.06u"eV/c^2/kg"+0
+p = Dict(
+  M.g.h => 0.70, M.γ.T₀ => 2.7, M.c.Ω₀ => 0.27, M.b.Ω₀ => 0.05, M.ν.Neff => 3.0,
+  M.b.YHe => 0.25, M.h.m_eV => 0.06, M.I.ns => 0.95, M.I.ln_As1e10 => 3.04
 )
-prob = CosmologyProblem(M, params) # symbolic-to-numeric compilation
+prob = CosmologyProblem(M, p)
 \end{SaveVerbatim}
 \begin{SaveVerbatim}{code4}
-ks = [1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
-sol = solve(prob, ks) # solution object
-p1 = plot(sol, ks, log10(M.g.a), [M.g.Φ, M.g.Ψ]) # use included plot recipe
-
-ks = 10 .^ range(-3, 0, length=200) / u"Mpc" # wavenumbers for matter power spectrum
-function Pk(θ) # define P(k; θ) as a function of some independent parameters θ
-    newprob = remake(prob, Dict(M.c.Ω₀ => θ[1], M.b.Ω₀ => θ[2], M.g.h => θ[3]))
-    sol = solve(newprob, ks; ptopts = (reltol = 1e-3,))
-    return spectrum_matter(sol, ks)
-end
-θ = [params[M.c.Ω₀], params[M.b.Ω₀], params[M.g.h]]
-Ps = Pk(θ)
-dlgPs = ForwardDiff.jacobian(lgθ -> log10.(Pk(10 .^ lgθ) / u"Mpc^3"), log10.(θ))
-p2 = plot(ks, Ps; xlabel="k", ylabel="P", xaxis=:log, yaxis=:log, label=nothing)
-p3 = plot(ks, dlgPs; xlabel="k", xaxis=:log, label="∂(lg P)/∂(lg ".*["Ωc0)" "Ωb0)" "h)"])
-
-p = plot(p1, p2, p3; size=(1600,400), layout=(1,3), margin=(8,:mm), bg=false, grid=false)
+ks = range(1.0, 1000.0, length=500) # k / (H₀/c)
+sol = solve(prob, ks)
 \end{SaveVerbatim}
 \begin{SaveVerbatim}{code5}
-using SymBoltz: t, k, ϵ, D, O # use variables, derivative and perturbation operator
-g = M.g # get metric of original model
-pars = @parameters w₀ wₐ cₛ² Ω₀ # create parameters
-vars = @variables ρ(t) P(t) w(t) δ(t) θ(t) σ(t) # create variables
-eqs = [ # specify equations
-    O(1)(w ~ w₀ + wₐ * (1 - g.a)) # equation of state
-    O(1)(ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w₀+wₐ))) # energy density
-    O(1)(P ~ w * ρ) # pressure
-    O(ϵ)(D(δ) ~ -(1+w)*(θ-3*g.Φ) - 3*g.ℰ*(cₛ²-w)*δ) # overdensity
-    O(ϵ)(D(θ) ~ -g.ℰ*(1-3*w)*θ - D(w)/(1+w)*θ + k^2*(cₛ²/(1+w)*δ + g.Ψ)) # momentum
-    O(ϵ)(σ ~ 0) # shear stress
-]
-initialization_eqs = [ # initial conditions
-    O(ϵ)(δ ~ -3/2 * (1+w) * g.Ψ)
-    O(ϵ)(θ ~ 1/2 * (k^2/g.ℰ) * g.Ψ)
-]
-description = "w₀wₐ (CPL) dynamical dark energy"
-@named X = ODESystem(eqs, t, vars, pars; initialization_eqs, description)
-
-M = ΛCDM(Λ = X; name = :w₀wₐCDM) # recreate ΛCDM model, but replace CC by w0wa
-params = merge(params, Dict(M.X.w₀ => -0.9, M.X.wₐ => 0.2, M.X.cₛ² => 1.0))
-prob = CosmologyProblem(M, params) # create new problem
-sol = solve(prob, ks) # solve new problem; then continue as before ...
+using Plots
+ks_plot = [1.0, 10.0, 100.0, 1000.0]
+plot(sol, log10(M.g.a), [M.b.Xe, M.b.rec.XH⁺, M.b.rec.XHe⁺, M.b.rec.XHe⁺⁺])
+plot(sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks_plot)
+plot(sol, log10(M.g.a), [M.ST, 100*M.SE_kχ²], [1.0, 10.0, 100.0, 1000.0])
 \end{SaveVerbatim}
 \begin{SaveVerbatim}{code6}
-hierarchy(M; describe=true) # view hierarchical structure of model components
+ks = 10 .^ range(0, 3, length=100)
+Ps = spectrum_matter([:m, :cb, :h], prob, ks)
+
+jl = SphericalBesselCache(25:25:2500)
+Cls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl)
 \end{SaveVerbatim}
-\begin{SaveVerbatim}{out6}
-ΛCDM: Standard cosmological constant and cold dark matter cosmological model
-├─ g: Spacetime FLRW metric in Newtonian gauge
-├─ G: General relativity gravity
-├─ γ: Photon radiation
-├─ ν: Massless neutrinos
-├─ c: Cold dark matter
-├─ b: Baryonic matter
-│  └─ rec: Baryon-photon recombination thermodynamics (RECFAST)
-├─ h: Massive neutrino
-├─ Λ: Cosmological constant
-└─ I: Harrison-Zel'dovich inflation
+\begin{SaveVerbatim}{code7}
+@parameters w₀ wₐ cₛ² Ω₀ ρ₀=3Ω₀/8π
+@variables ρ(τ) P(τ) w(τ) cₐ²(τ) δ(τ,k) θ(τ,k) σ(τ,k)
+eqs = [
+  w ~ w₀ + wₐ*(1-a)
+  ρ ~ ρ₀ * a^(-3(1+w₀+wₐ)) * exp(-3wₐ*(1-a))
+  P ~ w * ρ
+  cₐ² ~ w - 1/(3ℋ) * D(w)/(1+w)
+  D(δ) ~ 3ℋ*(w-cₛ²)*δ - (1+w) * ((1+9(ℋ/k)^2*(cₛ²-cₐ²))*θ - 3*D(Φ))
+  D(θ) ~ (3cₛ²-1)*ℋ*θ + k^2*cₛ²*δ/(1+w) + k^2*Ψ
+  σ ~ 0
+]
+initialization_eqs = [
+  δ ~ -3//2 * (1+w) * Ψ
+  θ ~ 1//2 * (k^2*τ) * Ψ
+]
+X = System(eqs, τ; initialization_eqs, name = :X)
+M = ΛCDM(Λ = X, name = :w₀wₐCDM)
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{eqs_symboltz}
+D(Fν0) ~ -k*Fν[1] + 4*D(Φ)
+D(Fν[1]) ~ k/3*(Fν0-2Fν[2]+4Ψ)
+[D(Fν[l]) ~ k/(2l+1) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
+D(Fν[lνmax]) ~ k*Fν[lνmax-1] - (lνmax+1) / τ * Fν[lνmax]
+δν ~ Fν0
+θν ~ 3k*Fν[1]/4
+σν ~ Fν[2]/2    
+\end{SaveVerbatim}
+\begin{SaveVerbatim}{eqs_class}
+/** - ---> ultra-relativistic neutrino/relics (ur) */
+if (pba->has_ur == _TRUE_) {
+    /** - ----> if radiation streaming approximation is off */
+    if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
+    /** - -----> ur density */
+    dy[pv->index_pt_delta_ur] =
+        // standard term
+        -4./3.*(y[pv->index_pt_theta_ur] + metric_continuity)
+        // non-standard term, non-zero if if ceff2_ur not 1/3
+        +(1.-ppt->three_ceff2_ur)*a_prime_over_a*(y[pv->index_pt_delta_ur] + 4.*a_prime_over_a*y[pv->index_pt_theta_ur]/k/k);
+    /** - -----> ur velocity */
+    dy[pv->index_pt_theta_ur] =
+        // standard term with extra coefficient (3 ceff2_ur), normally equal to one
+        k2*(ppt->three_ceff2_ur*y[pv->index_pt_delta_ur]/4.-s2_squared*y[pv->index_pt_shear_ur]) + metric_euler
+        // non-standard term, non-zero if ceff2_ur not 1/3
+        -(1.-ppt->three_ceff2_ur)*a_prime_over_a*y[pv->index_pt_theta_ur];
+    if (ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
+        /** - -----> exact ur shear */
+        dy[pv->index_pt_shear_ur] =
+        0.5*(
+                // standard term
+                8./15.*(y[pv->index_pt_theta_ur]+metric_shear)-3./5.*k*s_l[3]/s_l[2]*y[pv->index_pt_shear_ur+1]
+                // non-standard term, non-zero if cvis2_ur not 1/3
+                -(1.-ppt->three_cvis2_ur)*(8./15.*(y[pv->index_pt_theta_ur]+metric_shear)));
+        /** - -----> exact ur l=3 */
+        l = 3;
+        dy[pv->index_pt_l3_ur] = k/(2.*l+1.)*
+        (l*2.*s_l[l]*s_l[2]*y[pv->index_pt_shear_ur]-(l+1.)*s_l[l+1]*y[pv->index_pt_l3_ur+1]);
+        /** - -----> exact ur l>3 */
+        for (l = 4; l < pv->l_max_ur; l++) {
+        dy[pv->index_pt_delta_ur+l] = k/(2.*l+1)*
+            (l*s_l[l]*y[pv->index_pt_delta_ur+l-1]-(l+1.)*s_l[l+1]*y[pv->index_pt_delta_ur+l+1]);
+        }
+        /** - -----> exact ur lmax_ur */
+        l = pv->l_max_ur;
+        dy[pv->index_pt_delta_ur+l] =
+        k*(s_l[l]*y[pv->index_pt_delta_ur+l-1]-(1.+l)*cotKgen*y[pv->index_pt_delta_ur+l]);
+    }
+    else {
+        /** - -----> in fluid approximation (ufa): only ur shear needed */
+        //TBC: curvature?
+        /* a la Ma & Bertschinger */
+        if (ppr->ur_fluid_approximation == ufa_mb) {
+        dy[pv->index_pt_shear_ur] =
+            -3./tau*y[pv->index_pt_shear_ur]
+            +2./3.*(y[pv->index_pt_theta_ur]+metric_shear);
+        }
+        /* a la Hu */
+        if (ppr->ur_fluid_approximation == ufa_hu) {
+        dy[pv->index_pt_shear_ur] =
+            -3.*a_prime_over_a*y[pv->index_pt_shear_ur]
+            +2./3.*(y[pv->index_pt_theta_ur]+metric_shear);
+
+        }
+        /* a la CLASS */
+        if (ppr->ur_fluid_approximation == ufa_CLASS) {
+        dy[pv->index_pt_shear_ur] =
+            -3./tau*y[pv->index_pt_shear_ur]
+            +2./3.*(y[pv->index_pt_theta_ur]+metric_ufa_class);
+
+        }
+    }
+    }
+}
 \end{SaveVerbatim}
 
-\title{\huge SymBoltz.jl: symbolic-numeric, approximation-free and differentiable Boltzmann code}
-\author{\huge Herman Sletmoen -- University of Oslo}
+\title{\LARGE \textup{\texttt{SymBoltz.jl}}: A symbolic-numeric, approximation-free \& differentiable Boltzmann code}
+\author{\Large Herman Sletmoen \hspace{3.2cm} $\vcenter{\hbox{\includesvg[height=2.5cm]{uio-logo.svg}}}$ \hspace{3.2cm} \faGithub \, \url{github.com/hersle/SymBoltz.jl} \hspace{3.2cm} \aiarXiv \, \texttt{2509.24740}}
 \institute{}
 
 \titlegraphic{\includesvg[height=8.5cm]{../../docs/src/assets/logo.svg}}
@@ -135,9 +196,9 @@ hierarchy(M; describe=true) # view hierarchical structure of model components
 \definecolorstyle{MyColorStyle}{
     % Define default colors
     % GrayBlueYellow
-    \definecolor{colorOne}{HTML}{F5F5F5} % gray
+    \definecolor{colorOne}{HTML}{F8F8F8} % gray (same as code background)
     \definecolor{colorTwo}{HTML}{0066A8} % blue
-    \definecolor{colorThree}{HTML}{f1a73c}
+    \definecolor{colorThree}{HTML}{97B1C5} % https://www.figma.com/colors/slate-blue/
     %\definecolor{colorThree}{HTML}{FCE565} % yellow
 }{
      % Background Colors
@@ -209,87 +270,132 @@ hierarchy(M; describe=true) # view hierarchical structure of model components
 
 \column{.50}
 
-\block[]{New features}{
-    \begin{itemize}
-    \item \textbf{Symbolic-numeric architecture:} Represents equations symbolically, and generates fast numerical code from them. Combines the powers of symbolic equation modeling and efficient numerical computing into one integrated framework for easier cosmological modeling.
-    \item \textbf{Modular physical structure:} Structured around physical components (e.g. gravity and particle species). Easily replace one component with another without modifying the entire model. Build a library of small self-contained physical components, and join any of them into full cosmological models. Accomodates extended models in a way that scales in model space. Computational stages (background, perturbations, \ldots) should be detected automatically from interdependencies between the equations.
-    \item \textbf{Approximation-free:} Integrates the full (stiff) Einstein-Boltzmann equations at all times with a wide selection of modern (implicit) solvers. No tight coupling, ultra-relativistic, radiation streaming or other approximations. Makes code simpler and extended models easier to implement.
-    \item \textbf{Differentiable:} Compute $\partial(\mathrm{output})/\partial(\mathrm{input})$ for any input and output (e.g. $\partial P(k) / \partial \Omega_{m0}$) with automatic differentiation (exact numerical differentiation of arbitrarily complicated functions). Important for accurate Jacobians for implicit ODE solvers, and for gradient-based numerical methods, like efficient many-parameter inference methods (e.g. HMC/NUTS), machine learning and optimization problems.
-    \item \textbf{Convenient:} Eliminates chores one must do when extending traditional codes. Focus on \emph{modeling}.
-    \end{itemize}
-}
-
-\block[]{Architecture}{
-    SymBoltz.jl relies on ModelingToolkit.jl for symbolic modeling and conversion to efficient numerical code, and on DifferentialEquations.jl for ODE integration and access to stiff solvers.
-    We want to take advantage of and contribute to this growing symbolic-numeric modeling library for the benefit of all sciences.
-
-    \begin{minipage}{0.49\linewidth}
-    \bigskip
-    \begin{tikzfigure}[
-        \textbf{Structure:}
-        For optimal modularity, SymBoltz is structured according to the \emph{physical} layout of cosmological models.
-        Components can be added, replaced or modified independently.
-        The best \emph{computational} structure (e.g. background $\rightarrow$ thermodynamics $\rightarrow$ perturbations) is found internally.
-    ]
+\block[]{Main features and goals}{
+    \begin{minipage}{1.00\linewidth}
+    \begin{center}
     \begin{tikzpicture}[
-        font=\small,
-        comp/.style = {draw, circle, fill=gray, minimum size = 4cm, align=center},
-        grow cyclic,
-        level 1/.append style = {level distance = 6cm, sibling angle = 60},
-        interaction/.style = {{Latex[width=5mm,length=5mm]}-{Latex[width=5mm,length=5mm]}, very thick},
-        ]
-        \node[comp, fill=lightgray!50] (grav) {Gravity} [interaction]
-        child { node[comp, fill=blue!50] (bar) {Baryons}}
-        child { node[comp, fill=magenta!50] (pho) {Photons}}
-        child { node[comp, fill=red!50] (neu) {Massless\\neutrinos}}
-        child { node[comp, fill=orange!50] (mneu) {Massive\\neutrinos}}
-        child { node[comp, fill=LimeGreen!75] (cdm) {Cold dark\\matter}}
-        child { node[comp, fill=Cyan!50] (cc) {Cosmological\\constant}};
-        \draw[interaction] (bar) -- node[above=2mm, sloped, align=center] {Inter-\\action} (pho);
-    \end{tikzpicture}
-    \end{tikzfigure}
-    \end{minipage}%
-    \hfill%
-    \begin{minipage}{0.49\linewidth}
-    \bigskip
-    \begin{tikzfigure}[
-        \textbf{Synergy of features:}
-        For example, automatic differentiation helps to calculate the ODE Jacobian $J$ robustly, which is needed by implicit solvers to integrate ODEs without approximations, which makes it easier to write down models in a simple symbolic form, which can be used to detect the sparsity pattern of $J$, which in turn increases the efficiency of automatic differentiation, \ldots.
-        This makes a stronger self-reinforcing design.
-    ]
-    \begin{tikzpicture}[
-        pillar/.style={circle, draw, minimum size=4cm, align=center, font=\small},
+        pillar/.style={circle, draw, minimum size=6.5cm, line width=1mm, align=center, font=\normalsize},
         joiner/.style={midway, sloped, black, font=\normalsize},
-        arrow/.style={-{Latex[width=5mm,length=5mm]}, line width=1mm, black},
+        arrow/.style={-{Latex[width=10mm,length=10mm]}, line width=3mm, black},
     ]
-    \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic\\interface};
-    \node[pillar, fill=blue!50] (app) at (240:12cm) {Free of\\approx-\\imations};
-    \node[pillar, fill=red!50] (dif) at (300:12cm) {Automatic\\differentiation};
-    \draw[arrow] (sym.300) -- node[joiner, above] {Detect sparsity of $J$} (dif.120);
-    \draw[arrow] (dif.180) -- node[joiner, above] {Calculate accurate $J$} (app.0);
-    \draw[arrow] (app.60) -- node[joiner, above] {Easy to specify model} (sym.240);
-    \end{tikzpicture}
-    \end{tikzfigure}
-    \end{minipage}
-}
+    \node[pillar, fill=LimeGreen!75] (sym) at (0:0cm) {Symbolic-\\numeric\\interface};
+    \node[pillar, fill=blue!50] (app) at (240:14.5cm) {Approximation-\\free};
+    \node[pillar, fill=red!50] (dif) at (300:14.5cm) {Automatic \&\\symbolic\\differentiation};
+    \node[pillar, draw=none, black!40, font=\normalsize] (mid) at (270:7.8cm) {Synergy};
+    \node[black!40, font=\fontsize{170pt}{170pt}, rotate=12.5] (rec) at (270:7.8cm) {$\circlearrowright$};
+    %\draw[thick, black!50, -{Latex[length=6mm]}] (mid) ++(-45:3cm) arc[start angle=-45, end angle=315, radius=3cm];
 
-\block[bodyverticalshift=-1.75cm]{Goals}{
+    \draw[arrow] (sym.300) -- node[joiner, above=0.2cm] {Detect sparsity of $J$} (dif.120);
+    \draw[arrow] (dif.180) -- node[joiner, above=0.2cm] {Calculate accurate $J$} (app.0);
+    \draw[arrow] (app.60) -- node[joiner, above=0.2cm] {Easy to specify model} (sym.240);
+    \end{tikzpicture}
+    \end{center}
+    \end{minipage}
+    \bigskip
+
     \begin{itemize}
-        \item \textbf{Create an integrated symbolic-numeric Einstein-Boltzmann modeling \emph{environment}} (not ``just'' a solver). Grow into a full linear + non-linear framework including $N$-body simulations?
-        \item \textbf{Make it easier for modelers to build modified models} by avoiding complicating approximations and using mixed symbolic-numeric computing to automate chores and provide helpful utilities.
-                The goal is to \textbf{let the modeler simply write down \emph{one single set} of Einstein-Boltzmann equations for their cosmological model}.
-                SymBoltz should \emph{automatically} detect the structure in the equations, split it up into stages (background $\rightarrow$ thermodynamics $\rightarrow$ perturbations $\rightarrow$ \ldots), spline functions between each stage, generate suitable initial conditions, change to a suitable independent variable, generate code and solve the model, compute and plot derived quantities, and so on.
-        \item \textbf{Design a structure that is modular in terms of \emph{physical} components} and scales better in model space.
-                Rethink the traditional Boltzmann solver layout to avoid duplicating large monolithic codes for every combination of models/extensions, which often grow into mutually incompatible forks.
-        \item \textbf{Enable powerful gradient-based optimization/MCMC methods} (e.g. HMC/NUTS) by being fast and differentiable.
-                Important for many-parameter inference from next-generation surveys!
+    \item \textbf{Symbolic-numeric:} Users enter symbolic equations $\rightarrow$ compiled to numerical code.
+    \begin{itemize}
+    \item Easier to modify eqs. than in CAMB \& CLASS. No need to dive into low-level code.
+    %\item Users need not dive into the internals of the code.0
+    \item Automates repetitive tasks, such as separation/splining of background/perturbations.
+    %\item Full ΛCDM model (w/ RECFAST \& massive neutrinos) specified in 277 lines of code.
+    \item Extra info to ODE solver, e.g. anal. Jacobian that is unknown in CAMB \& CLASS.
+    \end{itemize}
+    \item \textbf{Approximation-free:} Integrates full equations at all times with stiff ODE solvers.
+    \begin{itemize}
+    \item No TCA, UFA, RSA or NCDMFA, which significantly complicate CAMB \& CLASS.
+    \item Much simpler: no need to rederive and recheck approximations for model extensions.
+    \end{itemize}
+    %\item \textbf{Fast:} Compiles symbolic equations into sparse \& analytical ODE Jacobians.
+    %\begin{itemize}
+ 	%\item Maximizes speed \& stability for stiff solvers without extra user input.
+    %\item Purely numerical codes like CAMB \& CLASS do not have this information!
+    %\item SymBoltz (with no approx.) is $10\times$-$1\times$ faster than CLASS with approx. off/on.
+    %\end{itemize}
+    \item \textbf{Differentiable:} Compute $\partial(\mathrm{output})/\partial(\mathrm{input})$ with automatic differentiation.
+    \begin{itemize}
+	\item For example: $\partial P(k) / \partial \Omega_{m0}$, $\partial C_\ell^\text{TT} / \partial h$ or $\partial d_L(z) / \partial \Omega_{\Lambda 0}$.
+    \item Uses numerically exact chain rules. No tuning of $\epsilon$ with finite differences.
+    \item Useful for Fisher forecasting \& gradient-based MCMC (HMC) and optimization.
+    \end{itemize}
     \end{itemize}
 }
 
-\block[bodyverticalshift=-1.75cm]{Implementation status (\textcolor[HTML]{7CB342}{complete}, \textcolor[HTML]{FFCC32}{in progress} and \textcolor[HTML]{F44336}{planned})}{ % colors from dropper tool on emojis
+\block[bodyverticalshift=-1.5cm]{Simplicity: SymBoltz vs. CLASS}{
+    \begin{center}
+    \begin{minipage}[t]{0.49\linewidth}
+    \begin{center}
+    \vspace*{0mm}
+    Massless neutrino equations in SymBoltz:
+    \vspace{-0.6cm}
+    \begin{codeinbox}[fontupper=\fontsize{8pt}{8pt}]
+    \UseVerbatim{eqs_symboltz}
+    \end{codeinbox}
+    \end{center}
+    \vspace{7.8cm}
+    \begin{itemize}
+    \item Similar difference for any part of eqs.
+    \item Reason: symbolic-numeric \& no approx.
+    \end{itemize}
+    \bigskip\bigskip
+    \begin{itemize}
+    \item SymBoltz: full ΛCDM model in 277 lines.
+    \item CLASS: spread over 27 000 lines \& 10 files.
+    \end{itemize}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.49\linewidth}
+    \begin{center}
+    \vspace*{0mm}
+    Massless neutrino equations in CLASS:
+    \vspace{-0.6cm}
+    \begin{codeinbox}[fontupper=\fontsize{8pt}{8pt}]
+    \UseVerbatim{eqs_class}
+    \end{codeinbox}
+    \end{center}
+    \end{minipage}
+    \end{center}
+}
+
+\block[bodyverticalshift=-2cm]{Accuracy: SymBoltz vs. CLASS}{
+    \begin{center}
+	\includegraphics[width=\linewidth]{../../paper/figures/spectra.pdf}
+    \end{center}
+    \vspace{-0.8cm}
+    \begin{itemize}
+    \item Matter \& CMB power spectra agree around $\lesssim 0.1\,\%$ for default-ish precision parameters.
+    \end{itemize}
+}
+
+\block[bodyverticalshift=-2cm]{Performance: SymBoltz vs. CLASS}{
+	\begin{center}
+    \begin{minipage}[t]{0.60\linewidth}
+    \vspace*{0mm}
+	\includegraphics[width=\linewidth]{../../paper/figures/work_precision.pdf}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.39\linewidth}
+    \vspace*{0mm}
+    \bigskip
+    $L_2$ error of $P(k)$ for perturbation ODE tolerances $10^{−9}$-$10^{−2}$ vs. $10^{−10}$ reference with different ODE solvers.
+	Same $k$-modes \& $\ell_\text{max}$. Default massive neutrino sampling.
+	\textbf{Lower left ($\boldsymbol{\swarrow}$) is better.}
+    \newline
+    \vspace{-0.5cm}
+    \begin{itemize}
+    \item SymBoltz is $10\times$/$1\times$ faster than CLASS with approx. off/on.
+    \item Work in progress to optimize computation of CMB spectra.
+    \end{itemize}
+    \end{minipage}
+    \end{center}
+}
+
+\iffalse
+\block[bodyverticalshift=-1.75cm]{Implementation (\textcolor[HTML]{7CB342}{complete}/\textcolor[HTML]{FFCC32}{in progress}/\textcolor[HTML]{F44336}{planned})}{ % colors from dropper tool on emojis
     \small
     \begin{multicols}{3}
-    \emoji{🟩} Baryons + photons (RECFAST recombo.) \\
+    \emoji{🟩} Baryons + photons (RECFAST) \\
     \emoji{🟩} Cold dark matter \\
     \emoji{🟩} Massless and massive neutrinos \\
     \emoji{🟩} Cosmological constant \\
@@ -303,11 +409,10 @@ hierarchy(M; describe=true) # view hierarchical structure of model components
     \emoji{🟩} Forward-mode automatic differentiation \\ 
     \emoji{🟩} Matter power spectrum \\
     \emoji{🟩} CMB power spectrum (TT, TE, EE) \\
-    \emoji{🟨} Automatic stage separation ($\text{backgr.} \rightarrow \text{pert.}$) \\
+    \emoji{🟩} Automatic stage separation ($\text{backgr.} \rightarrow \text{pert.}$) \\
     \emoji{🟩} Automatic splining of ODE unknowns \\
     \emoji{🟩} Automatic recomputation of ODE observeds \\
-    \emoji{🟩} Automatic interpolation in $(\tau, k)$ of all variables \\
-    \emoji{🟨} Automatic change of variables ($\frac{\mathrm{d}}{\mathrm{d}\tau} \rightarrow \frac{\mathrm{d}}{\mathrm{d \ln a}}$) \\
+    \emoji{🟩} Automatic $(\tau,k)$-interpolation of any variable \\
     \emoji{🟨} Automatic series expansion of initial conditions \\
     \emoji{🟩} Automatic parameter assignment hooks \\
     \emoji{🟩} Shooting method for boundary conditions \\
@@ -327,71 +432,73 @@ hierarchy(M; describe=true) # view hierarchical structure of model components
     \emoji{⬛} \textbf{Ideas/contributions are very welcome!}
     \end{multicols}
 }
-
-% https://tex.stackexchange.com/a/183867
-\block[bodyverticalshift=-2.0cm]{\huge Try it! Feedback?}{
-\noindent
-\begin{minipage}{0.25\linewidth}
-    \includegraphics[width=\linewidth]{../../qr.png}
-\end{minipage}%
-\hfill%
-\begin{adjustbox}{valign=c}%
-\begin{minipage}{0.75\linewidth}
-    \LARGE Easy installation and extensive documentation:
-    \begin{quote}
-        \LARGE \textcolor{blue}{\url{github.com/hersle/SymBoltz.jl}}
-    \end{quote}
-    SymBoltz.jl is in development. Feedback is appreciated! \\
-    Interested? Questions? Suggestions? Contributions?\\
-    \textbf{Star it! \emoji{🌟} Open an issue or pull request! \emoji{👷}}
-\end{minipage}
-\end{adjustbox}
-}
+\fi
 
 \column{.50}
 
-\block{Code demonstration (as of latest version)}{
-    Install and launch \texttt{julia}. Load some packages and build a standard ΛCDM model:
+\block{Code example}{
+    Install and launch \texttt{julia}. Load the package and build a standard ΛCDM model:
     \begin{codeinbox}
     \UseVerbatim{code1}
     \end{codeinbox}
-    This is a purely \emph{symbolic} model representation.
-    It can be interactively inspected and modified.
-    Every physical component lives in a 1-letter subcomponent:
-    the metric $g$, gravity $G$, photons $\gamma$, massless neutrinos $\nu$, massive neutrinos $h$, cold dark matter $c$, baryons $b$ and the cosmological constant $\Lambda$.
-    There is no separation between the background and perturbations here.
-    For example, we can view the equations in the gravity component:
+    This is a \emph{symbolic} representation of all variables and equations in the model.
+    It can be inspected and modified, for example to see the equations in the gravity component \enquote{\texttt{G}}:
     \begin{codeinbox}
     \UseVerbatim{code2}
     \end{codeinbox}
+    \vspace{-1cm}
     \begin{align}
-        \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} &= \sqrt{\frac{8}{3} \left( a\left( t \right) \right)^{4} \rho\left( t \right) \pi} \\
-        \Delta\left( t \right) &= \frac{\mathrm{d}}{\mathrm{d}t} \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} + \frac{ - \left( \frac{\mathrm{d} a\left( t \right)}{\mathrm{d}t} \right)^{2} \left( 1 + \frac{ - 3 P\left( t \right)}{\rho\left( t \right)} \right)}{2 a\left( t \right)} \\
-        \frac{\mathrm{d} \Phi\left( t \right)}{\mathrm{d}t} \epsilon &= \left( \frac{ - k^{2} \Phi\left( t \right)}{3 \mathscr{E}\left( t \right)} + \frac{ - \frac{4}{3} \left( a\left( t \right) \right)^{2} \mathtt{\delta\rho}\left( t \right) \pi}{\mathscr{E}\left( t \right)} - \mathscr{E}\left( t \right) \Psi\left( t \right) \right) \epsilon \\
-        k^{2} \left(  - \Psi\left( t \right) + \Phi\left( t \right) \right) \epsilon &= 12 \left( a\left( t \right) \right)^{2} \Pi\left( t \right) \pi \epsilon
+    \frac{\mathrm{d} ~ a\left( \tau \right)}{\mathrm{d}\tau} &= \left( a\left( \tau \right) \right)^{2} ~ \sqrt{\frac{8}{3} ~ \pi ~ \rho\left( \tau \right)} \\
+    \frac{\mathrm{d}}{\mathrm{d}\tau} ~ \Phi\left( \tau, k \right) &= \frac{ - k^{2} ~ \Phi\left( \tau, k \right)}{3 ~ \mathscr{H}\left( \tau \right)} + \frac{ - \frac{4}{3} ~ \left( a\left( \tau \right) \right)^{2} ~ \pi ~ \mathtt{\delta\rho}\left( \tau, k \right)}{\mathscr{H}\left( \tau \right)} - \mathscr{H}\left( \tau \right) ~ \Psi\left( \tau, k \right) \\
+    k^{2} ~ \left( \Phi\left( \tau, k \right) - \Psi\left( \tau, k \right) \right) &= 12 ~ \left( a\left( \tau \right) \right)^{2} ~ \pi ~ \Pi\left( \tau, k \right)
     \end{align}
-    Next, we can map parameters to some values and compile a \emph{numerical} problem from the symbolic system.
-    This is where ``the magic happens'': the symbolic system is checked for consistency, broken down into background and perturbation stages, splines are set up to pass the solution of one stage to the next, and so on.
+    Now set cosmological parameters and compile the symbolic model to a \emph{numerical} problem:
     \begin{codeinbox}
     \UseVerbatim{code3}
     \end{codeinbox}
-    Now we can solve the problem.
-    The resulting solution object can be indexed with any symbolic expression to get its numerical value (it is automatically computed from the ODE state vector).
-    We can also calculate derived quantities, like the matter power spectrum.
-    Gradients can be obtained with automatic differentiation.
+    This performs several automatic steps: splitting equations into background \& perturbations, splining background variables needed by the perturbations, generating ODE functions \& Jacobians, etc.
+    We can solve the background \& perturbations for any $k$-modes:
     \begin{codeinbox}
     \UseVerbatim{code4}
     \end{codeinbox}
-    \includegraphics[width=\linewidth]{plot.pdf}
-    Finally, let us implement a new species for $w_0 w_a$ dark energy (as if it is not already available in the code).
+    The solution object can easily get or plot \emph{any} symbolic expression as a function of $(\tau, k)$:
     \begin{codeinbox}
     \UseVerbatim{code5}
     \end{codeinbox}
-    We only had to write down the equations; not modify any internal code.
-    Everything (e.g. background and perturbation quantities) is defined in the same place to encourage modularity.
-    Similar implementations in other codes can require many more changes and in many different places, effectively forking and fragmenting the code.
-    Proceed as before to inspect and solve the new model. See the documentation for more examples!
-    %\includesvg[width=\linewidth]{uio-logo.svg}
+    \begin{center}
+    \includegraphics[width=0.33\linewidth]{../../notebooks/poster2/plot1.pdf}\hfill%
+    \includegraphics[width=0.33\linewidth]{../../notebooks/poster2/plot2.pdf}\hfill%
+    \includegraphics[width=0.33\linewidth]{../../notebooks/poster2/plot3.pdf}\\
+    \end{center}
+    Compute matter and CMB power spectra (keyword arguments control precision settings):
+    \begin{codeinbox}
+    \UseVerbatim{code6}
+    \end{codeinbox}
+    Implement a new $w_0 w_a$ dark energy component (with much less work than in other codes):
+    \begin{codeinbox}
+    \UseVerbatim{code7}
+    \end{codeinbox}
+    %Modification to \emph{any} sector of the equations is equally simple.
+}
+
+% https://tex.stackexchange.com/a/183867
+\block[bodyverticalshift=-0.7cm]{\huge Installation and documentation}{
+\noindent
+\begin{minipage}{0.30\linewidth}
+    \includegraphics[width=\linewidth]{../../qr.png}
+\end{minipage}%
+\hspace{1cm}
+\hfill%
+\begin{adjustbox}{valign=c}%
+\begin{minipage}{0.70\linewidth}
+    \LARGE Easy to install with one command, see:
+    \begin{quote}
+        \LARGE \textcolor{blue}{\url{github.com/hersle/SymBoltz.jl}}
+    \end{quote}
+    \textbf{Feedback is greatly appreciated.}\\
+    \textbf{Open an issue to get in touch!}
+\end{minipage}
+\end{adjustbox}
 }
 
 \end{columns}
