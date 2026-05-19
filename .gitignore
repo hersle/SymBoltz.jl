@@ -4,6 +4,5 @@ Manifest.toml
 dev/
 /class/
 /COMBO/
-*.pdf
 *.swp
 .vscode
