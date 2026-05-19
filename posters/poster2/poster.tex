@@ -14,6 +14,7 @@
 \usepackage{csquotes}
 \usepackage{fontawesome} % for Github icon
 \usepackage{academicons} % for arXiv icon
+\usepackage{qrcode}
 
 \usepackage{fontspec}
 \setmonofont[Scale=MatchLowercase]{JuliaMono}
@@ -482,12 +483,12 @@ if (pba->has_ur == _TRUE_) {
 }
 
 % https://tex.stackexchange.com/a/183867
-\block[bodyverticalshift=-0.7cm]{\huge Installation and documentation}{
+\block[bodyverticalshift=-0.3cm]{\huge Installation and documentation}{
 \noindent
-\begin{minipage}{0.30\linewidth}
-    \includegraphics[width=\linewidth]{../../qr.png}
-\end{minipage}%
 \hspace{1cm}
+\begin{minipage}{0.30\linewidth}
+    \qrcode[height=10cm]{https://github.com/hersle/SymBoltz.jl}
+\end{minipage}%
 \hfill%
 \begin{adjustbox}{valign=c}%
 \begin{minipage}{0.70\linewidth}
@@ -499,6 +500,7 @@ if (pba->has_ur == _TRUE_) {
     \textbf{Open an issue to get in touch!}
 \end{minipage}
 \end{adjustbox}
+\vspace{1cm}
 }
 
 \end{columns}
