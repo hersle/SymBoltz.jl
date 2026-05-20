@@ -431,7 +431,7 @@ end
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
-    @test !isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
+    @test isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
     Sgetter = SymBoltz.getsym(prob.pt, M.ST)
