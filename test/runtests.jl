@@ -125,8 +125,9 @@ end
         xs = range(jl.x[begin], jl.x[end], step=0.001)
         @test all(isapprox.(jl.(jl.l', xs), SymBoltz.jl.(jl.l', xs); atol))
 
-        t1 = @belapsed $jl(10, π)
-        t2 = @belapsed SymBoltz.sphericalbesselj(10, π)
+        xs = range(jl.x[begin], jl.x[end], length=10)
+        t1 = @belapsed $jl.(10, $xs)
+        t2 = @belapsed SymBoltz.sphericalbesselj.(10, $xs)
         @test t1 < t2 # faster
         @test (@ballocated $jl(10, π)) == 0 # non-allocating
 
@@ -297,14 +298,14 @@ end
 end
 
 @testset "Consistent AD and FD derivatives of matter power spectrum" begin
-    k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
+    k = 10 .^ range(0, 3; length = 20)
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
     probgen = parameter_updater(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
         P = spectrum_matter(prob′, k)
-        return log.(P / u"Mpc^3")
+        return log.(P)
     end
     logθ = [log(pars[par]) for par in diffpars]
     ∂logP_∂logθ_ad = ForwardDiff.jacobian(logP, logθ)
@@ -431,7 +432,7 @@ end
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
-    @test !isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
+    @test isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
     Sgetter = SymBoltz.getsym(prob.pt, M.ST)
@@ -471,7 +472,7 @@ end
 end
 
 using QuasiMonteCarlo
-function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs...)
+function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error = false, kwargs...)
     prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
     pars = collect(keys(vary))
     probgen = parameter_updater(prob0, pars)
@@ -489,7 +490,8 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
         if issuccess(sol)
             nsuccess += 1
         else
-            solve(prob, ks; verbose, kwargs...) # solve again with verbose output for debugging
+            solve(prob, ks; verbose=true, kwargs...) # solve again with verbose output for debugging
+            error && Base.error("FAIL: ", sample)
         end
         verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
     end
@@ -498,16 +500,16 @@ end
 vary = Dict(par => (0.5val, 1.5val) for (par, val) in pars) # ± 50% around fiducial values
 ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
-    @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
+    @test stability(M, ks, vary, 100; error = true) == 1.0 # 100%
 
     M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
-    @test stability(M1, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M1, ks, vary, 100; error = true) == 1.0
 
     M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
-    @test stability(M2, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M2, ks, vary, 100; error = true) == 1.0
 
     M3 = ΛCDM(K = nothing, reionization = false; lmax)
-    @test stability(M3, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M3, ks, vary, 100; error = true) == 1.0
 end
 
 using SpecialFunctions: zeta as ζ
