@@ -125,8 +125,9 @@ end
         xs = range(jl.x[begin], jl.x[end], step=0.001)
         @test all(isapprox.(jl.(jl.l', xs), SymBoltz.jl.(jl.l', xs); atol))
 
-        t1 = @belapsed $jl(10, π)
-        t2 = @belapsed SymBoltz.sphericalbesselj(10, π)
+        xs = range(jl.x[begin], jl.x[end], length=10)
+        t1 = @belapsed $jl.(10, $xs)
+        t2 = @belapsed SymBoltz.sphericalbesselj.(10, $xs)
         @test t1 < t2 # faster
         @test (@ballocated $jl(10, π)) == 0 # non-allocating
 
