@@ -472,7 +472,7 @@ end
 end
 
 using QuasiMonteCarlo
-function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs...)
+function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error = false, kwargs...)
     prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
     pars = collect(keys(vary))
     probgen = parameter_updater(prob0, pars)
@@ -490,7 +490,8 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
         if issuccess(sol)
             nsuccess += 1
         else
-            solve(prob, ks; verbose, kwargs...) # solve again with verbose output for debugging
+            solve(prob, ks; verbose=true, kwargs...) # solve again with verbose output for debugging
+            error && Base.error("FAIL: ", sample)
         end
         verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
     end
@@ -499,16 +500,16 @@ end
 vary = Dict(par => (0.5val, 1.5val) for (par, val) in pars) # ± 50% around fiducial values
 ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
-    @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
+    @test stability(M, ks, vary, 100; error = true) == 1.0 # 100%
 
     M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
-    @test stability(M1, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M1, ks, vary, 100; error = true) == 1.0
 
     M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
-    @test stability(M2, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M2, ks, vary, 100; error = true) == 1.0
 
     M3 = ΛCDM(K = nothing, reionization = false; lmax)
-    @test stability(M3, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M3, ks, vary, 100; error = true) == 1.0
 end
 
 using SpecialFunctions: zeta as ζ
