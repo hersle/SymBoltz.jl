@@ -298,14 +298,14 @@ end
 end
 
 @testset "Consistent AD and FD derivatives of matter power spectrum" begin
-    k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
+    k = 10 .^ range(0, 3; length = 20)
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
     probgen = parameter_updater(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
         P = spectrum_matter(prob′, k)
-        return log.(P / u"Mpc^3")
+        return log.(P)
     end
     logθ = [log(pars[par]) for par in diffpars]
     ∂logP_∂logθ_ad = ForwardDiff.jacobian(logP, logθ)
