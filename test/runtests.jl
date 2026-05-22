@@ -753,6 +753,21 @@ end
     @test ClenshawCurtisRule(4) ≈ QuadratureRule([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
     @test ClenshawCurtisRule(5) ≈ QuadratureRule([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
     @test ClenshawCurtisRule(2^4, (0.0, 1.0))(f) ≈ I
+
+    # https://numfactory.upc.edu/web/Calculo2/P2_Integracio/html/Gauss1D.html
+    @test_throws ArgumentError GaussRule(0)
+    @test GaussRule(1) ≈ QuadratureRule([0.0], [2.0])
+    @test GaussRule(2) ≈ QuadratureRule([-1/√(3), 1/√(3)], [1.0, 1.0])
+    @test GaussRule(3) ≈ QuadratureRule([-√(3/5), 0, √(3/5)], [5/9, 8/9, 5/9])
+    @test GaussRule(2^3, (0.0, 1.0))(f) ≈ I
+
+    @test_throws ArgumentError GaussKronrodRule(0)
+    @test_throws ArgumentError GaussKronrodRule(1)
+    @test_throws ArgumentError GaussKronrodRule(2)
+    @test GaussKronrodRule(3) ≈ GaussRule(3)
+    @test_throws ArgumentError GaussKronrodRule(4)
+    @test_nowarn GaussKronrodRule(5)
+    @test GaussKronrodRule(2^3+1, (0.0, 1.0))(f) ≈ I
 end
 
 @testset "High lmax" begin

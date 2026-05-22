@@ -1,4 +1,5 @@
 using FFTW
+using QuadGK
 
 struct QuadratureRule{T, U}
     x::Vector{T} # integration points on [-1, +1]
@@ -34,6 +35,20 @@ function ClenshawCurtisRule(N::Integer, args...)
     w[begin:end-1] .= 2/n .* real(fft(v)) # Discrete Cosine Transform (DCT) for O(N log N) time instead of O(N²)
     w[begin] = w[end] = w[begin]/2 # modify endpoint factors
     return QuadratureRule(x, w, args...; name = Symbol("Clenshaw-Curtis"))
+end
+
+function GaussRule(N::Integer, args...)
+    N ≥ 1 || throw(ArgumentError("The number of Gauss quadrature points must be positive"))
+    x, w = QuadGK.gauss(N)
+    return QuadratureRule(x, w, args...; name = Symbol("Gauss"))
+end
+
+function GaussKronrodRule(N::Integer, args...)
+    N ≥ 3 && isodd(N) || throw(ArgumentError("The number of Gauss-Kronrod quadrature points must be at least 3 and odd"))
+    x, w = QuadGK.kronrod(div(N-1, 2)) # only returns left half
+    x = [x; -reverse(x[begin:end-1])] # add right half (antisymmetric)
+    w = [w; reverse(w[begin:end-1])] # add right half (symmetric)
+    return QuadratureRule(x, w, args...; name = Symbol("Gauss-Kronrod"))
 end
 
 transform(q::QuadratureRule, interval) = QuadratureRule(q.x, q.w, interval; name = q.name) # arrays are reuse and shared!
