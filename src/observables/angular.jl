@@ -186,17 +186,15 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
     Cls = similar(ΘlAs, length(ls))
-    ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
-    quad = transform(quad, (ks_with0[begin], ks_with0[end]))
 
     @tasks for il in eachindex(ls)
         # TODO: skip kτ0 ≲ l?
         @set scheduler = thread ? :dynamic : :static
-        @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace (must zero first element)
+        @local dCl_dks = zeros(eltype(ΘlAs), length(ks)) # local task workspace (must zero first element)
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
-        @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlA * ΘlB
-        Cls[il] = quad(dCl_dks_with0) # integrate over k (_with0 adds one additional point at (0,0))
+        dCl_dks .= 2/π .* ks .^ 2 .* P0s .* ΘlA .* ΘlB
+        Cls[il] = quad(dCl_dks) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     if normalization == :Cl
