@@ -1,3 +1,5 @@
+using FFTW
+
 struct Quadrature{T, U}
     x::Vector{T} # integration points on [-1, +1]
     w::Vector{T} # integration weights on [-1, +1]
@@ -61,6 +63,17 @@ end
 
 SimpsonQuadrature(N::Integer, args...) = SimpsonQuadrature(range(-1, 1, length = N), args...) # reduces to the standard uniform-grid rule (1, 4, 2, 4, 2, ..., 4, 1)
 
+function ClenshawCurtisQuadrature(N::Integer, args...)
+    N ≥ 2 || throw(ArgumentError("Clenshaw-Curtis quadrature needs at least 2 points"))
+    n = N - 1 # number of FFT points
+    x = [-cos(π*m/n) for m in 0:n] # Chebyshev nodes in ascending order
+    v = [1 / (1 - 4*min(m, n-m)^2) for m in 0:n-1] # 1/(1-4k^2) and it's mirror image
+    w = similar(x)
+    w[begin:end-1] .= 2/n .* real(fft(v)) # Discrete Cosine Transform (DCT) for O(N log N) time instead of O(N²)
+    w[begin] = w[end] = w[begin]/2 # modify endpoint factors
+    return Quadrature(x, w, args...; name = Symbol("Clenshaw-Curtis"))
+end
+
 transform(q::Quadrature, interval) = Quadrature(q.x, q.w, interval; name = q.name) # arrays are reuse and shared!
 Base.eltype(::Quadrature{T, U}) where {T, U} = Base.promote_type(T, U)
 Base.nameof(q::Quadrature) = q.name
@@ -68,6 +81,7 @@ Base.show(io::IO, q::Quadrature) = print(io, q.name == Symbol() ? "Q" : "$(q.nam
 Base.length(q::Quadrature) = length(q.x)
 Base.eachindex(q::Quadrature) = eachindex(q.x)
 Base.:(==)(q1::Quadrature, q2::Quadrature) = q1.x == q2.x && q1.w == q2.w && q1.a == q2.a && q1.b == q2.b
+Base.:(≈)(q1::Quadrature, q2::Quadrature) = q1.x ≈ q2.x && q1.w ≈ q2.w && q1.a ≈ q2.a && q1.b ≈ q2.b
 node(q::Quadrature, i) = (q.b+q.a)/2 + (q.b-q.a)/2 * q.x[i]
 nodes(q::Quadrature) = (q.b+q.a)/2 .+ (q.b-q.a)/2 .* q.x
 weights(q::Quadrature) = (q.b-q.a)/2 .* q.w # weights for integration on [a, b]

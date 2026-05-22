@@ -835,6 +835,13 @@ end
     @test_throws ArgumentError TrapezoidalQuadrature([2.0, 1.0])
     @test TrapezoidalQuadrature([1.0, 2.0, 3.0, 4.0]) ≈ TrapezoidalQuadrature(4, (1.0, 4.0))
     @test TrapezoidalQuadrature([-1.0, -0.5, 1.0]) ≈ Quadrature([-1.0, -0.5, 1.0], [0.5/2, 0.5/2+1.5/2, 1.5/2])
+
+    @test_throws ArgumentError ClenshawCurtisQuadrature(1)
+    @test ClenshawCurtisQuadrature(2) ≈ Quadrature([-1.0, 1.0], [1.0, 1.0])
+    @test ClenshawCurtisQuadrature(3) ≈ Quadrature([-1.0, 0.0, 1.0], [1/3, 4/3, 1/3])
+    @test ClenshawCurtisQuadrature(4) ≈ Quadrature([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
+    @test ClenshawCurtisQuadrature(5) ≈ Quadrature([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
+    @test ClenshawCurtisQuadrature(2^4, (0.0, 1.0))(f) ≈ I
 end
 
 @testset "High lmax" begin
