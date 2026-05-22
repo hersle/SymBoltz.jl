@@ -54,7 +54,7 @@ export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, distance_luminosity, SphericalBesselCache
 export express_derivatives
-export QuadratureRule, TrapezoidalRule, nodes, weights, integrate, transform
+export QuadratureRule, TrapezoidalRule, ClenshawCurtisRule, nodes, weights, integrate, transform
 
 using PrecompileTools: @compile_workload
 @compile_workload begin

@@ -746,6 +746,13 @@ end
     @test TrapezoidalRule(3) == QuadratureRule([-1.0, 0.0, 1.0], [1/2, 2/2, 1/2])
     @test TrapezoidalRule(4) == QuadratureRule([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
     @test TrapezoidalRule(2^13, (0.0, 1.0))(f) ≈ I
+
+    @test_throws ArgumentError ClenshawCurtisRule(1)
+    @test ClenshawCurtisRule(2) ≈ QuadratureRule([-1.0, 1.0], [1.0, 1.0])
+    @test ClenshawCurtisRule(3) ≈ QuadratureRule([-1.0, 0.0, 1.0], [1/3, 4/3, 1/3])
+    @test ClenshawCurtisRule(4) ≈ QuadratureRule([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
+    @test ClenshawCurtisRule(5) ≈ QuadratureRule([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
+    @test ClenshawCurtisRule(2^4, (0.0, 1.0))(f) ≈ I
 end
 
 @testset "High lmax" begin
