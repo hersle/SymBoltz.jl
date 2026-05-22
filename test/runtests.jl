@@ -842,6 +842,21 @@ end
     @test ClenshawCurtisQuadrature(4) ≈ Quadrature([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
     @test ClenshawCurtisQuadrature(5) ≈ Quadrature([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
     @test ClenshawCurtisQuadrature(2^4, (0.0, 1.0))(f) ≈ I
+
+    # https://numfactory.upc.edu/web/Calculo2/P2_Integracio/html/Gauss1D.html
+    @test_throws ArgumentError GaussQuadrature(0)
+    @test GaussQuadrature(1) ≈ Quadrature([0.0], [2.0])
+    @test GaussQuadrature(2) ≈ Quadrature([-1/√(3), 1/√(3)], [1.0, 1.0])
+    @test GaussQuadrature(3) ≈ Quadrature([-√(3/5), 0, √(3/5)], [5/9, 8/9, 5/9])
+    @test GaussQuadrature(2^3, (0.0, 1.0))(f) ≈ I
+
+    @test_throws ArgumentError GaussKronrodQuadrature(0)
+    @test_throws ArgumentError GaussKronrodQuadrature(1)
+    @test_throws ArgumentError GaussKronrodQuadrature(2)
+    @test GaussKronrodQuadrature(3) ≈ GaussQuadrature(3)
+    @test_throws ArgumentError GaussKronrodQuadrature(4)
+    @test_nowarn GaussKronrodQuadrature(5)
+    @test GaussKronrodQuadrature(2^3+1, (0.0, 1.0))(f) ≈ I
 end
 
 @testset "High lmax" begin
