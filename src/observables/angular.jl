@@ -102,7 +102,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache[, xs::AbstractVector, ws::AbstractVector]; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
@@ -116,7 +116,7 @@ Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, xs::AbstractVector, ws::AbstractVector; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
@@ -124,9 +124,9 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
     @assert all(isfinite, Ss) "Ss contain NaN or Inf"
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
+    τi = τs[begin]
     τ0 = τs[end]
     χs = τ0 .- τs
-    halfdτs = 0.5 .* (τs[begin+1:end] .- τs[begin:end-1]) # precompute before loops
     Is = zeros(T, length(ks), length(ls))
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
@@ -151,17 +151,13 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                     I = √(π/(2l+1)) * S / k
                 end
             else
-                prev = Ss[1, ik] * jl(l, k*χs[1]) # set up first point
-                for iτ in 2:length(τs)
+                for iτ in eachindex(τs)
                     kχ = k * χs[iτ]
-                    halfdτ = halfdτs[iτ-1]
                     _jl = jl(l, kχ)
-                    curr = Ss[iτ, ik] * _jl
-                    dI = halfdτ * (curr + prev)
-                    I += dI
+                    I += Ss[iτ, ik] * ws[iτ] * _jl
                     kχ < l && abs(_jl) < 1e-20 && break # time cut approximation
-                    prev = curr
                 end
+                I *= (τ0 - τi) / 2 # transformation from [-1, +1] to [τ0, τi] with τ = (τ0+τi)/2 + x*(τ0-τi/2)
             end
             Is[ik, il] = I
             k*τ0 < l && abs(I) < 1e-20 && break # multipole cut approximation
@@ -219,7 +215,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = nodes_trapezoidal(1250), ws = weights_trapezoidal(1250), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -245,19 +241,14 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 0.0:0.0008:1.0, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = nodes_trapezoidal(1250), ws = weights_trapezoidal(1250), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = collect(kτ0s ./ τ0)
 
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
-    if !isnothing(xs)
-        # use user's array of x = (τ-τi)/(τ0-τi)
-        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
-        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
-    end
+    τs = transform_quadrature_domain(xs, τs[begin], τs[end]) # map [-1, 1] to [τi, τ0]
 
     # Integrate perturbations to calculate source function on coarse k-grid
     iT = 'T' in join(modes) ? 1 : 0
@@ -271,20 +262,20 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     if iT > 0
         STs = Ss[1, :, :]
         STs = source_grid(STs, ks_coarse, ks_fine; thread) # upsample in k
-        Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+        Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl, xs, ws; verbose, thread, kwargs...)
     end
     if iE > 0
         SEs = Ss[2, :, :]
         @. SEs ./= (ks_coarse' * (τ0-τs))^2
         SEs[end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
         SEs = source_grid(SEs, ks_coarse, ks_fine; thread) # upsample in k
-        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl, xs, ws; verbose, thread, kwargs...)
     end
     if iψ > 0
         Sψs = Ss[3, :, :]
         Sψs = source_grid(Sψs, ks_coarse, ks_fine; thread) # upsample in k
         Sψs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
-        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
+        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks_fine, jl, xs, ws; l_limber, verbose, thread, kwargs...)
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
