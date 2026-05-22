@@ -1,3 +1,5 @@
+using FFTW
+
 struct Quadrature{T}
     x::Vector{T} # integration points on [-1, +1]
     w::Vector{T} # integration weights on [-1, +1]
@@ -51,6 +53,17 @@ function SimpsonQuadrature(x::AbstractArray)
 end
 
 SimpsonQuadrature(N::Integer) = SimpsonQuadrature(range(-1, 1, length = N)) # reduces to the standard uniform-grid rule (1, 4, 2, 4, 2, ..., 4, 1)
+
+function ClenshawCurtisQuadrature(N::Integer)
+    N ≥ 2 || throw(ArgumentError("Clenshaw-Curtis quadrature needs at least 2 points"))
+    n = N - 1 # number of FFT points
+    x = [-cos(π*m/n) for m in 0:n] # Chebyshev nodes in ascending order
+    v = [1 / (1 - 4*min(m, n-m)^2) for m in 0:n-1] # 1/(1-4k^2) and it's mirror image
+    w = similar(x)
+    w[begin:end-1] .= 2/n .* real(fft(v)) # Discrete Cosine Transform (DCT) for O(N log N) time instead of O(N²)
+    w[begin] = w[end] = w[begin]/2 # modify endpoint factors
+    return Quadrature(x, w; name = Symbol("Clenshaw-Curtis"))
+end
 
 Base.nameof(q::Quadrature) = q.name
 Base.eltype(::Quadrature{T}) where {T} = T
