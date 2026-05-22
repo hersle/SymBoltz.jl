@@ -584,11 +584,6 @@ function issuccess(sol::CosmologySolution)
     return successful_retcode(sol.bg) && (isnothing(sol.pts) || all(successful_retcode(pt) for pt in sol.pts))
 end
 
-function integrate(xs, ys; integrator = TrapezoidalRule())
-    prob = SampledIntegralProblem(ys, xs)
-    sol = solve(prob, integrator)
-    return sol.u
-end
 integrate_cumulative(sol::CosmologySolution, x, y) = cumul_integrate(sol[x], sol[y])
 integrate_cumulative(sol::CosmologySolution, y) = integrate_cumulative(sol, sol.prob.M.τ, y)
 

@@ -435,8 +435,12 @@ end
     jl = SphericalBesselCache(ls)
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
     ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
-    ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
-    τs = range(τi, τ0, length = 768)
+    τquad = ClenshawCurtisRule(500, (τi, τ0))
+    kquad = ClenshawCurtisRule(1000, (ks_coarse[begin], ks_coarse[end]))
+    τs = nodes(τquad)
+    ks_fine = nodes(kquad)
+    ks_fine[begin] = max(ks_fine[begin], ks_coarse[begin]) # possible floating point roundoff error
+    ks_fine[end] = min(ks_fine[end], ks_coarse[end]) # possible floating point roundoff error
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
@@ -447,9 +451,9 @@ end
     Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
     @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)
     Ss = @inferred source_grid(Ss[1, :, :], ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
-    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
+    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl, τquad) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
-    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
+    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine, kquad)
 end
 
 @testset "Background differentiation test" begin
@@ -731,6 +735,17 @@ end
         ℋ  ~ 123
     ]
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
+end
+
+@testset "Quadrature rules" begin
+    f = x -> log(1+x) / (1+x^2)
+    I = π/8*log(2) # analytical result for ∫f(x)dx from 0 to 1 (https://math.stackexchange.com/a/220754/932179)
+
+    @test_throws ArgumentError TrapezoidalRule(1)
+    @test TrapezoidalRule(2) == QuadratureRule([-1.0, 1.0], [1/1, 1/1])
+    @test TrapezoidalRule(3) == QuadratureRule([-1.0, 0.0, 1.0], [1/2, 2/2, 1/2])
+    @test TrapezoidalRule(4) == QuadratureRule([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
+    @test TrapezoidalRule(2^13, (0.0, 1.0))(f) ≈ I
 end
 
 @testset "High lmax" begin
