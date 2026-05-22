@@ -412,8 +412,9 @@ end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
-jl = SphericalBesselCache(l)
-Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars)
+jl = SphericalBesselCache(l) # precompute
+τquad = ClenshawCurtisRule(500) # precompute
+Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars; τquad)
 plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
