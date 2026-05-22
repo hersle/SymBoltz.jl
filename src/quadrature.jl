@@ -1,3 +1,5 @@
+using FFTW
+
 struct Quadrature{T}
     x::Vector{T} # integration points on [-1, +1]
     w::Vector{T} # integration weights on [-1, +1]
@@ -59,12 +61,24 @@ end
 
 SimpsonQuadrature(N::Integer) = SimpsonQuadrature(range(-1, 1, length = N)) # reduces to the standard uniform-grid rule (1, 4, 2, 4, 2, ..., 4, 1)
 
+function ClenshawCurtisQuadrature(N::Integer)
+    N ≥ 2 || throw(ArgumentError("Clenshaw-Curtis quadrature needs at least 2 points"))
+    n = N - 1 # number of FFT points
+    x = [-cos(π*m/n) for m in 0:n] # Chebyshev nodes in ascending order
+    v = [1 / (1 - 4*min(m, n-m)^2) for m in 0:n-1] # 1/(1-4k^2) and it's mirror image
+    w = similar(x)
+    w[begin:end-1] .= 2/n .* real(fft(v)) # Discrete Cosine Transform (DCT) for O(N log N) time instead of O(N²)
+    w[begin] = w[end] = w[begin]/2 # modify endpoint factors
+    return Quadrature(x, w; name = Symbol("Clenshaw-Curtis"))
+end
+
 Base.nameof(q::Quadrature) = q.name
 Base.eltype(::Quadrature{T}) where {T} = T
 Base.show(io::IO, q::Quadrature) = print(io, q.name == Symbol() ? "Q" : "$(q.name) q", "uadrature rule: $(length(q)) points, eltype = $(eltype(q))")
 Base.length(q::Quadrature) = length(q.x)
 Base.eachindex(q::Quadrature) = eachindex(q.x)
 Base.:(==)(q1::Quadrature, q2::Quadrature) = q1.x == q2.x && q1.w == q2.w
+Base.:(≈)(q1::Quadrature, q2::Quadrature) = q1.x ≈ q2.x && q1.w ≈ q2.w
 nodes(q::Quadrature, a, b) = (b+a)/2 .+ (b-a)/2 .* q.x # nodes on [a, b]
 weights(q::Quadrature, a, b) = (b-a)/2 .* q.w # weights on [a, b]
 @inbounds @fastmath function integrate(q::Quadrature, f::AbstractVector, a, b)
