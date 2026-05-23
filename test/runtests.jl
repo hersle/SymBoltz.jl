@@ -435,8 +435,8 @@ end
     jl = SphericalBesselCache(ls)
     kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
     ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
-    τquad = ClenshawCurtisRule(500, (τi, τ0))
-    kquad = ClenshawCurtisRule(1000, (ks_coarse[begin], ks_coarse[end]))
+    τquad = ClenshawCurtisQuadrature(500, (τi, τ0))
+    kquad = ClenshawCurtisQuadrature(1000, (ks_coarse[begin], ks_coarse[end]))
     τs = nodes(τquad)
     ks_fine = nodes(kquad)
     ks_fine[begin] = max(ks_fine[begin], ks_coarse[begin]) # possible floating point roundoff error
@@ -741,36 +741,36 @@ end
     f = x -> log(1+x) / (1+x^2)
     I = π/8*log(2) # analytical result for ∫f(x)dx from 0 to 1 (https://math.stackexchange.com/a/220754/932179)
 
-    @test_throws ArgumentError TrapezoidalRule(1)
-    @test TrapezoidalRule(2) == QuadratureRule([-1.0, 1.0], [1/1, 1/1])
-    @test TrapezoidalRule(3) == QuadratureRule([-1.0, 0.0, 1.0], [1/2, 2/2, 1/2])
-    @test TrapezoidalRule(4) == QuadratureRule([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
-    @test TrapezoidalRule(2^13, (0.0, 1.0))(f) ≈ I
+    @test_throws ArgumentError TrapezoidalQuadrature(1)
+    @test TrapezoidalQuadrature(2) == Quadrature([-1.0, 1.0], [1/1, 1/1])
+    @test TrapezoidalQuadrature(3) == Quadrature([-1.0, 0.0, 1.0], [1/2, 2/2, 1/2])
+    @test TrapezoidalQuadrature(4) == Quadrature([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
+    @test TrapezoidalQuadrature(2^13, (0.0, 1.0))(f) ≈ I
 
-    @test_throws ArgumentError ClenshawCurtisRule(1)
-    @test ClenshawCurtisRule(2) ≈ QuadratureRule([-1.0, 1.0], [1.0, 1.0])
-    @test ClenshawCurtisRule(3) ≈ QuadratureRule([-1.0, 0.0, 1.0], [1/3, 4/3, 1/3])
-    @test ClenshawCurtisRule(4) ≈ QuadratureRule([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
-    @test ClenshawCurtisRule(5) ≈ QuadratureRule([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
-    @test ClenshawCurtisRule(2^4, (0.0, 1.0))(f) ≈ I
+    @test_throws ArgumentError ClenshawCurtisQuadrature(1)
+    @test ClenshawCurtisQuadrature(2) ≈ Quadrature([-1.0, 1.0], [1.0, 1.0])
+    @test ClenshawCurtisQuadrature(3) ≈ Quadrature([-1.0, 0.0, 1.0], [1/3, 4/3, 1/3])
+    @test ClenshawCurtisQuadrature(4) ≈ Quadrature([-1, -1/2, 1/2, 1], [1/9, 8/9, 8/9, 1/9])
+    @test ClenshawCurtisQuadrature(5) ≈ Quadrature([-1, -√2/2, 0, √2/2, 1], [1/15, 8/15, 4/5, 8/15, 1/15])
+    @test ClenshawCurtisQuadrature(2^4, (0.0, 1.0))(f) ≈ I
 
     # https://numfactory.upc.edu/web/Calculo2/P2_Integracio/html/Gauss1D.html
-    @test_throws ArgumentError GaussRule(0)
-    @test GaussRule(1) ≈ QuadratureRule([0.0], [2.0])
-    @test GaussRule(2) ≈ QuadratureRule([-1/√(3), 1/√(3)], [1.0, 1.0])
-    @test GaussRule(3) ≈ QuadratureRule([-√(3/5), 0, √(3/5)], [5/9, 8/9, 5/9])
-    @test GaussRule(2^3, (0.0, 1.0))(f) ≈ I
+    @test_throws ArgumentError GaussQuadrature(0)
+    @test GaussQuadrature(1) ≈ Quadrature([0.0], [2.0])
+    @test GaussQuadrature(2) ≈ Quadrature([-1/√(3), 1/√(3)], [1.0, 1.0])
+    @test GaussQuadrature(3) ≈ Quadrature([-√(3/5), 0, √(3/5)], [5/9, 8/9, 5/9])
+    @test GaussQuadrature(2^3, (0.0, 1.0))(f) ≈ I
 
-    @test_throws ArgumentError GaussKronrodRule(0)
-    @test_throws ArgumentError GaussKronrodRule(1)
-    @test_throws ArgumentError GaussKronrodRule(2)
-    @test GaussKronrodRule(3) ≈ GaussRule(3)
-    @test_throws ArgumentError GaussKronrodRule(4)
-    @test_nowarn GaussKronrodRule(5)
-    @test GaussKronrodRule(2^3+1, (0.0, 1.0))(f) ≈ I
+    @test_throws ArgumentError GaussKronrodQuadrature(0)
+    @test_throws ArgumentError GaussKronrodQuadrature(1)
+    @test_throws ArgumentError GaussKronrodQuadrature(2)
+    @test GaussKronrodQuadrature(3) ≈ GaussQuadrature(3)
+    @test_throws ArgumentError GaussKronrodQuadrature(4)
+    @test_nowarn GaussKronrodQuadrature(5)
+    @test GaussKronrodQuadrature(2^3+1, (0.0, 1.0))(f) ≈ I
 
     # autodiff
-    quad = GaussRule(2^3) # TODO: Clenshaw-Curtis?
+    quad = GaussQuadrature(2^3) # TODO: Clenshaw-Curtis?
     @test ForwardDiff.derivative(x -> transform(quad, (0.0, x))(f), 1.0) ≈ f(1.0) # derivative of F(x) = ∫₀ˣ dy f(y) = f(x), using fundamental theorem
 end
 

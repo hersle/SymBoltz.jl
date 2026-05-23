@@ -101,7 +101,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache[, quad::QuadratureRule]; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache[, quad::Quadrature]; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
 
 For the given `ls` and `ks`, compute the line-of-sight-integrals
 ```math
@@ -115,7 +115,7 @@ Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, quad::QuadratureRule; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, quad::Quadrature; l_limber = typemax(Int), thread = true, verbose = false) where {T <: Real}
     # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
@@ -172,7 +172,7 @@ end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
-    spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector[, quad::QuadratureRule]; normalization = :Cl, thread = true)
+    spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector[, quad::Quadrature]; normalization = :Cl, thread = true)
 
 Compute the angular power spectrum
 ```math
@@ -181,7 +181,7 @@ Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,�
 for the given `ls`.
 If `normalization == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
 """
-function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector, quad::QuadratureRule; normalization = :Cl, thread = true)
+function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector, quad::Quadrature; normalization = :Cl, thread = true)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
@@ -207,7 +207,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0_l_min = 0.1, kτ0_l_max = 10.0, τquad = ClenshawCurtisRule(500), kquad = TrapezoidalRule(8500), l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0_l_min = 0.1, kτ0_l_max = 10.0, τquad = ClenshawCurtisQuadrature(500), kquad = TrapezoidalQuadrature(8500), l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -233,7 +233,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0_l_min = 0.1, kτ0_l_max = 10.0, τquad = ClenshawCurtisRule(500), kquad = TrapezoidalRule(8500), l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0_l_min = 0.1, kτ0_l_max = 10.0, τquad = ClenshawCurtisQuadrature(500), kquad = TrapezoidalQuadrature(8500), l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     lmin = ls[begin]
     lmax = ls[end]
