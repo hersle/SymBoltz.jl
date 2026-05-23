@@ -768,6 +768,10 @@ end
     @test_throws ArgumentError GaussKronrodRule(4)
     @test_nowarn GaussKronrodRule(5)
     @test GaussKronrodRule(2^3+1, (0.0, 1.0))(f) ≈ I
+
+    # autodiff
+    quad = GaussRule(2^3) # TODO: Clenshaw-Curtis?
+    @test ForwardDiff.derivative(x -> transform(quad, (0.0, x))(f), 1.0) ≈ f(1.0) # derivative of F(x) = ∫₀ˣ dy f(y) = f(x), using fundamental theorem
 end
 
 @testset "High lmax" begin
