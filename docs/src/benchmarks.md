@@ -188,12 +188,12 @@ bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
 ptopts = (alg = Rodas5P(linsolve = KLUFactorization(),), save_everystep = false) # generate function for J symbolically
 bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
-bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),)
-ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = true), save_everystep = false) # compute J with forward-mode AD
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),)
+ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()), save_everystep = false) # compute J with forward-mode AD
 bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
-bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = true),) # fails with finite diff background J
-ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = false), save_everystep = false) # compute J with finite differences
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),) # fails with finite diff background J
+ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = SymBoltz.AutoFiniteDiff()), save_everystep = false) # compute J with finite differences
 bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 results = run(bench; verbose = true)
