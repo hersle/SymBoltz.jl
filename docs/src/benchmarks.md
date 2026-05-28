@@ -27,18 +27,52 @@ Every solution is compared to a reference solution with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
-# following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590 # hide
-using DiffEqDevTools
+function workprec(prob, algs, tols, refsol; N = 5, norm = x -> norm(x, 2), kwargs...)
+    refu = stack(refsol)
+    results = Pair{String, Vector{Tuple{Float64, Float64}}}[]
+    for alg in algs
+        name = SymBoltz.algname(alg)
+        points = Tuple{Float64, Float64}[]
+        for tol in tols
+            abstol = reltol = tol
+            println(name, ": abstol = ", abstol, ", reltol = ", reltol)
+            sol = solve(prob, alg; abstol = tol, reltol = tol, save_everystep = true, kwargs...)
+            if !SymBoltz.successful_retcode(sol)
+                push!(points, (NaN, NaN))
+                continue
+            end
+            u = stack(sol(refsol.t)) # interpolate to reference times
+            err = norm(u .- refu) / length(u) # divide by number of points
+            verbose = SymBoltz.SciMLLogging.None()
+            t = minimum(_ -> (@elapsed solve(prob, alg; abstol, reltol, verbose, save_everystep = false, kwargs...)), 1:N) # minimum over N sample runs
+            push!(points, (t, err))
+        end
+        push!(results, name => points)
+    end
+    return results
+end
 
-refalg = Rodas5P(linsolve = RFLUFactorization())
+function plot_workprec(wp; title = "", kwargs...)
+    p = plot(; xlabel = "time / s", ylabel = "L₂ error", xscale = :log10, yscale = :log10, title, legend = :topright, kwargs...)
+    for (i, (label, points)) in enumerate(wp)
+        times = map(first, points)
+        errors = map(last, points)
+        color = i
+        marker = Plots._shape_keys[i]
+        linewidth = 2
+        plot!(p, times, errors; label, color, marker, linewidth)
+    end
+    return p
+end
+
+linsolve = RFLUFactorization()
+refalg = Rodas5P(; linsolve)
 bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
-abstols = 1 ./ 10 .^ (7:11)
-reltols = 1 ./ 10 .^ (7:11)
-bgalgs = [Rodas4(), Rodas5(), Rodas4P(), Rodas5P(), Rodas6P(), FBDF(), QNDF()] # FBDF/QNDF unstable for some tolerances
-setups = [Dict(:alg => alg) for alg in bgalgs]
-wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
-plot(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
+tols = 1 ./ 10 .^ (7:11)
+bgalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
+wp = workprec(prob.bg, bgalgs, tols, bgsol)
+plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
 ```
 
 Note that the `FBDF` and `QNDF` methods are unstable for several tolerances.
@@ -72,30 +106,29 @@ The points on each curve correspond to a sequence of tolerances.
 ```@example bench
 # TODO: test different nlsolve # hide
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
-ptalgs = [algtype(linsolve = KLUFactorization()) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
+linsolve = KLUFactorization()
+ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
-setups = [Dict(:alg => alg) for alg in ptalgs]
-refalg = Rodas5P(linsolve = KLUFactorization())
-abstols = 1 ./ 10 .^ (5:9)
-reltols = 1 ./ 10 .^ (5:9)
+refalg = Rodas5P(; linsolve)
+tols = 1 ./ 10 .^ (5:9)
 
-function plot_precision_work_perturbations(k; numruns = 8, print_names = true, kwargs...)
+function plot_workprec_pert(k; kwargs...)
     ptprob = ptprobgen(k)
-    ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use standard Rodas5P which is also used in CLASS comparison)
-    wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2, numruns, print_names, kwargs...)
-    return plot(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
+    refsol = solve(ptprob, refalg; abstol = 1e-10, reltol = 1e-10)
+    wp = workprec(ptprob, ptalgs, tols, refsol)
+    return plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", size = (800, 400), margin = 5*Plots.mm, kwargs...)
 end
 
-pk1 = plot_precision_work_perturbations(1e1)
+pk1 = plot_workprec_pert(1e1)
 ```
 ```@example bench
-pk2 = plot_precision_work_perturbations(1e2)
+pk2 = plot_workprec_pert(1e2)
 ```
 ```@example bench
-pk3 = plot_precision_work_perturbations(1e3)
+pk3 = plot_workprec_pert(1e3)
 ```
 ```@example bench
-pk4 = plot_precision_work_perturbations(1e4)
+pk4 = plot_workprec_pert(1e4)
 ```
 
 ## Perturbations: time per mode
@@ -111,7 +144,8 @@ times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for pt
 plot(
     log10.(ks), map(ts -> log10.(ts), times); marker = :auto, markersize = 2,
     xlabel = "lg(k)", ylabel = "lg(time / s)", xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
-    label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft
+    label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft,
+    size = (800, 400), margin = 5*Plots.mm
 )
 ```
 
@@ -127,7 +161,7 @@ for (i, k) in enumerate(ks)
         τs = ptsol.t
         Δτs = diff(τs)
         τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
-        plot!(p, τs, Δτs; marker = :auto, markerstrokewidth = 0, markersize = 2, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c",subplot = i)
+        plot!(p, τs, Δτs; marker = :auto, markerstrokewidth = 0, markersize = 2, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c", subplot = i)
     end
 end
 p
