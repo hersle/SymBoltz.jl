@@ -82,11 +82,11 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
         retcode = sol.bg.retcode
         print(io, '\n', indent, "Background: return code ")
         printstyled(io, retcode; color = retcode_color(retcode))
-        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg)) points")
+        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg.u)) points")
     end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
-        nmin, nmax = extrema(map(length, sol.pts))
+        nmin, nmax = extrema(map(ptsol -> length(ptsol.u), sol.pts))
         n = length(sol.pts)
         retcodes = unique(map(ptsol -> ptsol.retcode, sol.pts))
         print(io, '\n', indent, "Perturbations: return codes ")
