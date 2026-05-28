@@ -416,7 +416,7 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
 
     τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
     if !isnothing(τrecidx)
-        bgsol.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
+        bgprob.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
     end
 
     return bgsol
