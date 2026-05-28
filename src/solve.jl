@@ -2,6 +2,7 @@ import Base: nameof
 import LinearAlgebra: issuccess, BLAS
 import CommonSolve: solve
 import SciMLBase: remake, successful_retcode
+import SciMLLogging
 import PreallocationTools: DiffCache, get_tmp
 import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
@@ -408,7 +409,7 @@ If the background requires shooting, `vars` is a dictionary with variables to sh
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
-    bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
+    bgsol = solve(bgprob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
@@ -541,7 +542,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
         return output_func(sol, i)
     end
 
-    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
+    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
     verbose && println()
     return ptsols
 end

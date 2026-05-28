@@ -260,3 +260,5 @@ macro spawnif(code, thread)
 end
 
 varvalstr(vars, vals) = join(("$var = $val" for (var, val) in zip(vars, vals)), ", ")
+
+verbosity(verbose) = verbose ? SciMLLogging.Standard() : SciMLLogging.None()
