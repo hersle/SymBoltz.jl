@@ -29,7 +29,7 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
         D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ) # D(θ) ~ -κ̇ (θb-θγ)
-        [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
+        [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)*Π/10) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℋ
         δ ~ F0
         Δ ~ δ + 3*g.ℋ*(1+γ.w)*θ/k^2
@@ -48,20 +48,22 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
         F0 ~ -2*g.Ψ # Dodelson (7.89) # TODO: derive automatically
         F[1] ~ 2//3 * k*τ*g.Ψ # Dodelson (7.95)
         F[2] ~ (polarization ? -8//15 : -20//45) * k/κ̇ * F[1] # depends on whether polarization is included
-        [F[l] ~ -l/(2l+1) * k/κ̇ * F[l-1] for l in 3:lmax]...
+        F[3] ~ -3//(2*3+1) * k/κ̇ * F[2] # -l/(2l+1) * k/κ̇ * F[l-1] → 0 quickly
+        [F[l] ~ 0 for l in 4:lmax]...
     ]
     if polarization
         append!(eqs, [
             D(G0) ~ k * (-G[1]) + κ̇ * (G0 - Π/2)
             D(G[1]) ~ k/(2*1+1) * (1*G0 - 2*G[2]) + κ̇ * G[1]
-            [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)//10*Π) for l in 2:lmax-1]...
+            [D(G[l]) ~ k/(2l+1) * (l*G[l-1] - (l+1)*G[l+1]) + κ̇ * (G[l] - δkron(l,2)*Π/10) for l in 2:lmax-1]...
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / τ * G[lmax] + κ̇ * G[lmax]
         ])
         append!(ieqs, [
-            G0 ~ 5//16 * F[2],
-            G[1] ~ -1//16 * k/κ̇ * F[2],
-            G[2] ~ 1//16 * F[2],
-            [G[l] ~ -l/(2l+1) * k/κ̇ * G[l-1] for l in 3:lmax]...
+            G0 ~ 5//16 * F[2]
+            G[1] ~ -1//16 * k/κ̇ * F[2]
+            G[2] ~ 1//16 * F[2]
+            G[3] ~ -3//(2*3+1) * k/κ̇ * G[2] # -l/(2l+1) * k/κ̇ * G[l-1] → 0 quickly
+            [G[l] ~ 0 for l in 4:lmax]...
         ])
     else
         append!(eqs, [collect(G .~ 0)...]) # pin to zero

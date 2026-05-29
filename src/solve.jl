@@ -213,7 +213,8 @@ function CosmologyProblem(
         end
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
-        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, ptopts..., kwargs...)
+        p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
+        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
         @set! pt.f.sys.tearing_state = ts # restore
     else
         pt = nothing
@@ -490,6 +491,8 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     if hasspline
         @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
     end
+    @set! ptprob.p = newp
+    @set! ptprob.f.initialization_data.initializeprob.p = newp # necessary to prevent type assert error in MTKBase 1.36.3, see https://github.com/hersle/SymBoltz.jl/pull/96
 
     kset! = ModelingToolkit.setp(ptprob, k)
     return k -> begin

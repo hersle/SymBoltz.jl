@@ -112,22 +112,28 @@ end
 
 @testset "Spherical Bessel function cache" begin
     ls = 10:10:100
-    jl = SphericalBesselCache(ls)
+    jl_lin = SphericalBesselCache(ls; dx = 2π/150, hermite = false)
+    jl_her = SphericalBesselCache(ls; dx = 2π/15, hermite = true)
+    for (jl, atol) in [(jl_lin, 1e-5), (jl_her, 1e-5)]
+        @test_throws BoundsError jl(5, 0.0) # not cached
+        @test_throws BoundsError jl(10, -1.0)
+        @test_throws BoundsError jl(10, jl.x[end] + 1.0)
+        @test isapprox(jl(10, 0.0), SymBoltz.sphericalbesselj(10, 0.0); atol = 1e-16)
+        @test isapprox(jl(10, jl.x[end]), SymBoltz.sphericalbesselj(10, jl.x[end]); atol = 1e-16)
+        @test isapprox(jl(10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol)
 
-    @test_throws BoundsError jl(5, 0.0) # not cached
-    @test_throws BoundsError jl(10, -1.0)
-    @test_throws BoundsError jl(10, jl.x[end] + 1.0)
-    @test jl(10, 0.0) == SymBoltz.sphericalbesselj(10, 0.0)
-    @test jl(10, jl.x[end]) == SymBoltz.sphericalbesselj(10, jl.x[end])
-    @test isapprox(jl(10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol = 1e-3)
+        xs = range(jl.x[begin], jl.x[end], step=0.001)
+        @test all(isapprox.(jl.(jl.l', xs), SymBoltz.jl.(jl.l', xs); atol))
 
-    t1 = @belapsed $jl(10, π)
-    t2 = @belapsed SymBoltz.sphericalbesselj(10, π)
-    @test t1 < t2 # faster
-    @test (@ballocated $jl(10, π)) == 0 # non-allocating
+        xs = range(jl.x[begin], jl.x[end], length=10)
+        t1 = @belapsed $jl.(10, $xs)
+        t2 = @belapsed SymBoltz.sphericalbesselj.(10, $xs)
+        @test t1 < t2 # faster
+        @test (@ballocated $jl(10, π)) == 0 # non-allocating
 
-    j10(x) = jl(10, x)
-    @test isfinite(ForwardDiff.derivative(j10, π))
+        j10(x) = jl(10, x)
+        @test isfinite(ForwardDiff.derivative(j10, π))
+    end
 end
 
 @testset "Extend array" begin
@@ -177,7 +183,7 @@ end
 
     # Check that Fₗ(0) ∝ kˡ
     Fls = sol([M.γ.F0; collect(M.γ.F)], τini, ks)
-    @test all(Fls[:,1] ./ Fls[:,2] .≈ map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))
+    @test all(isapprox.(Fls[:,1] ./ Fls[:,2], map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))[1:4])
 
     # Check initial ratio of metric potentials
     @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
@@ -292,14 +298,14 @@ end
 end
 
 @testset "Consistent AD and FD derivatives of matter power spectrum" begin
-    k = 10 .^ range(-3, 0; length = 20) / u"Mpc"
+    k = 10 .^ range(0, 3; length = 20)
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
     probgen = parameter_updater(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
         prob′ = probgen(θ)
         P = spectrum_matter(prob′, k)
-        return log.(P / u"Mpc^3")
+        return log.(P)
     end
     logθ = [log(pars[par]) for par in diffpars]
     ∂logP_∂logθ_ad = ForwardDiff.jacobian(logP, logθ)
@@ -426,16 +432,16 @@ end
     #sol = solve(prob, ks_coarse)
     #Ss = sol(ks_fine, τs, M.ST)
     ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
-    @test !isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
+    @test isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
     sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
     @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
     Sgetter = SymBoltz.getsym(prob.pt, M.ST)
     Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
     @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)
-    Ss = @inferred source_grid(Ss, ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
+    Ss = @inferred source_grid(Ss[1, :, :], ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
     Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
     P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
-    Cls = @inferred spectrum_cmb(Θ0s[1, :, :], Θ0s[1, :, :], P0s, ls, ks_fine)
+    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
 end
 
 @testset "Background differentiation test" begin
@@ -466,7 +472,7 @@ end
 end
 
 using QuasiMonteCarlo
-function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs...)
+function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error = false, kwargs...)
     prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
     pars = collect(keys(vary))
     probgen = parameter_updater(prob0, pars)
@@ -484,7 +490,8 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, kwargs.
         if issuccess(sol)
             nsuccess += 1
         else
-            solve(prob, ks; verbose, kwargs...) # solve again with verbose output for debugging
+            solve(prob, ks; verbose=true, kwargs...) # solve again with verbose output for debugging
+            error && Base.error("FAIL: ", sample)
         end
         verbose && println(issuccess(sol) ? "PASS" : "FAIL", ": ", sample)
     end
@@ -493,16 +500,16 @@ end
 vary = Dict(par => (0.5val, 1.5val) for (par, val) in pars) # ± 50% around fiducial values
 ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
-    @test stability(M, ks, vary, 100; verbose = true) == 1.0 # 100%
+    @test stability(M, ks, vary, 100; error = true) == 1.0 # 100%
 
     M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
-    @test stability(M1, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M1, ks, vary, 100; error = true) == 1.0
 
     M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
-    @test stability(M2, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M2, ks, vary, 100; error = true) == 1.0
 
     M3 = ΛCDM(K = nothing, reionization = false; lmax)
-    @test stability(M3, ks, vary, 100; verbose = true) == 1.0
+    @test stability(M3, ks, vary, 100; error = true) == 1.0
 end
 
 using SpecialFunctions: zeta as ζ
@@ -716,4 +723,10 @@ end
         ℋ  ~ 123
     ]
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
+end
+
+@testset "High lmax" begin
+    M = ΛCDM(lmax = 32)
+    prob = CosmologyProblem(M, pars)
+    @test issuccess(solve(prob, [1e-1, 1e0, 1e1, 1e2, 1e3]))
 end

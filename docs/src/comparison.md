@@ -300,7 +300,7 @@ a1 = sol1["perturbations_k0_s"][:,"a"]
 a2 = sol2[1, M.g.a]
 Φ1, Ψ1 = sol1["perturbations_k0_s"][:,"phi"], sol1["perturbations_k0_s"][:,"psi"]
 Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
-plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 2e-4)
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], "a", ["Ψ", "Φ"]; lgx=true, tol = 3e-4)
 ```
 ### Energy overdensities
 ```@example class
@@ -330,7 +330,7 @@ plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 7e-8)
 ```@example class
 σ1 = [sol1["perturbations_k0_s"][:,"shear_g"], sol1["perturbations_k0_s"][:,"shear_ur"]]
 σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
-plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 4e-4)
+plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
 ```
 ### Polarization
 ```@example class
@@ -417,19 +417,19 @@ Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars)
 plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 3e-14)
+plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], "l", "Dₗ(TE)"; tol = 4e-14)
 ```
 ```@example class
 plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], "l", "Dₗ(EE)"; tol = 8e-15)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 4], Dl2[:, 4], "l", "Dₗ(ψψ)"; tol = 5e-13)
+plot_compare(l, l, Dl1[:, 4], Dl2[:, 4], "l", "Dₗ(ψψ)"; tol = 4e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 3e-13)
+plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 6e-13)
 ```
 ```@example class
-plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 3e-15)
+plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 5e-15)
 ```
 ```@example class
 diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]

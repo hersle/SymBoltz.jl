@@ -45,12 +45,12 @@ pars = Dict(
     M.I.ln_As1e10 => 3.0,
     M.I.ns => 0.95
 )
-ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 prob = CosmologyProblem(M, pars)
 ```
 Finally, we can simply solve the problem:
 
 ```@example getting_started
+ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
 sol = solve(prob, ks) # or just solve(prob) to solve only the background
 ```
 
@@ -83,8 +83,7 @@ Similarly, to get $\Phi(k,τ)$ for the 500 wavenumbers we solved for at the same
 You could plot this with `using Plots; plot(log10.(as), transpose(Φs))`, but this is more convenient with the included plot recipe:
 ```@example getting_started
 using Plots
-ks_plot = [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc"
-plot(sol, log10(M.g.a), M.g.Φ, ks_plot) # lg(a) vs. Φ for 4 wavenumbers
+plot(sol, log10(M.g.a), M.g.Φ, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc") # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the matter power spectrum:
@@ -109,7 +108,7 @@ plot!(p[3], sol, log10(M.g.a), log10(M.g.H))
 plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.Xe])
 plot!(p[5], sol, log10(M.g.a), log10.([M.γ.T, M.b.T] ./ M.γ.T₀))
 plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.κ)))
-plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks_plot)
-plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), ks_plot; klabel = false)
-plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), ks_plot; klabel = false)
+plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], 1e-1 / u"Mpc")
+plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), 1e-1 / u"Mpc"; klabel = false)
+plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), 1e-1 / u"Mpc"; klabel = false)
 ```
