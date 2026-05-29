@@ -2,6 +2,7 @@ import Base: nameof
 import LinearAlgebra: issuccess, BLAS
 import CommonSolve: solve
 import SciMLBase: remake, successful_retcode
+import SciMLLogging
 import PreallocationTools: DiffCache, get_tmp
 import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
@@ -81,11 +82,11 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
         retcode = sol.bg.retcode
         print(io, '\n', indent, "Background: return code ")
         printstyled(io, retcode; color = retcode_color(retcode))
-        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg)) points")
+        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg.u)) points")
     end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
-        nmin, nmax = extrema(map(length, sol.pts))
+        nmin, nmax = extrema(map(ptsol -> length(ptsol.u), sol.pts))
         n = length(sol.pts)
         retcodes = unique(map(ptsol -> ptsol.retcode, sol.pts))
         print(io, '\n', indent, "Perturbations: return codes ")
@@ -408,14 +409,14 @@ If the background requires shooting, `vars` is a dictionary with variables to sh
 """
 function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
     check_solve_args(bgprob, alg)
-    bgsol = solve(bgprob, alg; verbose, reltol, abstol, kwargs...)
+    bgsol = solve(bgprob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
     end
 
     τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
     if !isnothing(τrecidx)
-        bgsol.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
+        bgprob.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
     end
 
     return bgsol
@@ -541,7 +542,7 @@ function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptiv
         return output_func(sol, i)
     end
 
-    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose, reltol, abstol, kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
+    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
     verbose && println()
     return ptsols
 end

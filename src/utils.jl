@@ -118,8 +118,8 @@ end
 function spline(sol::ODESolution)
     ts = sol.t
     Nu, _ = size(sol)
-    us = map(u -> SVector{Nu}(u), sol(ts, Val{0}))
-    dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}))
+    us = map(u -> SVector{Nu}(u), sol(ts, Val{0}).u)
+    dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}).u)
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
@@ -260,3 +260,5 @@ macro spawnif(code, thread)
 end
 
 varvalstr(vars, vals) = join(("$var = $val" for (var, val) in zip(vars, vals)), ", ")
+
+verbosity(verbose) = verbose ? SciMLLogging.Standard() : SciMLLogging.None()
