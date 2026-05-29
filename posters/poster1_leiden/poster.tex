@@ -14,7 +14,12 @@
 
 \usepackage{fontspec}
 \setmonofont[Scale=MatchLowercase]{JuliaMono}
-\newcommand{\emoji}[1]{{\setmainfont{Noto Color Emoji}[Renderer=Harfbuzz]{#1}}} % instead of \usepackage{emoji}
+\newfontfamily{\emojifont}{Twemoji.Mozilla}[
+    Path = ./fonts/,
+    Extension = .ttf,
+    Renderer = HarfBuzz,
+]
+\newcommand{\emoji}[1]{{\emojifont #1}}
 
 \usepackage{tikz}
 \usetikzlibrary{positioning}
@@ -325,7 +330,7 @@ hierarchy(M; describe=true) # view hierarchical structure of model components
 \block[bodyverticalshift=-2.0cm]{\huge Try it! Feedback?}{
 \noindent
 \begin{minipage}{0.25\linewidth}
-    \includegraphics[width=\linewidth]{../qr.png}
+    \includegraphics[width=\linewidth]{../../qr.png}
 \end{minipage}%
 \hfill%
 \begin{adjustbox}{valign=c}%
