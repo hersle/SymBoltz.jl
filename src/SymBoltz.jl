@@ -40,6 +40,7 @@ include("models/curvature.jl")
 include("models/inflation.jl")
 include("models/cosmologies.jl")
 include("solve.jl")
+include("quadrature.jl")
 include("observables/distances.jl")
 include("observables/fourier.jl")
 include("observables/angular.jl")
@@ -53,6 +54,7 @@ export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, distance_luminosity, SphericalBesselCache
 export express_derivatives
+export Quadrature, TrapezoidalQuadrature, ClenshawCurtisQuadrature, GaussQuadrature, GaussKronrodQuadrature, nodes, weights, integrate, transform
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
