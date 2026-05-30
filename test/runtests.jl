@@ -747,6 +747,11 @@ end
     @test TrapezoidalQuadrature(4) == Quadrature([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
     @test TrapezoidalQuadrature(2^13, (0.0, 1.0))(f) ≈ I
 
+    @test_throws ArgumentError TrapezoidalQuadrature([1.0])
+    @test_throws ArgumentError TrapezoidalQuadrature([2.0, 1.0])
+    @test TrapezoidalQuadrature([1.0, 2.0, 3.0, 4.0]) ≈ TrapezoidalQuadrature(4, (1.0, 4.0))
+    @test TrapezoidalQuadrature([-1.0, -0.5, 1.0]) ≈ Quadrature([-1.0, -0.5, 1.0], [0.5/2, 0.5/2+1.5/2, 1.5/2])
+
     @test_throws ArgumentError ClenshawCurtisQuadrature(1)
     @test ClenshawCurtisQuadrature(2) ≈ Quadrature([-1.0, 1.0], [1.0, 1.0])
     @test ClenshawCurtisQuadrature(3) ≈ Quadrature([-1.0, 0.0, 1.0], [1/3, 4/3, 1/3])
