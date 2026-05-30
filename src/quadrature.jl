@@ -7,9 +7,9 @@ struct Quadrature{T, U}
 
     function Quadrature(x::AbstractVector{T}, w::AbstractVector{T}, interval = (-1.0, 1.0); name = Symbol()) where {T}
         all(-1 .≤ x .≤ 1) || throw(ArgumentError("Quadrature points must be on the canonical interval [-1, 1]"))
-        sum(w) ≈ 2 || throw(ArgumentError("Quadrature weights must sum to 2, but sums to $(sum(w))"))
         issorted(x) || throw(ArgumentError("Quadrature points must be sorted in ascending order"))
-        length(x) == length(w) || throw(ArgumentError("Quadrature rule must have same number of nodes and weights"))
+        sum(w) ≈ 2 || throw(ArgumentError("Quadrature weights must sum to 2, but sums to $(sum(w))"))
+        length(x) == length(w) || throw(ArgumentError("Quadrature nodes and weights must have same length"))
         new{T, eltype(interval)}(x, w, interval[begin], interval[end], name)
     end
 end
@@ -21,6 +21,22 @@ function TrapezoidalQuadrature(N::Integer, args...)
     w[begin] = 1/(N-1)
     w[end] = 1/(N-1)
     return Quadrature(x, w, args...; name = Symbol("Trapezoidal"))
+end
+
+function TrapezoidalQuadrature(x::AbstractArray, args...)
+    N = length(x)
+    N ≥ 2 || throw(ArgumentError("Trapezoidal quadrature needs at least 2 points"))
+    xmin, xmax = extrema(x)
+    x = collect(x)
+    x .= -1 .+ 2 .* (x .- xmin) / (xmax - xmin) # normalize to canonical [-1, 1]
+    w = zeros(N)
+    # each interval contributes (y1+y2)*(x2-x1)/2
+    for i in 1:N-1
+        dx = x[i+1] - x[i]
+        w[i] += dx / 2
+        w[i+1] += dx / 2
+    end
+    return Quadrature(x, w, (xmin, xmax), args...; name = Symbol("Trapezoidal"))
 end
 
 transform(q::Quadrature, interval) = Quadrature(q.x, q.w, interval; name = q.name) # arrays are reuse and shared!
