@@ -252,11 +252,14 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     ks_fine = collect(kτ0s ./ τ0)
 
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
-    if !isnothing(xs)
-        # use user's array of x = (τ-τi)/(τ0-τi)
+    if xs isa AbstractArray
+        # explicit fractional grid x = (τ-τi)/(τ0-τi) ∈ [0,1]
         xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
         xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
         τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
+    elseif xs isa Int
+        # interpolate xs points from background time grid, preserving its density structure
+        τs = LinearInterpolation(τs, 1.0:length(τs)).(range(1.0, length(τs), length = xs))
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
