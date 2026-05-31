@@ -219,7 +219,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob),, reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), downsampleopts = (Ttol = 4e-3, Etol = 2e-4, ψtol = 1e-3), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -245,7 +245,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), downsampleopts = (Ttol = 4e-3, Etol = 2e-4, ψtol = 1e-3), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (rtol = 1e-3, atol = 0.9), coarse_length = 9, thread = true, verbose = false, kwargs...)
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
@@ -272,25 +272,20 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     Θls = zeros(eltype(Ss), max(iT, iE, iψ), length(ks_fine), length(ls))
     if iT > 0
-        STs, τTs = source_grid_downsample(Ss[1, :, :], τs; tol = downsampleopts.Ttol) # downsample in τ
-        verbose && println("Downsampled T source function from ", length(τs), " to ", length(τTs), " time points")
-        STs = source_grid(STs, ks_coarse, ks_fine; thread) # upsample in k
-        Θls[iT, :, :] .= los_integrate(STs, ls, τTs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+        STs = source_grid(Ss[1, :, :], ks_coarse, ks_fine; thread) # upsample in k
+        Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iE > 0
-        SEs, τEs = source_grid_downsample(Ss[2, :, :], τs; tol = downsampleopts.Etol) # downsample in τ
-        verbose && println("Downsampled E source function from ", length(τs), " to ", length(τEs), " time points")
-        @. SEs ./= (ks_coarse' * (τ0-τEs))^2
+        SEs = Ss[2, :, :]
+        @. SEs ./= (ks_coarse' * (τ0-τs))^2
         SEs[end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
         SEs = source_grid(SEs, ks_coarse, ks_fine; thread) # upsample in k
-        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τEs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iψ > 0
-        Sψs, τψs = source_grid_downsample(Ss[3, :, :], τs; tol = downsampleopts.ψtol) # downsample in τ
-        verbose && println("Downsampled ψ source function from ", length(τs), " to ", length(τψs), " time points")
-        Sψs = source_grid(Sψs, ks_coarse, ks_fine; thread) # upsample in k
+        Sψs = source_grid(Ss[3, :, :], ks_coarse, ks_fine; thread) # upsample in k
         Sψs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
-        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τψs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
+        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
