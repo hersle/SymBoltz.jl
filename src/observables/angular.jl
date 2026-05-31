@@ -266,7 +266,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
-    Ss = [prob.M.ST, prob.M.SE_kχ², prob.M.Sψ]
+    Ss = [prob.M.ST, prob.M.SE, prob.M.Sψ]
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
     ks_coarse, Ss = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
 
@@ -276,10 +276,8 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iE > 0
-        SEs = Ss[2, :, :]
-        @. SEs ./= (ks_coarse' * (τ0-τs))^2
-        SEs[end, :] .= 0.0 # can be Inf, but is always weighted by zero-valued spherical Bessel function in LOS integration
-        SEs = source_grid(SEs, ks_coarse, ks_fine; thread) # upsample in k
+        SEs = source_grid(Ss[2, :, :], ks_coarse, ks_fine; thread) # upsample in k
+        SEs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
         Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iψ > 0
