@@ -74,7 +74,7 @@ vars = @variables begin
     ρΛ(τ), PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
     fν(τ), # misc
     ρm(τ,k), Δm(τ,k), # matter source functions
-    ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE_kχ²(τ,k), Sψ(τ,k) # CMB source functions
+    ST_SW(τ,k), ST_ISW(τ,k), ST_Doppler(τ,k), ST_polarization(τ,k), ST(τ,k), SE(τ,k), Sψ(τ,k) # CMB source functions
 end
 
 # 4) Equations for time evolution (modify or add your own)
@@ -241,7 +241,7 @@ eqs = [
     ST_Doppler ~ D(v*θb) / k^2 |> expand_derivatives
     ST_polarization ~ 3/(16k^2) * D(D(v*Πγ)) |> expand_derivatives
     ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
-    SE_kχ² ~ 3/16 * v*Πγ
+    SE ~ 3/16 * v*Πγ / (k*χ)^2
     Sψ ~ 0 # ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0) # TODO # hide
 ]
 

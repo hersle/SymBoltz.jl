@@ -64,7 +64,7 @@ function ΛCDM(;
         ST_ISW(τ, k), [description = "Integrated Sachs-Wolfe contribution to ST"]
         ST_Doppler(τ, k), [description = "Doppler contribution to ST"]
         ST_polarization(τ, k), [description = "Polarization contribution to ST"]
-        SE_kχ²(τ, k), [description = "E-mode polarization source function"]
+        SE(τ, k), [description = "E-mode polarization source function"]
         Sψ(τ, k), [description = "Lensing source function"]
     end
     guesses = Dict(
@@ -101,7 +101,7 @@ function ΛCDM(;
         ST_Doppler ~ D(b.v*b.u) / k |> expand_derivatives
         ST_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
         ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
-        SE_kχ² ~ 3/16 * b.v*γ.Π
+        SE ~ 3/16 * b.v*γ.Π / (k*χ)^2
         Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
     ]
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
