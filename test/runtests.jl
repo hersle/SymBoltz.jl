@@ -8,6 +8,7 @@ using FiniteDiff
 using BenchmarkTools
 using Base.Threads
 using Statistics
+using DelimitedFiles
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -737,4 +738,82 @@ end
     M = ΛCDM(lmax = 32)
     prob = CosmologyProblem(M, pars)
     @test issuccess(solve(prob, [1e-1, 1e0, 1e1, 1e2, 1e3]))
+end
+
+@testset "CLASS comparison" begin
+    @test endswith(pwd(), "test") # should be in test/ subdirectory
+    if false # switch to true to generate CLASS output
+        using CLASS
+        prob_class = CLASSProblem(
+            "output" => "mPk, tCl, pCl, lCl",
+            "ic" => "ad",
+            "modes" => "s",
+            "gauge" => "newtonian",
+            "h" => pars[M.g.h],
+            "T_cmb" => pars[M.γ.T₀],
+            "l_max_g" => lmax,
+            "l_max_pol_g" => lmax,
+            "Omega_b" => pars[M.b.Ω₀],
+            "YHe" => pars[M.b.YHe],
+            "recombination" => "recfast",
+            "recfast_Hswitch" => 1,
+            "recfast_Heswitch" => 6,
+            "reio_parametrization" => "reio_camb",
+            "Omega_cdm" => pars[M.c.Ω₀],
+            "N_ur" => pars[M.ν.Neff],
+            "N_ncdm" => 1,
+            "deg_ncdm" => pars[M.h.N],
+            "m_ncdm" => pars[M.h.m_eV],
+            "T_ncdm" => (4/11)^(1/3),
+            "l_max_ur" => lmax,
+            "l_max_ncdm" => lmax,
+            "ln_A_s_1e10" => pars[M.I.ln_As1e10],
+            "n_s" => pars[M.I.ns],
+            "Omega_Lambda" => 0.0, # determine automatically
+            "w0_fld" => -1.0,
+            "wa_fld" => 0.0,
+            "Omega_k" => 0.0,
+            "Omega_scf" => 0.0,
+            "Omega_dcdmdr" => 0.0,
+            "tight_coupling_approximation" => 5, # compromise_CLASS; cannot turn off, and more accurate second_order_CLASS is incompatible with newtonian gauge
+            "tight_coupling_trigger_tau_c_over_tau_h" => 1e-2, # cannot turn off
+            "tight_coupling_trigger_tau_c_over_tau_k" => 1e-3, # cannot turn off
+            "radiation_streaming_approximation" => 3, # turn off
+            "ur_fluid_approximation" => 3, # turn off
+            "ncdm_fluid_approximation" => 3, # turn off
+        )
+        sol_class = solve(prob_class)
+        ks_class = sol_class[:pk][!, "k (h/Mpc)"] / SymBoltz.k0
+        Pks_class = sol_class[:pk][!, "P (Mpc/h)^3"] * SymBoltz.k0^3
+        ls_class = sol_class[:cl][!, "l"]
+        DlTTs_class = sol_class[:cl][!, "TT"]
+        DlEEs_class = sol_class[:cl][!, "EE"]
+        Dlϕϕs_class = sol_class[:cl][!, "phiphi"]
+        open("./class_Pk.dat", "w") do f # tests run from test/ directory
+            writedlm(f, [ks_class Pks_class])
+        end
+        open("./class_Cl.dat", "w") do f
+            writedlm(f, [ls_class DlTTs_class DlEEs_class Dlϕϕs_class])
+        end
+    end
+
+    # Matter power spectrum
+    Pk_class = readdlm("./class_Pk.dat")
+    ks_class, Pks_class = Pk_class[:, 1], Pk_class[:, 2]
+    ks = ks_class # solve at same wavenumbers as CLASS
+    Pks = spectrum_matter(prob, ks)
+    @test isapprox(Pks, Pks_class; rtol = 1e-3)
+
+    # CMB power spectrum
+    Cl_class = readdlm("./class_Cl.dat")
+    ls_class, DlTTs_class, DlEEs_class, Dlϕϕs_class = Cl_class[:, 1], Cl_class[:, 2], Cl_class[:, 3], Cl_class[:, 4]
+    ls = unique(Int.(round.(exp.(range(log(ls_class[begin]), log(ls_class[end]), length=200)))))
+    jl = SphericalBesselCache(ls)
+    Dls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl, ls_class; normalization = :Dl)
+    DlTTs = Dls[:, 1]
+    DlEEs = Dls[:, 2]
+    Dlψψs = Dls[:, 3]
+    @test isapprox(DlTTs, DlTTs_class; rtol = 2e-3)
+    @test isapprox(DlEEs, DlEEs_class; rtol = 2e-3)
+    @test isapprox(Dlψψs, Dlϕϕs_class; rtol = 8e-3)
 end
