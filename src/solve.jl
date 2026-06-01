@@ -177,12 +177,20 @@ function CosmologyProblem(
             κ0idx = nothing
             _κidx = nothing
         end
+        τrecidx = Symbol("τrec") in parsymbols ? ModelingToolkit.parameter_index(bg, :τrec) : nothing
+        vfunc = !isnothing(τrecidx) && have(M, :b) && hasproperty(M.b, :v) ? ModelingToolkit.build_explicit_observed_function(bg, M.b.v) : nothing
         function affect!(integrator)
             if !isnothing(τ0idx)
                 integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
             end
             if !isnothing(κ0idx)
                 integrator.ps[κ0idx] = integrator.u[_κidx]
+            end
+            if !isnothing(τrecidx) && !isnothing(vfunc)
+                # set τrec from peak of visibility function # TODO: use more accurate Hermite interpolation?
+                bgsol = integrator.sol
+                vs = [vfunc(bgsol.u[i], integrator.p, bgsol.t[i]) for i in eachindex(bgsol.t)]
+                integrator.ps[τrecidx] = bgsol.t[argmax(vs)]
             end
             terminate_today && terminate!(integrator) # stop integration if desired
         end
@@ -412,11 +420,6 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
     bgsol = solve(bgprob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
     if !successful_retcode(bgsol)
         @warn warning_failed_solution(bgsol, "Background"; verbose)
-    end
-
-    τrecidx = ModelingToolkit.parameter_index(bgprob, :τrec)
-    if !isnothing(τrecidx)
-        bgprob.ps[τrecidx] = bgsol[:τ][argmax(bgsol[bgprob.f.sys.b.v])]
     end
 
     return bgsol
