@@ -142,12 +142,24 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
             if l ≥ l_limber
                 χ = (l+1/2) / k
                 if χ ≤ χs[1] # otherwise χ > χini > χrec and source function is definitely zero
-                    # interpolate between two closest points in saved array
-                    i₋ = searchsortedfirst(τs, τ0 - χ)
-                    i₊ = i₋ - 1 # χ is sorted in descending order
-                    χ₋, χ₊ = χs[i₋], χs[i₊] # now χ₋ < χ < χ₊
-                    S₋, S₊ = Ss[i₋, ik], Ss[i₊, ik]
-                    S = S₋ + (S₊-S₋) * (χ-χ₋) / (χ₊-χ₋)
+                    # cubic Hermite interpolation between two closest points
+                    i₋ = searchsortedfirst(τs, τ0 - χ) # highest index
+                    χ₋ = χs[i₋]
+                    S₋ = Ss[i₋, ik]
+                    if i₋ == 1
+                        S = S₋
+                    else
+                        i₊ = i₋ - 1 # lowest index; χs is sorted in descending order, so χ₋ < χ < χ₊
+                        χ₊ = χs[i₊]
+                        S₊ = Ss[i₊, ik]
+                        Δχ = χ₊ - χ₋
+                        S′₋ = i₋ ≤ length(τs)-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
+                        S′₊ = i₊ ≥ 2            ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
+                        t  = (χ - χ₋) / Δχ
+                        t² = t * t
+                        t³ = t² * t
+                        S  = (2t³-3t²+1)*S₋ + (t³-2t²+t)*Δχ*S′₋ + (-2t³+3t²)*S₊ + (t³-t²)*Δχ*S′₊
+                    end
                     I = √(π/(2l+1)) * S / k
                 end
             else
