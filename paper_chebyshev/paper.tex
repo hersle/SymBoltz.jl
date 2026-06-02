@@ -1,0 +1,242 @@
+\documentclass{aa}
+
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{graphicx} % for \includegraphics
+\usepackage{subcaption} % for subfigures
+\usepackage[varg]{txfonts} % for A&A fonts
+\usepackage{mathrsfs} % for \mathscr
+\usepackage{cleveref} % for \cref
+
+% remove journal name+copyright for preprint (delete for journal submission)
+\makeatletter % interpret @ in commands
+\renewcommand*{\aa@journalname}{} % see aa.cls
+\renewcommand*{\aa@manuscriptname}{} % see aa.cls
+\fancyhead[CE]{\aa@headfont \aa@headings} % same as odd pages from aa.cls
+\makeatother
+
+\newcommand\kmin{{k_\text{min}}}
+\newcommand\kmax{{k_\text{max}}}
+\newcommand\EB{Einstein–Boltzmann}
+\newcommand\boldu{{\bf u}}
+\newcommand\scrH{\mathscr{H}}
+\newcommand\TODO[1]{\textcolor{red}{TODO: #1}}
+
+\begin{document}
+
+\title{Faster \EB{} codes with Chebyshev interpolation}
+\authorrunning{Sletmoen, H.}
+\titlerunning{Faster \EB{} codes with Chebyshev interpolation}
+\author{Herman Sletmoen\thanks{Email: \texttt{herman.sletmoen@astro.uio.no}}}
+\institute{Institute of Theoretical Astrophysics, University of Oslo, PO Box 1029 Blindern, 0315 Oslo, Norway}
+\date{Received XX / Accepted XX}
+\abstract{
+    We show how \EB{} codes can be sped up by interpolating source functions $S(\tau, k)$ in $k$ using Chebyshev polynomials.
+    This gives $S(\tau, k)$ to higher precision by solving fewer ordinary differential equations (ODEs) for the perturbation $k$-modes, which is the most expensive part of the computation.
+    Compared to the traditional method of interpolating with cubic splines, Chebyshev interpolation typically yields sources accurate to 1-2 more digits for the same number of $k$-modes, although the exact difference depends on the particular source and $k$-grid used for cubic splines.
+    We illustrate this with source functions for cosmic microwave background (CMB) temperature, polarization and lensing, and for the source function of the matter power spectrum.
+	\TODO{speedup for CMB?}
+    Chebyshev interpolation converges rapidly for smooth functions and is a particularly good fit to approximation-free \EB{} codes like SymBoltz that benefit more from solving fewer perturbation $k$-modes, whereas approximation-based codes like CLASS violate the smoothness in $k$ but reduce the speed of solving each perturbation mode with approximations.
+    Coincidentally, the clustering of Chebyshev nodes near the endpoints aligns well with the denser sampling at small $k$ needed for most source functions.
+	As the position of the Chebyshev nodes is fixed, it also leads to a simple set of precision parameters $(\kmin, \kmax, N_k)$, in contrast to the infinite freedom in choosing the $k$-grid for splines that typically lead to a more complex hyperparameters.
+	The Chebyshev interpolation has been implemented in version \TODO{1.7} of SymBoltz and is available at \url{https://github.com/hersle/SymBoltz.jl}.
+}
+
+\keywords{methods: numerical – cosmology: theory}
+
+\maketitle
+
+\nolinenumbers
+
+\section{Introduction}
+\label{sec:intro}
+
+Perhaps the most important, yet also most demanding task of \EB{} solvers, such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, CLASS \citep{blasCosmicLinearAnisotropy2011b} and CAMB \citep{lewisEfficientComputationCMB2000b}, is to compute source functions $S(\tau, k)$ for conformal time $\tau$ and wavenumbers $k$.
+For example, \cref{fig:sources} shows the sources
+\begin{subequations}
+	\begin{align}
+		S^T    & = v \, \Bigg(\frac{\delta_\gamma}{4} + \Psi + \frac{\Pi_\gamma}{16}\Bigg) + e^{-\kappa} \, (\Psi + \Phi)^\prime + (v u_b)^\prime + \frac{3\big(v \Pi_\gamma\big)^{\prime\prime}}{16 k^2}, \\
+		S^E    & = \frac{3 v \Pi_\gamma}{16 \, (k \chi)^2}, \\
+		S^\psi & = (\Psi+\Phi) \, \frac{\chi_\text{rec}}{(\chi-\chi_\text{rec}) \chi} \, \theta(\tau - \tau_\text{rec}), \\
+		S^m    & = \delta_m + 3 (1+w_m) \, \frac{\scrH}{k^2} \, \theta_m ,
+	\end{align}
+	\label{eq:sources}%
+\end{subequations}
+for CMB temperature ($T$), polarization ($E$), lensing ($\psi$) and overdensity of matter ($m$).
+They are given by the Hubble function $\scrH(\tau)$, visibility function $v(\tau)$, lookback time $\chi(\tau) = \tau_0 - \tau$, metric potentials $\Phi(\tau, k)$ and $\Psi(\tau, k)$, photon and matter overdensities $\delta_\gamma(\tau, k)$ and $\delta_m(\tau, k)$ and other variables in the background and perturbations that are solved by \EB{} codes.
+
+A crucial optimization in \EB{} codes is to solve the expensive perturbation ODEs only on a coarse $k$-grid, and then interpolate $S$ to a fine $k$-grid needed later.
+For example, the line-of-sight integrals for the transfer function multipoles
+\begin{equation}
+    \Delta^A_\ell(k) = \int_{\tau_i}^{\tau_0} \mathrm{d}\tau \, S^A(\tau, k) j_\ell(k \chi)
+    \label{eq:los}
+\end{equation}
+usually oscillat faster in $k$ than $S$ due to their dependence on spherical Bessel functions $j_\ell(k\chi)$.
+They are therefore needed on a very fine $k$-grid to compute the angular correlation spectra
+\begin{equation}
+    C_\ell^{AB} \propto \iffalse \frac{2}{\pi} \fi \int_\kmin^\kmax \mathrm{d}k \, k^2 P_0(k) \Delta^A_\ell(k) \Delta^B_\ell(k) \quad \text{(up to an $\ell$-scaling)},
+    \label{eq:spectra}
+\end{equation}
+where $P_0(k)$ is the primordial power spectrum.
+To overcome this challenge, the perturbations are solved on a coarse $k$-grid that resolves $S$ and interpolated to a fine $k$-grid that resolves $\Delta_\ell(k)$ before computing integrals \eqref{eq:los} and \eqref{eq:spectra}.
+
+The interpolation trick works because $S(\tau, k)$ is smooth.
+The $k$-integral \eqref{eq:spectra} can need $10^3$-$10^4$ points, while $S(\tau, k)$ can be interpolated from only $10^2$-$10^3$ points.
+\TODO{anal argument with $\Delta k r_s$ vs $\Delta k \tau_\text{rec} \approx \Delta k \tau_0$}
+This leads to a dramatic $10\times$-$100\times$ speedup, as solving perturbation ODEs dominates the runtime of \EB{} codes.
+
+
+\begin{figure*}
+	\centering
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/ST.pdf}
+		\subcaption{\label{fig:sourceT}Temperature source function $S^T(\tau, k)$}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/SE.pdf}
+		\subcaption{Polarization source function $S^E(\tau, k)$}
+	\end{subfigure}
+	\\\bigskip
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/Spsi.pdf}
+		\subcaption{Lensing source function $S^\psi(\tau, k)$}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/Sm.pdf}
+		\subcaption{Matter source function $S^m(\tau, k)$}
+	\end{subfigure}
+	\caption{\label{fig:sources}Temperature and polarization source functions around the time of recombination, and lensing and matter source functions from the early to the late universe, from \cref{eq:sources}.}
+\end{figure*}
+
+Here we investigate the impact of interpolating in $k$ using Chebyshev polynomials instead of cubic splines, as is traditionally done by CAMB and CLASS.
+Chebyshev interpolation is known to have near-ideal properties for approximating smooth functions \citep{trefethenApproximationTheoryApproximation2019}, but has likely been underutilized due to a bad reputation that stems from misunderstandings about the properties of polynomial interpolation that has propagated throughout the literature \citep{trefethenSixMythsPolynomial}.
+For example, they have been popularized and shown to be very powerful by the Chebfun package in MATLAB \citep{battlesExtensionMATLABContinuous2004}.
+
+\section{Chebyshev interpolation \TODO{vs splines?}}
+
+From a practical point of view.
+Refer to \cite{trefethenApproximationTheoryApproximation2019} for mathematical details.
+
+\begin{itemize}
+	\item
+	nodes: clustering, map to any interval, uniquely specified by $(\kmin, \kmax, N)$, $N$ points and order $n = N - 1$, must have freedom to evaluate function at these points!
+	\begin{equation}
+		x_m = \cos\bigg(\frac{\pi m}{n}\bigg), \quad m = 0, 1, \ldots, n = N-1
+		\label{eq:points}
+	\end{equation}
+	\item construction: FFT in $O(N \log N)$ for coefficients, $O(N)$ for cubic splines
+	\item evaluation: Barycentric formula, stable, $O(N)$ time
+	\item accuracy: Runge phenomenon, Gibbs phenomenon
+	\item convergence: smoothness, smooth/analytic, spectral/algebraic convergence
+\end{itemize}
+
+\section{Choice of interpolation methods}
+
+An \EB{} code generally finds $S(\tau, k)$ by solving one perturbation ODE $\mathrm{d}\boldu/\mathrm{d}\tau = f(\boldu, \tau; k)$ in $\tau$ for several $k$, and then computing $S$ as a function of the ODE state variables $\boldu(\tau)$.
+The goal is to interpolate $S(\tau, k)$ as accurately as possible in both $\tau$ and $k$, using as few points as possible in $\tau$ and especially $k$.
+
+In the $\tau$-direction (for fixed $k$), it is natural to take dense output from ODE solvers.
+This interpolation method is custom-tailored to the solver and its Butcher tableau for saving output at any time with a high order of accuracy.
+Even if this is not available, it is always possible to fall back to cubic Hermite interpolation that uses both $\boldu(\tau)$ and $\boldu^\prime(\tau)$ for higher accuracy, as the ODE $\boldu^\prime(\tau) = f(\boldu, \tau)$ gives this extra information analytically.%
+\footnote{To take advantage of the Hermite interpolation, $\boldu(\tau)$ must be interpolated \emph{before} computing $S$. Interpolating $S$ directly does not make use of the derivative information encoded in the ODE.}
+Another advantage is that adaptive ODE solvers automatically capture local features, such as recombination and reionization.
+
+In the $k$-direction (for fixed $\tau)$, however, the perturbation ODEs for different $k$-modes are independent and contain no analytical information about $\partial \boldu/\partial k$.
+A natural starting point is to again use (non-Hermite) cubic splines to interpolate through ODE solutions on a $k$-grid.
+Cubic splines are popular because they offer sufficient smoothness and stability for many purposes, are fast to create and evaluate, local in nature, and flexible in adapting to arbitrarily spaced grids.
+The last property makes it possible to optimize \EB{} codes for performance by placing more $k$-points where necessary to resolve the source function.
+It is most common to use a mostly linearly spaced $k$-grid, but with more points near small $k$.
+This is the standard method used in CAMB and CLASS, for example.
+
+Another possibility is to use Chebyshev interpolation.
+They have a number of properties that align very well with \EB{} codes:
+Smooth: source function is smooth, converge faster. But only so for approximation-free codes.
+Chebyshev nodes: clustered at endpoints, matches well with needing more points near $k \rightarrow 0$.
+Global: source function has local features in $\tau$, but more global features in $k$.
+Fast: $O(N \log N)$ time using FFT/DCT.
+Stable: Barycentric interpolation formula.
+
+\begin{figure}
+    \includegraphics[width=\linewidth]{figures/points.pdf}
+    \caption{%
+        Chebyshev grids on $[\kmin, \kmax]$ with 2 to 80 points.
+    }
+\end{figure}
+
+\section{Implementation notes}
+
+Using FastChebInterp.jl.
+
+\begin{itemize}
+\item Relies on smoothness
+\item Approximation-based codes violate smoothness, see e.g. CLASS approximation figure.
+\end{itemize}
+
+\section{Convergence}
+
+\begin{figure*}
+	\centering
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/convT.pdf}
+		\subcaption{Temperature source function $S^T(\tau, k)$}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/convE.pdf}
+		\subcaption{Polarization source function $S^E(\tau, k)$}
+	\end{subfigure}
+	\\\bigskip
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/convpsi.pdf}
+		\subcaption{Lensing source function $S^\psi(\tau, k)$}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/convm.pdf}
+		\subcaption{Matter source function $S^m(\tau, k)$}
+	\end{subfigure}
+	\caption{Convergence of the interpolated source functions $S(\tau, k)$ in  in \cref{fig:sources} relative to 500 explicitly integrated perturbation $k$-modes.}
+\end{figure*}
+
+\begin{figure*}
+	\centering
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/interpT_cheb.pdf}
+		\subcaption{Chebyshev interpolation}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\textwidth}
+		\includegraphics[width=\textwidth]{figures/interpT_cubic.pdf}
+		\subcaption{Cubic spline interpolation}
+	\end{subfigure}
+	\caption{%
+		Temperature source function $S^T(\tau, k)$ at recombination (from \cref{fig:sourceT}) interpolated with Chebyshev polynomials and cubic splines, versus 500 explicitly solved $k$-modes.
+		The Chebyshev interpolations reach lower error for the same number of points.
+	}
+\end{figure*}
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Sped up Boltzmann codes.
+
+Could be more complicated to implement in approximation-based codes, which violates the smoothness criterion for exponential convergence of Chebyshev polynomials.
+
+\begin{acknowledgements}
+	I thank ...
+\end{acknowledgements}
+
+\bibliographystyle{aa}
+\bibliography{paper}
+
+\appendix
+\onecolumn
+
+\section{Chebyshev interpolation for physicists}
+\label{sec:chebyshev}
+
+$T_n(x)$
+
+\end{document}
