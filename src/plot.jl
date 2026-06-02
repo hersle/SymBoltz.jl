@@ -59,6 +59,14 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, z; Nextra = 0, t
         xs = sol(x, ts)
         ys = sol(y, ts[begin], ks)
         zs = sol(z, ts, ks)
+        nancount = 0
+        for i in eachindex(zs)
+            if !isfinite(zs[i])
+                zs[i] = 0.0 # set to zero, otherwise GR surface plot crashes
+                nancount += 1
+            end
+        end
+        nancount > 0 && @warn "Setting $nancount NaN/Infs to zero before plotting"
         return xs, ys, transpose(zs)
     end
 end
