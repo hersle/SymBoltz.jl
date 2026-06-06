@@ -213,6 +213,16 @@ function source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform =
     return Ss_fine
 end
 
+function source_eltype(Ss, T)
+    if Ss isa StaticVector
+        SVector{length(Ss), T}
+    elseif Ss isa AbstractVector
+        Vector{T}
+    else
+        T
+    end
+end
+
 """
     source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
 
@@ -224,13 +234,13 @@ The options `bgopts` and `ptopts` are passed to the background and perturbation 
 function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
     bgsol = solvebg(prob.bg; bgopts..., verbose)
     getSs = getsym(prob.pt, Ss)
-    T = eltype(bgsol)
-    Ss = Matrix{Ss isa AbstractVector ? Vector{T} : T}(undef, length(τs), length(ks))
+    T = source_eltype(Ss, eltype(bgsol))
+    Ss = Matrix{T}(undef, length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
     function output_func(sol, ik)
         vals = getSs(sol)
         @inbounds for iτ in eachindex(vals)
-            Ss[iτ, ik] = vals[iτ]
+            Ss[iτ, ik] = T(vals[iτ])
         end
         return nothing
     end
@@ -270,13 +280,13 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESol
     ptprobgen = setuppt(prob.pt, bgsol)
 
     getSs = getsym(prob.pt, Ss)
-    T = eltype(bgsol)
+    T = source_eltype(Ss, eltype(bgsol))
     function sourcek!(k, ik, Ss)
         ptprob = ptprobgen(k)
         ptsol = solvept(ptprob; ptsaveopts..., ptopts...)
         vals = getSs(ptsol)
         @inbounds for iτ in eachindex(vals)
-            Ss[iτ, ik] = vals[iτ]
+            Ss[iτ, ik] = T(vals[iτ])
         end
         return nothing
     end
@@ -291,7 +301,7 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESol
 
     ninitks = length(ks)
     nmaxks = 1024
-    Ss = Matrix{Ss isa AbstractVector ? Vector{T} : T}(undef, Nτs, nmaxks)
+    Ss = Matrix{T}(undef, Nτs, nmaxks)
     ks = resize!(collect(ks), nmaxks)
     iτs = 1 : max(Nτs - 1, 1) # exclude χ=0 from refinement comparison (where some CMB sources with 1/χ diverge); except if it is the only point (e.g. matter power spectrum is well-defined)
 

@@ -9,6 +9,7 @@ using BenchmarkTools
 using Base.Threads
 using Statistics
 using DelimitedFiles
+using StaticArrays
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -196,6 +197,18 @@ end
     @test Ss isa Matrix{Vector{Float64}}
     @test size(Ss) == (1, length(ks_ref))
     @test only(unique(length.(Ss))) == 2
+
+    # SVector S: returns matrix of SVectors
+    Ss = source_grid(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks)
+    @test Ss isa Matrix{SVector{2, Float64}}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
+    @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
+
+    # source_grid_adaptive: SVector S
+    ks_ref, Ss = source_grid_adaptive(prob, SVector(M.τ + M.k, M.τ * M.k), nothing, ks_init)
+    @test Ss isa Matrix{SVector{2, Float64}}
+    @test size(Ss) == (1, length(ks_ref))
 end
 
 @testset "Initial conditions" begin
