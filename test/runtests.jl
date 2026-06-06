@@ -9,6 +9,7 @@ using BenchmarkTools
 using Base.Threads
 using Statistics
 using DelimitedFiles
+using StaticArrays
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -171,8 +172,17 @@ end
 @testset "Source grid" begin
     τs = [1.0, 2.0]
     ks = [1.0, 10.0, 100.0]
-    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
-    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+    @test isequal(source_grid(prob, M.τ + M.k, τs, ks), τs .+ transpose(ks))
+    @test isequal(source_grid(prob, SVector(M.τ + M.k), τs, ks), SVector.(τs .+ transpose(ks)))
+    @test isequal(source_grid(prob, [M.τ + M.k], τs, ks), reshape(τs .+ transpose(ks), 1, length(τs), length(ks)))
+
+    @test source_grid_adaptive(prob, M.τ + M.k, τs, ks; refine = false) == (ks, τs .+ transpose(ks))
+    @test source_grid_adaptive(prob, SVector(M.τ + M.k), τs, ks; refine = false) == (ks, SVector.(τs .+ transpose(ks)))
+
+    kTs, STs = source_grid_adaptive(prob, M.ST, τs, ks; refine = true, atol = 1e-5)
+    kEs, SEs = source_grid_adaptive(prob, M.SE, τs, ks; refine = true, atol = 1e-5)
+    kTEs, STEs = source_grid_adaptive(prob, SVector(M.ST, M.SE), τs, ks; refine = true, atol = 1e-5)
+    @test length(kTEs) == max(length(kTs), length(kEs)) > length(ks)
 end
 
 @testset "Initial conditions" begin
@@ -588,7 +598,7 @@ end
 
 @testset "Matter power spectrum with different arguments" begin
     modes = [:m, :c, :b, :cb, :cbh, :h]
-    ks = [1e-4, 1e-3, 1e-2, 1e-1] / u"Mpc"
+    ks = [1e-4, 1e-3, 1e-2, 1e-1]
     τs = [1.5, 3.0]
     sol = solve(prob, ks)
     @test size(spectrum_matter(modes, prob, ks, τs)) == (6, 2, 4) # general form
@@ -603,7 +613,7 @@ end
 
 @testset "Matter power spectrum converged to 0.1%" begin
     k = 10 .^ range(-1, 4, length=100)
-    @time P0 = spectrum_matter(prob, k; kτini = 0.0, τinimax = 0.0, bgextraopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
+    @time P0 = spectrum_matter(prob, k; bgopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
     @time P  = spectrum_matter(prob, k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)

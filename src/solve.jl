@@ -386,7 +386,7 @@ function solve(
         ptsol = nothing
     else
         ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsol, ks; ptivini, thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
@@ -514,16 +514,15 @@ end
 setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, bgsol, k -> ptivini)
 
 """
-    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, ptivini = -Inf, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the background solution `bgsol` (see `solvebg`).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 `ptivini` is a number or a function of ``k`` that sets the initial time of integration for each perturbation mode, but is always clamped to the background timespan.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsol::ODESolution, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, ptivini = -Inf, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
-    !issorted(ks) && throw(error("ks = $ks are not sorted in ascending order"))
 
     if thread && Threads.nthreads() == 1
         thread = false
@@ -702,6 +701,9 @@ Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
     if isnothing(sol.ks) || isempty(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
+    end
+    if !issorted(sol.ks)
+        throw(error("Solution wavenumbers are not sorted in ascending order"))
     end
     ks = k_dimensionless.(ks, Ref(sol.bg))
     kmin, kmax = extrema(sol.ks)

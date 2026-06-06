@@ -11,6 +11,7 @@ using OhMyThreads
 using Base.Threads
 using Setfield
 using StaticArrays
+using FastChebInterp
 
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
@@ -51,7 +52,7 @@ export CosmologyProblem, CosmologySolution
 export background, perturbations, expandeq
 export solve, solvebg, solvept, remake, issuccess, parameter_updater
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, sound_horizon, distance_luminosity, SphericalBesselCache
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_adaptive, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache
 export express_derivatives
 
 using PrecompileTools: @compile_workload

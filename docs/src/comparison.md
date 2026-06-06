@@ -343,9 +343,8 @@ plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 5e-5)
 ```@example class
 function P_class(pars)
     sol = solve_class(pars)
-    h = pars[M.g.h]
-    k = sol["pk"][:,"k (h/Mpc)"] * h
-    P = sol["pk"][:,"P (Mpc/h)^3"] / h^3
+    k = sol["pk"][:,"k (h/Mpc)"]
+    P = sol["pk"][:,"P (Mpc/h)^3"]
     return k, P
 end
 function P_class(k, pars)
@@ -355,7 +354,7 @@ function P_class(k, pars)
 end
 function P_symboltz(k, pars)
     prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
-    P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
+    P = spectrum_matter(prob′, k ./ SymBoltz.k0) / SymBoltz.k0^3
     return P
 end
 k, P1 = P_class(pars)
