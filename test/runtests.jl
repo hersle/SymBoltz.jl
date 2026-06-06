@@ -171,8 +171,31 @@ end
 @testset "Source grid" begin
     τs = [1.0, 2.0]
     ks = [1.0, 10.0, 100.0]
-    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
-    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+
+    # scalar S: returns matrix of scalar sources
+    Ss = source_grid(prob, M.τ + M.k, τs, ks)
+    @test Ss isa Matrix{Float64}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(Ss, τs .+ transpose(ks))
+
+    # vector S: returns matrix of vector sources
+    Ss = source_grid(prob, [M.τ + M.k, M.τ * M.k], τs, ks)
+    @test Ss isa Matrix{Vector{Float64}}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
+    @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
+
+    # source_grid_adaptive: scalar S
+    ks_init = range(ks[begin], ks[end], length=3)
+    ks_ref, Ss = source_grid_adaptive(prob, M.τ + M.k, nothing, ks_init)
+    @test Ss isa Matrix{Float64}
+    @test size(Ss) == (1, length(ks_ref))
+
+    # source_grid_adaptive: vector S
+    ks_ref, Ss = source_grid_adaptive(prob, [M.τ + M.k, M.τ * M.k], nothing, ks_init)
+    @test Ss isa Matrix{Vector{Float64}}
+    @test size(Ss) == (1, length(ks_ref))
+    @test only(unique(length.(Ss))) == 2
 end
 
 @testset "Initial conditions" begin

@@ -275,18 +275,19 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
     ks_coarse, Ss = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
 
-    Θls = zeros(eltype(Ss), max(iT, iE, iψ), length(ks_fine), length(ls))
+    T = eltype(eltype(Ss))
+    Θls = zeros(T, max(iT, iE, iψ), length(ks_fine), length(ls))
     if iT > 0
-        STs = source_grid(Ss[1, :, :], ks_coarse, ks_fine; thread) # upsample in k
+        STs = source_grid(getindex.(Ss, 1), ks_coarse, ks_fine; thread) # upsample in k
         Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iE > 0
-        SEs = source_grid(Ss[2, :, :], ks_coarse, ks_fine; thread) # upsample in k
+        SEs = source_grid(getindex.(Ss, 2), ks_coarse, ks_fine; thread) # upsample in k
         SEs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
         Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     end
     if iψ > 0
-        Sψs = source_grid(Ss[3, :, :], ks_coarse, ks_fine; thread) # upsample in k
+        Sψs = source_grid(getindex.(Ss, 3), ks_coarse, ks_fine; thread) # upsample in k
         Sψs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
         Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
     end
@@ -308,7 +309,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         error("Unknown CMB power spectrum mode $mode")
     end
 
-    spectra = zeros(eltype(Ss[1,1,1] * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
+    spectra = zeros(eltype(first(first(Ss)) * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
         mode = String(mode)
         iA = geti(Symbol(mode[firstindex(mode)]))
