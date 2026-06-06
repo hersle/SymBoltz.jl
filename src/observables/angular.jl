@@ -173,12 +173,12 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                     curr = Ss[iτ, ik] * _jl
                     dI = halfdτ * (curr + prev)
                     I += dI
-                    kχ < l && abs(_jl) < 1e-20 && break # time cut approximation
+                    #kχ < l && abs(_jl) < 1e-20 && break # time cut approximation
                     prev = curr
                 end
             end
             Is[ik, il] = I
-            k*τ0 < l && maximum(abs.(I)) < 1e-20 && break # multipole cut approximation
+            #k*τ0 < l && maximum(abs.(I)) < 1e-20 && break # multipole cut approximation
         end
     end
     verbose && println()
