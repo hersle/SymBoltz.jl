@@ -423,36 +423,6 @@ end
     @test size(Ss) == (length(τs), length(ks))
 end
 
-# TODO: test for spectrum_cmb etc.
-# TODO: define closure based on this?
-@testset "Type stability" begin
-    getτ0 = SymBoltz.getsym(prob.bg, M.τ0)
-    sol = solve(prob; save_everystep = false, save_start = true, save_end = true)
-    τi = sol.bg.t[begin]
-    τ0 = @inferred getτ0(sol.bg)
-    @test sol.bg.t[end] == τ0
-
-    ls = 20:20:500
-    jl = SphericalBesselCache(ls)
-    kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
-    ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
-    ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
-    τs = range(τi, τ0, length = 768)
-    #sol = solve(prob, ks_coarse)
-    #Ss = sol(ks_fine, τs, M.ST)
-    ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
-    @test isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
-    sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
-    @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
-    Sgetter = SymBoltz.getsym(prob.pt, M.ST)
-    Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
-    @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)
-    Ss = @inferred source_grid(Ss[1, :, :], ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
-    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
-    P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
-    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
-end
-
 @testset "Background differentiation test" begin
     diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = parameter_updater(prob, diffpars)

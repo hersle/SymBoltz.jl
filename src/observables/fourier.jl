@@ -192,27 +192,6 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
-# TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
-"""
-    source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
-
-Evaluate and return source functions ``S(τ,k)`` from the solution `sol`.
-The source functions are given by symbolic expressions `Ss`, and evaluated on a grid with conformal times `τs` and the same wavenumbers as `sol` is solved for.
-"""
-function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
-    # Evaluate integrated perturbations on coarse grid
-    ks = sol.ks
-    getSs = map(S -> getsym(sol.prob.pt, S), Ss)
-    Ss = similar(sol.bg, length(Ss), length(τs), length(ks))
-    @tasks for ik in eachindex(ks)
-        @set scheduler = thread ? :dynamic : :static
-        for iS in eachindex(getSs)
-            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik]))
-        end
-    end
-    return Ss
-end
-
 """
     source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
 

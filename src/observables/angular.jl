@@ -183,14 +183,6 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
 
     return Is
 end
-function los_integrate(sol::CosmologySolution, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, S, jl::SphericalBesselCache; ktransform = identity, kwargs...) # TODO: Ss
-    Ss = [S]
-    Ss = source_grid(sol, Ss, τs)
-    Ss = source_grid(Ss, sol.ks, ks; ktransform)
-    Ss[:, end, :] .= 0.0 # may be NaNs today, but jl(0) = 0, so today is always 0 in the line-of-sight integral
-    Ss = @view Ss[1, :, :]
-    return los_integrate(Ss, ls, τs, ks, jl; kwargs...)
-end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
