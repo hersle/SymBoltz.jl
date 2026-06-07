@@ -70,19 +70,6 @@ plot(
 )
 ```
 
-With adaptively chosen wavenumbers on an interval:
-
-```@example matter
-ks, Ps = spectrum_matter(modes, prob, (1e0, 1e3))
-
-plot(
-    log10.(ks), transpose(log10.(Ps));
-    xlabel = "k / (H₀/c)", ylabel = "P / (c/H₀)³",
-    label = permutedims("$(length(ks)) × k (adaptive), linear, " .* string.(modes)),
-    ylims = (-8, -6), legend_position = :bottomleft,
-)
-```
-
 ## CMB power spectra
 
 ```@docs

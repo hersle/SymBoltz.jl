@@ -262,3 +262,25 @@ end
 varvalstr(vars, vals) = join(("$var = $val" for (var, val) in zip(vars, vals)), ", ")
 
 verbosity(verbose) = verbose ? SciMLLogging.Standard() : SciMLLogging.None()
+
+function grid(a, b; step = nothing, length = nothing)
+    a < b || error("Right grid interval must be higher than left")
+    !isnothing(step) && !isnothing(length) && throw(ArgumentError("Cannot provide both step and length"))
+    isnothing(step) && isnothing(length) && throw(ArgumentError("Must provide step or length"))
+    if !isnothing(step)
+        length = Int(ceil((b - a) / step)) + 1
+    end
+    return collect(range(a, b; length))
+end
+lingrid(a, b; kw...) = grid(a, b;  kw...)
+loggrid(a, b; kw...) = exp.(grid(log(a), log(b); kw...))
+cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
+joingrids!(grid, grids...) = for g in grids append!(grid, g[2:end]) end
+
+function kτ0grid_default(kτ0max = 40000.0)
+    grid = cosgrid(0.04, min(4000.0, kτ0max); step=0.015)
+    if kτ0max > 4000.0
+        joingrids!(grid, loggrid(4000.0, min(40000.0, kτ0max); step=0.1))
+    end
+    return grid
+end

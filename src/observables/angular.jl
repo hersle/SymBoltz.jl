@@ -16,7 +16,7 @@ struct SphericalBesselCache{Tdy <: Union{Matrix{Float64}, Nothing}}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls::AbstractVector; xmax = 10*ls[end], dx = 2π/15, hermite = true)
+function SphericalBesselCache(ls::AbstractVector; xmax = 20*ls[end], dx = 2π/15, hermite = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
@@ -225,7 +225,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 end
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (atol = 0.2, rtol = 1.0), coarse_length = 9, thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = nothing, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -251,11 +251,23 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = 0.1*jl.l[begin]:2π/2:10*jl.l[end], xs = 1 .- cospi.(range(0.0, 0.5, length=300)), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), sourceopts = (atol = 0.2, rtol = 1.0), coarse_length = 9, thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = nothing, Δkτ0 = 2π/2, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    # Define 1-2-3 indices corresponding for present modes
+    iT = 'T' in join(modes) ? 1 : 0
+    iE = 'E' in join(modes) ? iT + 1 : 0
+    iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
+
+    # Automatically determine grid if not provided manually
+    if isnothing(kτ0s)
+        kτ0max = iψ > 0 ? 40000.0 : 4000.0 # higher for lensing
+        kτ0s = kτ0grid_default(kτ0max)
+    end
+
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
-    ks_fine = collect(kτ0s ./ τ0)
+    ks_coarse = collect(kτ0s ./ τ0) # for perturbation ODEs
+    ks_fine = lingrid(kτ0s[begin], kτ0s[end]; step=Δkτ0) ./ τ0 # for k-quadrature after LOS integration
 
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
     τs = τs[τs .≥ τcut]
@@ -270,12 +282,8 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
-    iT = 'T' in join(modes) ? 1 : 0
-    iE = 'E' in join(modes) ? iT + 1 : 0
-    iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
     Ss = [prob.M.ST, prob.M.SE, prob.M.Sψ]
-    ks_coarse = range(ks_fine[begin], ks_fine[end]; length = coarse_length)
-    ks_coarse, Ss = source_grid_adaptive(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread, sourceopts...) # TODO: pass kτ0 and x
+    Ss = source_grid(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread)
 
     T = eltype(eltype(Ss))
     Θls = zeros(T, max(iT, iE, iψ), length(ks_fine), length(ls))
