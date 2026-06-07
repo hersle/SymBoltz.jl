@@ -224,15 +224,14 @@ function source_eltype(Ss, T)
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 Returns a matrix of size `(Nτ, Nk)`, where each element is a vector of length `NS = length(Ss)` holding all source values at that `(τ, k)` point.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; ptopts = (), thread = true, verbose = false)
     getSs = getsym(prob.pt, Ss)
     T = source_eltype(Ss, eltype(bgsol))
     Ss = Matrix{T}(undef, length(τs), length(ks))
@@ -246,6 +245,10 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), ptopts = 
     end
     solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
+end
+function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts..., verbose)
+    return source_grid(prob, Ss, τs, ks, bgsol)
 end
 
 # TODO: Hermite interpolation
