@@ -138,7 +138,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         @set scheduler = thread ? :dynamic : :serial
         l = ls[il]
         verbose && print("\rLOS integrating with l = $l")
-        for ik in reverse(eachindex(ks))
+        for ik in eachindex(ks)
             k = ks[ik]
             I = zero(T)
             if l ≥ l_limber
@@ -173,12 +173,12 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                     curr = Ss[iτ, ik] * _jl
                     dI = halfdτ * (curr + prev)
                     I += dI
-                    kχ < l && abs(_jl) < 1e-20 && break # time cut approximation
+                    #kχ < l && abs(_jl) < 1e-20 && break # time cut approximation (disabled; unreliable)
                     prev = curr
                 end
             end
             Is[ik, il] = I
-            k*τ0 < l && maximum(abs.(I)) < 1e-20 && break # multipole cut approximation
+            #k*τ0 < l && maximum(abs.(I)) < 1e-20 && break # multipole cut approximation (disabled; unreliable)
         end
     end
     verbose && println()
