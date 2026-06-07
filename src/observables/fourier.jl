@@ -317,30 +317,30 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESol
         thread && push!(tasks, task)
     end
 
-    while true # equivalent to for (i1, i2) in queue, but rely on sentinel value instead of closing queue
-        i1, i2 = take!(queue)
+    while refine # equivalent to for (i1, i3) in queue, but rely on sentinel value instead of closing queue
+        i1, i3 = take!(queue) # indices corresponding to left and right of interval
         i1 == -1 && break # kill on sentinel value
         task = @spawnif begin
-        i = atomic_add!(idx, +1) + 1 # atomic_add! returns old value of idx
-        if i > nmaxks
+        i2 = atomic_add!(idx, +1) + 1 # index corresponding to midpoint of interval; atomic_add! returns old value of idx
+        if i2 > nmaxks
             put!(queue, (-1, -1)) # kill with sentinel value if no more space for ks
             return
         end
-        k1 = f(ks[i1]) # e.g. k1 → log(k1)
-        k2 = f(ks[i2])
-        k = (k1 + k2) / 2
-        k = f⁻¹(k) # e.g. log(k1) → exp(log(k1)) = k1
-        ks[i] = k
-        sourcek!(k, i, Ss)
+        f1 = f(ks[i1]) # left point
+        f3 = f(ks[i3]) # right points
+        f2 = (f1 + f3) / 2 # middle point
+        k2 = f⁻¹(f2) # f transforms e.g. k → log(k)
+        ks[i2] = k2
+        sourcek!(ks[i2], i2, Ss)
 
-        verbose && println("Refined k-grid between [$(ks[i1]), $(ks[i2])] on thread $(threadid()) to $i total points")
+        verbose && println("Refined k-grid between [$(ks[i1]), $(ks[i3])] on thread $(threadid()) to $i2 total points")
 
-        # check if interpolation is close enough for all sources
-        Sint = (Ss[:, i1] .+ Ss[:, i2]) ./ 2 # linear interpolation (element-wise on vector-valued grid)
-        if refine && !all(isapprox(Ss[iτ, i], Sint[iτ]; kwargs...) for iτ in iτs)
+        # compare exactly solved S2 with linear interpolation from S1 and S3
+        # refine if interpolation is not good enough
+        if refine && any(iτ -> !isapprox(Ss[iτ,i2], (Ss[iτ,i1]+Ss[iτ,i3])/2; kwargs...), iτs)
             atomic_add!(counter, +2)
-            put!(queue, (i, i2))
-            put!(queue, (i1, i))
+            put!(queue, (i2, i3)) # refine right subinterval
+            put!(queue, (i1, i2)) # refine left subinterval
         end
 
         atomic_add!(counter, -1) == 1 && put!(queue, (-1, -1)) # kill with sentinel value if counter reaches 0 (atomic_add! returns old value)
