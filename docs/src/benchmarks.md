@@ -106,7 +106,7 @@ The points on each curve correspond to a sequence of tolerances.
 ```@example bench
 # TODO: test different nlsolve # hide
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
-linsolve = KLUFactorization()
+linsolve = PureKLUFactorization()
 ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
 ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
 refalg = Rodas5P(; linsolve)
@@ -185,15 +185,15 @@ prob_jac = prob # CosmologyProblem(M, pars; jac = true, sparse = true)
 prob_nojac = CosmologyProblem(M, pars; jac = false, sparse = true)
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
-ptopts = (alg = Rodas5P(linsolve = KLUFactorization(),), save_everystep = false) # generate function for J symbolically
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(),), save_everystep = false) # generate function for J symbolically
 bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),)
-ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()), save_everystep = false) # compute J with forward-mode AD
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()), save_everystep = false) # compute J with forward-mode AD
 bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),) # fails with finite diff background J
-ptopts = (alg = Rodas5P(linsolve = KLUFactorization(), autodiff = SymBoltz.AutoFiniteDiff()), save_everystep = false) # compute J with finite differences
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoFiniteDiff()), save_everystep = false) # compute J with finite differences
 bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 results = run(bench; verbose = true)
@@ -240,7 +240,7 @@ This plot compares the time to solve several perturbation $k$-modes with differe
 ks = 10 .^ range(-2, 4, length=75)
 ptopts1 = (alg = Rodas5P(linsolve = LUFactorization()), save_everystep = false)
 ptopts2 = (alg = Rodas5P(linsolve = RFLUFactorization()), save_everystep = false)
-ptopts3 = (alg = Rodas5P(linsolve = KLUFactorization()), save_everystep = false)
+ptopts3 = (alg = Rodas5P(linsolve = PureKLUFactorization()), save_everystep = false)
 ptopts4 = (alg = Rodas5P(linsolve = UMFPACKFactorization()), save_everystep = false)
 ts1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts1, verbose = true) for i in 1:3) for prob in probs_dense]
 ts2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts2, verbose = true) for i in 1:3) for prob in probs_dense]
@@ -273,7 +273,7 @@ plot!(p2, lmaxs, speedups4; marker, label = nothing)
 plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(3//4, 1//4)))
 ```
 
-Except for models with a very small perturbation system, it is a good idea to generate the sparse Jacobian and use the sparse `KLUFactorization` linear solver.
+Except for models with a very small perturbation system, it is a good idea to generate the sparse Jacobian and use the sparse `PureKLUFactorization` linear solver.
 
 ```@setup
 # TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
