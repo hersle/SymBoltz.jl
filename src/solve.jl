@@ -488,15 +488,28 @@ end
 function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     ivspanbg = (bgsol.t[begin], bgsol.t[end])
     bgspline = spline(bgsol)
-    newp = ptprob.p # has abstractly typed nonnumeric spline parameter
-    SciMLStructures.replace!(Tunable(), newp, canonicalize(Tunable(), parameter_values(bgsol))[1]) # copy parameters from background solution to perturbations problem (e.g. τ0 and κ0)
-
+    bgtunables = canonicalize(Tunable(), parameter_values(bgsol))[1] # tunable parameters from background solution (e.g. τ0 and κ0)
     hasspline = !isempty(ptprob.p.nonnumeric)
-    if hasspline
-        @set! newp.nonnumeric = ([bgspline],) # reset field to make MTKParameters' nonnumeric spline parameter concrete
+
+    function concretize(p)
+        # copy background tunable params into p and concretize spline type
+        SciMLStructures.replace!(Tunable(), p, bgtunables)
+        if hasspline
+            @set! p.nonnumeric = ([bgspline],)
+        end
+        return p
     end
+
+    # copy parameters from background solution to perturbations problem (e.g. τ0, κ0)
+    newp = concretize(ptprob.p)
     @set! ptprob.p = newp
-    @set! ptprob.f.initialization_data.initializeprob.p = newp # necessary to prevent type assert error in MTKBase 1.36.3, see https://github.com/hersle/SymBoltz.jl/pull/96
+
+    # same for initialization problem
+    # prevent type assert error, see https://github.com/hersle/SymBoltz.jl/pull/96
+    if !isnothing(ptprob.f.initialization_data)
+        newinitp = concretize(ptprob.f.initialization_data.initializeprob.p)
+        @set! ptprob.f.initialization_data.initializeprob.p = newinitp
+    end
 
     kset! = ModelingToolkit.setp(ptprob, k)
     return k -> begin
