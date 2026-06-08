@@ -231,10 +231,15 @@ The requested `modes` are specified as a vector of symbols in the form `:AB`, wh
 If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
 Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π`` if `normalization` is `:Dl`.
 
-The lensing line-of-sight integral uses the Limber approximation for `l ≥ l_limber`.
+# Precision parameters
 
-Source functions are computed on a ``k``-grid that is adaptively refined from an initial grid with size `coarse_length`.
-The refinement criterion is controlled with `sourceopts`.
+- `xs`: Grid of ``(τ-τᵢ)/(τ₀-τᵢ)`` specifying the ``τ``-points that will be sampled in line-of-sight integration.
+- `τcut`: Remove all earlier times from the line-of-sight integral sampling time points.
+- `kτ0s`: Grid of ``k τ₀`` specifying the ``k``-modes for which the perturbation ODEs will be solved.
+- `Δkτ0`: Grid spacing to use when integrating over ``k`` to project to ``ℓ``-space.
+- `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
+- `bgopts`: Background ODE precision parameters passed to `solvebg`.
+- `ptopts`: Perturbation ODE precision parameters passed to `solvept`.
 
 # Examples
 
