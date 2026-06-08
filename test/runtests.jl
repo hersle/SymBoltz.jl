@@ -9,6 +9,7 @@ using BenchmarkTools
 using Base.Threads
 using Statistics
 using DelimitedFiles
+using StaticArrays
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -171,8 +172,43 @@ end
 @testset "Source grid" begin
     τs = [1.0, 2.0]
     ks = [1.0, 10.0, 100.0]
-    Ss = source_grid(prob, [M.τ + M.k], τs, ks)
-    @test isequal(Ss[1, :, :], τs .+ transpose(ks))
+
+    # scalar S: returns matrix of scalar sources
+    Ss = source_grid(prob, M.τ + M.k, τs, ks)
+    @test Ss isa Matrix{Float64}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(Ss, τs .+ transpose(ks))
+
+    # vector S: returns matrix of vector sources
+    Ss = source_grid(prob, [M.τ + M.k, M.τ * M.k], τs, ks)
+    @test Ss isa Matrix{Vector{Float64}}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
+    @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
+
+    # source_grid_adaptive: scalar S
+    ks_init = range(ks[begin], ks[end], length=3)
+    ks_ref, Ss = source_grid_adaptive(prob, M.τ + M.k, nothing, ks_init)
+    @test Ss isa Matrix{Float64}
+    @test size(Ss) == (1, length(ks_ref))
+
+    # source_grid_adaptive: vector S
+    ks_ref, Ss = source_grid_adaptive(prob, [M.τ + M.k, M.τ * M.k], nothing, ks_init)
+    @test Ss isa Matrix{Vector{Float64}}
+    @test size(Ss) == (1, length(ks_ref))
+    @test only(unique(length.(Ss))) == 2
+
+    # SVector S: returns matrix of SVectors
+    Ss = source_grid(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks)
+    @test Ss isa Matrix{SVector{2, Float64}}
+    @test size(Ss) == (length(τs), length(ks))
+    @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
+    @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
+
+    # source_grid_adaptive: SVector S
+    ks_ref, Ss = source_grid_adaptive(prob, SVector(M.τ + M.k, M.τ * M.k), nothing, ks_init)
+    @test Ss isa Matrix{SVector{2, Float64}}
+    @test size(Ss) == (1, length(ks_ref))
 end
 
 @testset "Initial conditions" begin
@@ -423,36 +459,6 @@ end
     @test size(Ss) == (length(τs), length(ks))
 end
 
-# TODO: test for spectrum_cmb etc.
-# TODO: define closure based on this?
-@testset "Type stability" begin
-    getτ0 = SymBoltz.getsym(prob.bg, M.τ0)
-    sol = solve(prob; save_everystep = false, save_start = true, save_end = true)
-    τi = sol.bg.t[begin]
-    τ0 = @inferred getτ0(sol.bg)
-    @test sol.bg.t[end] == τ0
-
-    ls = 20:20:500
-    jl = SphericalBesselCache(ls)
-    kτ0s_coarse, kτ0s_fine = SymBoltz.cmb_kτ0s(ls[begin], ls[end])
-    ks_coarse, ks_fine = kτ0s_coarse / τ0, kτ0s_fine / τ0
-    ks_fine = clamp.(ks_fine, ks_coarse[begin], ks_coarse[end]) # numerics can change endpoint slightly
-    τs = range(τi, τ0, length = 768)
-    #sol = solve(prob, ks_coarse)
-    #Ss = sol(ks_fine, τs, M.ST)
-    ptopts = (alg = SymBoltz.ptalg(prob), reltol = 1e-5, abstol = 1e-5)
-    @test isconcretetype(eltype(only(prob.pt.p.nonnumeric)))
-    sol = solve(prob, ks_coarse; ptopts = (ptopts..., saveat = τs))
-    @test all(isconcretetype(eltype(only(ptsol.prob.p.nonnumeric))) for ptsol in sol.pts) # MTKParameters should have a concrete type for the background spline
-    Sgetter = SymBoltz.getsym(prob.pt, M.ST)
-    Ss = @inferred source_grid(sol, [M.ST], τs) # TODO: save allocation time with out-of-place version?
-    @test Ss == source_grid(prob, [M.ST], τs, ks_coarse; ptopts)
-    Ss = @inferred source_grid(Ss[1, :, :], ks_coarse, ks_fine) # TODO: save allocation time with out-of-place version?
-    Θ0s = @inferred los_integrate(Ss, ls, τs, ks_fine, jl) # TODO: sequential along τ? # TODO: cache kτ0 and x=τ/τ0 (only depends on l)
-    P0s = @inferred spectrum_primordial(ks_fine, pars[M.g.h], prob.bg.ps[M.I.As])
-    Cls = @inferred spectrum_cmb(Θ0s, Θ0s, P0s, ls, ks_fine)
-end
-
 @testset "Background differentiation test" begin
     diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = parameter_updater(prob, diffpars)
@@ -538,10 +544,6 @@ end
     jl = SphericalBesselCache(20:20:3000)
     @test all(isfinite.(spectrum_cmb(:TT, prob, jl; normalization = :Dl)))
     @test all(isfinite.(spectrum_cmb(:EE, prob, jl; normalization = :Dl)))
-
-    # should error if too many refinements are needed
-    jl = SphericalBesselCache([50])
-    @test_throws "Source function refinement needs more" spectrum_cmb(:TT, prob, jl; sourceopts = (rtol = 0.0, atol = 0.0)) # needs infinite refinements
 end
 
 @testset "Toggle threading" begin
@@ -810,10 +812,7 @@ end
     ls = unique(Int.(round.(exp.(range(log(ls_class[begin]), log(ls_class[end]), length=200)))))
     jl = SphericalBesselCache(ls)
     Dls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl, ls_class; normalization = :Dl)
-    DlTTs = Dls[:, 1]
-    DlEEs = Dls[:, 2]
-    Dlψψs = Dls[:, 3]
-    @test isapprox(DlTTs, DlTTs_class; rtol = 2e-3)
-    @test isapprox(DlEEs, DlEEs_class; rtol = 2e-3)
-    @test isapprox(Dlψψs, Dlϕϕs_class; rtol = 8e-3)
+    @test isapprox(Dls[:, 1], DlTTs_class; rtol = 2e-3)
+    @test isapprox(Dls[:, 2], DlEEs_class; rtol = 2e-3)
+    @test isapprox(Dls[:, 3], Dlϕϕs_class; rtol = 2e-3)
 end

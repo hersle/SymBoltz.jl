@@ -119,7 +119,7 @@ function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k::NTupl
     ktransform = (log, exp)
     Ss = map(mode -> total_symbolic_gauge_invariant_overdensities(prob.M, mode), modes)
     ks, Δs = source_grid_adaptive(prob, Ss, τs, ks; ktransform, sourceopts..., kwargs...)
-    Ps = Δs[:, 1, :] .^ 2
+    Ps = stack(Δs[1, :]) .^ 2
     P0s = spectrum_primordial(ks, prob)
     for iS in eachindex(Ss)
         Ps[iS, :] .*= P0s
@@ -192,97 +192,88 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
-# TODO: take in ks and N_skip_interp = 1, 2, 3, ... for more efficient? same for τ?
 """
-    source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
-
-Evaluate and return source functions ``S(τ,k)`` from the solution `sol`.
-The source functions are given by symbolic expressions `Ss`, and evaluated on a grid with conformal times `τs` and the same wavenumbers as `sol` is solved for.
-"""
-function source_grid(sol::CosmologySolution, Ss::AbstractVector, τs; thread = true)
-    # Evaluate integrated perturbations on coarse grid
-    ks = sol.ks
-    getSs = map(S -> getsym(sol.prob.pt, S), Ss)
-    Ss = similar(sol.bg, length(Ss), length(τs), length(ks))
-    @tasks for ik in eachindex(ks)
-        @set scheduler = thread ? :dynamic : :static
-        for iS in eachindex(getSs)
-            Ss[:, :, ik] .= permutedims(getSs[iS](sol.pts[ik]))
-        end
-    end
-    return Ss
-end
-
-"""
-    source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
+    source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
 Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wavenumber grid `ks_coarse` to a fine grid `ks_fine`.
-The interpolation is linear in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``.
+The interpolation is cubic spline in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``).
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractMatrix{<:Real}, ks_coarse, ks_fine; ktransform = identity, thread = true)
-    size_coarse = size(Ss_coarse)
-    size_fine = (size_coarse[1], length(ks_fine))
+function source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
     Nτ, Nk = size(Ss_coarse)
-
     Nk == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
-
-    Ss_fine = similar(Ss_coarse, size_fine)
-    xs_coarse = ktransform.(ks_coarse) # TODO: user should just pass different ks as input instead
+    Ss_fine = similar(Ss_coarse, Nτ, length(ks_fine))
+    xs_coarse = ktransform.(ks_coarse)
     xs_fine = ktransform.(ks_fine)
     @tasks for iτ in 1:Nτ
         @set scheduler = thread ? :dynamic : :static
-        interp = CubicSpline(@view(Ss_coarse[iτ, :]), xs_coarse) # TODO: try FastInterpolations?
-        interp(@view(Ss_fine[iτ, :]), xs_fine)
+        interp = CubicSpline(@view(Ss_coarse[iτ, :]), xs_coarse)
+        Ss_fine[iτ, :] .= interp.(xs_fine)
     end
     return Ss_fine
 end
 
+function source_eltype(Ss, T)
+    if Ss isa StaticVector
+        SVector{length(Ss), T}
+    elseif Ss isa AbstractVector
+        Vector{T}
+    else
+        T
+    end
+end
+
 """
-    source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
+Returns a matrix of size `(Nτ, Nk)`, where each element is a vector of length `NS = length(Ss)` holding all source values at that `(τ, k)` point.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid(prob::CosmologyProblem, Ss::AbstractArray, τs, ks; bgopts = (), ptopts = (), thread = true, verbose = false)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
-    getSs = map(S -> getsym(prob.pt, S), Ss)
-    Ss = similar(bgsol, length(Ss), length(τs), length(ks))
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; ptopts = (), thread = true, verbose = false)
+    getSs = getsym(prob.pt, Ss)
+    T = source_eltype(Ss, eltype(bgsol))
+    Ss = Matrix{T}(undef, length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
     function output_func(sol, ik)
-        for iS in eachindex(getSs)
-            Ss[iS, :, ik] .= getSs[iS](sol)
+        vals = getSs(sol)
+        @inbounds for iτ in eachindex(vals)
+            Ss[iτ, ik] = T(vals[iτ])
         end
         return nothing
     end
     solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
     return Ss
 end
+function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob.bg; bgopts..., verbose)
+    return source_grid(prob, Ss, τs, ks, bgsol)
+end
 
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
 """
-    source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks[, bgsol]; bgopts = (), ptopts = (), refine = true, ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+    source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks[, bgsol]; bgopts = (), ptopts = (), refine = true, ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
 
 Adaptively compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with fixed conformal times `τs`, but adaptively refined grid of wavenumbers from the problem `prob`.
 The source functions are first evaluated on the (coarse) initial grid `ks`.
 Each subinterval ``(k₁, k₂)`` of `ks` is then adaptively refined until the linear interpolation ``Sᵢ = (S(k₁)+S(k₂))/2`` to the midpoint ``k=(k₁+k₂)/2`` approximates the actual value ``S(k)`` there within some tolerance.
-The comparison ``Sᵢ ≈ S`` is done with `isapprox(Sᵢ, S; kwargs...)`, where `S` and `Sᵢ` are vectors with the (conformal) timeseries of the source function for that wavenumber.
+The comparison ``Sᵢ ≈ S`` is done with `isapprox(Sᵢ, S; kwargs...)`, where `S` and `Sᵢ` are vectors of all source values at a given ``(τ, k)``.
 It receives the keyword arguments `kwargs` passed to this function, so `atol`, `rtol` and/or `norm` can be specified to tune the tolerance.
 
 If `τs` is nothing, the source function is evaluated at the final time only (today).
 
-Returns the refined wavenumbers sorted in ascending order and a grid with the corresponding source function values.
+Returns the refined wavenumbers `ks` sorted in ascending order and a matrix of size `(length(τs), length(ks))` with the corresponding source function values, where each element is a vector of length `length(Ss)`.
 If not `sort`, the wavenumbers and source function values are instead left in the order in which they were inserted in the refinement process.
 
 The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
 """
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks, bgsol::ODESolution; ptopts = (), refine = true, ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; ptopts = (), refine = true, ktransform = (identity, identity), sort = true, thread = true, verbose = false, kwargs...)
     length(ks) ≥ 2 || error("Initial k-grid must have at least 2 values")
 
     if isnothing(τs)
-        Nτs = 1
+        Nτs = 1 # final time only
         ptsaveopts = (save_everystep = false, save_start = false, save_end = true)
     else
         Nτs = length(τs)
@@ -291,12 +282,14 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
 
     ptprobgen = setuppt(prob.pt, bgsol)
 
-    getSs = map(S -> getsym(prob.pt, S), Ss)
+    getSs = getsym(prob.pt, Ss)
+    T = source_eltype(Ss, eltype(bgsol))
     function sourcek!(k, ik, Ss)
         ptprob = ptprobgen(k)
         ptsol = solvept(ptprob; ptsaveopts..., ptopts...)
-        for iS in eachindex(getSs)
-            Ss[iS, :, ik] .= getSs[iS](ptsol)
+        vals = getSs(ptsol)
+        @inbounds for iτ in eachindex(vals)
+            Ss[iτ, ik] = T(vals[iτ])
         end
         return nothing
     end
@@ -311,9 +304,9 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
 
     ninitks = length(ks)
     nmaxks = 1024
-    Ss = similar(bgsol, length(Ss), Nτs, nmaxks)
+    Ss = Matrix{T}(undef, Nτs, nmaxks)
     ks = resize!(collect(ks), nmaxks)
-    iτs = 1 : max(size(Ss, 2) - 1, 1) # exclude χ=0 from refinement comparison (where some CMB sources with 1/χ diverge); except if it is the only point (e.g. matter power spectrum is well-defined)
+    iτs = 1 : max(Nτs - 1, 1) # exclude χ=0 from refinement comparison (where some CMB sources with 1/χ diverge); except if it is the only point (e.g. matter power spectrum is well-defined)
 
     queue = Channel{Tuple{Int, Int}}(nmaxks)
     tasks = Task[]
@@ -327,31 +320,30 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
         thread && push!(tasks, task)
     end
 
-    while true # equivalent to for (i1, i2) in queue, but rely on sentinel value instead of closing queue
-        i1, i2 = take!(queue)
+    while refine # equivalent to for (i1, i3) in queue, but rely on sentinel value instead of closing queue
+        i1, i3 = take!(queue) # indices corresponding to left and right of interval
         i1 == -1 && break # kill on sentinel value
         task = @spawnif begin
-        i = atomic_add!(idx, +1) + 1 # atomic_add! returns old value of idx
-        if i > nmaxks
+        i2 = atomic_add!(idx, +1) + 1 # index corresponding to midpoint of interval; atomic_add! returns old value of idx
+        if i2 > nmaxks
             put!(queue, (-1, -1)) # kill with sentinel value if no more space for ks
             return
         end
-        k1 = f(ks[i1]) # e.g. k1 → log(k1)
-        k2 = f(ks[i2])
-        k = (k1 + k2) / 2
-        k = f⁻¹(k) # e.g. log(k1) → exp(log(k1)) = k1
-        ks[i] = k
-        sourcek!(k, i, Ss)
+        f1 = f(ks[i1]) # left point
+        f3 = f(ks[i3]) # right points
+        f2 = (f1 + f3) / 2 # middle point
+        k2 = f⁻¹(f2) # f transforms e.g. k → log(k)
+        ks[i2] = k2
+        sourcek!(ks[i2], i2, Ss)
 
-        verbose && println("Refined k-grid between [$(ks[i1]), $(ks[i2])] on thread $(threadid()) to $i total points")
+        verbose && println("Refined k-grid between [$(ks[i1]), $(ks[i3])] on thread $(threadid()) to $i2 total points")
 
-        # check if interpolation is close enough for all sources
-        # (equivalent to finding the source grid of each source separately)
-        Sint = (Ss[:, :, i1] .+ Ss[:, :, i2]) ./ 2 # linear interpolation
-        if refine && !all(isapprox(Ss[iS, iτs, i], Sint[iS, iτs]; kwargs...) for iS in 1:size(Ss, 1))
+        # compare exactly solved S2 with linear interpolation from S1 and S3
+        # refine if interpolation is not good enough
+        if refine && any(iτ -> !isapprox(Ss[iτ,i2], (Ss[iτ,i1]+Ss[iτ,i3])/2; kwargs...), iτs)
             atomic_add!(counter, +2)
-            put!(queue, (i, i2))
-            put!(queue, (i1, i))
+            put!(queue, (i2, i3)) # refine right subinterval
+            put!(queue, (i1, i2)) # refine left subinterval
         end
 
         atomic_add!(counter, -1) == 1 && put!(queue, (-1, -1)) # kill with sentinel value if counter reaches 0 (atomic_add! returns old value)
@@ -369,16 +361,16 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, k
     if sort
         is = sortperm(ks)
         ks = ks[is]
-        Ss = Ss[:, :, is]
+        Ss = Ss[:, is]
     else
-        Ss = Ss[:, :, 1:length(ks)]
+        Ss = Ss[:, 1:length(ks)]
     end
 
     return ks, Ss
 end
 
 # Dispatch without background solution
-function source_grid_adaptive(prob::CosmologyProblem, Ss::AbstractVector, τs, ks; bgopts = (), kwargs...)
+function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
