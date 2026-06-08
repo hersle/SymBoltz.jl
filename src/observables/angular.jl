@@ -104,13 +104,13 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 """
     los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
 
-For the given `ls` and `ks`, compute the line-of-sight-integrals
+For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
 Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
 The element `Ss[i,j]` holds the source function value ``S(τᵢ, kⱼ)``.
-The limber approximation
+The Limber approximation
 ```math
 Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
@@ -171,8 +171,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                     halfdτ = halfdτs[iτ-1]
                     _jl = jl(l, kχ)
                     curr = Ss[iτ, ik] * _jl
-                    dI = halfdτ * (curr + prev)
-                    I += dI
+                    I += halfdτ * (curr + prev)
                     #kχ < l && abs(_jl) < 1e-20 && break # time cut approximation (disabled; unreliable)
                     prev = curr
                 end
@@ -282,24 +281,20 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
-    Ss = [prob.M.ST, prob.M.SE, prob.M.Sψ]
+    Ss = [S for (S, i) in [(prob.M.ST, iT), (prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
+    Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
     Ss = source_grid(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread)
+    Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
+    Ss = source_grid(Ss, ks_coarse, ks_fine; thread) # upsample all sources in k simultaneously
 
-    T = eltype(eltype(Ss))
-    Θls = zeros(T, max(iT, iE, iψ), length(ks_fine), length(ls))
-    if iT > 0
-        STs = source_grid(getindex.(Ss, 1), ks_coarse, ks_fine; thread) # upsample in k
-        Θls[iT, :, :] .= los_integrate(STs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
-    end
+    # Integrate all sources simultaneously without Limber approximation
+    Θls = los_integrate(Ss, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+    Θls = stack(Θls) # to 3D array
     if iE > 0
-        SEs = source_grid(getindex.(Ss, 2), ks_coarse, ks_fine; thread) # upsample in k
-        SEs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
-        Θls[iE, :, :] .= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) .* los_integrate(SEs, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
     end
-    if iψ > 0
-        Sψs = source_grid(getindex.(Ss, 3), ks_coarse, ks_fine; thread) # upsample in k
-        Sψs[end, :] .= 0.0 # contains Inf/NaN, but will be weighted by 0 from jl in LOS integral
-        Θls[iψ, :, :] .= los_integrate(Sψs, ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...)
+    if iψ > 0 && l_limber ≤ ls[end]
+        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
