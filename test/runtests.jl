@@ -209,6 +209,19 @@ end
     ks_ref, Ss = source_grid_adaptive(prob, SVector(M.τ + M.k, M.τ * M.k), nothing, ks_init)
     @test Ss isa Matrix{SVector{2, Float64}}
     @test size(Ss) == (1, length(ks_ref))
+
+    # source_grid_chebyshev: scalar S
+    Ss = source_grid_chebyshev(prob, M.τ + M.k, τs, ks, 1)
+    @test Ss isa Matrix{Float64}
+    @test size(Ss) == (length(τs), length(ks))
+    @test Ss ≈ τs .+ transpose(ks)
+
+    # source_grid_chebyshev: SVector S
+    Ss = source_grid_chebyshev(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks, 1)
+    @test Ss isa Matrix{SVector{2, Float64}}
+    @test size(Ss) == (length(τs), length(ks))
+    @test getindex.(Ss, 1) ≈ τs .+ transpose(ks)
+    @test getindex.(Ss, 2) ≈ τs .* transpose(ks)
 end
 
 @testset "Initial conditions" begin
