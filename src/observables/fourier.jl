@@ -375,22 +375,55 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
 
-# Return Chebyshev interpolation objects for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, klims::NTuple{2, <:Number}, order, args...; f = identity, f⁻¹ = identity, kwargs...)
-    flims = f.(klims)
-    fs = chebpoints(order, flims[begin], flims[end])
-    ks = f⁻¹.(fs)
+# Return Chebyshev interpolation objects cs[i, j] for τ index i and k-subintervals j.
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, kbreaks::NTuple{N, <:Real}, orders::NTuple, args...; f = identity, f⁻¹ = identity, kwargs...) where {N}
+    length(kbreaks) ≥ 2 || throw(ArgumentError("Need at least 2 k-breakpoints"))
+    length(orders) == length(kbreaks) - 1 || throw(ArgumentError("Need one more k-breakpoint than orders."))
+
+    # Construct and merge piecewise f(k)-grids
+    fbreaks = f.(kbreaks) # interval edges
+    fgrid = chebgrid(fbreaks[1], fbreaks[2]; order = orders[1])
+    kranges = Vector{StepRange{Int, Int}}(undef, N-1) # index ranges per subinterval
+    kranges[1] = range(1, 1 + orders[1])
+    for j in 2:N-1
+        joingrids!(fgrid, chebgrid(fbreaks[j], fbreaks[j+1]; order = orders[j]))
+        ik1 = last(kranges[j-1]) # leftmost index in current interval (matches rightmost in previous)
+        ik2 = ik1 + orders[j] # rightmost index in current interval
+        kranges[j] = range(ik1, ik2)
+    end
+
+    # Compute source function on full k-grid
+    ks = f⁻¹.(fgrid) # wavenumbers
     Ss = source_grid(prob, Ss, τs, ks, args...; kwargs...)
-    return [chebinterp(Ss[i, :], flims[begin], flims[end]) for i in axes(Ss, 1)]
+
+    return [
+        chebinterp(Ss[i, reverse(kranges[j])], fbreaks[j], fbreaks[j+1]) # chebinterp wants reversed points matching descending +1..-1 grid
+        for i in eachindex(τs), j in eachindex(kranges)
+    ]
 end
+
 # Return source function interpolated to ks for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, args...; f = identity, thread = true, kwargs...)
-    cs = source_grid_chebyshev(prob, Ss, τs, extrema(ks), args...; thread, f, kwargs...) # Chebyshev interpolation objects
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, kbreaks::NTuple, orders::NTuple, args...; f = identity, thread = true, kwargs...)
+    cs = source_grid_chebyshev(prob, Ss, τs, kbreaks, orders, args...; f, thread, kwargs...)
     fs = f.(ks)
-    Ss = zeros(eltype(cs[1].coefs), (length(τs), length(ks)))
-    @fastmath @inbounds @tasks for i in eachindex(cs)
+    Ss = zeros(eltype(first(cs).coefs), (length(τs), length(ks)))
+    @tasks for i in axes(cs, 1)
         @set scheduler = thread ? :dynamic : :static
-        Ss[i, :] .= cs[i].(fs)
+        isub = 1
+        c = cs[i, isub]
+        for j in eachindex(fs)
+            fk = fs[j]
+            while fk > only(c.ub) && isub < size(cs, 2)
+                isub += 1
+                c = cs[i, isub]
+            end
+            Ss[i, j] = c(fk)
+        end
     end
     return Ss
+end
+
+# Convenient dispatch for automatically determining one subinterval
+function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, order::Int, args...; kwargs...)
+    return source_grid_chebyshev(prob, Ss, τs, ks, extrema(ks), (order,), args...; kwargs...)
 end
