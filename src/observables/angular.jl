@@ -287,7 +287,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
-    Ss = [S for (S, i) in [(prob.M.ST, iT), (prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
+    Ss = [prob.M.k*S for (S, i) in [(prob.M.ST, iT), (prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
     Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
     if kinterpolate == :chebyshev
         # Solve at Chebyshev nodes in [kmin, kmax]; exclude τ=τ0 since some sources diverge there
@@ -304,6 +304,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     # Integrate all sources simultaneously without Limber approximation
     Θls = los_integrate(Ss, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+    Θls ./= ks_fine
     Θls = stack(Θls) # to 3D array
     if iE > 0
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
