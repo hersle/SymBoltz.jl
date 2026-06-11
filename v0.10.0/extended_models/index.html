@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Extending models · SymBoltz</title><meta name="title" content="Extending models · SymBoltz"/><meta property="og:title" content="Extending models · SymBoltz"/><meta property="twitter:title" content="Extending models · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li class="is-active"><a class="tocitem" href>Extending models</a><ul class="internal"><li><a class="tocitem" href="#1.-Create-the-reference-model"><span>1. Create the reference model</span></a></li><li><a class="tocitem" href="#2.-Create-the-extended-component"><span>2. Create the extended component</span></a></li><li><a class="tocitem" href="#3.-Create-the-extended-model"><span>3. Create the extended model</span></a></li><li><a class="tocitem" href="#Solve-and-compare-the-models"><span>Solve and compare the models</span></a></li></ul></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Extending models</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Extending models</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/extended_models.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Extending-models"><a class="docs-heading-anchor" href="#Extending-models">Extending models</a><a id="Extending-models-1"></a><a class="docs-heading-anchor-permalink" href="#Extending-models" title="Permalink"></a></h1><p>This tutorial shows how to create extended (beyond-ΛCDM) models. As a simple example, we replace the cosmological constant with equation of state <span>$w(τ) = -1$</span> by w₀wₐ dark energy with equation of state</p><p class="math-container">\[w(τ) = \frac{P(τ)}{ρ(τ)} = w_0 + w_a (1 - a(τ)),\]</p><p>turning the ΛCDM model into the w₀wₐCDM model, as suggested by <a href="https://arxiv.org/abs/gr-qc/0009008">Chevallier, Polarski (2000)</a> and <a href="https://arxiv.org/abs/astro-ph/0208512">Linder (2002)</a>.</p><p>SymBoltz represents each component of the Einstein-Boltzmann equations as a <a href="https://docs.sciml.ai/ModelingToolkit/stable/API/System/"><code>System</code></a>. These are effectively incomplete &quot;chunks&quot; of logically related parameters, variables, equations and initial conditions that are composed together into a complete cosmological model. A cosmological model can be modified by adding or replacing components.</p><h2 id="1.-Create-the-reference-model"><a class="docs-heading-anchor" href="#1.-Create-the-reference-model">1. Create the reference model</a><a id="1.-Create-the-reference-model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Create-the-reference-model" title="Permalink"></a></h2><p>First, we create the reference model that is to be extended. We will modify the standard ΛCDM model:</p><pre><code class="language-julia hljs">using SymBoltz
+M1 = ΛCDM()
+hierarchy(M1; describe = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">ΛCDM</span>: Standard cosmological constant and cold dark matter cosmological model
+├─ <span class="sgr1">g</span>: Spacetime FLRW metric in Newtonian gauge
+├─ <span class="sgr1">G</span>: General relativity gravity
+├─ <span class="sgr1">γ</span>: Photon radiation
+├─ <span class="sgr1">ν</span>: Massless neutrinos
+├─ <span class="sgr1">c</span>: Cold dark matter
+├─ <span class="sgr1">b</span>: Baryonic matter
+│  ├─ <span class="sgr1">rec</span>: Baryon-photon recombination thermodynamics (RECFAST)
+│  ├─ <span class="sgr1">rei1</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+│  └─ <span class="sgr1">rei2</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+├─ <span class="sgr1">h</span>: Massive neutrino
+├─ <span class="sgr1">Λ</span>: Cosmological constant
+└─ <span class="sgr1">I</span>: Harrison-Zel&#39;dovich inflation</code></pre><p>Everything belonging to the cosmological constant species is stored in the component <code>M1.Λ</code>:</p><pre><code class="language-julia hljs">equations(M1.Λ)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;= 0 \\
+\theta\left( \tau, k \right) &amp;= 0 \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\Omega\left( \tau \right) &amp;= \mathtt{\Omega{_0}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= -1 \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right)
+\end{align*}
+ \]</p><p>This is what we will replace.</p><h2 id="2.-Create-the-extended-component"><a class="docs-heading-anchor" href="#2.-Create-the-extended-component">2. Create the extended component</a><a id="2.-Create-the-extended-component-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Create-the-extended-component" title="Permalink"></a></h2><p>The background continuity equation <span>$ρ̇(τ) = -3 H(τ) \, ρ(τ) \, (1 + w(τ))$</span> can be solved analytically with the w₀wₐ equation of state and the ansatz</p><p class="math-container">\[ρ(τ) = ρ(τ₀) \, a(τ)ᵐ \exp(n (1 - a(τ))),\]</p><p>giving <span>$m = -3 (1 + w₀ + wₐ)$</span> and <span>$n = -3 wₐ$</span>. The perturbation equations are</p><p class="math-container">\[\begin{aligned}
+δ̇ &amp;= -(1 + w) (θ - 3 Φ̇) - 3 \frac{ȧ}{a} (c_s^2 - w) δ, \\
+θ̇ &amp;= -\frac{ȧ}{a} (1 - 3w) θ - \frac{ẇ}{1+w} θ + \frac{c_s^2}{1+w} k^2 δ - k^2 σ + k^2 Ψ,
+\end{aligned}\]</p><p>with (adiabatic) initial conditions <span>$δ = -\frac{3}{2} (1+w) Ψ$</span> and <span>$θ = \frac{1}{2} k^2 τ Ψ$</span>, following <a href="https://arxiv.org/pdf/astro-ph/9506072#%5B%7B%22num%22%3A70%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C387%5D">Bertschinger and Ma (equation 30)</a>.</p><p>Next, we must simply pack this into a symbolic component that represents the w₀wₐ dark energy species:</p><pre><code class="language-julia hljs">g, τ, k = M1.g, M1.τ, M1.k # reuse metric of original model
+D = Differential(τ)
+
+# 1. Create parameters (will resurface as tunable numbers in the full model)
+pars = @parameters w₀ wₐ cₛ² Ω₀
+
+# 2. Create variables
+vars = @variables ρ(τ) P(τ) w(τ) δ(τ, k) θ(τ, k) σ(τ, k)
+
+# 3. Specify equations (~ means equality in ModelingToolkit)
+eqs = [
+    # Background equations
+    w ~ w₀ + wₐ * (1 - g.a) # equation of state
+    ρ ~ 3/(8*Num(π))*Ω₀ * g.a^(-3*(1+w₀+wₐ)) # D(ρ) ~ -3 * g.ℋ * ρ * (1 + w) # energy density (ρ₀ =&gt; 3/(8*Num(π)) * exp(+3*wₐ) * Ω₀)
+    P ~ w * ρ # pressure
+
+    # Perturbation equations
+    D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℋ * (cₛ² - w) * δ # energy overdensity
+    D(θ) ~ -g.ℋ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
+    σ ~ 0 # shear stress
+]
+
+# 4. Specify initial conditions (for perturbations)
+initialization_eqs = [
+    δ ~ -3/2 * (1+w) * g.Ψ
+    θ ~ 1/2 * (k^2/g.ℋ) * g.Ψ
+]
+
+# 5. Pack into an ODE system called &quot;X&quot;
+description = &quot;w₀wₐ (CPL) dynamical dark energy&quot;
+@named X = System(eqs, τ, vars, pars; initialization_eqs, description)</code></pre><p class="math-container">\[ \begin{align*}
+w\left( \tau \right) &amp;= \mathtt{w{_0}} + \mathtt{w{_a}} \left( 1 - a\left( \tau \right) \right) \\
+\rho\left( \tau \right) &amp;= \frac{3 \left( a\left( \tau \right) \right)^{ - 3 \left( 1 + \mathtt{w_0} + \mathtt{w_a} \right)} \mathtt{\Omega_0}}{8 \pi} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left(  - 3 \Phi\left( \tau, k \right) + \theta\left( \tau, k \right) \right) \left( -1 - w\left( \tau \right) \right) - 3 \left( \mathtt{c_s^2} - w\left( \tau \right) \right) \mathscr{H}\left( \tau \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \mathtt{c_s^2} \delta\left( \tau, k \right)}{1 + w\left( \tau \right)} + \frac{ - \frac{\mathrm{d} w\left( \tau \right)}{\mathrm{d}\tau} \theta\left( \tau, k \right)}{1 + w\left( \tau \right)} + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p><p>Note that the w₀wₐ component only knows about itself (and the metric), but is completely unaware of the theory of gravity, other species and other components. Its &quot;job&quot; is only to expose the variables like <code>ρ</code>, <code>P</code>, <code>δ</code> and <code>σ</code> that source the Einstein equations. This connection is made when the component is used to create a full cosmological model, as we will do next.</p><h2 id="3.-Create-the-extended-model"><a class="docs-heading-anchor" href="#3.-Create-the-extended-model">3. Create the extended model</a><a id="3.-Create-the-extended-model-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Create-the-extended-model" title="Permalink"></a></h2><p>Finally, we create a new <code>ΛCDM</code> model, but replace <code>Λ</code> by <code>X</code>, and call it the <code>w0waCDM</code> model:</p><pre><code class="language-julia hljs">M2 = ΛCDM(Λ = X, name = :w0waCDM)
+hierarchy(M2; describe = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">w0waCDM</span>: Standard cosmological constant and cold dark matter cosmological model
+├─ <span class="sgr1">g</span>: Spacetime FLRW metric in Newtonian gauge
+├─ <span class="sgr1">G</span>: General relativity gravity
+├─ <span class="sgr1">γ</span>: Photon radiation
+├─ <span class="sgr1">ν</span>: Massless neutrinos
+├─ <span class="sgr1">c</span>: Cold dark matter
+├─ <span class="sgr1">b</span>: Baryonic matter
+│  ├─ <span class="sgr1">rec</span>: Baryon-photon recombination thermodynamics (RECFAST)
+│  ├─ <span class="sgr1">rei1</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+│  └─ <span class="sgr1">rei2</span>: Reionization with tanh-like (activation function) contribution to the free electron fraction
+├─ <span class="sgr1">h</span>: Massive neutrino
+├─ <span class="sgr1">X</span>: w₀wₐ (CPL) dynamical dark energy
+└─ <span class="sgr1">I</span>: Harrison-Zel&#39;dovich inflation</code></pre><p>Now <code>M2.Λ</code> no longer exists, but <code>M2.X</code> contains our new dark energy species:</p><pre><code class="language-julia hljs">equations(M2.X)</code></pre><p class="math-container">\[ \begin{align*}
+w\left( \tau \right) &amp;= \mathtt{w{_0}} + \mathtt{w{_a}} \left( 1 - a\left( \tau \right) \right) \\
+\rho\left( \tau \right) &amp;= \frac{3 \left( a\left( \tau \right) \right)^{ - 3 \left( 1 + \mathtt{w_0} + \mathtt{w_a} \right)} \mathtt{\Omega_0}}{8 \pi} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left(  - 3 \Phi\left( \tau, k \right) + \theta\left( \tau, k \right) \right) \left( -1 - w\left( \tau \right) \right) - 3 \left( \mathtt{c_s^2} - w\left( \tau \right) \right) \mathscr{H}\left( \tau \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \mathtt{c_s^2} \delta\left( \tau, k \right)}{1 + w\left( \tau \right)} + \frac{ - \frac{\mathrm{d} w\left( \tau \right)}{\mathrm{d}\tau} \theta\left( \tau, k \right)}{1 + w\left( \tau \right)} + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p><h2 id="Solve-and-compare-the-models"><a class="docs-heading-anchor" href="#Solve-and-compare-the-models">Solve and compare the models</a><a id="Solve-and-compare-the-models-1"></a><a class="docs-heading-anchor-permalink" href="#Solve-and-compare-the-models" title="Permalink"></a></h2><p>To test, let us set some parameters and solve both models with one perturbation mode. For the ΛCDM model:</p><pre><code class="language-julia hljs">θ1 = SymBoltz.parameters_Planck18(M1)
+prob1 = CosmologyProblem(M1, θ1)
+ks = 1.0
+sol1 = solve(prob1, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">ΛCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: return code <span class="sgr32">Terminated</span>; solved with Rodas4P; 1303 points
+  Perturbations: return codes <span class="sgr32">Success</span>; solved with KenCarp4; 60-60 points; x1 k ∈ [1.0, 1.0] H₀/c (interpolation in-between)</code></pre><p>And for the w₀wₐCDM model:</p><pre><code class="language-julia hljs">θ2 = merge(θ1, Dict(
+    M2.X.w₀ =&gt; -0.9,
+    M2.X.wₐ =&gt; 0.2,
+    M2.X.cₛ² =&gt; 1.0
+))
+prob2 = CosmologyProblem(M2, θ2)
+sol2 = solve(prob2, ks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Cosmology solution for model <span class="sgr1">w0waCDM</span>
+<span class="sgr1">Stages:</span>
+  Background: return code <span class="sgr32">Terminated</span>; solved with Rodas4P; 1302 points
+  Perturbations: return codes <span class="sgr32">Success</span>; solved with KenCarp4; 61-61 points; x1 k ∈ [1.0, 1.0] H₀/c (interpolation in-between)</code></pre><p>Let us compare <span>$H(τ)$</span> and <span>$Ψ(k,τ)$</span> at equal scale factors <span>$a(τ)$</span>:</p><pre><code class="language-julia hljs">lgas = range(-3, 0, length=500) # log10(a)
+H1s = sol1(M1.g.H, log10(M1.g.a) =&gt; lgas)
+H2s = sol2(M2.g.H, log10(M2.g.a) =&gt; lgas)
+Ψ1s = sol1(M1.g.Ψ, log10(M1.g.a) =&gt; lgas, ks)
+Ψ2s = sol2(M2.g.Ψ, log10(M2.g.a) =&gt; lgas, ks)
+
+using Plots
+plot(lgas, H2s ./ H1s; xlabel = &quot;lg(a)&quot;, label = &quot;H₂ / H₁&quot;)
+plot!(lgas, Ψ1s ./ Ψ2s; xlabel = &quot;lg(a)&quot;, label = &quot;Ψ₂ / Ψ₁&quot;)</code></pre><img src="1f8c5aa3.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../automatic_differentiation/">« Using automatic differentiation</a><a class="docs-footer-nextpage" href="../parameter_fitting/">Fitting parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Sunday 26 October 2025 19:20">Sunday 26 October 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
