@@ -283,10 +283,10 @@ function joingrids!(grid, grids...)
     return grid
 end
 
-function kτ0grid_default(kτ0max = 40000.0)
-    grid = cosgrid(0.04, min(4000.0, kτ0max); step=0.015)
-    if kτ0max > 4000.0
-        joingrids!(grid, loggrid(4000.0, min(40000.0, kτ0max); step=0.1))
+function kgrid_default(kmax = 10000.0)
+    grid = cosgrid(0.01, min(1000.0, kmax); step=0.015)
+    if kmax > 1000.0
+        joingrids!(grid, loggrid(1000.0, min(10000.0, kmax); step=0.1))
     end
     return grid
 end
