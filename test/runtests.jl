@@ -220,13 +220,14 @@ end
     @test size(Ss) == (1, length(ks_ref))
 
     # source_grid_chebyshev: scalar S
-    Ss = source_grid_chebyshev(prob, M.τ + M.k, τs, ks, 1)
+    kinterp = ChebyshevInterpolator(extrema(ks)..., 1)
+    Ss = source_grid(prob, M.τ + M.k, τs, ks, kinterp)
     @test Ss isa Matrix{Float64}
     @test size(Ss) == (length(τs), length(ks))
     @test Ss ≈ τs .+ transpose(ks)
 
     # source_grid_chebyshev: SVector S
-    Ss = source_grid_chebyshev(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks, 1)
+    Ss = source_grid(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks, kinterp)
     @test Ss isa Matrix{SVector{2, Float64}}
     @test size(Ss) == (length(τs), length(ks))
     @test getindex.(Ss, 1) ≈ τs .+ transpose(ks)

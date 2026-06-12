@@ -415,22 +415,41 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
 
-# Return Chebyshev interpolation objects for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, klims::NTuple{2, <:Number}, order, args...; f = identity, f⁻¹ = identity, kwargs...)
-    flims = f.(klims)
-    fs = chebpoints(order, flims[begin], flims[end])
-    ks = f⁻¹.(fs)
-    Ss = source_grid(prob, Ss, τs, ks, args...; kwargs...)
-    return [chebinterp(Ss[i, :], flims[begin], flims[end]) for i in axes(Ss, 1)]
+
+struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    f::F
 end
-# Return source function interpolated to ks for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, args...; f = identity, thread = true, kwargs...)
-    cs = source_grid_chebyshev(prob, Ss, τs, extrema(ks), args...; thread, f, kwargs...) # Chebyshev interpolation objects
-    fs = f.(ks)
-    Ss = zeros(eltype(cs[1].coefs), (length(τs), length(ks)))
-    @fastmath @inbounds @tasks for i in eachindex(cs)
-        @set scheduler = thread ? :dynamic : :static
-        Ss[i, :] .= cs[i].(fs)
+
+Base.minimum(interp::ChebyshevInterpolator) = interp.xs[end] # stored grid is from high-to-low x
+Base.maximum(interp::ChebyshevInterpolator) = interp.xs[begin]
+
+function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = identity)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    ys = chebpoints(order, f(xmin), f(xmax))
+    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation is not monotonically increasing"))
+    xs = f⁻¹.(ys)
+    return ChebyshevInterpolator(xs, ys, f)
+end
+
+Base.length(interp::AbstractInterpolator) = length(interp.xs)
+order(interp::AbstractInterpolator) = length(interp) - 1
+
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::ChebyshevInterpolator, ys_fine)
+    if any(any(!isfinite(Sᵢ) for Sᵢ in S) for S in Ss_coarse)
+        out .*= NaN # set to NaN instead of crashing in chebinterp
+        return
     end
-    return Ss
+    ymin, ymax = kinterp.ys[end], kinterp.ys[begin] # stored grid is from high-to-low x
+    interp = chebinterp(Ss_coarse, ymin, ymax)
+    out .= interp.(ys_fine)
+    return out
+end
+
+# Special dispatch for returning a vector of interpolation objects (for testing)
+function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::ChebyshevInterpolator, args...; kwargs...)
+    Ss = source_grid(prob, S, τs, kinterp.xs, args...; kwargs...)
+    ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
+    return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
 end
