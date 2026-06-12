@@ -411,22 +411,40 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
 end
 
-# Return Chebyshev interpolation objects for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, klims::NTuple{2, <:Number}, order, args...; f = identity, f⁻¹ = identity, kwargs...)
-    flims = f.(klims)
-    fs = chebpoints(order, flims[begin], flims[end])
-    ks = f⁻¹.(fs)
-    Ss = source_grid(prob, Ss, τs, ks, args...; kwargs...)
-    return [chebinterp(Ss[i, :], flims[begin], flims[end]) for i in axes(Ss, 1)]
+
+struct ChebyshevWavenumberGrid{T<:Real, F} <: AbstractWavenumberGrid{T}
+    ks::Vector{T}
+    fs::Vector{T}
+    f::F
 end
-# Return source function interpolated to ks for each τ
-function source_grid_chebyshev(prob::CosmologyProblem, Ss, τs::AbstractVector, ks::AbstractVector, args...; f = identity, thread = true, kwargs...)
-    cs = source_grid_chebyshev(prob, Ss, τs, extrema(ks), args...; thread, f, kwargs...) # Chebyshev interpolation objects
-    fs = f.(ks)
-    Ss = zeros(eltype(cs[1].coefs), (length(τs), length(ks)))
-    @fastmath @inbounds @tasks for i in eachindex(cs)
-        @set scheduler = thread ? :dynamic : :static
-        Ss[i, :] .= cs[i].(fs)
+
+Base.minimum(kgrid::ChebyshevWavenumberGrid) = kgrid.ks[end] # stored grid is from high-to-low k
+Base.maximum(kgrid::ChebyshevWavenumberGrid) = kgrid.ks[begin]
+
+function ChebyshevWavenumberGrid(kmin, kmax, order; f = identity, f⁻¹ = identity)
+    kmax > kmin || throw(ArgumentError("Wavenumber interval $((kmin, kmax)) is not sorted"))
+    fs = chebpoints(order, f(kmin), f(kmax))
+    issorted(fs; rev = true) || throw(ArgumentError("Domain transformation is not monotonically increasing"))
+    ks = f⁻¹.(fs)
+    return ChebyshevWavenumberGrid(ks, fs, f)
+end
+
+order(kgrid::ChebyshevWavenumberGrid) = length(kgrid.ks) - 1
+
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kgrid::ChebyshevWavenumberGrid, fs_fine)
+    if any(any(!isfinite(Sᵢ) for Sᵢ in S) for S in Ss_coarse)
+        out .*= NaN # set to NaN instead of crashing in chebinterp
+        return
     end
-    return Ss
+    fmin, fmax = kgrid.fs[end], kgrid.fs[begin] # stored grid is from high-to-low k
+    interp = chebinterp(Ss_coarse, fmin, fmax)
+    out .= interp.(fs_fine)
+    return out
+end
+
+# Special dispatch for returning a vector of interpolation objects (for testing)
+function source_grid_interp(prob::CosmologyProblem, S, τs, kgrid::ChebyshevWavenumberGrid, args...; kwargs...)
+    Ss = source_grid(prob, S, τs, kgrid.ks, args...; kwargs...)
+    fmin, fmax = kgrid.fs[end], kgrid.fs[begin]
+    return [chebinterp(Ss[i, :], fmin, fmax) for i in eachindex(τs)]
 end
