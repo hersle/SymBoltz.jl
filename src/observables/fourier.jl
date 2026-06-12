@@ -421,11 +421,24 @@ end
 Base.minimum(kgrid::ChebyshevWavenumberGrid) = kgrid.ks[end] # stored grid is from high-to-low k
 Base.maximum(kgrid::ChebyshevWavenumberGrid) = kgrid.ks[begin]
 
-function ChebyshevWavenumberGrid(kmin, kmax, order; f = identity, f⁻¹ = identity)
+function ChebyshevWavenumberGrid(kmin, kmax, order; f = identity, f⁻¹ = nothing)
     kmax > kmin || throw(ArgumentError("Wavenumber interval $((kmin, kmax)) is not sorted"))
-    fs = chebpoints(order, f(kmin), f(kmax))
+    fmin, fmax = f(kmin), f(kmax)
+    fs = chebpoints(order, fmin, fmax)
     issorted(fs; rev = true) || throw(ArgumentError("Domain transformation is not monotonically increasing"))
-    ks = f⁻¹.(fs)
+    if isnothing(f⁻¹)
+        # invert numerically
+        ks = map(fs) do fᵢ
+            prob = IntervalNonlinearProblem((k, _) -> f(k) - fᵢ, (kmin, kmax))
+            sol = solve(prob)
+            return sol.u
+        end
+    else
+        # invert analytically
+        ks = f⁻¹.(fs)
+    end
+    ks[end] ≈ kmin && ks[begin] ≈ kmax || throw(ArgumentError("f and f⁻¹ are not inverses"))
+    ks[end], ks[begin] = kmin, kmax  # prevent floating point bounds errors from f⁻¹(f(k))
     return ChebyshevWavenumberGrid(ks, fs, f)
 end
 
