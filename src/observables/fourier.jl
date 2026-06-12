@@ -425,11 +425,27 @@ end
 Base.minimum(interp::ChebyshevInterpolator) = interp.xs[end] # stored grid is from high-to-low x
 Base.maximum(interp::ChebyshevInterpolator) = interp.xs[begin]
 
-function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = identity)
+function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
-    ys = chebpoints(order, f(xmin), f(xmax))
-    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation is not monotonically increasing"))
-    xs = f⁻¹.(ys)
+    ymin, ymax = f(xmin), f(xmax)
+    ys = chebpoints(order, ymin, ymax)
+    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
+    if f == identity && isnothing(f⁻¹)
+        f⁻¹ = identity
+    end
+    if isnothing(f⁻¹)
+        # invert numerically
+        xs = map(ys) do y
+            prob = IntervalNonlinearProblem((x, _) -> f(x) - y, (xmin, xmax))
+            sol = solve(prob)
+            return sol.u
+        end
+    else
+        # invert analytically
+        xs = f⁻¹.(ys)
+    end
+    xs[end] ≈ xmin && xs[begin] ≈ xmax || throw(ArgumentError("f(x) and f⁻¹(x) are not inverses"))
+    xs[end], xs[begin] = xmin, xmax  # prevent floating point bounds errors from f⁻¹(f(k))
     return ChebyshevInterpolator(xs, ys, f)
 end
 
