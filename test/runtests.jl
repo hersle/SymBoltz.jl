@@ -186,6 +186,12 @@ end
     @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
     @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
 
+    # same with interpolation with Cubic splines
+    kgrid = CubicSplineWavenumberGrid(range(1.0, 200.0, length=5))
+    Ss = source_grid(prob, M.τ + M.k, τs, ks, kgrid)
+    @test size(Ss) == (length(τs), length(ks))
+    @test all(isapprox.(Ss, τs .+ transpose(ks)))
+
     # source_grid_adaptive: scalar S
     ks_init = range(ks[begin], ks[end], length=3)
     ks_ref, Ss = source_grid_adaptive(prob, M.τ + M.k, nothing, ks_init)

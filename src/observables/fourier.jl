@@ -192,6 +192,27 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
+abstract type AbstractWavenumberGrid{T} end
+
+Base.extrema(kgrid::AbstractWavenumberGrid) = (minimum(kgrid), maximum(kgrid))
+
+struct CubicSplineWavenumberGrid{T, F <: Function} <: AbstractWavenumberGrid{T}
+    ks::Vector{T}
+    fs::Vector{T}
+    f::F
+end
+
+Base.minimum(kgrid::CubicSplineWavenumberGrid) = kgrid.ks[begin]
+Base.maximum(kgrid::CubicSplineWavenumberGrid) = kgrid.ks[end]
+
+function CubicSplineWavenumberGrid(ks; f = identity)
+    issorted(ks) || error(throw("Input wavenumbers must be sorted in ascending order"))
+    ks = collect(ks) # to array
+    fs = f.(ks)
+    return CubicSplineWavenumberGrid(ks, fs, f)
+end
+
+
 """
     source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
@@ -199,17 +220,25 @@ Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wav
 The interpolation is cubic spline in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``).
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
-    Nτ, Nk = size(Ss_coarse)
-    Nk == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
-    Ss_fine = similar(Ss_coarse, Nτ, length(ks_fine))
-    xs_coarse = ktransform.(ks_coarse)
-    xs_fine = ktransform.(ks_fine)
-    @tasks for iτ in 1:Nτ
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kgrid::CubicSplineWavenumberGrid, fs_fine)
+    interp = CubicSpline(Ss_coarse, kgrid.fs)
+    out .= interp.(fs_fine)
+    return out
+end
+function source_kinterp!(out::AbstractMatrix, Ss_coarse::AbstractMatrix, kgrid::AbstractWavenumberGrid, ks_fine; thread = true)
+    ks_coarse = kgrid.ks
+    size(Ss_coarse, 1) == size(out, 1) || error("out has first dimension with length $(size(out, 1)), but Ss_coarse has $(size(Ss_coarse, 1))")
+    size(Ss_coarse, 2) == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
+    fs_fine = kgrid.f.(ks_fine)
+    @inbounds @tasks for i in 1:size(Ss_coarse, 1)
         @set scheduler = thread ? :dynamic : :static
-        interp = CubicSpline(@view(Ss_coarse[iτ, :]), xs_coarse)
-        Ss_fine[iτ, :] .= interp.(xs_fine)
+        source_kinterp!(@view(out[i, :]), @view(Ss_coarse[i, :]), kgrid, fs_fine)
     end
+    return out
+end
+function source_kinterp(Ss_coarse::AbstractMatrix, kgrid::AbstractWavenumberGrid, ks_fine; kwargs...)
+    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
+    source_kinterp!(Ss_fine, Ss_coarse, kgrid, ks_fine; kwargs...)
     return Ss_fine
 end
 
@@ -250,6 +279,13 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose =
     bgsol = solvebg(prob.bg; bgopts..., verbose)
     return source_grid(prob, Ss, τs, ks, bgsol)
 end
+
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, kgrid::AbstractWavenumberGrid, args...; thread = true, kwargs...)
+    Ss = source_grid(prob, Ss, τs, kgrid.ks, args...; thread, kwargs...) # solve perturbation on coarse k-grid
+    Ss = source_kinterp(Ss, kgrid, ks; thread) # interpolate to requested fine k-grid
+    return Ss
+end
+
 
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
