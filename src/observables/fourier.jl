@@ -469,3 +469,50 @@ function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::ChebyshevIn
     ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
     return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
 end
+
+
+struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
+    xs::Vector{T} # all unique coarse x-values, in descending x-order
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+Base.minimum(interp::PiecewiseChebyshevInterpolator) = interp.xs[end] # stored from high-to-low x
+Base.maximum(interp::PiecewiseChebyshevInterpolator) = interp.xs[begin]
+
+function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = length(orders) # number of piecewise subgrids
+    length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
+    if !(f isa Tuple)
+        f = ntuple(_ -> f, N)
+    end
+    if !(f⁻¹ isa Tuple)
+        f⁻¹ = ntuple(_ -> f⁻¹, N)
+    end
+    length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
+    length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
+
+    subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, (subgrids[j].xs[2:end] for j in N-1:-1:1); init = subgrids[end].xs) # combine unique x-points in descending order (boundaries share x points)
+    iranges = Vector{UnitRange{Int}}(undef, N)
+    i = 1
+    for j in N:-1:1
+        n = length(subgrids[j].xs)
+        iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
+        i += n - 1
+    end
+    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, iranges)
+end
+
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
+    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
+    @inbounds @tasks for j in eachindex(kinterp.subgrids)
+        @set scheduler = thread ? :dynamic : :static
+        subgrid = kinterp.subgrids[j]
+        kmin, kmax = extrema(subgrid)
+        in_range = findall(k -> kmin ≤ k ≤ kmax, ks_fine)
+        irange = kinterp.iranges[j]
+        source_kinterp!(@view(Ss_fine[:, in_range]), @view(Ss_coarse[:, irange]), subgrid, ks_fine[in_range]; thread)
+    end
+    return Ss_fine
+end
