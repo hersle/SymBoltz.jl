@@ -56,6 +56,7 @@ export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum
 export AbstractInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, PiecewiseChebyshevInterpolator, order
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
+export BarycentricChebyshevInterpolant
 
 using PrecompileTools: @compile_workload
 @compile_workload begin

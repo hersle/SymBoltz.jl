@@ -419,6 +419,7 @@ end
 struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
     f::F
 end
 
@@ -446,20 +447,22 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
     end
     xs[end] ≈ xmin && xs[begin] ≈ xmax || throw(ArgumentError("f(x) and f⁻¹(x) are not inverses"))
     xs[end], xs[begin] = xmin, xmax  # prevent floating point bounds errors from f⁻¹(f(k))
-    return ChebyshevInterpolator(xs, ys, f)
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    n = length(xs) - 1
+    ws = [iseven(j) ? T(+1) : T(-1) for j in 0:n]
+    ws[begin] /= 2
+    ws[end] /= 2
+
+    return ChebyshevInterpolator(xs, ys, ws, f)
 end
 
 Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
 
-function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::ChebyshevInterpolator, ys_fine)
-    if any(any(!isfinite(Sᵢ) for Sᵢ in S) for S in Ss_coarse)
-        out .*= NaN # set to NaN instead of crashing in chebinterp
-        return
-    end
-    ymin, ymax = kinterp.ys[end], kinterp.ys[begin] # stored grid is from high-to-low x
-    interp = chebinterp(Ss_coarse, ymin, ymax)
-    out .= interp.(ys_fine)
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::AbstractInterpolator, ys_fine)
+    kinterp(out, Ss_coarse, ys_fine)
     return out
 end
 
@@ -515,4 +518,30 @@ function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevIn
         source_kinterp!(@view(Ss_fine[:, in_range]), @view(Ss_coarse[:, irange]), subgrid, ks_fine[in_range]; thread)
     end
     return Ss_fine
+end
+
+# Barycentric interpolation formula https://epubs.siam.org/doi/10.1137/S0036144502417715
+function (interp::AbstractInterpolator)(f::AbstractVector, y::Number)
+    num = zero(eltype(f))
+    den = zero(typeof(y))
+    @fastmath @inbounds for j in eachindex(interp.ys)
+        dy = y - interp.ys[j]
+        iszero(dy) && return f[j]
+        t = interp.ws[j] / dy
+        num += t * f[j]
+        den += t
+    end
+    return num / den
+end
+
+function (interp::AbstractInterpolator)(f::AbstractVector, x::AbstractArray)
+    return interp.(Ref(f), x)
+end
+
+function (interp::AbstractInterpolator)(out::AbstractVector, f::AbstractVector, x::AbstractArray)
+    length(out) == length(x) || throw(ArgumentError("out and x have different lengths $(length(out)) and $(length(x))"))
+    for i in eachindex(x)
+        out[i] = interp(f, x[i])
+    end
+    return out
 end
