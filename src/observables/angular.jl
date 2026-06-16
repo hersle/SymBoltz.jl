@@ -230,6 +230,9 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
     end
 end
 
+fk_tanh(k, k0=2000.0) = tanh(k/k0)
+fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
+
 """
     spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
@@ -270,8 +273,11 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     # Automatically determine grid if not provided manually
     if isnothing(kinterp)
-        kmax = iψ > 0 ? 10000.0 : 1000.0 # higher for lensing
-        kinterp = CubicSplineInterpolator(kgrid_default(kmax))
+        if iψ > 0
+            kinterp = ChebyshevInterpolator(1e-2, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
+        else
+            kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
+        end
     end
 
     ls = jl.l
