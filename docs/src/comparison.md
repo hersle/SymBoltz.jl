@@ -25,7 +25,7 @@ pars = merge(parameters_Planck18(M), Dict(
     M.X.cₛ² => 0.9
 ))
 h = pars[M.g.h] # needed later
-prob = CosmologyProblem(M, pars; sparse = false) # dense faster for AD
+prob = CosmologyProblem(M, pars)
 
 function solve_class(pars, k = nothing)
     prob = CLASSProblem(
@@ -353,46 +353,26 @@ function P_class(k, pars)
     P = exp.(LinearInterpolation(log.(P′), log.(k′)).(log.(k)))
     return P
 end
-function P_symboltz(k, pars)
-    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
-    P = spectrum_matter(prob′, k / u"Mpc") / u"Mpc^3"
-    return P
-end
 k, P1 = P_class(pars)
 P1 = P1[k .> 9e-5]
 k = k[k .> 9e-5]
-P2 = P_symboltz(k, pars)
+P2 = spectrum_matter(prob, k / u"Mpc") / u"Mpc^3"
 plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 2e1)
 ```
 ```@example class
 using ForwardDiff, FiniteDiff
 
+vary = [M.g.h, M.c.Ω₀, M.b.Ω₀]
+p0 = [pars[par] for par in vary]
+probgen = parameter_updater(prob, vary)
 k = 10 .^ range(-3, 0, length=100) # 1/Mpc
-function plot_compare_P_diff(par, val; relstep = 1e-2, kwargs...)
-    out = zeros(length(k))
-    f = function(out, logval)
-        val = exp(logval)
-        out .= log.(P_class(k, merge(pars, Dict(par => val))))
-        return out
-    end
-    Δt1 = @elapsed ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
-    println("Computed CLASS derivatives in $Δt1 seconds")
-    Δt2 = @elapsed ∂logP2_∂logθ = ForwardDiff.derivative(logval -> log.(P_symboltz(k, Dict(par => exp(logval)))), log(val))
-    println("Computed SymBoltz derivatives in $Δt2 seconds")
-    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, "k", "∂(log(P))/∂(log($(replace(string(par), "₊" => "."))))"; lgx = true, kwargs...)
-end
+Pk_class(p; kw...) = P_class(k, merge(pars, Dict(vary .=> p)); kw...)
+Pk(p; kw...) = spectrum_matter(probgen(p), k / u"Mpc"; kw...) / u"Mpc^3"
 
-#∂logP1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> log.(P_class(merge(pars, Dict(diffpars .=> θ)))[2]), θ, Val{:central}; relstep = 1e-4) # hide
-#∂logP2_∂θ = ForwardDiff.jacobian(θ -> log.(P_symboltz(k, Dict(diffpars .=> θ))[2]), θ) # hide
-#plot_compare(k, k, eachcol(∂logP1_∂θ), eachcol(∂logP2_∂θ), "k", ["∂(lg(P))/∂($par)" for par in ["Ωc0", "Ωb0", "h"]]; lgx = true) # hide
+∂Pk1_∂p = FiniteDiff.finite_difference_jacobian(Pk_class, p0, Val{:central}; relstep = 1e-3) # smaller relstep is noisier
+∂Pk2_∂p = ForwardDiff.jacobian(Pk, p0)
 
-plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 4e-2) # smaller relstep is noisier
-```
-```@example class
-plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 2e-2) # smaller relstep is noisier
-```
-```@example class
-plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 5e-2) # smaller relstep is noisier
+plot_compare(k, k, eachcol(∂Pk1_∂p), eachcol(∂Pk2_∂p), "k/Mpc⁻¹", ["∂(P)/∂($(replace(string(par), "₊" => ".")))" for par in vary]; lgx = true, tol = 3e3)
 ```
 
 ## CMB power spectrum
@@ -405,15 +385,13 @@ function Dl_class(modes, l, pars)
     Dl = [Dl[j][i] for j in eachindex(modes)]
     return stack(Dl)
 end
-function Dl_symboltz(modes, jl, pars; kwargs...)
-    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
-    return spectrum_cmb(modes, prob′, jl; normalization = :Dl, kwargs...)
-end
 
 l = 20:20:2000 # CLASS default is lmax = 2500
-Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 jl = SphericalBesselCache(l)
-Dl2 = Dl_symboltz([:TT, :TE, :EE, :ψψ, :ψT, :ψE], jl, pars)
+Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl; normalization = :Dl, kw...)
+
+Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
+Dl2 = Dl(p0)
 plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], "l", "Dₗ(TT)"; tol = 2e-12)
 ```
 ```@example class
@@ -432,25 +410,24 @@ plot_compare(l, l, Dl1[:, 5], Dl2[:, 5], "l", "Dₗ(ψT)"; tol = 6e-13)
 plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 6e-14)
 ```
 ```@example class
-diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
-θ = [pars[par] for par in diffpars]
 modes = [:TT, :TE, :EE]
 
-Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -> Dl_class(modes, l, merge(pars, Dict(diffpars .=> θ))), θ, Val{:central}; relstep = 1e-3)
-println("Computed CLASS derivatives in $Δt1 seconds")
-Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -> Dl_symboltz(modes, jl, Dict(diffpars .=> θ)), θ)
-println("Computed SymBoltz derivatives in $Δt2 seconds")
+Dl(p; kw...) = spectrum_cmb(modes, probgen(p), jl; normalization = :Dl, kw...)
+Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 
-# returned matrices have size (length(l)*length(modes), length(diffpars)); reshape to (length(l), length(modes), length(diffpars))
-∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
-∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
+∂Dl1_∂p = FiniteDiff.finite_difference_jacobian(Dl_class, p0, Val{:central}; relstep = 1e-3)
+∂Dl2_∂p = ForwardDiff.jacobian(Dl, p0)
 
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in diffpars]; tol = 4e-11)
+# returned matrices have size (length(l)*length(modes), length(vary)); reshape to (length(l), length(modes), length(vary))
+∂Dl1_∂p_3d = reshape(∂Dl1_∂p, (length(l), length(modes), length(vary)))
+∂Dl2_∂p_3d = reshape(∂Dl2_∂p, (length(l), length(modes), length(vary)))
+
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,1,:]), eachcol(∂Dl2_∂p_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in vary]; tol = 4e-11)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in diffpars]; tol = 6e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,2,:]), eachcol(∂Dl2_∂p_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in vary]; tol = 6e-12)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in diffpars]; tol = 1e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,3,:]), eachcol(∂Dl2_∂p_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in vary]; tol = 1e-12)
 ```
 

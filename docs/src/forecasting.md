@@ -6,10 +6,8 @@ This example shows how SymBoltz can be used to perform a Fisher forecast on a CM
 First, create a base ΛCDM cosmological model and problem:
 ```@example forecast
 # inspiration: e.g. https://github.com/xzackli/fishchips-public/blob/master/notebooks/Introduction%20to%20Fisher%20Forecasting.ipynb # hide
-# TODO: start by getting equal ad/fd results with these, then include more parameters # hide
 using SymBoltz, Plots
-# TODO: use higher lmax when AD is faster # hide
-M = ΛCDM(K = nothing, lmax = 6) # flat; low lmax for documentation run
+M = ΛCDM()
 pars = Dict(
     M.g.h => 0.70,
     M.c.Ω₀ => 0.27,
@@ -23,13 +21,12 @@ pars = Dict(
 )
 # TODO: more parameters, try one-by-one: Neff is a bit iffy # hide
 pars_varying = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.b.YHe, M.I.ln_As1e10, M.I.ns] # parameters to be varied; others are fixed
-prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN)); sparse = false) # set varying to NaN; dense faster for AD
+prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varying to NaN
 ```
 
 Next, create a function for computing $Cₗ$ of the CMB TT power spectrum.
 Since $Cₗ$ is an expensive but smooth function of $l$, we make one function for it exactly on a coarse grid of $l$ and another for interpolating it to a finer grid:
 ```@example forecast
-# TODO: ω0 better than Ω0? # hide
 probgen = parameter_updater(prob0, pars_varying)
 jl = SphericalBesselCache(40:20:1000)
 ls = 40:1:1000
