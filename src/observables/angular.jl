@@ -27,33 +27,31 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 20*ls[end], dx = 2π/15
         is[l] = i
     end
 
-    ys = jl.(ls', xs)
-    dys = hermite ? jl′.(ls', xs) : nothing
+    ys  = jl.(ls, xs') # contiguous in l
+    dys = hermite ? jl′.(ls, xs') : nothing
 
     return SphericalBesselCache{typeof(dys)}(ls, is, ys, dys, dx, invdx, xs)
 end
 
-# TODO: define chain rule like in https://github.com/JuliaDiff/ForwardDiff.jl/blob/master/src/dual.jl?
-Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Nothing})(l, x)
-    il = jl.i[l]
+# First argument is the cache index il, not the multipole l (use jl.i[l] to convert l → il)
+@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Nothing})(il::Int, x)
     w = x * jl.invdx # 0-based float index (assume x0 = 0)
     i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
     w = w - i # remainder ∈ [0, 1]
-    y₋ = jl.y[i+1, il] # +1 for 1-based indexing
-    y₊ = jl.y[i+2, il]
+    y₋ = jl.y[il, i+1] # +1 for 1-based indexing
+    y₊ = jl.y[il, i+2]
     return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
 end
 
-Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Matrix{Float64}})(l, x)
-    il = jl.i[l]
+@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Matrix{Float64}})(il::Int, x)
     w = x * jl.invdx
     i = trunc(Int, w)
     w = w - i
     wm1 = w - 1.0
-    y₋ = jl.y[i+1, il]
-    y₊ = jl.y[i+2, il]
-    dy₋ = jl.dy[i+1, il]
-    dy₊ = jl.dy[i+2, il]
+    y₋  = jl.y[il, i+1]
+    y₊  = jl.y[il, i+2]
+    dy₋ = jl.dy[il, i+1]
+    dy₊ = jl.dy[il, i+2]
     return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
 end
 

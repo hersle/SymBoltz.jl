@@ -125,23 +125,26 @@ end
     jl_lin = SphericalBesselCache(ls; dx = 2π/150, hermite = false)
     jl_her = SphericalBesselCache(ls; dx = 2π/15, hermite = true)
     for (jl, atol) in [(jl_lin, 1e-5), (jl_her, 1e-5)]
-        @test_throws BoundsError jl(5, 0.0) # not cached
-        @test_throws BoundsError jl(10, -1.0)
-        @test_throws BoundsError jl(10, jl.x[end] + 1.0)
-        @test isapprox(jl(10, 0.0), SymBoltz.sphericalbesselj(10, 0.0); atol = 1e-16)
-        @test isapprox(jl(10, jl.x[end]), SymBoltz.sphericalbesselj(10, jl.x[end]); atol = 1e-16)
-        @test isapprox(jl(10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol)
+        i5 = jl.i[5]
+        i10 = jl.i[10]
+        @test_throws BoundsError jl(i5, 0.0) # not cached
+        @test_throws BoundsError jl(i10, -1.0)
+        @test_throws BoundsError jl(i10, jl.x[end] + 1.0)
+        @test isapprox(jl(i10, 0.0), SymBoltz.sphericalbesselj(10, 0.0); atol = 1e-16)
+        @test isapprox(jl(i10, jl.x[end]), SymBoltz.sphericalbesselj(10, jl.x[end]); atol = 1e-16)
+        @test isapprox(jl(i10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol)
 
         xs = range(jl.x[begin], jl.x[end], step=0.001)
-        @test all(isapprox.(jl.(jl.l', xs), SymBoltz.jl.(jl.l', xs); atol))
+        is = eachindex(ls)
+        @test all(isapprox.(jl.(is', xs), SymBoltz.jl.(ls', xs); atol))
 
         xs = range(jl.x[begin], jl.x[end], length=10)
-        t1 = @belapsed $jl.(10, $xs)
-        t2 = @belapsed SymBoltz.sphericalbesselj.(10, $xs)
+        t1 = @belapsed $jl.($i10, $xs)
+        t2 = @belapsed SymBoltz.sphericalbesselj.($i10, $xs)
         @test t1 < t2 # faster
-        @test (@ballocated $jl(10, π)) == 0 # non-allocating
+        @test (@ballocated $jl($i10, π)) == 0 # non-allocating
 
-        j10(x) = jl(10, x)
+        j10(x) = jl(i10, x)
         @test isfinite(ForwardDiff.derivative(j10, π))
     end
 end
