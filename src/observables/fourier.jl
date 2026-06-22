@@ -545,3 +545,27 @@ function (interp::AbstractInterpolator)(out::AbstractVector, f::AbstractVector, 
     end
     return out
 end
+
+struct EquispacedInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
+    f::F
+end
+
+Base.minimum(interp::EquispacedInterpolator) = interp.xs[begin]
+Base.maximum(interp::EquispacedInterpolator) = interp.xs[end]
+
+function EquispacedInterpolator(xmin, xmax, order)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    xs = lingrid(xmin, xmax; length = order + 1)
+    ys = xs
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    n = length(xs) - 1
+    ws = T[binomial(n, j) for j in 0:n]
+    ws .*= [iseven(j) ? T(+1) : T(-1) for j in 0:n]
+
+    return EquispacedInterpolator(xs, ys, ws, identity)
+end
