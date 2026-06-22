@@ -115,68 +115,77 @@ Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 is used for `l ≥ l_limber`.
 """
 function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
-    # Julia is column-major; make sure innermost loop indices appear first in slice expressions (https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-column-major)
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
+    @assert collect(ls) == jl.l "ls must match the l-values stored in the Bessel cache"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
     @assert all(all(isfinite.(S)) for S in Ss) "Ss contain NaN or Inf"
     @assert τs[2] > τs[1] "τs must be sorted in ascending order"
     @assert ks[2] > ks[1] "ks must be sorted in ascending order"
+
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     τ0 = τs[end]
     χs = τ0 .- τs
-    halfdτs = 0.5 .* (τs[begin+1:end] .- τs[begin:end-1]) # precompute before loops
-    Is = similar(Ss, length(ks), length(ls))
+    nτ = length(τs)
+
+    ws = similar(τs) # precompute trapezoidal rule weights
+    ws[1] = 0.5 * (τs[2] - τs[1])
+    @inbounds for iτ in 2:nτ-1
+        ws[iτ] = 0.5 * (τs[iτ+1] - τs[iτ-1])
+    end
+    ws[nτ] = 0.5 * (τs[nτ] - τs[nτ-1])
+
+    Is = similar(Ss, length(ks), length(jl.l))
+    nl = length(jl.l)
+    il_limber = searchsortedfirst(jl.l, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
-    # TODO: skip and set jl to zero if l ≳ kτ0 or another cutoff?
-    @fastmath @inbounds @tasks for il in eachindex(ls) # parallellize independent loop iterations
+    # Loop order k → τ → l to get SIMD on the innermost l-loop
+    @fastmath @inbounds @tasks for ik in eachindex(ks)
         @set scheduler = thread ? :dynamic : :serial
-        l = ls[il]
-        verbose && print("\rLOS integrating with l = $l")
-        for ik in eachindex(ks)
-            k = ks[ik]
-            I = zero(T)
-            if l ≥ l_limber
-                χ = (l+1/2) / k
-                if χ ≤ χs[1] # otherwise χ > χini > χrec and source function is definitely zero
-                    # cubic Hermite interpolation between two closest points
-                    i₋ = searchsortedfirst(τs, τ0 - χ) # highest index
-                    χ₋ = χs[i₋]
-                    S₋ = Ss[i₋, ik]
-                    if i₋ == 1
-                        S = S₋
-                    else
-                        i₊ = i₋ - 1 # lowest index; χs is sorted in descending order, so χ₋ < χ < χ₊
-                        χ₊ = χs[i₊]
-                        S₊ = Ss[i₊, ik]
-                        Δχ = χ₊ - χ₋
-                        S′₋ = i₋ ≤ length(τs)-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
-                        S′₊ = i₊ ≥ 2            ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
-                        t  = (χ - χ₋) / Δχ
-                        t² = t * t
-                        t³ = t² * t
-                        S  = (2t³-3t²+1)*S₋ + (t³-2t²+t)*Δχ*S′₋ + (-2t³+3t²)*S₊ + (t³-t²)*Δχ*S′₊
-                    end
-                    I = √(π/(2l+1)) * S / k
-                end
-            else
-                prev = Ss[1, ik] * jl(l, k*χs[1]) # set up first point
-                for iτ in 2:length(τs)
-                    kχ = k * χs[iτ]
-                    halfdτ = halfdτs[iτ-1]
-                    _jl = jl(l, kχ)
-                    curr = Ss[iτ, ik] * _jl
-                    I += halfdτ * (curr + prev)
-                    #kχ < l && abs(_jl) < 1e-20 && break # time cut approximation (disabled; unreliable)
-                    prev = curr
+        @local tmp = zeros(T, nl) # l-contiguous storage for integrals (to help SIMD over l)
+        k = ks[ik]
+        verbose && print("\rLOS integrating k-mode $ik / $(length(ks))")
+
+        # Full line-of-sight integrals for l < l_limber
+        fill!(tmp, zero(T))
+        @inbounds for iτ in eachindex(τs)
+            kχ = k * χs[iτ]
+            Sw = ws[iτ] * Ss[iτ, ik]
+            @inbounds @simd for il in 1:il_limber-1
+                tmp[il] += Sw * jl(il, kχ)
+            end
+        end
+
+        # Limber approximation for l ≥ l_limber
+        @inbounds for il in il_limber:nl
+            l = jl.l[il]
+            χ = (l + 1/2) / k
+            if χ ≤ χs[1] # otherwise source is zero before recombination
+                i₋ = searchsortedfirst(τs, τ0 - χ)
+                χ₋ = χs[i₋]
+                S₋ = Ss[i₋, ik]
+                if i₋ == 1
+                    S = S₋
+                else
+                    i₊ = i₋ - 1 # χs is descending, so χ₋ < χ < χ₊
+                    χ₊ = χs[i₊]
+                    S₊ = Ss[i₊, ik]
+                    Δχ = χ₊ - χ₋
+                    S′₋ = i₋ ≤ nτ-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
+                    S′₊ = i₊ ≥ 2    ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
+                    t = (χ - χ₋) / Δχ
+                    t² = t*t
+                    t³ = t²*t
+                    S = (2t³-3t²+1)*S₋ + (t³-2t²+t)*Δχ*S′₋ + (-2t³+3t²)*S₊ + (t³-t²)*Δχ*S′₊
+                    tmp[il] = √(π/(2l+1)) * S / k
                 end
             end
-            Is[ik, il] = I
-            #k*τ0 < l && maximum(abs.(I)) < 1e-20 && break # multipole cut approximation (disabled; unreliable)
         end
+
+        Is[ik, :] .= tmp
     end
     verbose && println()
 
