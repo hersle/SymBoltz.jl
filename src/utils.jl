@@ -117,9 +117,12 @@ end
 
 function spline(sol::ODESolution)
     ts = sol.t
-    Nu, _ = size(sol)
-    us = map(u -> SVector{Nu}(u), sol(ts, Val{0}).u)
-    dus = map(u -> SVector{Nu}(u), sol(ts, Val{1}).u)
+    N, _ = size(sol)
+    T = eltype(eltype(sol.u))
+    us = reduce(hcat, sol(ts, Val{0}).u)
+    dus = reduce(hcat, sol(ts, Val{1}).u)
+    us = collect(vec(reinterpret(reshape, SVector{N, T}, us))) # convert to Vector of SVectors
+    dus = collect(vec(reinterpret(reshape, SVector{N, T}, dus)))
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
