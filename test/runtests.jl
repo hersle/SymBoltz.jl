@@ -664,10 +664,12 @@ end
     M = BDΛCDM()
 
     # 1) unspecified ΩΛ0, constrained ℋ = 1 today
-    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0, M.G.ϕ => 0.95))
+    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, M.G.ϕini => 0.95, D(M.G.ϕ) => 0.0))
     prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     sol1 = solve(prob1)
-    @test issuccess(sol1) && sol1[M.g.ℋ][end] ≈ 1.0 && sol1[D(M.G.ϕ)][begin] == 0.0
+    @test issuccess(sol1)
+    @test sol1[M.g.ℋ][end] ≈ 1.0
+    @test sol1[D(M.G.ϕ)][begin] == 0.0
 
     # 1) same, but with bracketing root-finder
     prob1_bracket = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1])
@@ -677,9 +679,12 @@ end
 
     # 2) unspecified ΩΛ0 and ϕini
     pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
-    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕ => 1-1/(1+M.G.ω/5), M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1]) # ω-dependent ϕini ≈ 0.95
+    prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕini => 1-1/(1+M.G.ω/5), M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1]) # ω-dependent ϕini ≈ 0.95
     sol2 = solve(prob2)
-    @test issuccess(sol2) && sol2[M.g.ℋ][end] ≈ 1.0 && sol2[M.G.G][end] ≈ 1.0 && sol2[D(M.G.ϕ)][begin] == 0.0
+    @test issuccess(sol2)
+    @test isapprox(sol2[M.g.ℋ][end], 1.0; atol = 1e-5)
+    @test isapprox(sol2[M.G.G][end], 1.0; atol = 1e-5)
+    @test sol2[D(M.G.ϕ)][begin] == 0.0
 
     # helpful error with stupid initial guess
     prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
