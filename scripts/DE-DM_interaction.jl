@@ -276,7 +276,6 @@ eqs = [
 initialization_eqs = [
     # metric/gravity
     Ψ ~ 20C / (15 + 4fν)
-    D(a) ~ a / τ
 
     # baryons
     δb ~ -3/2 * Ψ
@@ -315,7 +314,6 @@ initialization_eqs = [
 
 # 6) Initial guess for variables solved for in initial conditions and shooting method (modify or add your own)
 guesses = [
-    a => τ # a(τini) is solved for in a nonlinear system constrained to ℋ(aini) ~ 1/τini (see initialization_eqs)
     ρb => τ^(-3)
     ρc => τ^(-3)
     ρΛ => τ^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
@@ -330,6 +328,7 @@ constraints = [
 
 # 8) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
+    a => √(Ωγ0 + Ων0 + Ωh0/Iρh0*7π^4/120) * τ # initialize scale factor from radiation-dominated solution to 1st Friedmann eq.
     H0SI => H100*h
     τ0 => NaN
     C => 1/2
