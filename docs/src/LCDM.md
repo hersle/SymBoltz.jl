@@ -289,7 +289,7 @@ initialization_eqs = [
 # 6) Initial guess for variables solved for in initial conditions (modify or add your own)
 # TODO: also use for shooting method # hide
 guesses = [
-    a => τ # a(τini) is solved for in a nonlinear system constrained to ℋ(aini) ~ 1/τini (see initialization_eqs)
+    a => √(Ωγ0 + Ων0) * τ # a(τini) is solved for in a nonlinear system constrained to ℋ(aini) ~ 1/τini (see initialization_eqs)
 ]
 
 # 7) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)

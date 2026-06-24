@@ -699,7 +699,7 @@ end
     pars = @parameters Ωr0 Ωm0 ΩΛ0 [shoot=true]
     eqs = [ℋ ~ √(Ωr0/a^4 + Ωm0/a^3 + ΩΛ0) * a, D(a) ~ a*ℋ]
     initialization_eqs = [ℋ ~ 1/τ]
-    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => τ)
+    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => √(Ωr0) * τ)
     constraints = [ℋ ~ 1]
     @named M = System(eqs, τ, vars, pars; initialization_eqs, guesses, constraints)
     @test Set(keys(SymBoltz.shootvars(M))) == Set(ΩΛ0)
@@ -708,6 +708,37 @@ end
     @test isnothing(prob.pt)
     sol = solve(prob)
     @test sol[ℋ][end] ≈ 1 && sol[Ωr0 + Ωm0 + ΩΛ0] ≈ 1
+
+    # shooting with numerical continuity equations
+    vars = @variables a(τ) ℋ(τ) ρ(τ) ρr(τ) ρm(τ) ρΛ(τ)
+    pars = @parameters ρri ρmi ρΛi
+    eqs = [
+        ℋ ~ √(8π/3*ρ) * a
+        ρ ~ ρr + ρm + ρΛ
+        D(a) ~ ℋ*a
+        D(ρr) ~ -4ℋ*ρr
+        D(ρm) ~ -3ℋ*ρm
+        ρΛ ~ ρΛi
+    ]
+    initial_conditions = [
+        ρr => ρri
+        ρm => ρmi
+    ]
+    initialization_eqs = [
+        ℋ ~ 1 / τ
+    ]
+    guesses = [
+        a => √(Ωr0) * τ
+    ]
+    @named M = System(eqs, τ, vars, pars; initial_conditions, initialization_eqs, guesses)
+    p = Dict(
+        ρri => NaN,
+        ρmi => NaN,
+        ρΛi => NaN,
+    )
+    prob = CosmologyProblem(M, p, Dict(ρri => 1e-5/1e-8^4, ρmi => 0.3/1e-8^3, ρΛi => 0.7), [8π/3*ρr ~ 1e-5, 8π/3*ρm ~ 0.3, 8π/3*ρΛ ~ (1-0.3-1e-5)])
+    sol = solve(prob; verbose = true)
+    @test isapprox(sol[a/τ][begin], sol[√(8π/3*ρr*a^4)][begin]; atol = 1e-6)
 end
 
 @testset "Underdetermined/overdetermined initialization" begin

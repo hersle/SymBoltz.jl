@@ -425,7 +425,7 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
     return bgsol
 end
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{true}, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
