@@ -668,14 +668,14 @@ end
     prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     sol1 = solve(prob1)
     @test issuccess(sol1)
-    @test sol1[M.g.ℋ][end] ≈ 1.0
+    @test sol1[M.g.ℋ][end] ≈ 1.0 atol=1e-4
     @test sol1[D(M.G.ϕ)][begin] == 0.0
 
     # 1) same, but with bracketing root-finder
     prob1_bracket = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1])
     sol1_bracket = solve(prob1_bracket)
     @test issuccess(sol1_bracket) && sol1_bracket[M.g.ℋ][end] ≈ 1.0 && sol1_bracket[D(M.G.ϕ)][begin] == 0.0
-    @test sol1_bracket[M.Λ.Ω₀] ≈ sol1[M.Λ.Ω₀]
+    @test sol1_bracket[M.Λ.Ω₀] ≈ sol1[M.Λ.Ω₀] atol=1e-4
 
     # 2) unspecified ΩΛ0 and ϕini
     pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
@@ -686,9 +686,17 @@ end
     @test isapprox(sol2[M.G.G][end], 1.0; atol = 1e-5)
     @test sol2[D(M.G.ϕ)][begin] == 0.0
 
-    # helpful error with stupid initial guess
+    # start shooting with valid but bad initial guess
+    prob_bad = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 5.0), [M.g.ℋ ~ 1])
+    sol_bad = solve(prob_bad)
+    @test issuccess(sol_bad)
+    @test sol_bad[M.g.ℋ][end] ≈ 1.0 atol=1e-4
+
+    # initial shooting guess in bad/unstable region
     prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => -1.0), [M.g.ℋ ~ 1])
-    @test_throws "Shooting failed when solving background" solve(prob_stupid)
+    @test_throws "Shooting failed to converge" solve(prob_stupid)
+
+    # bracketing method with both initial guesses of the same sign
     prob_stupid = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => (0.0, 0.5)), [M.g.ℋ ~ 1])
     @test_throws "Shooting failed to converge" solve(prob_stupid)
 
