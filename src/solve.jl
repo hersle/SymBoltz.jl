@@ -455,7 +455,10 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
         newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
 
         bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
-        !successful_retcode(bgsol) && error("Shooting failed when solving background with $(varvalstr(varstrs, vals)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
+        if !successful_retcode(bgsol)
+            verbose && !(eltype(vals) <: ForwardDiff.Dual) && println("Shooting: ODE failed with ", varvalstr(varstrs, vals), " (returning NaN)")
+            return vals .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
+        end
         conditions = only(getfuns(bgsol)) # get final values
         verbose && !(eltype(vals) <: ForwardDiff.Dual) && println("Shooting: ", varvalstr(varstrs, vals), " -> ", varvalstr(constrs, conditions))
         return conditions
