@@ -342,7 +342,15 @@ end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
 ptalg(prob::Nothing) = nothing
 
-shootalg(prob::CosmologyProblem) = length(prob.shoot) == 1 && only(values(prob.shoot)) isa Tuple ? ITP() : NewtonRaphson()
+function shootalg(prob::CosmologyProblem; accuracy = 2)
+    if length(prob.shoot) == 1 && only(values(prob.shoot)) isa Tuple
+        return ITP() # bracketing solver for interval guesses, regardless of accuracy
+    elseif accuracy == 0
+        return NewtonRaphson(linesearch = BackTracking())
+    else # accuracy >= 1
+        return TrustRegion()
+    end
+end
 shootalg() = nothing
 
 function check_solve_args(prob::ODEProblem, alg)
