@@ -6,11 +6,9 @@ Create a symbolic component for a particle species with equation of state `w ~ P
 function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     if analytical
-        pars = @parameters begin
-            Ω₀, [description = "Reduced background density today"]
-        end
+        pars = @parameters Ω₀, [description = "Reduced background density today"]
     else
-        pars = []
+        pars = @parameters ρᵢ, [description = "Initial background density"]
     end
     vars = @variables begin
         w(τ), [description = "Equation of state"]
@@ -33,11 +31,13 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
             Ω ~ Ω₀ / g.a^n
             ρ ~ 3/(8*Num(π)) * Ω
         ]
+        initial_conditions = []
     else
         eqs = [
             D(ρ) ~ -3 * g.ℋ * (ρ + P)
             Ω ~ 8π/3 * ρ
         ]
+        initial_conditions = [ρ => ρᵢ]
     end
     append!(eqs, [
         w ~ _w
@@ -56,7 +56,7 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
     ]
     !θinteract && push!(eqs, (θinteraction ~ 0))
-    return System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, name, kwargs...)
+    return System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, initial_conditions, name, kwargs...)
 end
 
 """
