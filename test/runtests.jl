@@ -744,6 +744,13 @@ end
     prob = CosmologyProblem(M, p, Dict(ρri => 1e-5/1e-8^4, ρmi => 0.3/1e-8^3, ρΛi => 0.7), [8π/3*ρr ~ 1e-5, 8π/3*ρm ~ 0.3, 8π/3*ρΛ ~ (1-0.3-1e-5)])
     sol = solve(prob; verbose = true)
     @test isapprox(sol[a/τ][begin], sol[√(8π/3*ρr*a^4)][begin]; atol = 1e-6)
+
+    # TODO: require all shooting variables to be @parameters
+    M = ΛCDM(; Λ = SymBoltz.cosmological_constant(SymBoltz.metric(); analytical = false))
+    p = parameters_Planck18(M)
+    shoot_guesses = Dict(M.Λ.ρ => 0.1)
+    shoot_conditions = [M.g.ℋ ~ 1]
+    @test_throws "must be declared with @parameters" CosmologyProblem(M, p, shoot_guesses, shoot_conditions)
 end
 
 @testset "Underdetermined/overdetermined initialization" begin
