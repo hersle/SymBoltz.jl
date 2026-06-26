@@ -6,9 +6,8 @@ using ForwardDiff
 using ForwardDiffChainRules
 import ChainRulesCore
 
-struct SphericalBesselCache{Tdy <: Union{Matrix{Float64}, Nothing}}
-    l::Vector{Int}
-    i::Vector{Int}
+struct SphericalBesselCache{Tl <: Number, Tdy <: Union{Matrix{Float64}, Nothing}}
+    l::Vector{Tl}
     y::Matrix{Float64}
     dy::Tdy
     dx::Float64
@@ -21,20 +20,13 @@ function SphericalBesselCache(ls::AbstractVector; xmax = 20*ls[end], dx = 2π/15
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
-
-    is = zeros(Int, maximum(ls))
-    for (i, l) in enumerate(ls)
-        is[l] = i
-    end
-
     ys  = jl.(ls, xs') # contiguous in l
     dys = hermite ? jl′.(ls, xs') : nothing
-
-    return SphericalBesselCache{typeof(dys)}(ls, is, ys, dys, dx, invdx, xs)
+    return SphericalBesselCache{eltype(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
 end
 
 # First argument is the cache index il, not the multipole l (use jl.i[l] to convert l → il)
-@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Nothing})(il::Int, x)
+@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Tl, Nothing})(il::Int, x) where {Tl}
     w = x * jl.invdx # 0-based float index (assume x0 = 0)
     i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
     w = w - i # remainder ∈ [0, 1]
@@ -43,7 +35,7 @@ end
     return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
 end
 
-@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Matrix{Float64}})(il::Int, x)
+@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Tl, Matrix{Float64}})(il::Int, x) where {Tl}
     w = x * jl.invdx
     i = trunc(Int, w)
     w = w - i

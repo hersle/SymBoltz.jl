@@ -276,7 +276,12 @@ function grid(a, b; step = nothing, length = nothing)
     return collect(range(a, b; length))
 end
 lingrid(a, b; kw...) = grid(a, b;  kw...)
-loggrid(a, b; kw...) = exp.(grid(log(a), log(b); kw...))
+function loggrid(a, b; kw...)
+    x = exp.(grid(log(a), log(b); kw...))
+    x[begin] = a # avoid floating point bounds errors due to x ≈ (exp(log(x)))
+    x[end] = b # avoid floating point bounds errors due to x ≈ (exp(log(x)))
+    return x
+end
 cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
 chebgrid(a, b; order) = reverse(chebpoints(order, a, b))
 function joingrids!(grid, grids...)
