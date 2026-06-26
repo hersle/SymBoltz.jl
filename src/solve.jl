@@ -139,6 +139,7 @@ function CosmologyProblem(
 
     length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
+    all(ModelingToolkit.isparameter, keys(shoot_pars)) || error("Shooting parameters $(join(filter(!ModelingToolkit.isparameter, keys(shoot_pars)), ", ")) must be declared with @parameters (not @variables). If the shooting parameter represents an initial value, add a trivial parameter and equation for the initial condition.")
 
     parsk = mergesafe(pars, Dict(par => first(guess) for (par, guess) in shoot_pars)) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
 
@@ -341,7 +342,15 @@ end
 ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
 ptalg(prob::Nothing) = nothing
 
-shootalg(prob::CosmologyProblem) = length(prob.shoot) == 1 && only(values(prob.shoot)) isa Tuple ? ITP() : NewtonRaphson()
+function shootalg(prob::CosmologyProblem; accuracy = 2)
+    if length(prob.shoot) == 1 && only(values(prob.shoot)) isa Tuple
+        return ITP() # bracketing solver for interval guesses, regardless of accuracy
+    elseif accuracy == 0
+        return NewtonRaphson(linesearch = BackTracking())
+    else # accuracy >= 1
+        return TrustRegion()
+    end
+end
 shootalg() = nothing
 
 function check_solve_args(prob::ODEProblem, alg)
@@ -410,7 +419,7 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+    solvebg(bgprob::ODEProblem[, vars, conditions]; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
 
 Solve the background cosmology problem `bgprob`.
 If the background requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is and an array of equations that should hold at the final integration time (usually today).
@@ -424,8 +433,23 @@ function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol 
 
     return bgsol
 end
+
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, build_initializeprob = Val{false}, kwargs...)
+function _solvebg_shoot_f(u, p)
+    bgprob, alg, reltol, abstol, extra_kwargs, setvars, getfuns, verbose, varstrs, constrs = p # unpack
+    newu0, newp = setvars(bgprob, u)
+    newbgprob = remake(bgprob; u0 = newu0, p = newp)
+    bgsol = solvebg(newbgprob; alg, reltol, abstol, extra_kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
+    if !successful_retcode(bgsol)
+        verbose && eltype(u) <: AbstractFloat && println("Shooting: ODE failed with ", varvalstr(varstrs, u), " (returning NaN)")
+        return u .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
+    end
+    result = only(getfuns(bgsol))
+    verbose && eltype(u) <: AbstractFloat && println("Shooting: ", varvalstr(varstrs, u), " -> ", varvalstr(constrs, result))
+    return result
+end
+
+function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -444,22 +468,6 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     setvars = SymbolicIndexingInterface.setsym_oop(bgprob, vars) # efficient setter
     getfuns = getsym(bgprob, conditions) # efficient getter
 
-    function f(vals, (oldbgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
-        # slow but "safe"
-        #u0, p = SymBoltz.split_vars_pars(oldbgprob.f.sys, Dict(keys(vars) .=> vals))
-        #newbgprob = remake(oldbgprob; u0, p)
-
-        # fast but "unsafe"
-        newu0, newp = setvars(oldbgprob, vals)
-        newbgprob = remake(oldbgprob; u0 = newu0, p = newp, build_initializeprob)
-
-        bgsol = solvebg(newbgprob; alg, reltol, abstol, kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
-        !successful_retcode(bgsol) && error("Shooting failed when solving background with $(varvalstr(varstrs, vals)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
-        conditions = only(getfuns(bgsol)) # get final values
-        verbose && !(eltype(vals) <: ForwardDiff.Dual) && println("Shooting: ", varvalstr(varstrs, vals), " -> ", varvalstr(constrs, conditions))
-        return conditions
-    end
-
     if guess isa Tuple
         if shootopts.alg isa AbstractBracketingAlgorithm
             NonlinearProblemT = IntervalNonlinearProblem
@@ -473,7 +481,7 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(f, guess, (bgprob, setvars, getfuns, build_initializeprob, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess, (bgprob, alg, reltol, abstol, kwargs, setvars, getfuns, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
     if !successful_retcode(sol)
@@ -481,7 +489,7 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     end
 
     u0, p = setvars(bgprob, sol.u)
-    bgprob = remake(bgprob; u0, p, build_initializeprob)
+    bgprob = remake(bgprob; u0, p)
     return solvebg(bgprob; alg, reltol, abstol, kwargs...)
 end
 

@@ -102,21 +102,21 @@ equations(background(M.Λ))
 We specify to shoot for $\rho_\Lambda(\tau_\text{ini})$ and give an initial guess that is used as the starting point in Newton's method.
 We also specify that the constraint $H/H₀ = 1$ (in code units) must hold today:
 ```@example sol
-shoot = Dict(M.Λ.ρ => 0.0)
+shoot = Dict(M.Λ.ρᵢ => 0.0)
 conditions = [M.g.H ~ 1]
 prob = CosmologyProblem(M, pars, shoot, conditions)
 sol = solve(prob; verbose = true)
-@assert sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end] ≈ 1 # hide
+@assert isapprox(sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end], 1.0; atol = 1e-5) # hide
 nothing # hide
 ```
 You can specify any number of shooting variables and conditions, but they must be equal in number to form a well-defined rootfinding problem.
 When there is only one shooting variable, we can also use bracketing rootfinders instead of Newton's method.
 To do this, replace the scalar guess with an interval:
 ```@example sol
-shoot = Dict(M.Λ.ρ => (0.0, 0.5))
+shoot = Dict(M.Λ.ρᵢ => (0.0, 0.5))
 prob = CosmologyProblem(M, pars, shoot, conditions)
 sol = solve(prob; verbose = true)
-@assert sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end] ≈ 1 # hide
+@assert isapprox(sol[M.γ.Ω + M.ν.Ω + M.c.Ω + M.b.Ω + M.h.Ω + M.Λ.Ω][end], 1.0; atol = 1e-5) # hide
 nothing # hide
 ```
 

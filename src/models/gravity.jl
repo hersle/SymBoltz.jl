@@ -53,7 +53,8 @@ Create a symbolic component for the Brans-Dicke (BD) theory of gravity in the sp
 """
 function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     pars = @parameters begin
-        ω, [description = "Brans-Dicke coupling constant"] 
+        ω, [description = "Brans-Dicke coupling constant"]
+        ϕini, [description = "Initial Brans-Dicke scalar field"]
     end
     vars = @variables begin
         ρ(τ), [description = "Total background density"]
@@ -98,7 +99,7 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         g.Ψ̇ ~ D(g.Ψ)
         g.Φ̇ ~ D(g.Φ)
     ])
-    ics = [δϕ => 0.0] # TODO: set properly
+    ics = [ϕ => ϕini, δϕ => 0.0] # TODO: set properly
     push!(ieqs, D(δϕ) ~ 0.0) # works better than having it in ics # TODO: set properly
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"
