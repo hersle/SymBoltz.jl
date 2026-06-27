@@ -516,7 +516,8 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     # prevent type assert error, see https://github.com/hersle/SymBoltz.jl/pull/96
     if !isnothing(ptprob.f.initialization_data)
         newinitp = concretize(ptprob.f.initialization_data.initializeprob.p)
-        @set! ptprob.f.initialization_data.initializeprob.p = newinitp
+        new_initprob = remake(ptprob.f.initialization_data.initializeprob; p = newinitp)
+        @set! ptprob.f.initialization_data.initializeprob = new_initprob
     end
 
     kset! = ModelingToolkit.setp(ptprob, k)
@@ -525,10 +526,7 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
         kset!(p, k)
         ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
         ivspan = (ivi, ivspanbg[end])
-        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan, build_initializeprob = true) # solve for u0 # TODO: separate function?
-        if hasspline # need to do this to get solving with splined background type-stable
-            newptprob = remake(newptprob; u0 = newptprob.u0, p = p, build_initializeprob = false) # remake again with build_initializeprob = false makes following solve type-stable; https://github.com/SciML/ModelingToolkit.jl/issues/3715
-        end
+        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan)
         return newptprob
     end
 end
