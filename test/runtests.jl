@@ -715,7 +715,7 @@ end
     pars = @parameters Ωr0 Ωm0 ΩΛ0 [shoot=true]
     eqs = [ℋ ~ √(Ωr0/a^4 + Ωm0/a^3 + ΩΛ0) * a, D(a) ~ a*ℋ]
     initialization_eqs = [ℋ ~ 1/τ]
-    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => √(Ωr0) * τ)
+    guesses = Dict(ΩΛ0 => 1 - Ωr0 - Ωm0, a => τ)
     constraints = [ℋ ~ 1]
     @named M = System(eqs, τ, vars, pars; initialization_eqs, guesses, constraints)
     @test Set(keys(SymBoltz.shootvars(M))) == Set(ΩΛ0)
