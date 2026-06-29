@@ -870,3 +870,17 @@ end
     @test isapprox(Dls[:, 2], DlEEs_class; rtol = 2e-3)
     @test isapprox(Dls[:, 3], Dlϕϕs_class; rtol = 2e-3)
 end
+
+@testset "Error if nonfinite error message" begin
+    # Vector input of scalars
+    x = rand(4)
+    @test_nowarn SymBoltz.error_if_nonfinite(x)
+    x[3] = NaN
+    @test_throws "NaN at CartesianIndex(3,)" SymBoltz.error_if_nonfinite(x)
+
+    # Matrix input of SVector
+    x = rand(SVector{2, Float64}, 4, 5)
+    @test_nowarn SymBoltz.error_if_nonfinite(x)
+    x[3] = x[3] .+ NaN
+    @test_throws "[NaN, NaN] at CartesianIndex(3, 1)" SymBoltz.error_if_nonfinite(x)
+end

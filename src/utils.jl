@@ -287,3 +287,12 @@ function kτ0grid_default(kτ0max = 40000.0)
     end
     return grid
 end
+
+function error_if_nonfinite(x::AbstractArray)
+    for i in CartesianIndices(x)
+        xᵢ = x[i]
+        if !all(isfinite.(xᵢ))
+            throw(DomainError("$xᵢ at $i of array with size $(size(x))"))
+        end
+    end
+end

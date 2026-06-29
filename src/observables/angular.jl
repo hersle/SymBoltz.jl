@@ -120,9 +120,9 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     @assert collect(ls) == jl.l "ls must match the l-values stored in the Bessel cache"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
-    @assert all(all(isfinite.(S)) for S in Ss) "Ss contain NaN or Inf"
     @assert τs[2] > τs[1] "τs must be sorted in ascending order"
     @assert ks[2] > ks[1] "ks must be sorted in ascending order"
+    error_if_nonfinite(Ss)
 
     τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
     τ0 = τs[end]
