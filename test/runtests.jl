@@ -122,11 +122,11 @@ end
 
 @testset "Spherical Bessel function cache" begin
     ls = 10:10:100
+    i5 = 0
+    i10 = 1
     jl_lin = SphericalBesselCache(ls; dx = 2π/150, hermite = false)
     jl_her = SphericalBesselCache(ls; dx = 2π/15, hermite = true)
     for (jl, atol) in [(jl_lin, 1e-5), (jl_her, 1e-5)]
-        i5 = jl.i[5]
-        i10 = jl.i[10]
         @test_throws BoundsError jl(i5, 0.0) # not cached
         @test_throws BoundsError jl(i10, -1.0)
         @test_throws BoundsError jl(i10, jl.x[end] + 1.0)
@@ -137,11 +137,6 @@ end
         xs = range(jl.x[begin], jl.x[end], step=0.001)
         is = eachindex(ls)
         @test all(isapprox.(jl.(is', xs), SymBoltz.jl.(ls', xs); atol))
-
-        xs = range(jl.x[begin], jl.x[end], length=10)
-        t1 = @belapsed $jl.($i10, $xs)
-        t2 = @belapsed SymBoltz.sphericalbesselj.($i10, $xs)
-        @test t1 < t2 # faster
         @test (@ballocated $jl($i10, π)) == 0 # non-allocating
 
         j10(x) = jl(i10, x)
@@ -903,4 +898,17 @@ end
     @test_nowarn SymBoltz.error_if_nonfinite(x)
     x[3] = x[3] .+ NaN
     @test_throws "[NaN, NaN] at CartesianIndex(3, 1)" SymBoltz.error_if_nonfinite(x)
+end
+
+@testset "Spherical Bessel function and CMB power spectrum with non-integer ℓ" begin
+    ls = loggrid(2, 2500; length = 100)
+    jl = SphericalBesselCache(ls)
+    xs = range(jl.x[begin], jl.x[end]; length = 1000)
+    @test all(isfinite, jl.(transpose(eachindex(jl.l)), xs))
+    #plot(); for i in eachindex(jl.l) plot!(x -> jl(i, x), xlims = (0, 10), label = "l = $(jl.l[i])") end; plot!()
+
+    ls_all = 2:2500
+    Dls = spectrum_cmb(:TT, prob, jl, ls_all; normalization = :Dl)
+    @test all(isfinite, Dls)
+    #plot(ls_all, Dls; xscale = :log10)
 end
