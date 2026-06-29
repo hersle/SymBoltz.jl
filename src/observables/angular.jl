@@ -230,8 +230,11 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
     end
 end
 
+fk_tanh(k, k0=2000.0) = tanh(k/k0)
+fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
+
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = nothing, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -242,7 +245,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 
 - `xs`: Grid of ``(τ-τᵢ)/(τ₀-τᵢ)`` specifying the ``τ``-points that will be sampled in line-of-sight integration.
 - `τcut`: Remove all earlier times from the line-of-sight integral sampling time points.
-- `kτ0s`: Grid of ``k τ₀`` specifying the ``k``-modes for which the perturbation ODEs will be solved.
+- `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to a finer grid set by `Δkτ0`.
 - `Δkτ0`: Grid spacing to use when integrating over ``k`` to project to ``ℓ``-space.
 - `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
 - `bgopts`: Background ODE precision parameters passed to `solvebg`.
@@ -262,23 +265,25 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kτ0s = nothing, Δkτ0 = 2π/2, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/2, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
 
     # Automatically determine grid if not provided manually
-    if isnothing(kτ0s)
-        kτ0max = iψ > 0 ? 40000.0 : 4000.0 # higher for lensing
-        kτ0s = kτ0grid_default(kτ0max)
+    if isnothing(kinterp)
+        if iψ > 0
+            kinterp = ChebyshevInterpolator(1e-2, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
+        else
+            kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
+        end
     end
 
     ls = jl.l
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
-    ks_coarse = collect(kτ0s ./ τ0) # for perturbation ODEs
-    ks_fine = lingrid(kτ0s[begin], kτ0s[end]; step=Δkτ0) ./ τ0 # for k-quadrature after LOS integration
+    ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
 
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
     τs = τs[τs .≥ τcut]
@@ -293,17 +298,19 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     end
 
     # Integrate perturbations to calculate source function on coarse k-grid
-    Ss = [S for (S, i) in [(prob.M.ST, iT), (prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
+    Ss = [S for (S, i) in [(prob.M.k*prob.M.ST, iT), (prob.M.k^2*prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
     Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
-    Ss = source_grid(prob, Ss, τs, ks_coarse, sol.bg; ptopts, verbose, thread)
+    Ss = source_grid(prob, Ss, τs, ks_fine, kinterp, sol.bg; ptopts, verbose, thread)
     Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
-    Ss = source_grid(Ss, ks_coarse, ks_fine; thread) # upsample all sources in k simultaneously
 
     # Integrate all sources simultaneously without Limber approximation
     Θls = los_integrate(Ss, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
     Θls = stack(Θls) # to 3D array
+    if iT > 0
+        Θls[iT, :, :] ./= ks_fine
+    end
     if iE > 0
-        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1)))
+        Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) ./ (ks_fine .^ 2)
     end
     if iψ > 0 && l_limber ≤ ls[end]
         Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...) # overwrite with Limber result

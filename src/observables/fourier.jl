@@ -192,6 +192,31 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
+abstract type AbstractInterpolator{T} end
+
+Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
+
+struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    f::F
+end
+
+Base.minimum(interp::CubicSplineInterpolator) = interp.xs[begin]
+Base.maximum(interp::CubicSplineInterpolator) = interp.xs[end]
+
+function CubicSplineInterpolator(xs; f = identity)
+    issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
+    xs = collect(xs) # to array
+    ys = f.(xs)
+    return CubicSplineInterpolator(xs, ys, f)
+end
+function CubicSplineInterpolator(xmin, xmax, n)
+    xs = range(xmin, xmax, length = n+1)
+    return CubicSplineInterpolator(xs)
+end
+
+
 """
     source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
 
@@ -199,17 +224,25 @@ Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from a coarse wav
 The interpolation is cubic spline in `ktransform(k)` (e.g. `identity` for interpolation in ``k`` or `log` for interpolation in ``\\ln k``).
 Conformal times are unchanged.
 """
-function source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
-    Nτ, Nk = size(Ss_coarse)
-    Nk == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
-    Ss_fine = similar(Ss_coarse, Nτ, length(ks_fine))
-    xs_coarse = ktransform.(ks_coarse)
-    xs_fine = ktransform.(ks_fine)
-    @tasks for iτ in 1:Nτ
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::CubicSplineInterpolator, ys_fine)
+    interp = CubicSpline(Ss_coarse, kinterp.ys)
+    out .= interp.(ys_fine)
+    return out
+end
+function source_kinterp!(out::AbstractMatrix, Ss_coarse::AbstractMatrix, kinterp::AbstractInterpolator, ks_fine; thread = true)
+    ks_coarse = kinterp.xs
+    size(Ss_coarse, 1) == size(out, 1) || error("out has first dimension with length $(size(out, 1)), but Ss_coarse has $(size(Ss_coarse, 1))")
+    size(Ss_coarse, 2) == length(ks_coarse) || error("Length of coarse k-grid does not match source array")
+    ys_fine = kinterp.f.(ks_fine)
+    @inbounds @tasks for i in 1:size(Ss_coarse, 1)
         @set scheduler = thread ? :dynamic : :static
-        interp = CubicSpline(@view(Ss_coarse[iτ, :]), xs_coarse)
-        Ss_fine[iτ, :] .= interp.(xs_fine)
+        source_kinterp!(@view(out[i, :]), @view(Ss_coarse[i, :]), kinterp, ys_fine)
     end
+    return out
+end
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::AbstractInterpolator, ks_fine; kwargs...)
+    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
+    source_kinterp!(Ss_fine, Ss_coarse, kinterp, ks_fine; kwargs...)
     return Ss_fine
 end
 
@@ -250,6 +283,13 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose =
     bgsol = solvebg(prob.bg; bgopts..., verbose)
     return source_grid(prob, Ss, τs, ks, bgsol)
 end
+
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, kinterp::AbstractInterpolator, args...; thread = true, kwargs...)
+    Ss = source_grid(prob, Ss, τs, kinterp.xs, args...; thread, kwargs...) # solve perturbation on coarse k-grid
+    Ss = source_kinterp(Ss, kinterp, ks; thread) # interpolate to requested fine k-grid
+    return Ss
+end
+
 
 # TODO: Hermite interpolation
 # TODO: create SourceFunction type that does k and τ interpolation?
@@ -373,4 +413,159 @@ end
 function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), kwargs...)
     bgsol = solvebg(prob.bg; bgopts...)
     return source_grid_adaptive(prob, Ss, τs, ks, bgsol; kwargs...)
+end
+
+
+struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
+    f::F
+end
+
+Base.minimum(interp::ChebyshevInterpolator) = interp.xs[end] # stored grid is from high-to-low x
+Base.maximum(interp::ChebyshevInterpolator) = interp.xs[begin]
+
+function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    ymin, ymax = f(xmin), f(xmax)
+    ys = chebpoints(order, ymin, ymax)
+    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
+    if f == identity && isnothing(f⁻¹)
+        f⁻¹ = identity
+    end
+    if isnothing(f⁻¹)
+        # invert numerically
+        xs = map(ys) do y
+            prob = IntervalNonlinearProblem((x, _) -> f(x) - y, (xmin, xmax))
+            sol = solve(prob)
+            return sol.u
+        end
+    else
+        # invert analytically
+        xs = f⁻¹.(ys)
+    end
+    xs[end] ≈ xmin && xs[begin] ≈ xmax || throw(ArgumentError("f(x) and f⁻¹(x) are not inverses"))
+    xs[end], xs[begin] = xmin, xmax  # prevent floating point bounds errors from f⁻¹(f(k))
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    n = length(xs) - 1
+    ws = [iseven(j) ? T(+1) : T(-1) for j in 0:n]
+    ws[begin] /= 2
+    ws[end] /= 2
+
+    return ChebyshevInterpolator(xs, ys, ws, f)
+end
+
+Base.length(interp::AbstractInterpolator) = length(interp.xs)
+order(interp::AbstractInterpolator) = length(interp) - 1
+
+function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::AbstractInterpolator, ys_fine)
+    kinterp(out, Ss_coarse, ys_fine)
+    return out
+end
+
+# Special dispatch for returning a vector of interpolation objects (for testing)
+function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::ChebyshevInterpolator, args...; kwargs...)
+    Ss = source_grid(prob, S, τs, kinterp.xs, args...; kwargs...)
+    ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
+    return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
+end
+
+
+struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
+    xs::Vector{T} # all unique coarse x-values, in descending x-order
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+Base.minimum(interp::PiecewiseChebyshevInterpolator) = interp.xs[end] # stored from high-to-low x
+Base.maximum(interp::PiecewiseChebyshevInterpolator) = interp.xs[begin]
+
+function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = length(orders) # number of piecewise subgrids
+    length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
+    if !(f isa Tuple)
+        f = ntuple(_ -> f, N)
+    end
+    if !(f⁻¹ isa Tuple)
+        f⁻¹ = ntuple(_ -> f⁻¹, N)
+    end
+    length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
+    length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
+
+    subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, (subgrids[j].xs[2:end] for j in N-1:-1:1); init = subgrids[end].xs) # combine unique x-points in descending order (boundaries share x points)
+    iranges = Vector{UnitRange{Int}}(undef, N)
+    i = 1
+    for j in N:-1:1
+        n = length(subgrids[j].xs)
+        iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
+        i += n - 1
+    end
+    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, iranges)
+end
+
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
+    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
+    @inbounds @tasks for j in eachindex(kinterp.subgrids)
+        @set scheduler = thread ? :dynamic : :static
+        subgrid = kinterp.subgrids[j]
+        kmin, kmax = extrema(subgrid)
+        in_range = findall(k -> kmin ≤ k ≤ kmax, ks_fine)
+        irange = kinterp.iranges[j]
+        source_kinterp!(@view(Ss_fine[:, in_range]), @view(Ss_coarse[:, irange]), subgrid, ks_fine[in_range]; thread)
+    end
+    return Ss_fine
+end
+
+# Barycentric interpolation formula https://epubs.siam.org/doi/10.1137/S0036144502417715
+function (interp::AbstractInterpolator)(f::AbstractVector, y::Number)
+    num = zero(eltype(f))
+    den = zero(typeof(y))
+    @fastmath @inbounds for j in eachindex(interp.ys)
+        dy = y - interp.ys[j]
+        iszero(dy) && return f[j]
+        t = interp.ws[j] / dy
+        num += t * f[j]
+        den += t
+    end
+    return num / den
+end
+
+function (interp::AbstractInterpolator)(f::AbstractVector, x::AbstractArray)
+    return interp.(Ref(f), x)
+end
+
+function (interp::AbstractInterpolator)(out::AbstractVector, f::AbstractVector, x::AbstractArray)
+    length(out) == length(x) || throw(ArgumentError("out and x have different lengths $(length(out)) and $(length(x))"))
+    for i in eachindex(x)
+        out[i] = interp(f, x[i])
+    end
+    return out
+end
+
+struct EquispacedInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
+    f::F
+end
+
+Base.minimum(interp::EquispacedInterpolator) = interp.xs[begin]
+Base.maximum(interp::EquispacedInterpolator) = interp.xs[end]
+
+function EquispacedInterpolator(xmin, xmax, order)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    xs = lingrid(xmin, xmax; length = order + 1)
+    ys = xs
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    n = length(xs) - 1
+    ws = T[binomial(n, j) for j in 0:n]
+    ws .*= [iseven(j) ? T(+1) : T(-1) for j in 0:n]
+
+    return EquispacedInterpolator(xs, ys, ws, identity)
 end

@@ -278,12 +278,18 @@ end
 lingrid(a, b; kw...) = grid(a, b;  kw...)
 loggrid(a, b; kw...) = exp.(grid(log(a), log(b); kw...))
 cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
-joingrids!(grid, grids...) = for g in grids append!(grid, g[2:end]) end
+chebgrid(a, b; order) = reverse(chebpoints(order, a, b))
+function joingrids!(grid, grids...)
+    for g in grids
+        append!(grid, g[2:end])
+    end
+    return grid
+end
 
-function kτ0grid_default(kτ0max = 40000.0)
-    grid = cosgrid(0.04, min(4000.0, kτ0max); step=0.015)
-    if kτ0max > 4000.0
-        joingrids!(grid, loggrid(4000.0, min(40000.0, kτ0max); step=0.1))
+function kgrid_default(kmax = 10000.0)
+    grid = cosgrid(0.01, min(1000.0, kmax); step=0.015)
+    if kmax > 1000.0
+        joingrids!(grid, loggrid(1000.0, min(10000.0, kmax); step=0.1))
     end
     return grid
 end
