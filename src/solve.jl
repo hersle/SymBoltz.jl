@@ -312,7 +312,7 @@ issparse(prob::ODEProblem) = issparse(prob.f.jac_prototype)
 
 function bgalg(prob::ODEProblem; stiff = true)
     if issparse(prob)
-        linsolve = KLUFactorization()
+        linsolve = PureKLUFactorization()
     else
         linsolve = RFLUFactorization(throwerror = true)
     end
@@ -326,7 +326,7 @@ bgalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.bg; kwargs...)
 
 function ptalg(prob::ODEProblem; accuracy = 2)
     if issparse(prob)
-        linsolve = KLUFactorization()
+        linsolve = PureKLUFactorization()
     else
         linsolve = RFLUFactorization(throwerror = true)
     end
