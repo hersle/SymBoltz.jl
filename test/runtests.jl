@@ -912,3 +912,16 @@ end
     @test all(isfinite, Dls)
     #plot(ls_all, Dls; xscale = :log10)
 end
+
+@testset "Interpolation" begin
+    x = range(0.0, 10.0; length=20)
+    interp = CubicSplineInterpolator(x)
+    x′ = range(x[begin], x[end]; length = 1000)
+    y′ = interpolate(interp, sin.(x), x′)
+    @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
+    @test isapprox(y′, sin.(x′); atol = 1e-1)
+
+    interp = ChebyshevInterpolator(x[begin], x[end], 20)
+    y′ = interpolate(interp, sin.(interp), x′)
+    @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
+end
