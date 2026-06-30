@@ -195,15 +195,18 @@ end
 abstract type AbstractInterpolator{T} end
 
 Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
+Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
+Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
+Base.minimum(interp::AbstractInterpolator) = interp[begin]
+Base.maximum(interp::AbstractInterpolator) = interp[end]
+Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
+Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
 
 struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
     f::F
 end
-
-Base.minimum(interp::CubicSplineInterpolator) = interp.xs[begin]
-Base.maximum(interp::CubicSplineInterpolator) = interp.xs[end]
 
 function CubicSplineInterpolator(xs; f = identity)
     issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
@@ -423,8 +426,8 @@ struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     f::F
 end
 
-Base.minimum(interp::ChebyshevInterpolator) = interp.xs[end] # stored grid is from high-to-low x
-Base.maximum(interp::ChebyshevInterpolator) = interp.xs[begin]
+Base.minimum(interp::ChebyshevInterpolator) = interp[end] # stored grid is from high-to-low x
+Base.maximum(interp::ChebyshevInterpolator) = interp[begin]
 
 function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
@@ -552,9 +555,6 @@ struct EquispacedInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     ws::Vector{T} # Barycentric interpolation weights
     f::F
 end
-
-Base.minimum(interp::EquispacedInterpolator) = interp.xs[begin]
-Base.maximum(interp::EquispacedInterpolator) = interp.xs[end]
 
 function EquispacedInterpolator(xmin, xmax, order)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
