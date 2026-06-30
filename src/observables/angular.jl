@@ -6,8 +6,8 @@ using ForwardDiff
 using ForwardDiffChainRules
 import ChainRulesCore
 
-struct SphericalBesselCache{Tl <: Number, Tdy <: Union{Matrix{Float64}, Nothing}}
-    l::Vector{Tl}
+struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
+    l::Tl
     y::Matrix{Float64}
     dy::Tdy
     dx::Float64
@@ -15,17 +15,17 @@ struct SphericalBesselCache{Tl <: Number, Tdy <: Union{Matrix{Float64}, Nothing}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls::AbstractVector; xmax = 20*ls[end], dx = 2π/15, hermite = true)
+function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
     ys  = jl.(ls, xs') # contiguous in l
     dys = hermite ? jl′.(ls, xs') : nothing
-    return SphericalBesselCache{eltype(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
+    return SphericalBesselCache{typeof(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
 end
 
-# First argument is the cache index il, not the multipole l (use jl.i[l] to convert l → il)
+# First argument is the cache index il, not the multipole l
 @inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Tl, Nothing})(il::Int, x) where {Tl}
     w = x * jl.invdx # 0-based float index (assume x0 = 0)
     i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
@@ -47,10 +47,10 @@ end
     return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
 end
 
-function Base.show(io::IO, jl::SphericalBesselCache{T}) where {T}
-    method = T == Nothing ? "linear" : "Hermite"
+function Base.show(io::IO, jl::SphericalBesselCache{Tl, Tdy}) where {Tl, Tdy}
+    method = Tdy == Nothing ? "linear" : "Hermite"
     print(io, "jₗ(x) $method interpolation cache ")
-    print(io, "for $(jl.l[begin]) ≤ l ≤ $(jl.l[end]) and ")
+    print(io, "for $(minimum(jl.l)) ≤ l ≤ $(maximum(jl.l)) and ")
     print(io, "$(jl.x[begin]) ≤ x ≤ $(jl.x[end]) ")
     print(io, "($(Base.format_bytes(Base.summarysize(jl))))\n")
 end
@@ -109,7 +109,7 @@ is used for `l ≥ l_limber`.
 function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
-    @assert collect(ls) == jl.l "ls must match the l-values stored in the Bessel cache"
+    @assert collect(ls) == collect(jl.l) "ls must match the l-values stored in the Bessel cache"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
     @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
     @assert τs[2] > τs[1] "τs must be sorted in ascending order"
@@ -128,9 +128,9 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     end
     ws[nτ] = 0.5 * (τs[nτ] - τs[nτ-1])
 
-    Is = similar(Ss, length(ks), length(jl.l))
-    nl = length(jl.l)
-    il_limber = searchsortedfirst(jl.l, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
+    nl = length(ls)
+    Is = similar(Ss, length(ks), nl)
+    il_limber = searchsortedfirst(ls, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
@@ -153,7 +153,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
 
         # Limber approximation for l ≥ l_limber
         @inbounds for il in il_limber:nl
-            l = jl.l[il]
+            l = ls[il]
             χ = (l + 1/2) / k
             if χ ≤ χs[1] # otherwise source is zero before recombination
                 i₋ = searchsortedfirst(τs, τ0 - χ)
@@ -272,7 +272,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         end
     end
 
-    ls = jl.l
+    ls = collect(jl.l)
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
@@ -346,14 +346,11 @@ end
 Same, but compute the spectrum properly only for `jl.l` and then interpolate the results to all `ls`.
 """
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
-    extrema(jl.l) == extrema(ls) || error("jl.l and ls have different extrema $(extrema(jl.l)) != $(ls)")
+    minimum(ls) ≥ minimum(jl.l) && maximum(ls) ≤ maximum(jl.l) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(jl.l)) of the spherical Bessel function"))
     spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
-    T = eltype(spectra_coarse)
-    ls_coarse = T.(jl.l)
-    ls = T.(ls)
     for imode in eachindex(modes)
-        spectra_fine[:,imode] = CubicSpline(spectra_coarse[:,imode], ls_coarse)(ls)
+        spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode], ls)
     end
     return spectra_fine
 end
