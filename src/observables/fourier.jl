@@ -537,6 +537,10 @@ function (interp::AbstractInterpolator)(f::AbstractVector, y::Number)
     return num / den
 end
 
+function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
+    return CubicSpline(f, interp.ys)(y)
+end
+
 function (interp::AbstractInterpolator)(f::AbstractVector, x::AbstractArray)
     return interp.(Ref(f), x)
 end
@@ -569,3 +573,6 @@ function EquispacedInterpolator(xmin, xmax, order)
 
     return EquispacedInterpolator(xs, ys, ws, identity)
 end
+
+interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
+interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
