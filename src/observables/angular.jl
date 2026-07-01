@@ -213,13 +213,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
         Cls[il] = DataInterpolations.integral(spline, ks_with0[begin], ks_with0[end]) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
-    if normalization == :Cl
-        return Cls
-    elseif normalization == :Dl
-        return @. Cls * ls * (ls+1) / 2π
-    else
-        error("Normalization $normalization is not :Cl or :Dl")
-    end
+    return normalize_spectrum_cmb(normalization, ls, Cls)
 end
 
 fk_tanh(k, k0=2000.0) = tanh(k/k0)
@@ -358,3 +352,7 @@ end
 function spectrum_cmb(mode::Symbol, args...; kwargs...)
     return spectrum_cmb([mode], args...; kwargs...)[:, begin]
 end
+
+normalize_spectrum_cmb(normalization::Nothing, l, Cl) = Cl
+normalize_spectrum_cmb(normalization::Function, l, Cl) = normalization.(l) .* Cl
+normalize_spectrum_cmb(normalization::Symbol, l, Cl) = normalization == :Dl ? normalize_spectrum_cmb(l -> l*(l+1)/2π, l, Cl) : normalization == :Cl ? Cl : throw(ArgumentError("Normalization symbol is not :Cl or :Dl"))
