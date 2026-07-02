@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Fitting parameters · SymBoltz</title><meta name="title" content="Fitting parameters · SymBoltz"/><meta property="og:title" content="Fitting parameters · SymBoltz"/><meta property="twitter:title" content="Fitting parameters · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li class="is-active"><a class="tocitem" href>Fitting parameters</a><ul class="internal"><li><a class="tocitem" href="#Pantheon-supernova-data"><span>Pantheon supernova data</span></a></li><li><a class="tocitem" href="#Predicting-distances"><span>Predicting distances</span></a></li><li><a class="tocitem" href="#Bayesian-inference"><span>Bayesian inference</span></a></li><li><a class="tocitem" href="#Forecasting"><span>Forecasting</span></a></li></ul></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Fitting parameters</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Fitting parameters</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/parameter_fitting.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fitting-parameters"><a class="docs-heading-anchor" href="#Fitting-parameters">Fitting parameters</a><a id="Fitting-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-parameters" title="Permalink"></a></h1><p>This tutorial shows how to perform Bayesian parameter inference on a cosmological model by fitting it to data, and how to forecast parameter constraints from a covariance matrix that describes uncertainties and correlations of (unknown) observed data.</p><h2 id="Pantheon-supernova-data"><a class="docs-heading-anchor" href="#Pantheon-supernova-data">Pantheon supernova data</a><a id="Pantheon-supernova-data-1"></a><a class="docs-heading-anchor-permalink" href="#Pantheon-supernova-data" title="Permalink"></a></h2><p>We load the binned <a href="https://github.com/dscolnic/Pantheon/">Pantheon dataset</a>. This includes redshifts and apparent magnitudes of over 1000 Type Ia supernovae.</p><pre><code class="language-julia hljs">using DataFrames, CSV, LinearAlgebra, PDMats, SymBoltz
+
+binned = true # use compressed dataset in the documentation
+docsdir = joinpath(pkgdir(SymBoltz), &quot;docs&quot;)
+if binned # choose compressed dataset with 40 redshift bins
+    data = joinpath(docsdir, &quot;Pantheon/Binned_data/lcparam_DS17f.txt&quot;)
+    Csyst = joinpath(docsdir, &quot;Pantheon/Binned_data/sys_DS17f.txt&quot;)
+else # choose full dataset with 1048 supernovae
+    data = joinpath(docsdir, &quot;Pantheon/lcparam_full_long.txt&quot;)
+    Csyst = joinpath(docsdir, &quot;Pantheon/sys_full_long.txt&quot;)
+end
+
+# Read data table
+data = CSV.read(data, DataFrame, delim = &quot; &quot;, silencewarnings = true)
+
+# Read covariance matrix of apparent magnitudes (mb)
+Csyst = CSV.read(Csyst, DataFrame, header = false) # long vector
+Csyst = collect(reshape(Csyst[2:end, 1], (Int(Csyst[1, 1]), Int(Csyst[1, 1])))) # to matrix
+Cstat = Diagonal(data.dmb)^2 # TODO: should this be squared?
+C = Csyst + Cstat
+
+# Sort data and covariance matrix with decreasing redshift
+is = sortperm(data, :zcmb, rev = true)
+C = C[is, is]
+C = PDMat(Symmetric(C)) # efficient sym-pos-def matrix with Cholesky factorization
+data = data[is, :]
+first(data, 10) # show 10 first rows</code></pre><div><div style = "float: left;"><span>10×20 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">#name</th><th style = "text-align: left;">zcmb</th><th style = "text-align: left;">zhel</th><th style = "text-align: left;">dz</th><th style = "text-align: left;">mb</th><th style = "text-align: left;">dmb</th><th style = "text-align: left;">x1</th><th style = "text-align: left;">dx1</th><th style = "text-align: left;">color</th><th style = "text-align: left;">dcolor</th><th style = "text-align: left;">3rdvar</th><th style = "text-align: left;">d3rdvar</th><th style = "text-align: left;">cov_m_s</th><th style = "text-align: left;">cov_m_c</th><th style = "text-align: left;">cov_s_c</th><th style = "text-align: left;">set</th><th style = "text-align: left;">ra</th><th style = "text-align: left;">dec</th><th style = "text-align: left;">biascor</th><th style = "text-align: left;">Column20</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Missing" style = "text-align: left;">Missing</th><th title = "Missing" style = "text-align: left;">Missing</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">39</td><td style = "text-align: right;">1.6123</td><td style = "text-align: right;">1.6123</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">25.926</td><td style = "text-align: right;">0.0735</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">38</td><td style = "text-align: right;">1.2336</td><td style = "text-align: right;">1.2336</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">25.304</td><td style = "text-align: right;">0.05635</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">37</td><td style = "text-align: right;">0.9511</td><td style = "text-align: right;">0.9511</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">24.6411</td><td style = "text-align: right;">0.0276</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">36</td><td style = "text-align: right;">0.821</td><td style = "text-align: right;">0.821</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">24.2446</td><td style = "text-align: right;">0.0248</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">35</td><td style = "text-align: right;">0.724</td><td style = "text-align: right;">0.724</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">23.8666</td><td style = "text-align: right;">0.027</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: right;">34</td><td style = "text-align: right;">0.6299</td><td style = "text-align: right;">0.6299</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">23.5036</td><td style = "text-align: right;">0.031</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: right;">33</td><td style = "text-align: right;">0.5742</td><td style = "text-align: right;">0.5742</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">23.3004</td><td style = "text-align: right;">0.0245</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: right;">32</td><td style = "text-align: right;">0.5174</td><td style = "text-align: right;">0.5174</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">23.0012</td><td style = "text-align: right;">0.02685</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: right;">31</td><td style = "text-align: right;">0.4738</td><td style = "text-align: right;">0.4738</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">22.7974</td><td style = "text-align: right;">0.02935</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: right;">30</td><td style = "text-align: right;">0.4355</td><td style = "text-align: right;">0.4355</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">22.5579</td><td style = "text-align: right;">0.0254</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "font-style: italic; text-align: right;">missing</td><td style = "font-style: italic; text-align: right;">missing</td></tr></tbody></table></div><p>Let us plot the apparent magnitude as a function of redshift, and the covariance matrix:</p><pre><code class="language-julia hljs">using CairoMakie
+fig = Figure(size = (600, 800))
+ax1 = Axis(fig[1, 1:2], xlabel = &quot;z&quot;, ylabel = &quot;m&quot;, title = &quot;Apparent brightness vs. redshift&quot;)
+scatter!(ax1, data.zcmb, data.mb; markersize = 5, label = &quot;data (Pantheon)&quot;)
+errorbars!(ax1, data.zcmb, data.mb, data.dmb; linewidth = 1, whiskerwidth = 5)
+ax2 = Axis(fig[2, 1]; xlabel = &quot;z&quot;, ylabel = &quot;z&quot;, title = &quot;Covariance matrix&quot;, yreversed = true, aspect = 1)
+hm = heatmap!(ax2, extrema(data.zcmb), extrema(data.zcmb), C; colormap = :balance, colorrange = (-0.001, +0.001))
+Colorbar(fig[2, 2], hm)
+fig</code></pre><img src="1ca3004c.png" alt="Example block output"/><h2 id="Predicting-distances"><a class="docs-heading-anchor" href="#Predicting-distances">Predicting distances</a><a id="Predicting-distances-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-distances" title="Permalink"></a></h2><p>To predict <a href="@ref &quot;Luminosity distance&quot;">luminosity distances</a> theoretically, we solve the w0waCDM model:</p><pre><code class="language-julia hljs">using SymBoltz
+g = SymBoltz.metric()
+K = SymBoltz.curvature(g)
+X = SymBoltz.w0wa(g; analytical = true)
+M = RMΛ(K = K, Λ = X)
+M = complete(SymBoltz.background(M); flatten = false)
+M = change_independent_variable(M, M.g.a; add_old_diff = true)
+pars_fixed = Dict(M.τ =&gt; 0.0, M.r.T₀ =&gt; NaN, M.X.cₛ² =&gt; NaN)
+pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.g.h, M.X.w0, M.X.wa]
+
+dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
+μ(p) = 5 * log10.(dL(p)[begin:end-1] / (10*SymBoltz.pc)) # distance modulus
+
+# Show example predictions
+Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
+bgopts = (alg = SymBoltz.Tsit5(), reltol = 1e-5, maxiters = 1e3)
+p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
+μs = μ(p0)
+mbs = μs .+ Mb
+lines!(ax1, data.zcmb, mbs; color = :black, label = &quot;theory (ΛCDM)&quot;)
+axislegend(ax1, position = :rb)
+fig</code></pre><img src="f4bc0af4.png" alt="Example block output"/><h2 id="Bayesian-inference"><a class="docs-heading-anchor" href="#Bayesian-inference">Bayesian inference</a><a id="Bayesian-inference-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-inference" title="Permalink"></a></h2><p>To perform bayesian inference, we define a probabilistic model in <a href="https://turinglang.org/">Turing.jl</a>:</p><pre><code class="language-julia hljs">using Turing
+
+@model function supernova(μ_pred, mbs, C; Mb = Mb, Ωr0 = 9.3e-5)
+    # Parameter priors
+    h ~ Uniform(0.1, 1.0)
+    Ωm0 ~ Uniform(0.0, 1.0)
+    Ωk0 ~ Uniform(-1.0, +1.0)
+    w0 ~ Uniform(-2.0, 0.0)
+    wa ~ Uniform(-1.0, +1.0)
+
+    p = [Ωr0, Ωm0, Ωk0, h, w0, wa]
+    μs_pred = μ_pred(p)
+    if isempty(μs_pred)
+        Turing.@addlogprob! -Inf
+        return nothing
+    end
+    mbs_pred = μs_pred .+ Mb
+    return mbs ~ MvNormal(mbs_pred, C) # read &quot;measurements sampled from multivariate normal with predictions and covariance matrix&quot;
+
+    # equivalently:
+    #Δmb = mbs .- mbs_pred
+    #χ² = transpose(Δmb) * invC * Δmb
+    #Turing.@addlogprob! -1/2 * χ²
+    #return nothing
+end
+
+# https://github.com/JuliaStats/Distributions.jl/issues/1964 # TODO: get rid of? PR?
+function MvNormal(μ::AbstractVector{&lt;:Real}, Σ::AbstractPDMat{&lt;:Real})
+    R = Base.promote_eltype(μ, Σ)
+    Distributions.MvNormal{R, typeof(Σ), typeof(μ)}(μ, Σ)
+end
+function MvNormal(μ, Σ)
+    return Distributions.MvNormal(μ, Σ)
+end
+
+sn_w0waCDM = supernova(μ, data.mb, C);
+sn_ΛCDM = fix(sn_w0waCDM, w0 = -1.0, wa = 0.0);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+   2167.2 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+   1647.9 ms<span class="sgr33">  ? </span>Optimization
+   2559.5 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationOptimJL</span>
+<span class="sgr36"><span class="sgr1">Info</span></span> Given Turing was explicitly requested, output will be shown live 
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+   5604.0 ms<span class="sgr33">  ? </span>Turing
+   5927.1 ms<span class="sgr33">  ? </span>Turing → TuringOptimExt
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+    935.9 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+<span class="sgr36"><span class="sgr1">Info</span></span> Given Optimization was explicitly requested, output will be shown live 
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+   1629.3 ms<span class="sgr33">  ? </span>Optimization
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+<span class="sgr36"><span class="sgr1">Info</span></span> Given OptimizationBase was explicitly requested, output will be shown live 
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+    935.7 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+WARNING: Method definition (::Type{OptimizationBase.OptimizerMissingError})(Any) in module OptimizationBase at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:23 overwritten at /home/runner/.julia/packages/OptimizationBase/sfIfa/src/solve.jl:177.
+ERROR: Method overwriting is not permitted during Module precompilation. Use `__precompile__(false)` to opt-out of precompilation.
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Replacing docs for `CommonSolve.solve :: Tuple{OptimizationProblem, Any, Vararg{Any}}` in module `OptimizationBase`
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base.Docs docs/Docs.jl:249</span>
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Replacing docs for `CommonSolve.init :: Tuple{OptimizationProblem, Any, Vararg{Any}}` in module `OptimizationBase`
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base.Docs docs/Docs.jl:249</span>
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Replacing docs for `CommonSolve.solve! :: Tuple{SciMLBase.AbstractOptimizationCache}` in module `OptimizationBase`
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base.Docs docs/Docs.jl:249</span>
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+    939.9 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+<span class="sgr36"><span class="sgr1">Info</span></span> Given OptimizationMTKExt was explicitly requested, output will be shown live 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module OptimizationBase with build ID ffffffff-ffff-ffff-82e8-ccbdb8d5f0a2 is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean OptimizationBase [bca83a33-5cc9-4baa-983d-23429ab6bcbb] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+    267.9 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase → OptimizationMTKExt</span>
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module OptimizationBase with build ID ffffffff-ffff-ffff-82e8-ccbdb8d5f0a2 is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean OptimizationBase [bca83a33-5cc9-4baa-983d-23429ab6bcbb] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+    943.9 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+    711.7 ms<span class="sgr33">  ? </span>Optimization
+<span class="sgr36"><span class="sgr1">Info</span></span> Given OptimizationOptimJL was explicitly requested, output will be shown live 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Optimization with build ID ffffffff-ffff-ffff-d4a6-590d15d87665 is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean Optimization [7f7a1694-90dd-40f0-9382-eb1efda571ba] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+   1029.0 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationOptimJL</span>
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Optimization with build ID ffffffff-ffff-ffff-d4a6-590d15d87665 is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean Optimization [7f7a1694-90dd-40f0-9382-eb1efda571ba] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+    948.5 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationBase</span>
+    684.8 ms<span class="sgr33">  ? </span>Optimization
+   1040.2 ms<span class="sgr33">  ? </span><span class="sgr90">OptimizationOptimJL</span>
+   2937.5 ms<span class="sgr33">  ? </span>Turing
+<span class="sgr36"><span class="sgr1">Info</span></span> Given TuringOptimExt was explicitly requested, output will be shown live 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Turing with build ID ffffffff-ffff-ffff-39fa-f14f06df48cd is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean Turing [fce5fe82-541a-59a6-adf8-730c64b5f9a0] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+    304.1 ms<span class="sgr33">  ? </span>Turing → TuringOptimExt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Turing with build ID ffffffff-ffff-ffff-39fa-f14f06df48cd is missing from the cache.
+<span class="sgr33"><span class="sgr1">│ </span></span>This may mean Turing [fce5fe82-541a-59a6-adf8-730c64b5f9a0] does not support precompilation but is imported by a module that does.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2613</span>
+WARNING: Constructor for type &quot;MvNormal&quot; was extended in `Main` without explicit qualification or import.
+  NOTE: Assumed &quot;MvNormal&quot; refers to `Turing.MvNormal`. This behavior is deprecated and may differ in future versions.`
+  NOTE: This behavior may have differed in Julia versions prior to 1.12.
+  Hint: If you intended to create a new generic function of the same name, use `function MvNormal end`.
+  Hint: To silence the warning, qualify `MvNormal` as `Turing.MvNormal` in the method signature or explicitly `import Turing: MvNormal`.</code></pre><p>We can now sample from the model to obtain a MCMC chain for the ΛCDM model:</p><pre><code class="language-julia hljs">chain = sample(sn_ΛCDM, NUTS(), 1000; initial_params = (h = 0.7, Ωm0 = 0.3, Ωk0 = 0.01))
+import Plots, StatsPlots # don&#39;t collide with Makie
+Plots.plot(chain)</code></pre><img src="4103f3fe.svg" alt="Example block output"/><p>Finally, we can visualize the high-dimensional chain with a corner plot using PairPlots.jl:</p><pre><code class="language-julia hljs">using PairPlots
+layout = (
+    PairPlots.Scatter(),
+    PairPlots.Contourf(sigmas = 1:2),
+    PairPlots.MarginHist(),
+    PairPlots.MarginDensity(color = :black),
+    PairPlots.MarginQuantileText(color = :black, font = :regular),
+    PairPlots.MarginQuantileLines(),
+)
+pp = pairplot(chain =&gt; layout)</code></pre><img src="7a7743de.png" alt="Example block output"/><p>We can easily repeat this for another model:</p><pre><code class="language-julia hljs">sn_w0CDM_flat = fix(sn_w0waCDM, Ωk0 = 0.0, wa = 0.0);
+chain = sample(sn_w0CDM_flat, NUTS(), 1000; initial_params = (h = 0.5, Ωm0 = 0.5, w0 = -1.0))
+pp = pairplot(chain =&gt; layout)</code></pre><img src="dffce1d3.png" alt="Example block output"/><h2 id="Forecasting"><a class="docs-heading-anchor" href="#Forecasting">Forecasting</a><a id="Forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Forecasting" title="Permalink"></a></h2><p>Planning future cosmological surveys involves forecasting the precision of the constraints they are believed to place on parameters. Here we show how one can perform forecasting by combining SymBoltz.jl with Turing.jl.</p><p>To start, create another probabilistic supernova model, but instead of observed luminosity distances, we now use simulated luminosity distances in a fiducial cosmology:</p><pre><code class="language-julia hljs">sn_fc_w0waCDM = supernova(μ, mbs, Diagonal(C));
+sn_fc_w0CDM_flat = fix(sn_fc_w0waCDM, Ωk0 = 0.0, wa = 0.0);</code></pre><h3 id="MCMC-driven-forecasting"><a class="docs-heading-anchor" href="#MCMC-driven-forecasting">MCMC-driven forecasting</a><a id="MCMC-driven-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-driven-forecasting" title="Permalink"></a></h3><p>A general assumption-free, but expensive method to perform forecasting is to explore the likelihood using MCMC (as before, only against simulated data):</p><pre><code class="language-julia hljs">chain_fc = sample(sn_fc_w0CDM_flat, NUTS(), 1000)
+Plots.plot(chain_fc)</code></pre><img src="318f77eb.svg" alt="Example block output"/><pre><code class="language-julia hljs">pars0 = Dict(pars_varying .=&gt; p0)
+truth = PairPlots.Truth((h = pars0[M.g.h], Ωm0 = pars0[M.m.Ω₀], w0 = pars0[M.X.w0]))
+pp_fc = pairplot(chain_fc =&gt; layout, truth)</code></pre><img src="61d58d5a.png" alt="Example block output"/><h3 id="Fisher-forecasting"><a class="docs-heading-anchor" href="#Fisher-forecasting">Fisher forecasting</a><a id="Fisher-forecasting-1"></a><a class="docs-heading-anchor-permalink" href="#Fisher-forecasting" title="Permalink"></a></h3><p>A less general, but cheaper method to perform forecasting is use a second-order approximation of the likelihood around the mean of the probability distribution (i.e. maximum of the likelihood). This technique is called Fisher forecasting, and requires calculation of the <strong>Fisher (information) matrix</strong></p><p class="math-container">\[Fᵢⱼ = -\left⟨\frac{∂^2 \log P(θ)}{∂θᵢ \, ∂θⱼ}\right⟩.\]</p><p>This effectively measures how quickly the likelihood falls from the maximum in different directions in parameter space. Under certain assumptions, the Fisher matrix is the inverse of the covariance matrix <span>$C = F⁻¹$</span>.</p><p>First, we ask Turing to <a href="https://turinglang.org/docs/usage/mode-estimation/">estimate the maximum likelihood mode</a> of the probabilistic model:</p><pre><code class="language-julia hljs">maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = [0.5, 0.5, -1.0]) # TODO: or MAP?</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ModeResult with maximized lp of 101.16
+[0.6999998423646222, 0.29999926589009174, -0.999996716511879]</code></pre><p>As expected, the maximum likelihood corresponds to our chosen fiducial parameters. Nevertheless, the returned mode estimate object offers convenience methods that greatly simplifies our following calculations. Next, we calculate the Fisher matrix from the maximum likelihood, and invert it to get the covariance matrix:</p><pre><code class="language-julia hljs">using StatsBase
+F_fc = informationmatrix(maxl_fc)
+C_fc = inv(F_fc)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Named Matrix{Float64}
+A ╲ B │            h           Ωm0            w0
+──────┼─────────────────────────────────────────
+h     │   1.60344e-5   0.000141453  -0.000493181
+Ωm0   │  0.000141453    0.00351769   -0.00921492
+w0    │ -0.000493181   -0.00921492     0.0259976</code></pre><p>Finally, we <a href="https://cookierobotics.com/007/">derive 68% (1σ) and 95% (2σ) confidence ellipses from the covariance matrix</a> and draw them onto our corner plot:</p><pre><code class="language-julia hljs">function ellipse(C::Matrix, i, j, c = (0.0, 0.0); nstd = 1, N = 33)
+    σᵢ², σⱼ², σᵢⱼ = C[i,i], C[j,j], C[i,j]
+    θ = (atan(2σᵢⱼ, σᵢ²-σⱼ²)) / 2
+    a = √((σᵢ²+σⱼ²)/2 + √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2))
+    b = √(max(0.0, (σᵢ²+σⱼ²)/2 - √((σᵢ²-σⱼ²)^2/4+σᵢⱼ^2)))
+
+    a *= nstd # TODO: correct?
+    b *= nstd # TODO: correct?
+
+    cx, cy = c
+    ts = range(0, 2π, length=N)
+    xs = cx .+ a*cos(θ)*cos.(ts) - b*sin(θ)*sin.(ts)
+    ys = cy .+ a*sin(θ)*cos.(ts) + b*cos(θ)*sin.(ts)
+    return xs, ys
+end
+
+for i in eachindex(IndexCartesian(), C_fc)
+    ix, iy = i[1], i[2]
+    ix &gt;= iy &amp;&amp; continue
+    μx = maxl_fc.values[ix]
+    μy = maxl_fc.values[iy]
+    for nstd in 1:2
+        xs, ys = ellipse(C_fc.array, ix, iy, (μx, μy); nstd)
+        lines!(pp_fc[iy,ix], xs, ys; color = :red)
+    end
+end
+
+pp_fc</code></pre><img src="3c0dd763.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extended_models/">« Extending models</a><a class="docs-footer-nextpage" href="../forecasting/">Fisher forecasting »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 15 October 2025 19:07">Wednesday 15 October 2025</span>. Using Julia version 1.12.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
