@@ -480,6 +480,7 @@ end
 struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
     subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
     xs::Vector{T} # all unique coarse x-values, in descending x-order
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
     iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
 end
 
@@ -507,7 +508,7 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
         iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
         i += n - 1
     end
-    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, iranges)
+    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
 end
 
 function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
@@ -539,6 +540,20 @@ end
 
 function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
     return CubicSpline(f, interp.ys)(y)
+end
+
+function (interp::PiecewiseChebyshevInterpolator)(f::AbstractVector, ys_fine::AbstractVector)
+    out = similar(f, length(ys_fine))
+    for j in eachindex(interp.subgrids)
+        subgrid = interp.subgrids[j]
+        ymin, ymax = extrema(subgrid)
+        in_range = findall(y -> ymin ≤ y ≤ ymax, ys_fine)
+        irange = interp.iranges[j]
+        for i in in_range
+            out[i] = subgrid(f[irange], ys_fine[i])
+        end
+    end
+    return out
 end
 
 function (interp::AbstractInterpolator)(f::AbstractVector, x::AbstractArray)
@@ -575,4 +590,5 @@ function EquispacedInterpolator(xmin, xmax, order)
 end
 
 interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
+interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
 interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
