@@ -339,12 +339,13 @@ end
 
 Same, but compute the spectrum properly only for `jl.l` and then interpolate the results to all `ls`.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
     minimum(ls) ≥ minimum(jl.l) && maximum(ls) ≤ maximum(jl.l) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(jl.l)) of the spherical Bessel function"))
     spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
     for imode in eachindex(modes)
-        spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode], ls)
+        spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode] .* linterp_normalization.(jl.l), ls) ./ linterp_normalization.(ls) # interpolate l⁵*Cₗ (by default) for smoothness
+        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode]) # normalize AFTER interpolation
     end
     return spectra_fine
 end
