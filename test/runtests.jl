@@ -940,4 +940,9 @@ end
     interp = ChebyshevInterpolator(x[begin], x[end], 20)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
+
+    interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20))
+    y′ = interpolate(interp, sin.(interp), x′)
+    @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
+    @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
 end
