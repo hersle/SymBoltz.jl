@@ -386,9 +386,9 @@ function Dl_class(modes, l, pars)
     return stack(Dl)
 end
 
-l = 20:20:2000 # CLASS default is lmax = 2500
-jl = SphericalBesselCache(l)
-Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl; normalization = :Dl, kw...)
+l = 20:2000 # CLASS default is lmax = 2500
+jl = SphericalBesselCache(PiecewiseChebyshevInterpolator((2.0, 100.0, 2000.0), (20, 80)))
+Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl, l; normalization = :Dl, kw...)
 
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 Dl2 = Dl(p0)
@@ -412,7 +412,7 @@ plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 6e-14)
 ```@example class
 modes = [:TT, :TE, :EE]
 
-Dl(p; kw...) = spectrum_cmb(modes, probgen(p), jl; normalization = :Dl, kw...)
+Dl(p; kw...) = spectrum_cmb(modes, probgen(p), jl, l; normalization = :Dl, kw...)
 Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 
 ∂Dl1_∂p = FiniteDiff.finite_difference_jacobian(Dl_class, p0, Val{:central}; relstep = 1e-3)
@@ -422,10 +422,10 @@ Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 ∂Dl1_∂p_3d = reshape(∂Dl1_∂p, (length(l), length(modes), length(vary)))
 ∂Dl2_∂p_3d = reshape(∂Dl2_∂p, (length(l), length(modes), length(vary)))
 
-plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,1,:]), eachcol(∂Dl2_∂p_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in vary]; tol = 4e-11)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,1,:]), eachcol(∂Dl2_∂p_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in vary]; tol = 7e-11)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,2,:]), eachcol(∂Dl2_∂p_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in vary]; tol = 6e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,2,:]), eachcol(∂Dl2_∂p_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in vary]; tol = 7e-12)
 ```
 ```@example class
 plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,3,:]), eachcol(∂Dl2_∂p_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in vary]; tol = 1e-12)
