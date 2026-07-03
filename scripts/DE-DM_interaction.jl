@@ -39,12 +39,12 @@ D = Differential(τ) # derivative operator
 pars = @parameters begin
     k, τ0, # wavenumber and conformal time today
     h, H0SI, # Hubble parameter in SI units (most equations have units where H0=1 and do not need these)
-    Ωc0, ρcini, [shoot=true], # cold dark matter
-    Ωb0, YHe, fHe, κ0, ρbini, [shoot=true], # baryons and recombination
+    Ωc0, # cold dark matter
+    Ωb0, YHe, fHe, κ0, # baryons and recombination
     Tγ0, Ωγ0, # photons
     Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
-    ΩΛ0, w0, wa, cΛs2, ρΛini, [shoot=true], # dark energy (cosmological constant or w0wa)
+    ΩΛ0, w0, wa, cΛs2, # dark energy (cosmological constant or w0wa)
     zre1, Δzre1, nre1, # 1st reionization
     zre2, Δzre2, nre2, # 2nd reionization
     C, # integration constant in initial conditions
@@ -314,24 +314,15 @@ initialization_eqs = [
 
 # 6) Initial guess for variables solved for in initial conditions and shooting method (modify or add your own)
 guesses = [
-    ρbini => a^(-3)
-    ρcini => a^(-3)
-    ρΛini => a^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
 ]
 
 # 7) Shooting constraints (evaluated today)
 constraints = [
-    ρb ~ 3/8π*Ωb0
-    ρc ~ 3/8π*Ωc0
-    ρΛ ~ 3/8π*ΩΛ0
 ]
 
 # 8) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
     a => √(Ωγ0 + Ων0 + Ωh0/Iρh0*7π^4/120) * τ # initialize scale factor from radiation-dominated solution to 1st Friedmann eq.
-    ρb => ρbini
-    ρc => ρcini
-    ρΛ => ρΛini
     H0SI => H100*h
     τ0 => NaN
     C => 1/2
@@ -361,19 +352,29 @@ initial_conditions = [
 ]
 
 # Optional: use analytical solutions for noninteracting continuity equations
-if analytical_noninteracting_continuity
-isequal(expandeq(eqs, Qb), 0) && push!(eqs, ρb ~ 3/8π * Ωb0 / a^3)
-isequal(expandeq(eqs, Qc), 0) && push!(eqs, ρc ~ 3/8π * Ωc0 / a^3)
-isequal(expandeq(eqs, QΛ), 0) && push!(eqs, ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a)))
-anal = intersect(Set([ρΛ, ρb, ρc]), Set(eq.lhs for eq in eqs)) # which energy densities do we have the analytical solution for?
-Danal = Set(D.(anal))
-analini = Set(Symbol(nameof(SymBoltz.operation(SymBoltz.unwrap(s))), :ini) for s in anal)
-panal = Set(filter(p -> nameof(p) in analini, pars)) # ini parameters for species with analytical solution
-filter!(eq -> !(eq.lhs in Danal), eqs) # remove ODEs where we have the analytical solution
-filter!(eq -> !(eq.lhs in anal), constraints) # remove shooting constraint
-filter!(guess -> !(guess[1] in panal), guesses) # remove shooting guess
-filter!(par -> !(par in panal), pars) # remove initial condition parameters for species with analytical solution
-filter!(ic -> !(ic[1] in anal), initial_conditions) # remove initial condition parameters for species with analytical solution
+if analytical_noninteracting_continuity && isequal(expandeq(eqs, Qb), 0)
+    eqs[findfirst(eq -> isequal(eq.lhs, D(ρb)), eqs)] = ρb ~ 3/8π * Ωb0 / a^3 # replace by analytical solution
+else
+    append!(pars, @parameters ρbini [shoot=true])
+    push!(initial_conditions, ρb => ρbini)
+    push!(guesses, ρbini => a^(-3))
+    push!(constraints, ρb ~ 3/8π*Ωb0)
+end
+if analytical_noninteracting_continuity && isequal(expandeq(eqs, Qc), 0)
+    eqs[findfirst(eq -> isequal(eq.lhs, D(ρc)), eqs)] = ρc ~ 3/8π * Ωc0 / a^3 # replace by analytical solution
+else
+    append!(pars, @parameters ρcini [shoot=true])
+    push!(initial_conditions, ρc => ρcini)
+    push!(guesses, ρcini => a^(-3))
+    push!(constraints, ρc ~ 3/8π*Ωc0)
+end
+if analytical_noninteracting_continuity && isequal(expandeq(eqs, QΛ), 0)
+    eqs[findfirst(eq -> isequal(eq.lhs, D(ρΛ)), eqs)] = ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a)) # replace by analytical solution
+else
+    append!(pars, @parameters ρΛini [shoot=true])
+    push!(initial_conditions, ρΛ => ρΛini)
+    push!(guesses, ρΛini => a^(-3(1+w0+wa)) * exp(-3wa*(1-τ)))
+    push!(constraints, ρΛ ~ 3/8π*ΩΛ0)
 end
 
 # 9) Pack everything down into a symbolic system (modify the name to fit your modified model)
