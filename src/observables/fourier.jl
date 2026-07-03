@@ -426,9 +426,6 @@ struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     f::F
 end
 
-Base.minimum(interp::ChebyshevInterpolator) = interp[end] # stored grid is from high-to-low x
-Base.maximum(interp::ChebyshevInterpolator) = interp[begin]
-
 function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     ymin, ymax = f(xmin), f(xmax)
@@ -458,6 +455,11 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
     ws[begin] /= 2
     ws[end] /= 2
 
+    # Change to ascending order
+    reverse!(xs)
+    reverse!(ys)
+    reverse!(ws)
+
     return ChebyshevInterpolator(xs, ys, ws, f)
 end
 
@@ -484,9 +486,6 @@ struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpol
     iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
 end
 
-Base.minimum(interp::PiecewiseChebyshevInterpolator) = interp.xs[end] # stored from high-to-low x
-Base.maximum(interp::PiecewiseChebyshevInterpolator) = interp.xs[begin]
-
 function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
     N = length(orders) # number of piecewise subgrids
     length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
@@ -500,10 +499,10 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
 
     subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
-    xs = reduce(vcat, (subgrids[j].xs[2:end] for j in N-1:-1:1); init = subgrids[end].xs) # combine unique x-points in descending order (boundaries share x points)
+    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points in descending order (boundaries share x points)
     iranges = Vector{UnitRange{Int}}(undef, N)
     i = 1
-    for j in N:-1:1
+    for j in 1:N
         n = length(subgrids[j].xs)
         iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
         i += n - 1

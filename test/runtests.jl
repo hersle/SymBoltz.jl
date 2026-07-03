@@ -932,16 +932,19 @@ end
 @testset "Interpolation" begin
     x = range(0.0, 10.0; length=20)
     interp = CubicSplineInterpolator(x)
+    @test issorted(interp)
     x′ = range(x[begin], x[end]; length = 1000)
     y′ = interpolate(interp, sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
     @test isapprox(y′, sin.(x′); atol = 1e-1)
 
     interp = ChebyshevInterpolator(x[begin], x[end], 20)
+    @test issorted(interp)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
 
     interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20))
+    @test issorted(interp)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
     @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
