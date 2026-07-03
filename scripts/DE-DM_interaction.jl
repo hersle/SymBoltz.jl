@@ -51,6 +51,9 @@ pars = @parameters begin
     As, ns, # primordial power spectrum
     αbc, αcΛ, αbΛ # interactions
 end
+if !analytical_noninteracting_continuity
+    append!(pars, @parameters ρbini [shoot=true] ρcini [shoot=true] ρΛini [shoot=true])
+end
 
 # 3) Background (τ) and perturbation (τ,k) variables (add your own)
 vars = @variables begin
@@ -261,9 +264,9 @@ eqs = [
     fQΛ  ~ -fQcΛ - fQbΛ # total δQ interaction on Λ
     #theta_frame
     θ ~ ((ρΛ+PΛ)*θΛ + (ρh+Ph)*θh + (ρν+Pν)*θν + (ρc+Pc)*θc + (ργ+Pγ)*θγ + (ρb+Pb)*θb) / ((ρΛ+PΛ) + (ρh+Ph) + (ρν+Pν) + (ρc+Pc) + (ργ+Pγ) + (ρb+Pb)) # general variable regardless of the interaction, it is a "averaged" velocity: θframe= SUM[(rho_i+P_i)*theta_i]/SUM[rho_i+P_i]
-    D(ρb) ~ -3ℋ *(1+wb)*ρb + a*Qb
-    D(ρc) ~ -3ℋ *(1+wc)*ρc #+ a*Qc
-    D(ρΛ) ~ -3ℋ *(1+wΛ)*ρΛ #+ a*QΛ
+    analytical_noninteracting_continuity ? (ρb ~ 3/8π * Ωb0 / a^3) : (D(ρb) ~ -3ℋ *(1+wb)*ρb + a*Qb)
+    analytical_noninteracting_continuity ? (ρc ~ 3/8π * Ωc0 / a^3) : (D(ρc) ~ -3ℋ *(1+wc)*ρc + a*Qc)
+    analytical_noninteracting_continuity ? (ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a))) : (D(ρΛ) ~ -3ℋ *(1+wΛ)*ρΛ + a*QΛ)
     D(δb) ~ -θb - 3ℋ*csb2*δb + 3*D(Φ) + (a * Qb / ρb) * (Ψ - δb + 3ℋ*csb2*θb/k^2) + (a * δQb / ρb) 
     D(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ - 4/3*D(κ)*ργ/ρb*(θγ-θb) + (a * Qb / ρb) * (θ - θb*(1+csb2)) + (a * k^2 / ρb) * fQb
     D(δc) ~ -θc + 3*D(Φ) #+ (a * Qc / ρc) * (Ψ - δc) + (a * δQc / ρc)
@@ -313,16 +316,25 @@ initialization_eqs = [
 ]
 
 # 6) Initial guess for variables solved for in initial conditions and shooting method (modify or add your own)
-guesses = [
+guesses = Any[
+    analytical_noninteracting_continuity ? nothing : ρbini => a^(-3)
+    analytical_noninteracting_continuity ? nothing : ρcini => a^(-3)
+    analytical_noninteracting_continuity ? nothing : ρΛini => a^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
 ]
 
 # 7) Shooting constraints (evaluated today)
-constraints = [
+constraints = Any[
+    analytical_noninteracting_continuity ? nothing : ρb ~ 3/8π*Ωb0
+    analytical_noninteracting_continuity ? nothing : ρc ~ 3/8π*Ωc0
+    analytical_noninteracting_continuity ? nothing : ρΛ ~ 3/8π*ΩΛ0
 ]
 
 # 8) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
-initial_conditions = [
+initial_conditions = Any[
     a => √(Ωγ0 + Ων0 + Ωh0/Iρh0*7π^4/120) * τ # initialize scale factor from radiation-dominated solution to 1st Friedmann eq.
+    analytical_noninteracting_continuity ? nothing : ρb => ρbini
+    analytical_noninteracting_continuity ? nothing : ρc => ρcini
+    analytical_noninteracting_continuity ? nothing : ρΛ => ρΛini
     H0SI => H100*h
     τ0 => NaN
     C => 1/2
@@ -351,31 +363,9 @@ initial_conditions = [
     cΛs2 => 1
 ]
 
-# Optional: use analytical solutions for noninteracting continuity equations
-if analytical_noninteracting_continuity && isequal(expandeq(eqs, Qb), 0)
-    eqs[findfirst(eq -> isequal(eq.lhs, D(ρb)), eqs)] = ρb ~ 3/8π * Ωb0 / a^3 # replace by analytical solution
-else
-    append!(pars, @parameters ρbini [shoot=true])
-    push!(initial_conditions, ρb => ρbini)
-    push!(guesses, ρbini => a^(-3))
-    push!(constraints, ρb ~ 3/8π*Ωb0)
-end
-if analytical_noninteracting_continuity && isequal(expandeq(eqs, Qc), 0)
-    eqs[findfirst(eq -> isequal(eq.lhs, D(ρc)), eqs)] = ρc ~ 3/8π * Ωc0 / a^3 # replace by analytical solution
-else
-    append!(pars, @parameters ρcini [shoot=true])
-    push!(initial_conditions, ρc => ρcini)
-    push!(guesses, ρcini => a^(-3))
-    push!(constraints, ρc ~ 3/8π*Ωc0)
-end
-if analytical_noninteracting_continuity && isequal(expandeq(eqs, QΛ), 0)
-    eqs[findfirst(eq -> isequal(eq.lhs, D(ρΛ)), eqs)] = ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a)) # replace by analytical solution
-else
-    append!(pars, @parameters ρΛini [shoot=true])
-    push!(initial_conditions, ρΛ => ρΛini)
-    push!(guesses, ρΛini => a^(-3(1+w0+wa)) * exp(-3wa*(1-τ)))
-    push!(constraints, ρΛ ~ 3/8π*ΩΛ0)
-end
+filter!(!isnothing, guesses) # remove nothing's
+filter!(!isnothing, constraints) # remove nothing's
+filter!(!isnothing, initial_conditions) # remove nothing's
 
 # 9) Pack everything down into a symbolic system (modify the name to fit your modified model)
 return complete(System(eqs, τ, vars, pars; initialization_eqs, initial_conditions, guesses, constraints, name))
