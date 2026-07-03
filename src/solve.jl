@@ -138,7 +138,7 @@ function CosmologyProblem(
     shoot_conditions = unionsafe(shoot_conditions, conditions_sys) # read from system
 
     length(shoot_pars) != length(shoot_conditions) && error("Got $(length(shoot_pars)) shooting parameters ($(join(keys(shoot_pars), ", "))), but $(length(shoot_conditions)) conditions ($(join(shoot_conditions, ", ")))")
-    length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
+    length(shoot_pars) > 1 && any(x -> x[2] isa Tuple, shoot_pars) && error("Shooting with multiple parameters requires scalar guesses, but got interval guesses for $(join(filter(x -> x[2] isa Tuple, shoot_pars), ", ")).")
     all(ModelingToolkit.isparameter, keys(shoot_pars)) || error("Shooting parameters $(join(filter(!ModelingToolkit.isparameter, keys(shoot_pars)), ", ")) must be declared with @parameters (not @variables). If the shooting parameter represents an initial value, add a trivial parameter and equation for the initial condition.")
 
     parsk = mergesafe(pars, Dict(par => first(guess) for (par, guess) in shoot_pars)) # if guess is a tuple (x1, x2) for bracketing solvers, then use just x1 for setting up the problem
