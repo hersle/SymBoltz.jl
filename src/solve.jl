@@ -137,7 +137,7 @@ function CosmologyProblem(
     shoot_pars = mergesafe(shoot_pars, shoot_pars_sys) # read from system
     shoot_conditions = unionsafe(shoot_conditions, conditions_sys) # read from system
 
-    length(shoot_pars) != length(shoot_conditions) && error("Different number of shooting parameters and conditions")
+    length(shoot_pars) != length(shoot_conditions) && error("Got $(length(shoot_pars)) shooting parameters ($(join(keys(shoot_pars), ", "))), but $(length(shoot_conditions)) conditions ($(join(shoot_conditions, ", ")))")
     length(shoot_pars) > 1 && any(isa.(values(shoot_pars), Tuple)) && error("Shooting with multiple parameters requires scalar guesses")
     all(ModelingToolkit.isparameter, keys(shoot_pars)) || error("Shooting parameters $(join(filter(!ModelingToolkit.isparameter, keys(shoot_pars)), ", ")) must be declared with @parameters (not @variables). If the shooting parameter represents an initial value, add a trivial parameter and equation for the initial condition.")
 
