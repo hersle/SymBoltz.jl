@@ -39,12 +39,12 @@ D = Differential(τ) # derivative operator
 pars = @parameters begin
     k, τ0, # wavenumber and conformal time today
     h, H0SI, # Hubble parameter in SI units (most equations have units where H0=1 and do not need these)
-    Ωc0, # cold dark matter
-    Ωb0, YHe, fHe, κ0, # baryons and recombination
+    Ωc0, ρcini, [shoot=true], # cold dark matter
+    Ωb0, YHe, fHe, κ0, ρbini, [shoot=true], # baryons and recombination
     Tγ0, Ωγ0, # photons
     Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
-    ΩΛ0, w0, wa, cΛs2, # dark energy (cosmological constant or w0wa)
+    ΩΛ0, w0, wa, cΛs2, ρΛini, [shoot=true], # dark energy (cosmological constant or w0wa)
     zre1, Δzre1, nre1, # 1st reionization
     zre2, Δzre2, nre2, # 2nd reionization
     C, # integration constant in initial conditions
@@ -56,16 +56,16 @@ end
 vars = @variables begin
     a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), χ(τ), # metric
     ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
-    ρb(τ), [shoot=true], Pb(τ), wb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
+    ρb(τ), Pb(τ), wb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
     κ(τ), _κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), μc²(τ), Xe(τ), ne(τ), λe(τ), HSI(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ), # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
     ργ(τ), Pγ(τ), wγ(τ), Tγ(τ), Fγ0(τ,k), Fγ(τ,k)[1:lγmax], Gγ0(τ,k), Gγ(τ,k)[1:lγmax], δγ(τ,k), θγ(τ,k), σγ(τ,k), Πγ(τ,k), # photons
-    ρc(τ), [shoot=true], Pc(τ), wc(τ), δc(τ,k), Δc(τ,k), θc(τ,k), # cold dark matter
+    ρc(τ), Pc(τ), wc(τ), δc(τ,k), Δc(τ,k), θc(τ,k), # cold dark matter
     ρν(τ), Pν(τ), wν(τ), Tν(τ), Fν0(τ,k), Fν(τ,k)[1:lνmax], δν(τ,k), θν(τ,k), σν(τ,k), # massless neutrinos
     ρh(τ), Ph(τ), wh(τ), Ωh(τ), Th(τ), yh(τ), csh2(τ,k), δh(τ,k), Δh(τ,k), σh(τ,k), uh(τ,k), θh(τ,k), Eh(τ)[1:nx], ψh0(τ,k)[1:nx], ψh(τ,k)[1:nx,1:lhmax], Iρh(τ), IPh(τ), Iδρh(τ,k), # massive neutrinos
-    ρΛ(τ), [shoot=true], PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
+    ρΛ(τ), PΛ(τ), wΛ(τ), cΛa2(τ), δΛ(τ,k), θΛ(τ,k), ΔΛ(τ,k), # dark energy (cosmological constant or w0wa)
     Qb(τ), Qc(τ), QΛ(τ), Qbc(τ), QbΛ(τ), QcΛ(τ), δQb(τ,k), δQc(τ,k), δQΛ(τ,k), δQbc(τ,k), δQbΛ(τ,k), δQcΛ(τ,k), fQb(τ,k), fQc(τ,k), fQΛ(τ,k), fQbc(τ,k), fQbΛ(τ,k), fQcΛ(τ,k), θ(τ,k), # interactions
     fν(τ), # misc
     ρm(τ,k), Δm(τ,k), # matter source functions
@@ -314,9 +314,9 @@ initialization_eqs = [
 
 # 6) Initial guess for variables solved for in initial conditions and shooting method (modify or add your own)
 guesses = [
-    ρb => τ^(-3)
-    ρc => τ^(-3)
-    ρΛ => τ^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
+    ρbini => a^(-3)
+    ρcini => a^(-3)
+    ρΛini => a^(-3(1+w0+wa)) * exp(-3wa*(1-τ))
 ]
 
 # 7) Shooting constraints (evaluated today)
@@ -329,6 +329,9 @@ constraints = [
 # 8) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
     a => √(Ωγ0 + Ων0 + Ωh0/Iρh0*7π^4/120) * τ # initialize scale factor from radiation-dominated solution to 1st Friedmann eq.
+    ρb => ρbini
+    ρc => ρcini
+    ρΛ => ρΛini
     H0SI => H100*h
     τ0 => NaN
     C => 1/2
@@ -364,9 +367,13 @@ isequal(expandeq(eqs, Qc), 0) && push!(eqs, ρc ~ 3/8π * Ωc0 / a^3)
 isequal(expandeq(eqs, QΛ), 0) && push!(eqs, ρΛ ~ 3/8π * ΩΛ0 * abs(a)^(-3*(1+w0+wa)) * exp(-3wa*(1-a)))
 anal = intersect(Set([ρΛ, ρb, ρc]), Set(eq.lhs for eq in eqs)) # which energy densities do we have the analytical solution for?
 Danal = Set(D.(anal))
+analini = Set(Symbol(nameof(SymBoltz.operation(SymBoltz.unwrap(s))), :ini) for s in anal)
+panal = Set(filter(p -> nameof(p) in analini, pars)) # ini parameters for species with analytical solution
 filter!(eq -> !(eq.lhs in Danal), eqs) # remove ODEs where we have the analytical solution
 filter!(eq -> !(eq.lhs in anal), constraints) # remove shooting constraint
-filter!(guess -> !(guess[1] in anal), guesses) # remove shooting guess
+filter!(guess -> !(guess[1] in panal), guesses) # remove shooting guess
+filter!(par -> !(par in panal), pars) # remove initial condition parameters for species with analytical solution
+filter!(ic -> !(ic[1] in anal), initial_conditions) # remove initial condition parameters for species with analytical solution
 end
 
 # 9) Pack everything down into a symbolic system (modify the name to fit your modified model)
