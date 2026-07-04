@@ -195,15 +195,18 @@ end
 abstract type AbstractInterpolator{T} end
 
 Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
+Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
+Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
+Base.minimum(interp::AbstractInterpolator) = interp[begin]
+Base.maximum(interp::AbstractInterpolator) = interp[end]
+Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
+Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
 
 struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
     f::F
 end
-
-Base.minimum(interp::CubicSplineInterpolator) = interp.xs[begin]
-Base.maximum(interp::CubicSplineInterpolator) = interp.xs[end]
 
 function CubicSplineInterpolator(xs; f = identity)
     issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
@@ -423,9 +426,6 @@ struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     f::F
 end
 
-Base.minimum(interp::ChebyshevInterpolator) = interp.xs[end] # stored grid is from high-to-low x
-Base.maximum(interp::ChebyshevInterpolator) = interp.xs[begin]
-
 function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     ymin, ymax = f(xmin), f(xmax)
@@ -455,6 +455,11 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
     ws[begin] /= 2
     ws[end] /= 2
 
+    # Change to ascending order
+    reverse!(xs)
+    reverse!(ys)
+    reverse!(ws)
+
     return ChebyshevInterpolator(xs, ys, ws, f)
 end
 
@@ -477,11 +482,9 @@ end
 struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
     subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
     xs::Vector{T} # all unique coarse x-values, in descending x-order
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
     iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
 end
-
-Base.minimum(interp::PiecewiseChebyshevInterpolator) = interp.xs[end] # stored from high-to-low x
-Base.maximum(interp::PiecewiseChebyshevInterpolator) = interp.xs[begin]
 
 function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
     N = length(orders) # number of piecewise subgrids
@@ -496,15 +499,15 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
 
     subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
-    xs = reduce(vcat, (subgrids[j].xs[2:end] for j in N-1:-1:1); init = subgrids[end].xs) # combine unique x-points in descending order (boundaries share x points)
+    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points in descending order (boundaries share x points)
     iranges = Vector{UnitRange{Int}}(undef, N)
     i = 1
-    for j in N:-1:1
+    for j in 1:N
         n = length(subgrids[j].xs)
         iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
         i += n - 1
     end
-    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, iranges)
+    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
 end
 
 function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
@@ -534,6 +537,24 @@ function (interp::AbstractInterpolator)(f::AbstractVector, y::Number)
     return num / den
 end
 
+function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
+    return CubicSpline(f, interp.ys)(y)
+end
+
+function (interp::PiecewiseChebyshevInterpolator)(f::AbstractVector, ys_fine::AbstractVector)
+    out = similar(f, length(ys_fine))
+    for j in eachindex(interp.subgrids)
+        subgrid = interp.subgrids[j]
+        ymin, ymax = extrema(subgrid)
+        in_range = findall(y -> ymin ≤ y ≤ ymax, ys_fine)
+        irange = interp.iranges[j]
+        for i in in_range
+            out[i] = subgrid(f[irange], ys_fine[i])
+        end
+    end
+    return out
+end
+
 function (interp::AbstractInterpolator)(f::AbstractVector, x::AbstractArray)
     return interp.(Ref(f), x)
 end
@@ -553,9 +574,6 @@ struct EquispacedInterpolator{T <: Real, F} <: AbstractInterpolator{T}
     f::F
 end
 
-Base.minimum(interp::EquispacedInterpolator) = interp.xs[begin]
-Base.maximum(interp::EquispacedInterpolator) = interp.xs[end]
-
 function EquispacedInterpolator(xmin, xmax, order)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     xs = lingrid(xmin, xmax; length = order + 1)
@@ -569,3 +587,12 @@ function EquispacedInterpolator(xmin, xmax, order)
 
     return EquispacedInterpolator(xs, ys, ws, identity)
 end
+
+interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
+interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
+interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
+
+Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
