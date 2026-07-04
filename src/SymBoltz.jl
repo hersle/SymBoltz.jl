@@ -57,7 +57,7 @@ export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
-export Quadrature, TrapezoidalQuadrature, nodes, weights, integrate, transform
+export Quadrature, TrapezoidalQuadrature, SimpsonQuadrature, nodes, weights, integrate, transform
 
 using PrecompileTools: @compile_workload
 @compile_workload begin

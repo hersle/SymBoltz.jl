@@ -39,6 +39,28 @@ function TrapezoidalQuadrature(x::AbstractArray, args...)
     return Quadrature(x, w, (xmin, xmax), args...; name = Symbol("Trapezoidal"))
 end
 
+function SimpsonQuadrature(x::AbstractArray, args...)
+    N = length(x)
+    isodd(N) && N ≥ 3 || throw(ArgumentError("Simpson's rule needs an odd number of points ≥ 3"))
+    xmin, xmax = extrema(x)
+    x = collect(x)
+    x .= -1 .+ 2 .* (x .- xmin) / (xmax - xmin) # normalize to canonical [-1, 1]
+    w = zeros(N)
+    @inbounds for i in 1:2:N-2
+        # fit a quadratic through each triple of points (possibly unequally spaced) and integrate it exactly
+        x0, x1, x2 = x[i], x[i+1], x[i+2]
+        h1 = x1 - x0
+        h2 = x2 - x1
+        H = h1 + h2
+        w[i] += H/6 * (2h1 - h2) / h1
+        w[i+1] += H/6 * H^2 / (h1*h2)
+        w[i+2] += H/6 * (2h2 - h1) / h2
+    end
+    return Quadrature(x, w, (xmin, xmax), args...; name = Symbol("Simpson"))
+end
+
+SimpsonQuadrature(N::Integer, args...) = SimpsonQuadrature(range(-1, 1, length = N), args...) # reduces to the standard uniform-grid rule (1, 4, 2, 4, 2, ..., 4, 1)
+
 transform(q::Quadrature, interval) = Quadrature(q.x, q.w, interval; name = q.name) # arrays are reuse and shared!
 Base.eltype(::Quadrature{T, U}) where {T, U} = Base.promote_type(T, U)
 Base.nameof(q::Quadrature) = q.name
