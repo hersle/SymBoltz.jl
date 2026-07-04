@@ -59,7 +59,7 @@ export timeseries, today, isforwards, isbackwards
 export AbstractInterpolator, BarycentricInterpolator, EquispacedInterpolator, LinearInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
-export Quadrature, TrapezoidalQuadrature, nodes, weights, integrate
+export Quadrature, TrapezoidalQuadrature, SimpsonQuadrature, nodes, weights, integrate
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
