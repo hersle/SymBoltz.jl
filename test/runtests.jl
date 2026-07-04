@@ -821,6 +821,17 @@ end
     @test isequal(expandeq(eqs, D(ρ); protect = Set(ℋ)), -4ℋ*ρ)
 end
 
+@testset "Quadrature rules" begin
+    f = x -> log(1+x) / (1+x^2)
+    I = π/8*log(2) # analytical result for ∫f(x)dx from 0 to 1 (https://math.stackexchange.com/a/220754/932179)
+
+    @test_throws ArgumentError TrapezoidalQuadrature(1)
+    @test TrapezoidalQuadrature(2) == Quadrature([-1.0, 1.0], [1/1, 1/1])
+    @test TrapezoidalQuadrature(3) == Quadrature([-1.0, 0.0, 1.0], [1/2, 2/2, 1/2])
+    @test TrapezoidalQuadrature(4) == Quadrature([-1.0, -1/3, 1/3, 1.0], [1/3, 2/3, 2/3, 1/3])
+    @test TrapezoidalQuadrature(2^13, (0.0, 1.0))(f) ≈ I
+end
+
 @testset "High lmax" begin
     M = ΛCDM(lmax = 32)
     prob = CosmologyProblem(M, pars)

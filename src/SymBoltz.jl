@@ -41,6 +41,7 @@ include("models/curvature.jl")
 include("models/inflation.jl")
 include("models/cosmologies.jl")
 include("solve.jl")
+include("quadrature.jl")
 include("observables/distances.jl")
 include("observables/fourier.jl")
 include("observables/angular.jl")
@@ -56,6 +57,7 @@ export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
+export Quadrature, TrapezoidalQuadrature, nodes, weights, integrate, transform
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
