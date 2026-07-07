@@ -219,6 +219,22 @@ function CubicSplineInterpolator(xmin, xmax, n)
     return CubicSplineInterpolator(xs)
 end
 
+struct LinearInterpolator{T, F <: Function} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    f::F
+end
+
+function LinearInterpolator(xs; f = identity)
+    issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
+    xs = collect(xs) # to array
+    ys = f.(xs)
+    return LinearInterpolator(xs, ys, f)
+end
+function LinearInterpolator(xmin, xmax, n)
+    xs = range(xmin, xmax, length = n+1)
+    return LinearInterpolator(xs)
+end
 
 """
     source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
@@ -694,6 +710,10 @@ end
 
 function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
     return CubicSpline(f, interp.ys)(y)
+end
+
+function (interp::LinearInterpolator)(f::AbstractVector, y::AbstractArray)
+    return LinearInterpolation(f, interp.ys)(y)
 end
 
 function (interp::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator})(f::AbstractVector, ys_fine::AbstractVector)
