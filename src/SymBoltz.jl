@@ -7,6 +7,7 @@ using Symbolics, SymbolicUtils
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
 using OrdinaryDiffEqNonlinearSolve: NLNewton
 using NonlinearSolve
+using DiffEqCallbacks: SavedValues, SavingCallback
 using OhMyThreads
 using Base.Threads
 using Setfield
