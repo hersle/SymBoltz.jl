@@ -270,17 +270,20 @@ The options `bgopts` and `ptopts` are passed to the background and perturbation 
 function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; ptopts = (), thread = true, verbose = false)
     getSs = getsym(prob.pt, Ss)
     T = source_eltype(Ss, eltype(bgsol))
-    Ss = Matrix{T}(undef, length(τs), length(ks))
     minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
-    function output_func(sol, ik)
-        vals = getSs(sol)
-        @inbounds for iτ in eachindex(vals)
-            Ss[iτ, ik] = T(vals[iτ])
-        end
-        return nothing
+
+    # Save only the requested source values instead of the full ODE solution with all unknowns
+    # Save callback similar to https://github.com/SciML/SciMLBase.jl/blob/97f6d4aff88ab5f2dedc90ef503edabe72f00e93/src/solutions/ode_solutions.jl#L369-L373
+    save_func(u, t, integrator) = getSs(SciMLBase.ProblemState(; u, p = SciMLBase.parameter_values(integrator), t))
+    savedvalues = [SavedValues(eltype(τs), T) for _ in ks] # one save container per k
+    callback(ik) = SavingCallback(save_func, savedvalues[ik]; saveat = τs)
+    solvept(prob.pt, bgsol, ks; callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
+
+    out = Matrix{T}(undef, length(τs), length(ks))
+    @inbounds for ik in eachindex(ks), iτ in eachindex(τs)
+        out[iτ, ik] = savedvalues[ik].saveval[iτ]
     end
-    solvept(prob.pt, bgsol, ks; output_func, saveat = τs, ptopts..., thread, verbose)
-    return Ss
+    return out
 end
 function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose = false, kwargs...)
     bgsol = solvebg(prob.bg; bgopts..., verbose)
