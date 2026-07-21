@@ -95,7 +95,7 @@ Similarly, we can calculate the angular CMB (TT) power spectrum:
 ```@example getting_started
 ls = 10:10:1000
 jl = SphericalBesselCache(ls)
-Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl, unit = u"μK")
+Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
 plot(ls, Dls; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π", label = nothing)
 ```
 

@@ -284,6 +284,10 @@ function loggrid(a, b; kw...)
 end
 cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
 chebgrid(a, b; order) = reverse(chebpoints(order, a, b))
+
+# Defined here (rather than in observables/fourier.jl, where the concrete interpolator types live)
+# so that CosmologyProblem/CosmologySolution in solve.jl can reference it before fourier.jl is included.
+abstract type AbstractInterpolator{T} end
 function joingrids!(grid, grids...)
     for g in grids
         append!(grid, g[2:end])

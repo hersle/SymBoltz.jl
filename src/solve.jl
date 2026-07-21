@@ -28,10 +28,10 @@ struct CosmologyProblem{Tbg <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
     conditions::Vector{Equation}
 end
 
-struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
+struct CosmologySolution{Tbg <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector, AbstractInterpolator}}
     prob::CosmologyProblem # problem which is solved
     bg::Tbg # background solution
-    ks::Tks # perturbation wavenumbers
+    ks::Tks # perturbation wavenumbers: a plain vector of the solved grid, or an AbstractInterpolator (e.g. ChebyshevInterpolator, CubicSplineInterpolator) whose .xs is the solved grid and which also determines how sol(is, ts, ks) interpolates between them
     pts::Tpts # perturbation solutions
 end
 
@@ -378,7 +378,7 @@ If `threads`, integration over independent perturbation modes are parallellized.
 See also [`solvebg`](@ref) and [`solvept`](@ref).
 """
 function solve(
-    prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
+    prob::CosmologyProblem, ks::Union{Nothing, AbstractArray, AbstractInterpolator} = nothing;
     bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
     ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptivini = -Inf, ptextraopts = (),
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
@@ -390,15 +390,33 @@ function solve(
         bgsol = solvebg(prob.bg; verbose, bgopts..., bgextraopts..., kwargs...)
     end
 
-    if isnothing(ks) || isempty(ks)
+    if isnothing(ks) || (ks isa AbstractArray && isempty(ks))
         ks = nothing
         ptsol = nothing
     else
-        ks = k_dimensionless.(ks, Ref(bgsol))
-        ptsol = solvept(prob.pt, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ks_solve, ks = ks_for_solve_and_store(ks, bgsol)
+        ptsol = solvept(prob.pt, bgsol, ks_solve, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsol, ks, ptsol)
+end
+
+"""
+    ks_for_solve_and_store(ks, bgsol)
+
+Return `(ks_solve, ks_store)`: the plain (dimensionless) wavenumber grid to actually solve the perturbations at,
+and the value to store in `CosmologySolution.ks`.
+For a plain array, both are the same dimensionless grid.
+For an `AbstractInterpolator`, `ks_solve` is its dimensionless node grid, while `ks_store` is the interpolator
+itself (unchanged), so that `sol(is, ts, ks)` can later dispatch on it to interpolate accordingly.
+"""
+function ks_for_solve_and_store(ks::AbstractArray, bgsol)
+    ks_solve = k_dimensionless.(ks, Ref(bgsol))
+    return ks_solve, ks_solve
+end
+function ks_for_solve_and_store(ks::AbstractInterpolator, bgsol)
+    ks_solve = k_dimensionless.(collect(ks), Ref(bgsol))
+    return ks_solve, ks
 end
 function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
@@ -717,15 +735,58 @@ end
 
 Base.eltype(sol::CosmologySolution) = eltype(sol.bg)
 
-function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
-    if isnothing(sol.ks) || isempty(sol.ks)
+function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
+    if isnothing(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
     end
-    if !issorted(sol.ks)
+    return ks_eval!(sol.ks, out, sol, is, ts, ks; kwargs...)
+end
+
+"""
+    ks_eval!(kinterp::AbstractInterpolator, out, sol::CosmologySolution, is, ts, ks)
+
+Evaluate `is` at times `ts` and wavenumbers `ks` by using the `AbstractInterpolator` stored in `sol.ks`
+(e.g. a `ChebyshevInterpolator` or `CubicSplineInterpolator`) to interpolate over the coarse wavenumbers
+`sol.ks.xs` that were actually solved for.
+"""
+function ks_eval!(kinterp::AbstractInterpolator, out::AbstractArray, sol::CosmologySolution, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; thread = true, kwargs...)
+    ks = k_dimensionless.(ks, Ref(sol.bg))
+    kmin, kmax = extrema(kinterp)
+    minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
+    maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
+
+    is, deriv = get_is_deriv(sol.prob, is)
+
+    # Evaluate all requested (is, ts) at every coarse (solved) wavenumber
+    v = similar(sol.bg, length(is), length(ts), length(kinterp))
+    @tasks for ik in eachindex(kinterp.xs)
+        @set scheduler = thread ? :dynamic : :static
+        v[:, :, ik] .= sol.pts[ik](ts, deriv; idxs=is)
+    end
+
+    # Interpolate over wavenumbers with the stored interpolation scheme
+    @tasks for it in eachindex(ts)
+        @set scheduler = thread ? :dynamic : :static
+        for ii in eachindex(is)
+            out[ii, it, :] .= interpolate(kinterp, @view(v[ii, it, :]), ks)
+        end
+    end
+
+    return out
+end
+
+"""
+    ks_eval!(ks_solved::AbstractVector, out, sol::CosmologySolution, is, ts, ks; smart = true, ktransform = log)
+
+Fallback used when `sol.ks` is a plain vector (rather than an `AbstractInterpolator`): interpolate piecewise-linearly
+in `ktransform(k)` (e.g. `log`) between the two neighboring solved wavenumbers.
+"""
+function ks_eval!(ks_solved::AbstractVector, out::AbstractArray, sol::CosmologySolution, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
+    if !issorted(ks_solved)
         throw(error("Solution wavenumbers are not sorted in ascending order"))
     end
     ks = k_dimensionless.(ks, Ref(sol.bg))
-    kmin, kmax = extrema(sol.ks)
+    kmin, kmax = extrema(ks_solved)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
     # disabled; sensitive to exact endpoint values

@@ -21,12 +21,20 @@ function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
 
     return P
 end
-function spectrum_primordial(k, sol::CosmologySolution)
+"""
+    primordial_params(sol::CosmologySolution)
+
+Get the numerical parameters `(h, As, ns)` that determine the primordial power spectrum (see `spectrum_primordial`).
+"""
+function primordial_params(sol::CosmologySolution)
     M = sol.prob.M
     h = have(M, :g) ? sol[M.g.h] : sol[M.h]
     As = have(M, :I) ? sol[M.I.As] : sol[M.As]
     ns = have(M, :I) ? sol[M.I.ns] : sol[M.ns]
-    return spectrum_primordial(k, h, As, ns)
+    return h, As, ns
+end
+function spectrum_primordial(k, sol::CosmologySolution)
+    return spectrum_primordial(k, primordial_params(sol)...)
 end
 function spectrum_primordial(k, M::System, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
@@ -160,7 +168,7 @@ Wraps the implementation in MatterPower.jl.
 """
 function variance_matter(sol::CosmologySolution, R)
     M = sol.prob.M
-    k = sol.ks
+    k = collect(sol.ks) # sol.ks may be a plain vector or an AbstractInterpolator (holding the solved grid in .xs)
     P = spectrum_matter(sol, k)
     lgPspl = spline(log.(P), log.(k))
     Pf(k) = exp(lgPspl(log(k)))
@@ -181,7 +189,7 @@ Compute the two-point correlation function in real space by Fourier transforming
 Returns `N` radii and correlation function values (e.g. `r`, `ξ`).
 """
 function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
-    ks = sol.ks
+    ks = collect(sol.ks) # sol.ks may be a plain vector or an AbstractInterpolator (holding the solved grid in .xs)
     if spline
         P = SymBoltz.spline(spectrum_matter(sol, ks), ks) # create spline interpolation (fast)
     else
@@ -192,8 +200,6 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
-abstract type AbstractInterpolator{T} end
-
 Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
 Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
 Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
@@ -201,6 +207,7 @@ Base.minimum(interp::AbstractInterpolator) = interp[begin]
 Base.maximum(interp::AbstractInterpolator) = interp[end]
 Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
 Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
+Base.eltype(::AbstractInterpolator{T}) where {T} = T
 
 struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)

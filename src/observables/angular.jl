@@ -52,7 +52,7 @@ function Base.show(io::IO, jl::SphericalBesselCache{Tl, Tdy}) where {Tl, Tdy}
     print(io, "jₗ(x) $method interpolation cache ")
     print(io, "for $(minimum(jl.l)) ≤ l ≤ $(maximum(jl.l)) and ")
     print(io, "$(jl.x[begin]) ≤ x ≤ $(jl.x[end]) ")
-    print(io, "($(Base.format_bytes(Base.summarysize(jl))))\n")
+    print(io, "($(Base.format_bytes(Base.summarysize(jl))))")
 end
 
 # Out-of-place spherical Bessel function variants
@@ -221,11 +221,11 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
-If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
+The spectra are dimensionless temperature fluctuations relative to the present photon temperature.
 Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π`` if `normalization` is `:Dl`.
 
 # Precision parameters
@@ -241,7 +241,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 # Examples
 
 ```julia
-using SymBoltz, Unitful
+using SymBoltz
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
@@ -249,30 +249,22 @@ prob = CosmologyProblem(M, pars)
 ls = 10:10:1000
 jl = SphericalBesselCache(ls)
 modes = [:TT, :TE, :ψψ, :ψT]
-Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
+Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
-    # Define 1-2-3 indices corresponding for present modes
+
+# Mode indices (iT, iE, iψ) for the requested modes, and the corresponding symbolic source function expressions
+function cmb_mode_indices_and_sources(modes, M)
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
+    Ss = [S for (S, i) in [(M.k*M.ST, iT), (M.k^2*M.SE, iE), (M.Sψ, iψ)] if i > 0]
+    return (iT, iE, iψ), Ss
+end
 
-    # Automatically determine grid if not provided manually
-    if isnothing(kinterp)
-        if iψ > 0
-            kinterp = ChebyshevInterpolator(1e-2, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
-        else
-            kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
-        end
-    end
-
-    ls = collect(jl.l)
-    sol = solve(prob; bgopts, verbose)
-    τ0 = getsym(sol, prob.M.τ0)(sol)
-    ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
-
-    τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
+# τ-grid for line-of-sight integration, sampled from the background (thermodynamics) time points
+function cmb_los_times(sol::CosmologySolution, τcut, xs)
+    τs = sol.bg.t
     τs = τs[τs .≥ τcut]
     if xs isa AbstractArray
         # explicit fractional grid x = (τ-τi)/(τ0-τi) ∈ [0,1]
@@ -283,11 +275,18 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         # interpolate xs points from background time grid, preserving its density structure
         τs = LinearInterpolation(τs, 1.0:length(τs)).(range(1.0, length(τs), length = xs))
     end
+    return τs
+end
 
-    # Integrate perturbations to calculate source function on coarse k-grid
-    Ss = [S for (S, i) in [(prob.M.k*prob.M.ST, iT), (prob.M.k^2*prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
-    Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
-    Ss = source_grid(prob, Ss, τs, ks_fine, kinterp, sol.bg; ptopts, verbose, thread)
+"""
+    spectrum_cmb(Ss::AbstractMatrix, modes, jl::SphericalBesselCache, ls, τs, ks_fine, iT, iE, iψ, h, As, ns; kwargs...)
+
+Shared line-of-sight integration and Cₗ/Dₗ assembly, given a precomputed source function grid `Ss[τ,k]`.
+Used internally by the `CosmologyProblem`/`CosmologySolution` methods above, which differ only in how `Ss` is obtained.
+The primordial power spectrum is computed from the numerical parameters `h`, `As` and `ns` (see `spectrum_primordial`).
+Returns dimensionless spectra.
+"""
+function spectrum_cmb(Ss::AbstractMatrix, modes, jl::SphericalBesselCache, ls, τs, ks_fine, iT, iE, iψ, h, As, ns; normalization, l_limber, integrator, thread, verbose, kwargs...)
     Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
 
     # Integrate all sources simultaneously without Limber approximation
@@ -303,15 +302,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
-    P0s = spectrum_primordial(ks_fine, sol) # more accurate
-
-    if isnothing(unit)
-        factor = 1.0 # keep dimensionless
-    elseif dimension(unit) == dimension(u"K")
-        factor = uconvert(unit, sol[sol.prob.M.γ.T₀] * u"K") # convert to a temperature unit
-    else
-        error("Requested unit $unit is not a temperature unit")
-    end
+    P0s = spectrum_primordial(ks_fine, h, As, ns) # more accurate
 
     function geti(mode)
         mode == :T && return iT
@@ -320,29 +311,89 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         error("Unknown CMB power spectrum mode $mode")
     end
 
-    spectra = zeros(eltype(first(first(Ss)) * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
+    spectra = zeros(eltype(first(first(Ss)) * P0s[1]), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
         mode = String(mode)
         iA = geti(Symbol(mode[firstindex(mode)]))
         iB = geti(Symbol(mode[lastindex(mode)]))
         ΘlAs = @view(Θls[iA, :, :])
         ΘlBs = @view(Θls[iB, :, :])
-        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization, thread)
-        spectrum *= factor^2 # possibly make dimensionful
-        spectra[:, i] .= spectrum
+        spectra[:, i] .= spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization, thread)
     end
 
     return spectra
 end
 
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    (iT, iE, iψ), Ss = cmb_mode_indices_and_sources(modes, prob.M)
+
+    # Automatically determine grid if not provided manually
+    if isnothing(kinterp)
+        if iψ > 0
+            kinterp = ChebyshevInterpolator(1e-2, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
+        else
+            kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
+        end
+    end
+
+    ls = collect(jl.l)
+    sol = solve(prob; bgopts, verbose)
+    τ0 = getsym(sol, prob.M.τ0)(sol)
+    ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
+    τs = cmb_los_times(sol, τcut, xs)
+
+    # Integrate perturbations to calculate source function on coarse k-grid, then interpolate to ks_fine
+    Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
+    Ss = source_grid(prob, Ss, τs, ks_fine, kinterp, sol.bg; ptopts, verbose, thread)
+
+    h, As, ns = primordial_params(sol)
+    spectra = spectrum_cmb(Ss, modes, jl, ls, τs, ks_fine, iT, iE, iψ, h, As, ns; normalization, l_limber, integrator, thread, verbose, kwargs...)
+    return spectra
+end
+
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, sol::CosmologySolution, jl::SphericalBesselCache; normalization = :Cl, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), thread = true, verbose = false, kwargs...)
+
+Compute angular CMB power spectra ``Cₗᴬᴮ`` from an already-solved cosmological solution `sol` (e.g. from `solve(prob, ks)`),
+instead of solving new perturbation ODEs. The source functions are obtained at the times `xs` and wavenumbers spaced by
+`Δkτ0` within `sol.ks` by interpolating the already-computed perturbations with `sol(var, τ, k)` — using the Chebyshev,
+cubic spline, or piecewise-linear interpolation scheme that `sol` was solved with (see `solve`).
+
+See the `CosmologyProblem` method for a description of the arguments.
+"""
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, sol::CosmologySolution, jl::SphericalBesselCache; normalization = :Cl, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), thread = true, verbose = false, kwargs...)
+    isnothing(sol.ks) && throw(error("No perturbations solved for. Pass ks to solve()."))
+    prob = sol.prob
+    (iT, iE, iψ), Ssexpr = cmb_mode_indices_and_sources(modes, prob.M)
+
+    ls = collect(jl.l)
+    τ0 = getsym(sol, prob.M.τ0)(sol)
+    kmin, kmax = extrema(sol.ks)
+    ks_fine = lingrid(kmin, kmax; step=Δkτ0/τ0) # for k-quadrature after LOS integration
+    τs = cmb_los_times(sol, τcut, xs)
+
+    # Get source functions by interpolating the already-solved perturbations in time and wavenumber
+    N = length(Ssexpr)
+    Ssvec = SVector{N, eltype(Ssexpr)}(Ssexpr)
+    Sarr = sol(Ssvec, τs, ks_fine) # size (N, length(τs), length(ks_fine))
+    # Reinterpret as a (length(τs), length(ks_fine)) matrix of SVectors, without copying.
+    # reinterpret(reshape, ...) only collapses the leading dimension when N > 1 (for N == 1 it is a no-op reshape),
+    # so reshape explicitly to the known target size to handle both cases.
+    Ss = reshape(reinterpret(reshape, SVector{N, eltype(Sarr)}, Sarr), length(τs), length(ks_fine))
+
+    h, As, ns = primordial_params(sol)
+    spectra = spectrum_cmb(Ss, modes, jl, ls, τs, ks_fine, iT, iE, iψ, h, As, ns; normalization, l_limber, integrator, thread, verbose, kwargs...)
+    return spectra
+end
+
+"""
+    spectrum_cmb(modes::AbstractVector, probsol::Union{CosmologyProblem, CosmologySolution}, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
 
 Same, but compute the spectrum properly only for `jl.l` and then interpolate the results to all `ls`.
 """
-function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
+function spectrum_cmb(modes::AbstractVector, probsol::Union{CosmologyProblem, CosmologySolution}, jl::SphericalBesselCache, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
     minimum(ls) ≥ minimum(jl.l) && maximum(ls) ≤ maximum(jl.l) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(jl.l)) of the spherical Bessel function"))
-    spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
+    spectra_coarse = spectrum_cmb(modes, probsol, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
     for imode in eachindex(modes)
         spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode] .* linterp_normalization.(jl.l), ls) ./ linterp_normalization.(ls) # interpolate l⁵*Cₗ (by default) for smoothness

@@ -65,6 +65,39 @@ end
     # TODO: also test array indexing
 end
 
+@testset "K-interpolation schemes" begin
+    is = [M.c.δ]
+    τs = [0.5, 1.0, 2.0]
+    ks_query = [12.0, 15.0, 18.0]
+
+    # Ground truth: solve directly at the queried wavenumbers
+    sol_direct = solve(prob, ks_query; thread = false)
+    out_direct = sol_direct(is, τs, ks_query)
+
+    # Chebyshev interpolation (log-spaced nodes) should agree with direct solve to high accuracy
+    kinterp_cheb = SymBoltz.ChebyshevInterpolator(10.0, 20.0, 16; f = log, f⁻¹ = exp)
+    sol_cheb = solve(prob, kinterp_cheb; thread = false)
+    @test sol_cheb.ks === kinterp_cheb # the ks field stores the interpolator itself
+    out_cheb = sol_cheb(is, τs, ks_query)
+    @test out_cheb ≈ out_direct rtol = 1e-5
+
+    # Cubic spline interpolation should also agree with direct solve to reasonable accuracy
+    kinterp_spline = SymBoltz.CubicSplineInterpolator(range(10.0, 20.0, length = 25))
+    sol_spline = solve(prob, kinterp_spline; thread = false)
+    @test sol_spline.ks === kinterp_spline
+    out_spline = sol_spline(is, τs, ks_query)
+    @test out_spline ≈ out_direct rtol = 1e-5
+
+    # Plain array of wavenumbers should fall back to the current (piecewise-linear-in-log(k)) behavior
+    sol_arr = solve(prob, ks_query; thread = false)
+    @test sol_arr.ks isa AbstractVector
+    @test sol_arr(is, τs, ks_query) ≈ out_direct
+
+    # Out-of-range queries should still error for interpolator-based solutions
+    @test_throws "below the minimum solved wavenumber" sol_cheb(is, τs, [5.0])
+    @test_throws "above the maximum solved wavenumber" sol_cheb(is, τs, [25.0])
+end
+
 @testset "Parameter callbacks" begin
     sol = solve(prob)
     @test sol[M.τ0] == sol.bg.t[end]
@@ -578,6 +611,27 @@ end
 
     # Error with bad input
     @test_throws "outside the l-range" spectrum_cmb(:TT, prob, jl, 1:3000; normalization = :Dl)
+
+    # spectrum_cmb(modes, sol::CosmologySolution, jl) should agree with the CosmologyProblem method
+    # (which re-solves perturbations internally), reusing the already-solved sol(var, τ, k) interpolation instead.
+    # Compare against a CosmologyProblem call using the *same* kinterp, since the CosmologySolution method has no
+    # kinterp keyword of its own (it is implied by whatever ks the solution was solved with).
+    kinterp = ChebyshevInterpolator(1e-2, 2500, 60)
+    sol_cmb = solve(prob, kinterp; thread = false)
+    DlsTT_sol = spectrum_cmb(:TT, sol_cmb, jl; normalization = :Dl)
+    @test DlsTT_sol ≈ spectrum_cmb(:TT, prob, jl; kinterp, normalization = :Dl) rtol = 1e-8
+
+    # multi-mode form should also work with a CosmologySolution
+    DlsTTTE_sol = spectrum_cmb([:TT, :TE], sol_cmb, jl; normalization = :Dl)
+    @test DlsTTTE_sol[:, 1] ≈ DlsTT_sol
+    @test all(isfinite.(DlsTTTE_sol))
+
+    # l-interpolating form should also work with a CosmologySolution
+    Dls_cheb_sol = spectrum_cmb(:TT, sol_cmb, jl_cheb, ls; normalization = :Dl)
+    @test Dls_cheb_sol ≈ spectrum_cmb(:TT, prob, jl_cheb, ls; kinterp, normalization = :Dl) rtol = 1e-8
+
+    # a background-only solution has no perturbations to interpolate
+    @test_throws "No perturbations solved for" spectrum_cmb(:TT, solve(prob), jl)
 end
 
 @testset "Toggle threading" begin

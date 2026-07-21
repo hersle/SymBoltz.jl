@@ -52,7 +52,7 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, z; Nextra = 0, t
     else
         # plot z(x, y) # TODO: clean up plotting convention recipes and make this a separate one
         ts = timeseries(sol; Nextra)
-        ks = sol.ks
+        ks = collect(sol.ks) # sol.ks may be a plain vector or an AbstractInterpolator (holding the solved grid in .xs)
         xlabel --> displayname(x)
         ylabel --> displayname(y)
         zlabel --> displayname(z)
