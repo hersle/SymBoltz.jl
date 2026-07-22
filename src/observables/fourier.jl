@@ -422,17 +422,60 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
 end
 
 
-struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+"""
+    Chebyshev2Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+
+Chebyshev interpolator using Chebyshev points of the *2nd kind* (Gauss-Lobatto nodes)
+```math
+y_j^{(2)} = \\cos(j\\pi/n), \\quad j = 0, \\ldots, n,
+```
+which *include* the domain endpoints, so `extrema(interp) == (xmin, xmax)` exactly, with `xs[begin] == xmin` and `xs[end] == xmax`.
+"""
+struct Chebyshev2Interpolator{T <: Real, F} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
     ws::Vector{T} # Barycentric interpolation weights
     f::F
 end
 
-function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+"""
+    Chebyshev1Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+
+Chebyshev interpolator using Chebyshev points of the *1st kind* (Gauss nodes)
+```math
+y_j^{(1)} = \\cos\\!\\left(\\frac{(2j+1)\\pi}{2n+2}\\right), \\quad j = 0, \\ldots, n,
+```
+which lie strictly *inside* the open interval, so `xs[begin] > xmin` and `xs[end] < xmax`.
+The domain `extrema(interp)` is nonetheless the full canonical interval `(xmin, xmax)`,
+since that is where the interpolant is designed to approximate the underlying function.
+"""
+struct Chebyshev1Interpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
+    f::F
+    xmin::T # true domain minimum (note: xs[begin] > xmin)
+    xmax::T # true domain maximum (note: xs[end] < xmax)
+end
+
+# 1st/2nd-kind Chebyshev nodes on the canonical domain [-1, +1], in descending order
+chebnodes1(n::Integer) = [cospi((2j+1) / (2n+2)) for j in 0:n]
+chebnodes2(n::Integer) = [cospi(j / n) for j in 0:n]
+
+# corresponding Barycentric interpolation weights (Berrut & Trefethen 2004)
+chebweights1(::Type{T}, n::Integer) where {T} = T[(iseven(j) ? +1 : -1) * sinpi((2j+1) / T(2n+2)) for j in 0:n]
+function chebweights2(::Type{T}, n::Integer) where {T}
+    ws = T[iseven(j) ? +1 : -1 for j in 0:n]
+    ws[begin] /= 2
+    ws[end] /= 2
+    return ws
+end
+
+function Chebyshev2Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     ymin, ymax = f(xmin), f(xmax)
-    ys = chebpoints(order, ymin, ymax)
+    ts = chebnodes2(order) # canonical nodes on [-1, +1], descending, includes ±1
+    ys = @. ymin + (1 + ts) * (ymax - ymin) / 2
     issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
     if f == identity && isnothing(f⁻¹)
         f⁻¹ = identity
@@ -453,18 +496,55 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
 
     # Precompute Barycentric interpolation weights
     T = eltype(xs)
-    n = length(xs) - 1
-    ws = [iseven(j) ? T(+1) : T(-1) for j in 0:n]
-    ws[begin] /= 2
-    ws[end] /= 2
+    ws = chebweights2(T, order)
 
     # Change to ascending order
     reverse!(xs)
     reverse!(ys)
     reverse!(ws)
 
-    return ChebyshevInterpolator(xs, ys, ws, f)
+    return Chebyshev2Interpolator(xs, ys, ws, f)
 end
+
+function Chebyshev1Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    ymin, ymax = f(xmin), f(xmax)
+    ts = chebnodes1(order) # canonical nodes on [-1, +1], descending, strictly inside (-1, +1)
+    ys = @. ymin + (1 + ts) * (ymax - ymin) / 2
+    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
+    if f == identity && isnothing(f⁻¹)
+        f⁻¹ = identity
+    end
+    if isnothing(f⁻¹)
+        # invert numerically
+        xs = map(ys) do y
+            prob = IntervalNonlinearProblem((x, _) -> f(x) - y, (xmin, xmax))
+            sol = solve(prob)
+            return sol.u
+        end
+    else
+        # invert analytically
+        xs = f⁻¹.(ys)
+    end
+    # unlike Chebyshev2Interpolator, nodes lie strictly inside (xmin, xmax); do not snap to endpoints
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    ws = chebweights1(T, order)
+
+    # Change to ascending order
+    reverse!(xs)
+    reverse!(ys)
+    reverse!(ws)
+
+    return Chebyshev1Interpolator(xs, ys, ws, f, T(xmin), T(xmax))
+end
+
+const ChebyshevInterpolator = Chebyshev2Interpolator # backwards-compatible alias
+
+# the interpolation domain is the requested (xmin, xmax), not the (interior) node locations
+Base.minimum(interp::Chebyshev1Interpolator) = interp.xmin
+Base.maximum(interp::Chebyshev1Interpolator) = interp.xmax
 
 Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
@@ -475,7 +555,7 @@ function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp
 end
 
 # Special dispatch for returning a vector of interpolation objects (for testing)
-function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::ChebyshevInterpolator, args...; kwargs...)
+function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::Chebyshev2Interpolator, args...; kwargs...)
     Ss = source_grid(prob, S, τs, kinterp.xs, args...; kwargs...)
     ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
     return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
@@ -597,5 +677,6 @@ interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x)
 
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::Chebyshev1Interpolator) = print(io, "Chebyshev polynomial interpolator (1st kind): domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::Chebyshev2Interpolator) = print(io, "Chebyshev polynomial interpolator (2nd kind): domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
