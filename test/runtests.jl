@@ -956,4 +956,12 @@ end
     @test interp.xs[begin] > x[begin] && interp.xs[end] < x[end] # ...even though nodes lie strictly inside it
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10)
+
+    # PiecewiseChebyshev1Interpolator: unlike PiecewiseChebyshev2Interpolator (= PiecewiseChebyshevInterpolator), breakpoints are not shared between adjacent subgrids
+    interp = PiecewiseChebyshev1Interpolator((0.0, 5.0, 10.0), (10, 20))
+    @test issorted(interp)
+    @test length(interp.xs) == 11 + 21 # no points shared between subgrids
+    y′ = interpolate(interp, sin.(interp), x′)
+    @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
+    @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
 end

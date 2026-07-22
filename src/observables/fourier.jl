@@ -562,16 +562,12 @@ function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::Chebyshev2I
 end
 
 
-struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
-    subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
-    xs::Vector{T} # all unique coarse x-values, in descending x-order
-    ys::Vector{T} # x = y # TODO: generalize with f-transform?
-    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
-end
-
-function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+function _piecewise_chebyshev_setup(xbreaks, orders)
     N = length(orders) # number of piecewise subgrids
     length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
+    return N
+end
+function _piecewise_chebyshev_fs(f, f⁻¹, N)
     if !(f isa Tuple)
         f = ntuple(_ -> f, N)
     end
@@ -580,9 +576,29 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     end
     length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
+    return f, f⁻¹
+end
 
-    subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
-    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points in descending order (boundaries share x points)
+"""
+    PiecewiseChebyshev2Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+
+Piecewise Chebyshev interpolator built from [`Chebyshev2Interpolator`](@ref) subgrids.
+Since 2nd-kind nodes include the domain endpoints, adjacent subgrids share their common breakpoint node,
+so it is only solved for once.
+"""
+struct PiecewiseChebyshev2Interpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of Chebyshev2Interpolator in ascending x-order
+    xs::Vector{T} # all unique coarse x-values, in ascending x-order (shared breakpoint nodes only appear once)
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+function PiecewiseChebyshev2Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = _piecewise_chebyshev_setup(xbreaks, orders)
+    f, f⁻¹ = _piecewise_chebyshev_fs(f, f⁻¹, N)
+
+    subgrids = ntuple(j -> Chebyshev2Interpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points (breakpoints are shared between adjacent subgrids, so solved only once)
     iranges = Vector{UnitRange{Int}}(undef, N)
     i = 1
     for j in 1:N
@@ -590,10 +606,42 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
         iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
         i += n - 1
     end
-    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
+    return PiecewiseChebyshev2Interpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
 end
 
-function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
+const PiecewiseChebyshevInterpolator = PiecewiseChebyshev2Interpolator # backwards-compatible alias
+
+"""
+    PiecewiseChebyshev1Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+
+Piecewise Chebyshev interpolator built from [`Chebyshev1Interpolator`](@ref) subgrids.
+Since 1st-kind nodes lie strictly inside their subgrid's domain, no node ever coincides with a breakpoint,
+so nothing is shared between adjacent subgrids.
+"""
+struct PiecewiseChebyshev1Interpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of Chebyshev1Interpolator in ascending x-order
+    xs::Vector{T} # all coarse x-values, in ascending x-order
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+function PiecewiseChebyshev1Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = _piecewise_chebyshev_setup(xbreaks, orders)
+    f, f⁻¹ = _piecewise_chebyshev_fs(f, f⁻¹, N)
+
+    subgrids = ntuple(j -> Chebyshev1Interpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, subgrid.xs for subgrid in subgrids) # combine all x-points (no node ever coincides with a breakpoint, so nothing is shared)
+    iranges = Vector{UnitRange{Int}}(undef, N)
+    i = 1
+    for j in 1:N
+        n = length(subgrids[j].xs)
+        iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
+        i += n
+    end
+    return PiecewiseChebyshev1Interpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
+end
+
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator}, ks_fine; thread = true)
     Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
     @inbounds @tasks for j in eachindex(kinterp.subgrids)
         @set scheduler = thread ? :dynamic : :static
@@ -624,7 +672,7 @@ function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
     return CubicSpline(f, interp.ys)(y)
 end
 
-function (interp::PiecewiseChebyshevInterpolator)(f::AbstractVector, ys_fine::AbstractVector)
+function (interp::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator})(f::AbstractVector, ys_fine::AbstractVector)
     out = similar(f, length(ys_fine))
     for j in eachindex(interp.subgrids)
         subgrid = interp.subgrids[j]
@@ -672,11 +720,12 @@ function EquispacedInterpolator(xmin, xmax, order)
 end
 
 interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
-interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
+interpolate(x::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator}, y, x′) = x(y, x′) # no f field
 interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
 
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::Chebyshev1Interpolator) = print(io, "Chebyshev polynomial interpolator (1st kind): domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::Chebyshev2Interpolator) = print(io, "Chebyshev polynomial interpolator (2nd kind): domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::PiecewiseChebyshev1Interpolator) = print(io, "Piecewise Chebyshev polynomial interpolator (1st kind): domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::PiecewiseChebyshev2Interpolator) = print(io, "Piecewise Chebyshev polynomial interpolator (2nd kind): domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
