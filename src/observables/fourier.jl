@@ -540,7 +540,19 @@ function Chebyshev1Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothin
     return Chebyshev1Interpolator(xs, ys, ws, f, T(xmin), T(xmax))
 end
 
-const ChebyshevInterpolator = Chebyshev2Interpolator # backwards-compatible alias
+"""
+    ChebyshevInterpolator(xmin, xmax, order; endpoints = true, f = identity, f⁻¹ = nothing)
+
+Construct a [`Chebyshev2Interpolator`](@ref) (`endpoints = true`, using 2nd-kind nodes that include the domain endpoints)
+or a [`Chebyshev1Interpolator`](@ref) (`endpoints = false`, using 1st-kind nodes that lie strictly inside the domain).
+"""
+function ChebyshevInterpolator(xmin, xmax, order; endpoints = true, kwargs...)
+    if endpoints
+        return Chebyshev2Interpolator(xmin, xmax, order; kwargs...)
+    else
+        return Chebyshev1Interpolator(xmin, xmax, order; kwargs...)
+    end
+end
 
 # the interpolation domain is the requested (xmin, xmax), not the (interior) node locations
 Base.minimum(interp::Chebyshev1Interpolator) = interp.xmin
@@ -609,7 +621,19 @@ function PiecewiseChebyshev2Interpolator(xbreaks, orders; f = identity, f⁻¹ =
     return PiecewiseChebyshev2Interpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
 end
 
-const PiecewiseChebyshevInterpolator = PiecewiseChebyshev2Interpolator # backwards-compatible alias
+"""
+    PiecewiseChebyshevInterpolator(xbreaks, orders; endpoints = true, f = identity, f⁻¹ = identity)
+
+Construct a [`PiecewiseChebyshev2Interpolator`](@ref) (`endpoints = true`, using 2nd-kind nodes that include the domain endpoints)
+or a [`PiecewiseChebyshev1Interpolator`](@ref) (`endpoints = false`, using 1st-kind nodes that lie strictly inside the domain).
+"""
+function PiecewiseChebyshevInterpolator(xbreaks, orders; endpoints = true, kwargs...)
+    if endpoints
+        return PiecewiseChebyshev2Interpolator(xbreaks, orders; kwargs...)
+    else
+        return PiecewiseChebyshev1Interpolator(xbreaks, orders; kwargs...)
+    end
+end
 
 """
     PiecewiseChebyshev1Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
