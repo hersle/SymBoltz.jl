@@ -5,6 +5,9 @@ using MatterPower
 using ForwardDiff
 using ForwardDiffChainRules
 import ChainRulesCore
+using OrdinaryDiffEqTsit5
+using OrdinaryDiffEqVerner
+using SpecialFunctions: loggamma, logabsgamma
 
 struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     l::Tl
@@ -15,14 +18,168 @@ struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
+"""
+    SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true, method = :interp, odekwargs = (;))
+
+Build a cache of the spherical Bessel functions ``jₗ(x)`` for `l ∈ ls` and `x ∈ [0, xmax]` on a uniform grid with spacing close to `dx`, for fast repeated interpolated evaluation (linear if `hermite = false`, cubic Hermite otherwise).
+
+If `method = :interp` (the default), the grid is filled by direct evaluation of `jₗ(x)` (using Bessels.jl).
+If `method = :ode`, each row is instead computed by solving the defining ODE of ``jₗ(x)``,
+```math
+jₗ'' + (2/x) jₗ' + (1 - l(l+1)/x²) jₗ = 0 ,
+```
+forward in `x` with `saveat` set to the cache's `x`-grid, using the solver and tolerances in `odekwargs` (default `OrdinaryDiffEqTsit5.Tsit5()` with `reltol = 1e-8, abstol = 1e-8`).
+See [`spherical_bessel_ode_grid`](@ref) for details on how each `l`'s ODE is seeded and started away from the singular point `x=0`.
+"""
+function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true, method = :interp, odekwargs = (;))
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
-    ys  = jl.(ls, xs') # contiguous in l
-    dys = hermite ? jl′.(ls, xs') : nothing
+    if method == :interp
+        ys  = jl.(ls, xs') # contiguous in l
+        dys = hermite ? jl′.(ls, xs') : nothing
+    elseif method == :ode
+        ys, dys = spherical_bessel_ode_grid(ls, xs; hermite, odekwargs...)
+    else
+        throw(ArgumentError("Unknown SphericalBesselCache method $method (expected :interp or :ode)"))
+    end
     return SphericalBesselCache{typeof(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
+end
+
+# ---------------------------------------------------------------------------
+# ODE-based construction (method = :ode above)
+# ---------------------------------------------------------------------------
+function spherical_bessel_rhs!(du, u, l, x)
+    du[1] = u[2]
+    du[2] = -(1 - l*(l+1)/x^2)*u[1] - 2/x*u[2]
+end
+
+# WKB tunneling exponent ∫ₓ₀^ν √(ν²/x²-1) dx from x0 to the turning point ν=l+1/2 (closed form).
+# Governs how much any admixture of the "other" solution gets amplified/damped between x0 and ν.
+function _tunneling_exponent(l::Real, x0::Real)
+    ν = l + 0.5
+    x0 >= ν && return 0.0
+    s = sqrt(max(ν^2 - x0^2, 0.0))
+    return ν*log((ν+s)/x0) - s
+end
+
+# Starting point for the regular solution J (∝ jₗ): moderately deep in the classically forbidden
+# region (bounded WKB exponent from the turning point), not deep enough to lose all precision, but
+# deep enough that an arbitrary seed there "washes out" to the correct (unnormalized) shape once
+# integrated forward past the turning point (see spherical_bessel_ode_grid).
+_x0(l::Real) = max(0.01, l - 5*sqrt(l))
+
+# Starting point for the independent second solution N: chosen close to x0 (a small, fixed WKB
+# exponent gap dE away) so that forward-integrating N from xa to x0 also stays accurate — N is huge
+# and shrinking there, so integrating it too far risks the same precision loss in reverse.
+function _xa(l::Real, x0::Real; dE::Real = 3.0)
+    target = _tunneling_exponent(l, x0) + dE
+    lo, hi = 1e-8, x0*0.999999
+    for _ in 1:200
+        mid = sqrt(lo*hi)
+        if _tunneling_exponent(l, mid) > target
+            lo = mid
+        else
+            hi = mid
+        end
+    end
+    return sqrt(lo*hi)
+end
+
+# Small-x series of the independent second solution N(x) = x^(-(l+1)) * [1 + O(x²)], generalized to
+# real l via the Gamma function. Unlike jₗ's own small-x series, N is not exponentially suppressed
+# (it is the dominant solution there), so this converges in plain Float64 with no cancellation issues
+# — no arbitrary-precision arithmetic needed even though N(xa) itself can be astronomically large.
+function _N_series(l::Real, x::Real; maxterms::Integer = 2000)
+    loggam, siggam = logabsgamma(-l + 0.5)
+    log_a0 = log(sqrt(π)/2) + (l+1)*log(2/x) - loggam
+    a0 = -siggam * exp(log_a0)
+    term = a0
+    y, dy = term, term*(-(l+1))/x
+    x2 = x^2
+    for k in 1:maxterms
+        ratio = -x2/4 / (k * (-l + 0.5 + (k-1)))
+        term *= ratio
+        dy += term * (-(l+1) + 2k) / x
+        y += term
+        abs(term) < 1e-15*abs(y) && k > 3 && break
+    end
+    return y, dy
+end
+
+# Exact, analytic Wronskian constant x²(J·N′ - J′·N) for the (J, N) pair above, computed from their
+# leading small-x coefficients (valid since the Wronskian of two ODE solutions in Sturm-Liouville
+# form x²(J N′ - J′ N) is x-independent, so it can be evaluated in the x→0 limit using only the
+# leading terms of either series).
+function _wronskian(l::Real)
+    log_jlead = log(sqrt(π)/2) - l*log(2) - loggamma(l + 1.5)
+    loggam, siggam = logabsgamma(-l + 0.5)
+    log_nlead = log(sqrt(π)/2) + (l+1)*log(2) - loggam
+    logW = log(2l+1) + log_jlead + log_nlead
+    return siggam * exp(logW)
+end
+
+"""
+    spherical_bessel_ode_grid(ls, xs::AbstractVector; hermite = true, odealg = Tsit5(), odereltol = 1e-8, odeabstol = 1e-8)
+
+For each `l` in `ls`, compute `jₗ(x)` (and, if `hermite`, `jₗ′(x)`) on the grid `xs` by solving the
+defining ODE of the spherical Bessel function forward in `x`, without relying on Bessels.jl anywhere
+(needed since `l` need not be an integer, e.g. for Chebyshev interpolation over `l`):
+
+Forward-integrating from very close to the singular point `x=0` is numerically unstable for large `l`:
+any infinitesimal error acquired deep inside the classically forbidden region `x≪l` is amplified
+exponentially by the time it reaches the oscillatory region past the turning point `x≈l`. Instead, the
+regular solution `J` (proportional to `jₗ`) is seeded with an *arbitrary* value at `x0` from
+[`_x0`](@ref) (moderately deep, bounded WKB exponent) and integrated forward: this "washes out" to the
+correct shape up to an unknown overall scale `B`. That scale is then fixed via the Wronskian: an
+independent second solution `N` is seeded *accurately* from its own small-`x` series ([`_N_series`](@ref),
+which — unlike `jₗ`'s — has no cancellation problem and needs no arbitrary precision) at a nearby point
+`xa` from [`_xa`](@ref), integrated forward to `x0`, and combined with `J` there through the Wronskian
+invariant (analytic, [`_wronskian`](@ref)) to solve for `B`. Grid points below `x0` are negligible and
+filled with `0` (or `1` for `l=0` at `x=0`).
+"""
+function spherical_bessel_ode_grid(ls, xs::AbstractVector; hermite::Bool = true, odealg = Tsit5(), odereltol::Real = 1e-8, odeabstol::Real = 1e-8)
+    nl, nx = length(ls), length(xs)
+    ys = Matrix{Float64}(undef, nl, nx)
+    dys = hermite ? Matrix{Float64}(undef, nl, nx) : nothing
+
+    for (il, l) in enumerate(ls)
+        x0 = _x0(l)
+        x0 < xs[end] || throw(ArgumentError("Starting point x0=$x0 for l=$l lies beyond the grid's maximum x=$(xs[end]); increase xmax"))
+        xa = _xa(l, x0)
+
+        probJ = ODEProblem(spherical_bessel_rhs!, [1.0, 0.0], (x0, xs[end]), l)
+
+        y0N, dy0N = _N_series(l, xa)
+        probN = ODEProblem(spherical_bessel_rhs!, [y0N, dy0N], (xa, x0), l)
+        solN = solve(probN, odealg; reltol = odereltol, abstol = odeabstol)
+
+        i0 = searchsortedfirst(xs, x0)
+        saveat = @view xs[i0:end]
+        solJ = solve(probJ, odealg; saveat, save_start = false, reltol = odereltol, abstol = odeabstol)
+        length(solJ.u) == length(saveat) || error("ODE solve for l=$l did not save at every requested x (retcode $(solJ.retcode))")
+
+        Jx0, dJx0 = 1.0, 0.0 # J's own seed, at t=x0
+        Nx0, dNx0 = solN.u[end]
+        W_raw = x0^2 * (Jx0*dNx0 - dJx0*Nx0)
+        B = W_raw / _wronskian(l)
+
+        for (j, i) in enumerate(i0:nx)
+            ys[il, i] = solJ.u[j][1] / B
+        end
+        j0 = l == 0 ? 1.0 : 0.0 # jₗ(0); the region below x0 is negligible
+        @views ys[il, 1:i0-1] .= j0
+
+        if hermite
+            for (j, i) in enumerate(i0:nx)
+                dys[il, i] = solJ.u[j][2] / B
+            end
+            @views dys[il, 1:i0-1] .= 0.0
+        end
+    end
+
+    return ys, dys
 end
 
 # First argument is the cache index il, not the multipole l
