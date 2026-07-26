@@ -201,6 +201,7 @@ Base.minimum(interp::AbstractInterpolator) = interp[begin]
 Base.maximum(interp::AbstractInterpolator) = interp[end]
 Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
 Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
+Base.eachindex(interp::AbstractInterpolator) = eachindex(interp.xs)
 
 struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
