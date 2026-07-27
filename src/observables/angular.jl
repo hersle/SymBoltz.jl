@@ -1,4 +1,3 @@
-using Integrals
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using MatterPower
