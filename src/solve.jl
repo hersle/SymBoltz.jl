@@ -112,7 +112,8 @@ end
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         ivspan = (1e-6, 100.0), terminate_today = true,
         bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-        bgopts = (), ptopts = (), kwargs...
+        bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+        kwargs...
     )
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
@@ -125,12 +126,15 @@ If `spline` is a `Vector`, it rather decides which (unknown and observed) variab
 
 If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
 If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
+
+The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/) `iip` and `specialize` are forwarded to internal `ODEProblem{iip, specialize}(...)` constructors.
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     ivspan = (1e-6, 100.0), terminate_today = true,
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-    bgopts = (), ptopts = (), kwargs...
+    bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+    kwargs...
 )
     shoot_pars_sys = shootvars(M)
     conditions_sys = ModelingToolkit.get_constraints(M)
@@ -201,7 +205,7 @@ function CosmologyProblem(
             rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
         )
 
-        bg = ODEProblem(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
+        bg = ODEProblem{iip, specialize}(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
     else
         bg = nothing
     end
@@ -224,8 +228,13 @@ function CosmologyProblem(
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
         p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
-        pt = ODEProblem(pt, parsk, ivspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
-        @set! pt.f.sys.tearing_state = ts # restore
+        pt = ODEProblem{iip, specialize}(pt, parsk, ivspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
+        # restore tearing state via remake (not @set!) on pt.f while preserving the specialize level
+        # (@set!-ing into a nested AbstractSciMLFunction field reconstructs it through ConstructionBase,
+        # whose constructorof for SciML function types hardcodes SciMLBase.DEFAULT_SPECIALIZATION (i.e. AutoSpecialize))
+        newsys = pt.f.sys
+        @set! newsys.tearing_state = ts
+        @set! pt.f = remake(pt.f; sys = newsys)
     else
         pt = nothing
     end
@@ -517,7 +526,10 @@ function setuppt(ptprob::ODEProblem, bgsol::ODESolution, ptivini::Function)
     if !isnothing(ptprob.f.initialization_data)
         newinitp = concretize(ptprob.f.initialization_data.initializeprob.p)
         new_initprob = remake(ptprob.f.initialization_data.initializeprob; p = newinitp)
-        @set! ptprob.f.initialization_data.initializeprob = new_initprob
+        # remake (not @set!) on ptprob.f (see comment in CosmologyProblem)
+        newid = ptprob.f.initialization_data
+        @set! newid.initializeprob = new_initprob
+        @set! ptprob.f = remake(ptprob.f; initialization_data = newid)
     end
 
     kset! = ModelingToolkit.setp(ptprob, k)
