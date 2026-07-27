@@ -74,11 +74,4 @@ end
 # Interactive plotting with Makie parameter sliders is implemented in ext/SymBoltzMakieExt.jl
 function plot_interactive end
 
-# plot Systems as a hierarchical tree
-import GraphRecipes
-GraphRecipes.@recipe function plot(::Type{T}, sys::T) where {T <: System}
-    nodeshape --> :rect
-    nodesize --> 0.12
-    fontsize --> 15
-    TreePlot(sys)
-end
+# Systems are plotted as hierarchical trees by ext/SymBoltzGraphRecipesExt.jl
