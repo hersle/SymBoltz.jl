@@ -71,18 +71,8 @@ RecipesBase.@recipe function plot(sol::CosmologySolution, x, y, z; Nextra = 0, t
     end
 end
 
-# TODO: Makie recipes (currently don't work well because of compatibility constraints; e.g. PairPlots requires Makie )
-#=
-import MakieCore
-MakieCore.@recipe CosmologyPlot begin
-    downcolor = :red
-    upcolor = :green
-end
-function MakieCore.plot!(cp::CosmologyPlot{<:Tuple{AbstractVector{<:Real}, AbstractVector{<:Real}}})
-    lines!(cp, [0.0, 1.0], [0.0, 1.0])
-    return cp
-end
-=#
+# Interactive plotting with Makie parameter sliders is implemented in ext/SymBoltzMakieExt.jl
+function plot_interactive end
 
 # plot Systems as a hierarchical tree
 import GraphRecipes

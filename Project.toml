@@ -48,6 +48,12 @@ TwoFAST = "0dd23c3e-f403-11e8-3e11-4dddf690af97"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+SymBoltzMakieExt = "Makie"
+
 [compat]
 Bessels = "0.2.8"
 ChainRulesCore = "1.25.1"
@@ -60,6 +66,7 @@ ForwardDiffChainRules = "0.3.0"
 GraphRecipes = "0.5.13"
 LinearAlgebra = "1.10.0"
 LinearSolve = "3.83.0, 4, 5"
+Makie = "0.21, 0.22, 0.23, 0.24"
 MatterPower = "0.5.0"
 ModelingToolkit = "11.0.0"
 ModelingToolkitBase = "1.0.0"

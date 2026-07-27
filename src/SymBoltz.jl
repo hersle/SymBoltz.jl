@@ -57,6 +57,7 @@ export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
+export plot_interactive
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
