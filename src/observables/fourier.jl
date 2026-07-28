@@ -219,6 +219,22 @@ function CubicSplineInterpolator(xmin, xmax, n)
     return CubicSplineInterpolator(xs)
 end
 
+struct LinearInterpolator{T, F <: Function} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    f::F
+end
+
+function LinearInterpolator(xs; f = identity)
+    issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
+    xs = collect(xs) # to array
+    ys = f.(xs)
+    return LinearInterpolator(xs, ys, f)
+end
+function LinearInterpolator(xmin, xmax, n)
+    xs = range(xmin, xmax, length = n+1)
+    return LinearInterpolator(xs)
+end
 
 """
     source_grid(Ss_coarse::AbstractMatrix, ks_coarse, ks_fine; ktransform = identity, thread = true)
@@ -422,17 +438,60 @@ function source_grid_adaptive(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), 
 end
 
 
-struct ChebyshevInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+"""
+    Chebyshev2Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+
+Chebyshev interpolator using Chebyshev points of the *2nd kind* (Gauss-Lobatto nodes)
+```math
+y_j^{(2)} = \\cos(j\\pi/n), \\quad j = 0, \\ldots, n,
+```
+which *include* the domain endpoints, so `extrema(interp) == (xmin, xmax)` exactly, with `xs[begin] == xmin` and `xs[end] == xmax`.
+"""
+struct Chebyshev2Interpolator{T <: Real, F} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
     ws::Vector{T} # Barycentric interpolation weights
     f::F
 end
 
-function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+"""
+    Chebyshev1Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+
+Chebyshev interpolator using Chebyshev points of the *1st kind* (Gauss nodes)
+```math
+y_j^{(1)} = \\cos\\!\\left(\\frac{(2j+1)\\pi}{2n+2}\\right), \\quad j = 0, \\ldots, n,
+```
+which lie strictly *inside* the open interval, so `xs[begin] > xmin` and `xs[end] < xmax`.
+The domain `extrema(interp)` is nonetheless the full canonical interval `(xmin, xmax)`,
+since that is where the interpolant is designed to approximate the underlying function.
+"""
+struct Chebyshev1Interpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{T} # points in interpolation domain: y = f(x)
+    ws::Vector{T} # Barycentric interpolation weights
+    f::F
+    xmin::T # true domain minimum (note: xs[begin] > xmin)
+    xmax::T # true domain maximum (note: xs[end] < xmax)
+end
+
+# 1st/2nd-kind Chebyshev nodes on the canonical domain [-1, +1], in descending order
+chebnodes1(n::Integer) = [cospi((2j+1) / (2n+2)) for j in 0:n]
+chebnodes2(n::Integer) = [cospi(j / n) for j in 0:n]
+
+# corresponding Barycentric interpolation weights (Berrut & Trefethen 2004)
+chebweights1(::Type{T}, n::Integer) where {T} = T[(iseven(j) ? +1 : -1) * sinpi((2j+1) / T(2n+2)) for j in 0:n]
+function chebweights2(::Type{T}, n::Integer) where {T}
+    ws = T[iseven(j) ? +1 : -1 for j in 0:n]
+    ws[begin] /= 2
+    ws[end] /= 2
+    return ws
+end
+
+function Chebyshev2Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     ymin, ymax = f(xmin), f(xmax)
-    ys = chebpoints(order, ymin, ymax)
+    ts = chebnodes2(order) # canonical nodes on [-1, +1], descending, includes ±1
+    ys = @. ymin + (1 + ts) * (ymax - ymin) / 2
     issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
     if f == identity && isnothing(f⁻¹)
         f⁻¹ = identity
@@ -453,18 +512,67 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
 
     # Precompute Barycentric interpolation weights
     T = eltype(xs)
-    n = length(xs) - 1
-    ws = [iseven(j) ? T(+1) : T(-1) for j in 0:n]
-    ws[begin] /= 2
-    ws[end] /= 2
+    ws = chebweights2(T, order)
 
     # Change to ascending order
     reverse!(xs)
     reverse!(ys)
     reverse!(ws)
 
-    return ChebyshevInterpolator(xs, ys, ws, f)
+    return Chebyshev2Interpolator(xs, ys, ws, f)
 end
+
+function Chebyshev1Interpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    ymin, ymax = f(xmin), f(xmax)
+    ts = chebnodes1(order) # canonical nodes on [-1, +1], descending, strictly inside (-1, +1)
+    ys = @. ymin + (1 + ts) * (ymax - ymin) / 2
+    issorted(ys; rev = true) || throw(ArgumentError("Domain transformation f(x) is not monotonically increasing"))
+    if f == identity && isnothing(f⁻¹)
+        f⁻¹ = identity
+    end
+    if isnothing(f⁻¹)
+        # invert numerically
+        xs = map(ys) do y
+            prob = IntervalNonlinearProblem((x, _) -> f(x) - y, (xmin, xmax))
+            sol = solve(prob)
+            return sol.u
+        end
+    else
+        # invert analytically
+        xs = f⁻¹.(ys)
+    end
+    # unlike Chebyshev2Interpolator, nodes lie strictly inside (xmin, xmax); do not snap to endpoints
+
+    # Precompute Barycentric interpolation weights
+    T = eltype(xs)
+    ws = chebweights1(T, order)
+
+    # Change to ascending order
+    reverse!(xs)
+    reverse!(ys)
+    reverse!(ws)
+
+    return Chebyshev1Interpolator(xs, ys, ws, f, T(xmin), T(xmax))
+end
+
+"""
+    ChebyshevInterpolator(xmin, xmax, order; endpoints = true, f = identity, f⁻¹ = nothing)
+
+Construct a [`Chebyshev2Interpolator`](@ref) (`endpoints = true`, using 2nd-kind nodes that include the domain endpoints)
+or a [`Chebyshev1Interpolator`](@ref) (`endpoints = false`, using 1st-kind nodes that lie strictly inside the domain).
+"""
+function ChebyshevInterpolator(xmin, xmax, order; endpoints = true, kwargs...)
+    if endpoints
+        return Chebyshev2Interpolator(xmin, xmax, order; kwargs...)
+    else
+        return Chebyshev1Interpolator(xmin, xmax, order; kwargs...)
+    end
+end
+
+# the interpolation domain is the requested (xmin, xmax), not the (interior) node locations
+Base.minimum(interp::Chebyshev1Interpolator) = interp.xmin
+Base.maximum(interp::Chebyshev1Interpolator) = interp.xmax
 
 Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
@@ -475,23 +583,19 @@ function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp
 end
 
 # Special dispatch for returning a vector of interpolation objects (for testing)
-function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::ChebyshevInterpolator, args...; kwargs...)
+function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::Chebyshev2Interpolator, args...; kwargs...)
     Ss = source_grid(prob, S, τs, kinterp.xs, args...; kwargs...)
     ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
     return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
 end
 
 
-struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
-    subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
-    xs::Vector{T} # all unique coarse x-values, in descending x-order
-    ys::Vector{T} # x = y # TODO: generalize with f-transform?
-    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
-end
-
-function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+function _piecewise_chebyshev_setup(xbreaks, orders)
     N = length(orders) # number of piecewise subgrids
     length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
+    return N
+end
+function _piecewise_chebyshev_fs(f, f⁻¹, N)
     if !(f isa Tuple)
         f = ntuple(_ -> f, N)
     end
@@ -500,9 +604,29 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     end
     length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
+    return f, f⁻¹
+end
 
-    subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
-    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points in descending order (boundaries share x points)
+"""
+    PiecewiseChebyshev2Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+
+Piecewise Chebyshev interpolator built from [`Chebyshev2Interpolator`](@ref) subgrids.
+Since 2nd-kind nodes include the domain endpoints, adjacent subgrids share their common breakpoint node,
+so it is only solved for once.
+"""
+struct PiecewiseChebyshev2Interpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of Chebyshev2Interpolator in ascending x-order
+    xs::Vector{T} # all unique coarse x-values, in ascending x-order (shared breakpoint nodes only appear once)
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+function PiecewiseChebyshev2Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = _piecewise_chebyshev_setup(xbreaks, orders)
+    f, f⁻¹ = _piecewise_chebyshev_fs(f, f⁻¹, N)
+
+    subgrids = ntuple(j -> Chebyshev2Interpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points (breakpoints are shared between adjacent subgrids, so solved only once)
     iranges = Vector{UnitRange{Int}}(undef, N)
     i = 1
     for j in 1:N
@@ -510,10 +634,54 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
         iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
         i += n - 1
     end
-    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
+    return PiecewiseChebyshev2Interpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
 end
 
-function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
+"""
+    PiecewiseChebyshevInterpolator(xbreaks, orders; endpoints = true, f = identity, f⁻¹ = identity)
+
+Construct a [`PiecewiseChebyshev2Interpolator`](@ref) (`endpoints = true`, using 2nd-kind nodes that include the domain endpoints)
+or a [`PiecewiseChebyshev1Interpolator`](@ref) (`endpoints = false`, using 1st-kind nodes that lie strictly inside the domain).
+"""
+function PiecewiseChebyshevInterpolator(xbreaks, orders; endpoints = true, kwargs...)
+    if endpoints
+        return PiecewiseChebyshev2Interpolator(xbreaks, orders; kwargs...)
+    else
+        return PiecewiseChebyshev1Interpolator(xbreaks, orders; kwargs...)
+    end
+end
+
+"""
+    PiecewiseChebyshev1Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+
+Piecewise Chebyshev interpolator built from [`Chebyshev1Interpolator`](@ref) subgrids.
+Since 1st-kind nodes lie strictly inside their subgrid's domain, no node ever coincides with a breakpoint,
+so nothing is shared between adjacent subgrids.
+"""
+struct PiecewiseChebyshev1Interpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
+    subgrids::G # NTuple of Chebyshev1Interpolator in ascending x-order
+    xs::Vector{T} # all coarse x-values, in ascending x-order
+    ys::Vector{T} # x = y # TODO: generalize with f-transform?
+    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+end
+
+function PiecewiseChebyshev1Interpolator(xbreaks, orders; f = identity, f⁻¹ = identity)
+    N = _piecewise_chebyshev_setup(xbreaks, orders)
+    f, f⁻¹ = _piecewise_chebyshev_fs(f, f⁻¹, N)
+
+    subgrids = ntuple(j -> Chebyshev1Interpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    xs = reduce(vcat, subgrid.xs for subgrid in subgrids) # combine all x-points (no node ever coincides with a breakpoint, so nothing is shared)
+    iranges = Vector{UnitRange{Int}}(undef, N)
+    i = 1
+    for j in 1:N
+        n = length(subgrids[j].xs)
+        iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
+        i += n
+    end
+    return PiecewiseChebyshev1Interpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, xs, iranges)
+end
+
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator}, ks_fine; thread = true)
     Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
     @inbounds @tasks for j in eachindex(kinterp.subgrids)
         @set scheduler = thread ? :dynamic : :static
@@ -544,7 +712,11 @@ function (interp::CubicSplineInterpolator)(f::AbstractVector, y::AbstractArray)
     return CubicSpline(f, interp.ys)(y)
 end
 
-function (interp::PiecewiseChebyshevInterpolator)(f::AbstractVector, ys_fine::AbstractVector)
+function (interp::LinearInterpolator)(f::AbstractVector, y::AbstractArray)
+    return LinearInterpolation(f, interp.ys)(y)
+end
+
+function (interp::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator})(f::AbstractVector, ys_fine::AbstractVector)
     out = similar(f, length(ys_fine))
     for j in eachindex(interp.subgrids)
         subgrid = interp.subgrids[j]
@@ -592,10 +764,12 @@ function EquispacedInterpolator(xmin, xmax, order)
 end
 
 interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
-interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
+interpolate(x::Union{PiecewiseChebyshev1Interpolator, PiecewiseChebyshev2Interpolator}, y, x′) = x(y, x′) # no f field
 interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
 
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::Chebyshev1Interpolator) = print(io, "Chebyshev polynomial interpolator (1st kind): domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::Chebyshev2Interpolator) = print(io, "Chebyshev polynomial interpolator (2nd kind): domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::PiecewiseChebyshev1Interpolator) = print(io, "Piecewise Chebyshev polynomial interpolator (1st kind): domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::PiecewiseChebyshev2Interpolator) = print(io, "Piecewise Chebyshev polynomial interpolator (2nd kind): domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
