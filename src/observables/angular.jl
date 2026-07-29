@@ -15,13 +15,28 @@ struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
+function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true, thread = true)
     xmin = 0.0
-    xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
-    invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
-    xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
-    ys  = jl.(ls, xs') # contiguous in l
-    dys = hermite ? jl′.(ls, xs') : nothing
+    xrange = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible (not named xs; otherwise @tasks errors with failure to capture local variable `xs`)
+    invdx = 1.0 / step(xrange) # using the resulting step, which need not be exactly dx
+    xs = collect([xrange; xrange[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
+    nl, nx = length(ls), length(xs)
+    ys = zeros(Float64, nl, nx) # contiguous in l
+    dys = hermite ? zeros(Float64, nl, nx) : nothing
+    @tasks for il in eachindex(ls) # independent per l
+        @set scheduler = thread ? :dynamic : :serial
+        @inbounds begin
+        l = ls[il]
+        for ix in 1:nx
+            ys[il, ix] = jl(l, xs[ix])
+        end
+        if hermite
+            for ix in 1:nx
+                dys[il, ix] = jl′(l, xs[ix])
+            end
+        end
+        end
+    end
     return SphericalBesselCache{typeof(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
 end
 
