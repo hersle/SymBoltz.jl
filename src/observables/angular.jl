@@ -28,11 +28,19 @@ function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = 
         @inbounds begin
         l = ls[il]
         for ix in 1:nx
-            ys[il, ix] = jl(l, xs[ix])
+            y = jl(l, xs[ix])
+            if abs(y) < 1e-50
+                y = 0.0 # subnormal floats are slower; set them to zero
+            end
+            ys[il, ix] = y
         end
         if hermite
             for ix in 1:nx
-                dys[il, ix] = jl′(l, xs[ix])
+                dy = jl′(l, xs[ix])
+                if abs(dy) < 1e-50
+                    dy = 0.0 # subnormal floats are slower; set them to zero
+                end
+                dys[il, ix] = dy
             end
         end
         end
