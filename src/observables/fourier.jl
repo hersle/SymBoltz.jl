@@ -466,6 +466,16 @@ function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing
     return ChebyshevInterpolator(xs, ys, ws, f)
 end
 
+# Compute Barycentric interpolation weights wᵢ = 1 / ∏_{j≠i}(xᵢ - xⱼ) for arbitrary points
+# See https://people.maths.ox.ac.uk/trefethen/barycentric.pdf (section 7)
+# TODO: consider exp(sum(log(...))) trick in https://github.com/chebfun/chebfun/blob/master/baryWeights.m
+function baryweights(x::AbstractVector)
+    C = 4 / (maximum(x) - minimum(x)) # capacity: used to keep product close to 1
+    w = [1 / prod(C*(x[i]-x[j]) for j in eachindex(x) if j != i) for i in eachindex(x)]
+    w ./= maximum(abs, w) # normalize so largest weight is 1 for stability
+    return w
+end
+
 Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
 

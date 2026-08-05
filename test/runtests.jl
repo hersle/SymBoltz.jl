@@ -942,6 +942,7 @@ end
     @test issorted(interp)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
+    @test isapprox(interp.ws, SymBoltz.baryweights(interp.xs); atol = 1e-12)
 
     interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20))
     @test issorted(interp)
