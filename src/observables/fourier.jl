@@ -476,6 +476,29 @@ function baryweights(x::AbstractVector)
     return w
 end
 
+struct ChebyshevIntegerInterpolator{T <: Real, F} <: AbstractInterpolator{T}
+    xs::Vector{T}
+    ys::Vector{T}
+    ws::Vector{T}
+    f::F
+end
+
+function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
+    xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
+    order ≥ 1 || throw(ArgumentError("Order must be ≥ 1, got $order"))
+
+    xs = reverse!(chebpoints(order, xmin, xmax)) # start with Chebyshev points
+    xs = round.(xs) # round each point to its nearest integer
+    allunique(xs) || throw(ArgumentError(
+        "Integer-rounded Chebyshev nodes on ($xmin, $xmax) of order $order collide. Reduce the order or widen the interval."
+    ))
+
+    ys = xs
+    ws = baryweights(ys)
+
+    return ChebyshevIntegerInterpolator(xs, ys, ws, identity)
+end
+
 Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
 
@@ -608,4 +631,5 @@ interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x)
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::ChebyshevIntegerInterpolator) = print(io, "Integer-rounded Chebyshev interpolator: domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
