@@ -571,10 +571,13 @@ end
     Dls = DlsTT # reference from above
     jl_cubic = SphericalBesselCache(range(2, 2500; length = 60))
     jl_cheb = SphericalBesselCache(ChebyshevInterpolator(2, 2500, 60))
+    jl_chebint = SphericalBesselCache(ChebyshevIntegerInterpolator(2, 2500, 60))
     Dls_cubic = spectrum_cmb(:TT, prob, jl_cubic, ls; normalization = :Dl)
     Dls_cheb = spectrum_cmb(:TT, prob, jl_cheb, ls; normalization = :Dl)
+    Dls_chebint = spectrum_cmb(:TT, prob, jl_chebint, ls; normalization = :Dl)
     @test isapprox(Dls_cubic, Dls; rtol = 1e-1)
-    @test isapprox(Dls_cheb, Dls; rtol = 1e-3)
+    @test isapprox(Dls_cheb, Dls; rtol = 1e-4)
+    @test isapprox(Dls_chebint, Dls; rtol = 1e-4)
 
     # Error with bad input
     @test_throws "outside the l-range" spectrum_cmb(:TT, prob, jl, 1:3000; normalization = :Dl)
@@ -942,10 +945,21 @@ end
     @test issorted(interp)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
+    @test isapprox(interp.ws, SymBoltz.baryweights(interp.xs); atol = 1e-12)
 
     interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20))
     @test issorted(interp)
     y′ = interpolate(interp, sin.(interp), x′)
     @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
     @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
+
+    interp = ChebyshevIntegerInterpolator(0, 100, 22)
+    @test issorted(interp.xs)
+    @test all(isinteger, interp.xs)
+    @test allunique(interp.xs)
+    @test extrema(interp) == (0, 100)
+    x′ = range(interp[begin], interp[end]; length = 1000)
+    y′ = interpolate(interp, sin.(π/30 .* interp), x′)
+    @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
+    @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
 end
