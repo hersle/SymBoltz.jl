@@ -3,7 +3,7 @@
 Model setup and hardware information:
 
 ```@example bench
-using MKL, LinearSolve
+using MKL, LinearSolve, PureUMFPACK
 using SymBoltz
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF
 using Base.Threads, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
@@ -241,7 +241,7 @@ ks = 10 .^ range(-2, 4, length=75)
 ptopts1 = (alg = Rodas5P(linsolve = LUFactorization()), save_everystep = false)
 ptopts2 = (alg = Rodas5P(linsolve = RFLUFactorization()), save_everystep = false)
 ptopts3 = (alg = Rodas5P(linsolve = PureKLUFactorization()), save_everystep = false)
-ptopts4 = (alg = Rodas5P(linsolve = UMFPACKFactorization()), save_everystep = false)
+ptopts4 = (alg = Rodas5P(linsolve = PureUMFPACKFactorization()), save_everystep = false)
 ts1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts1) for i in 1:3) for prob in probs_dense]
 ts2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts2) for i in 1:3) for prob in probs_dense]
 ts3 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts3) for i in 1:3) for prob in probs_sparse]

@@ -26,6 +26,7 @@ PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PreallocationTools = "d236fae5-4411-538c-8e31-a6e3d9e00b46"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+PureUMFPACK = "b7e1f0a2-3c4d-4e5f-9a0b-1c2d3e4f5a6b"
 SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
@@ -35,8 +36,8 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
-[sources.SymBoltz]
-path = ".."
+[sources]
+SymBoltz = {path = ".."}
 
 [preferences.LinearSolve]
 LoadMKL_JLL = true
