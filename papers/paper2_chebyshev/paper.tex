@@ -37,18 +37,18 @@
 	\EB{} codes compute theoretical predictions of cosmological models
 	and rely heavily on interpolation in their independent variables:
 	conformal time $\tau$, wavenumber $k$ and multipole $\ell$.
-	We show that replacing traditional cubic splines with Chebyshev polynomials for interpolation in $k$ and $\ell$ improves performance and precision,
-	so fewer perturbation equations and line-of-sight integrals can be solved for equal or higher precision.
-	Chebyshev interpolation converges (up to) exponentially fast for smooth functions,
-	which pairs particularly well with approximation-free codes.
-	Considering a set of example source functions and angular power spectra for matter and the cosmic microwave background (CMB),
-	we find anywhere from $0$-$4$ orders of magnitude lower interpolation error for the same number of points.
-	For a typical CMB temperature power spectrum computed with interpolation in both $k$ and $\ell$,
+	We give a practical introduction to Chebyshev interpolation,
+	which converges rapidly for smooth functions and thus pairs strongly with approximation-free codes.
+	We show that interpolating in $k$ and $\ell$ with Chebyshev polynomials instead of traditional cubic splines
+	results in higher precision from fewer solutions to the perturbations and line-of-sight integrals.
+	On a set of example source functions and angular spectra for matter and the cosmic microwave background (CMB),
+	we find anywhere from $0$-$4$ orders of magnitude lower interpolation error using the same number of points
+	(the exact improvement depends largely on the target function and becomes more dramatic at higher precision levels).
+	For a typical CMB temperature spectrum computed with interpolation in both $k$ and $\ell$,
 	Chebyshev polynomials converge to $10^{-4}$-$10^{-5}$ relative error with only $50$-$80$ points per dimension,
-	while cubic splines approach $10^{-4}$ error with $200$ points -- translating to a $4\times$ speedup.
-	The exact improvement depends on the target function and becomes more dramatic for higher precision.
-	We also give a practically oriented introduction to Chebyshev interpolation along with some usage strategies.
-	The feature is implemented in SymBoltz (version 1.6),
+	while cubic splines approach $10^{-4}$ error with $200$ points -- a $2.5\times$-$4\times$ improvement.
+	We also explain how $\ell$-interpolation can be done by rounding Chebyshev nodes to their nearest integers at no loss in performance.
+	Chebyshev interpolation is implemented in SymBoltz (version 1.7),
 	which is publicly available at \url{https://github.com/hersle/SymBoltz.jl}.
 }
 
@@ -301,6 +301,7 @@ but for the Chebyshev nodes \eqref{eq:chebnodes} one can use one of the even sim
 	w_j^{(1)} &= (-1)^j \sin \left( \frac{(2j+1)}{2n+2} \pi \right), \\
 	w_j^{(2)} &= \begin{cases} (-1)^j/2 & \text{if } j = 0 \text{ or } j = n, \\ (-1)^j & \text{otherwise}. \end{cases}
 \end{align}
+\label{eq:chebweights}
 \end{subequations}
 Barycentric interpolation is both stable and takes only $O(n)$ operations per $x$.
 Despite suspicious divisions by $x-x_j$, it is stable in floating point arithmetic even as $x \rightarrow x_j$
@@ -572,32 +573,46 @@ Instead of computing every $C_\ell$ explicitly with line-of-sight integration fo
 This again makes Chebyshev interpolation a good candidate.
 
 Unlike source functions that vary continuously with $k$,
-interpolation in the discrete $\ell$ raises a conceptual nuance.
+interpolation in the discrete $\ell$ raises a difficulty.
 As $C_\ell$ is physically interpreted only for integer $\ell$,
 other codes interpolate from an integer $\ell$-grid (e.g. using every low $\ell$ and every $30$th high $\ell$).
 This works with cubic splines because their stability is better for arbitrary grid configurations.
 %Because the $\ell$-spacing is in steps of 1, CLASS relies on recursion relations in $\ell$ to evaluate the (hyper)spherical Bessel functions.
-But it is incompatible with Chebyshev interpolation, because the node placement \eqref{eq:chebnodes2} forces the interpolation grid to arbitrary $\ell$.
-This means that the line-of-sight integrals \eqref{eq:los} and the spherical Bessel functions $j_\ell(x)$ must be evaluated for both integer and non-integer $\ell$.
+But it is incompatible with standard Chebyshev interpolation,
+because the node placement \eqref{eq:chebnodes} forces the interpolation grid to both integer and non-integer $\ell$.
+We propose two different solutions to this problem.
 
-Physically, the generalization to non-integer $\ell$ is unproblematic.
-The spherical Bessel functions $j_\ell(x)$ are (one of the linearly independent) solutions to the ODE (for $\ell > 0$)
+The first way is to proceed with standard Chebyshev interpolation
+and generalize the line-of-sight integrals \eqref{eq:los} and spherical Bessel functions $j_\ell(x)$ to arbitrary (integer and non-integer) $\ell$.
+This is unproblematic from a physical point of view,
+as $j_\ell(x)$ for $\ell > 0$ are (one of the linearly independent) solutions to the ODE%
 \begin{equation}
 	x^2 \frac{\mathrm{d}^2 j_\ell}{\mathrm{d} x^2} + 2x \frac{\mathrm{d} j_\ell}{\mathrm{d} x} + \left( x^2 - \ell(\ell+1) \right) j_\ell = 0,
 	\quad
 	j_\ell(0) = 0.
 \label{eq:besselode}
 \end{equation}
-This is well-defined and smooth in both $\ell$ and $x$, so interpolation from arbitrary to integer $\ell$ converges to the right result.
-Other codes that use integer $\ell$ with cubic splines already rely on the same property implicitly.
-Thus, the discreteness concern is only a conceptual subtlety,
-and practically it only means that $j_\ell(x)$ must be evaluated with $\ell$ treated as a continuous variable.%
+This is well-defined and smooth in both $\ell$ and $x$, so interpolation from non-integer to integer $\ell$ converges.
+The important part is not the precise value of $j_\ell(x)$ for non-integer $\ell$;
+only that there is a continuation of $j_\ell(x)$ between integer $\ell$ that is as smooth as possible.
+Other codes that interpolate between integer-only $\ell$ with cubic splines also rely on the same property.%
 \footnote{Extending $j_\ell(x)$ to continuous $\ell$ is analogous to analytically continuing the factorial $n!$ to the gamma function $\Gamma(n+1)$, for example.}
+%Thus, the discreteness concern is only a conceptual subtlety,
+%and practically it only means that $j_\ell(x)$ must be evaluated with $\ell$ treated as a continuous variable.%
 
-SymBoltz (version 1.6) lifts the integer-$\ell$ restriction to allow any interpolation method.
-Before line-of-sight integration, it precomputes $j_\ell(x)$ on the $\ell$-grid set by the interpolation scheme using the library Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}},
-which computes $j_\ell(x)$ continuously in both $\ell$ and $x$.
-This enables Chebyshev interpolation, and also cubic spline interpolation without the integer-$\ell$ limitation.
+The second solution is to interpolate from Chebyshev points \eqref{eq:chebnodes} that are rounded to their closest integers
+and evaluate $j_\ell(x)$ only at integer $\ell$.
+Polynomial interpolation works well not only with the exact Chebyshev nodes,
+but performs comparably from any set of points with a similar density profile.
+The discreteness is also mitigated by the fine-grained $\ell$-grid over 1000s of commonly requested multipoles.
+Note that the Chebyshev weights \eqref{eq:chebweights} no longer apply after shifting the points,
+so we instead compute the weights from $w_j = 1/\omega^\prime(x_j)$ \TODO{formula}.
+We also throw an error if the requested order is so high that multiple Chebyshev nodes round to the same integer.
+
+SymBoltz (version 1.7) enables both of these strategies.
+Line-of-sight integration is performed at non-integer $\ell$ by evaluating $j_\ell(x)$ at arbitrary $\ell$ with the library Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}}.
+Integer-rounded Chebyshev interpolation is offered by the \texttt{ChebyshevIntegerInterpolator} type.
+%This enables Chebyshev interpolation, and also cubic spline interpolation without the integer-$\ell$ limitation.
 
 \begin{figure*}
 	\centering
@@ -624,13 +639,14 @@ This enables Chebyshev interpolation, and also cubic spline interpolation withou
 		The interpolation is compared to the result from explicit line-of-sight integration for every $\ell$.
 		Interpolation happens in $(\ell, \ell^5 C_\ell)$-space, where we found all interpolation methods to behave well for all three spectra.
 		The cubic spline uses a grid with 8, 9 and 55 points on $\ell \in [2, 10]$, $[10, 100]$ and $[100, 3000]$, respectively, with shared points at $\ell = 10$ and $\ell = 100$.
-		Chebyshev interpolation uses a single degree-69 polynomial through the Chebyshev nodes \eqref{eq:chebnodes2}, rescaled to $\ell \in [2, 3000]$.
+		Standard Chebyshev interpolation uses a single degree-69 polynomial through the Chebyshev nodes \eqref{eq:chebnodes2}, rescaled to $\ell \in [2, 3000]$.
 		Piecewise Chebyshev interpolation joins a degree-5 polynomial on $\ell \in [2, 10]$ with a degree-64 polynomial on $\ell \in [10, 3000]$, with a shared point at $\ell = 10$.
+		Integer-rounded Chebyshev interpolation instead runs the degree-69 polynomial through the integers that are closest to the standard nodes.
 	}
 \end{figure*}
 
 \Cref{fig:cmb} compares $\ell$-interpolation performance of cubic splines versus Chebyshev polynomials.
-To fix the computational cost, we restrain both methods to exactly 70 $\ell$-points.
+To fix the computational cost, we restrain all methods to exactly 70 $\ell$-points.
 For each method, we also require that the same $\ell$-grid interpolates all three spectra $C_\ell^\mathrm{TT}$, $C_\ell^\mathrm{EE}$ and $C_\ell^{\psi\psi}$, so the precomputed $j_\ell(x)$ is common.
 
 We see that Chebyshev interpolation converges to 3-4 orders of magnitude smaller relative error for $l \gtrsim 100$ than cubic splines for $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$.
@@ -649,15 +665,19 @@ After progressively refining the $\ell$-grid with trial and error,
 we ended up with a high-medium-low density $\ell$-grid over the subintervals of $\ell \in [2, 10, 100, 3000]$.
 In contrast, Chebyshev interpolation performed better with a straightforward $\ell$-grid.
 
+Finally, it is clear that integer-rounded Chebyshev interpolation performs comparably to standard Chebyshev interpolation.
+
 In this section, we always used the Chebyshev interpolation in $k$ from \cref{sec:wavenumbers} in order to isolate the effect to $\ell$-interpolation.
 This means the cubic spline $\ell$-interpolation also benefits from Chebyshev $k$-interpolation.
 In \cref{sec:kl}, we show the effect of using each interpolation method in both $k$ and $\ell$.
 
-Note that we have concentrated on a flat universe.
-In curved and open universes,
-the spherical Bessel functions generalize to hyperspherical Bessel functions \citep{lesgourguesFastAccurateCMB2014a,tramComputationHypersphericalBessel2017a}.
-This only modifies the ODE \eqref{eq:besselode} with an extra curvature-dependent term,
-so we believe it is possible to generalize our $\ell$-interpolation to non-flat universes.
+Note that we have concentrated on a flat universe here,
+as curved universes are not yet supported by SymBoltz.
+In curved universes the spherical Bessel functions generalize to hyperspherical Bessel functions \citep[e.g.][]{lesgourguesFastAccurateCMB2014a}.
+This modifies the ODE \eqref{eq:besselode} with an extra curvature-dependent term.
+They are harder to compute, for example with recurrence relations between integer $\ell$ \citep{tramComputationHypersphericalBessel2017a}.
+Particularly in closed universes, more restrictions is also placed on allowed integer values.
+We anticipate that the integer-rounded Chebyshev interpolation strategy is easiest to generalize to curved geometries.
 
 We conclude that Chebyshev polynomials are excellent also for $\ell$-interpolation.
 They reach up to several orders of magnitude lower error in typical CMB temperature compared to cubic splines with the same number of points.
@@ -677,8 +697,9 @@ This approach is closely related to ours, as one can convert between $a_n$ and $
 		\label{fig:kl}
 		Root-mean-square relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
 		for $50 \leq \ell \leq 2500$,
-		computed with either Chebyshev interpolation or cubic spline interpolation in both $k$ and $\ell$ using different numbers of points.
+		computed with Chebyshev interpolation and cubic spline in both $k$ and $\ell$ using different numbers of points.
 		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebsyhev interpolation from 1025 $k$-points and 513 $\ell$-points.
+		The middle plot uses integer-rounded Chebyshev interpolation in $\ell$ and caps at 110 points, since more Chebyshev points would round to the same $\ell$.
 	}
 \end{figure*}
 
@@ -703,7 +724,7 @@ so this translates to slightly more than a $4\times$ total speedup.
 We have shown that Chebyshev polynomials improves the performance and precision of interpolation in $k$ and $\ell$ in \EB{} codes.
 Compared to traditional cubic spline interpolation,
 Chebyshev polynomials interpolate with significantly lower error from the same number of points.
-Our implementation in SymBoltz solves the perturbations and line-of-sight integrals on Chebyshev grids in $k$ and $\ell$ (including non-integers),
+Our implementation in SymBoltz solves the perturbations and line-of-sight integrals on Chebyshev grids in $k$ and $\ell$ (including non-integer $\ell$),
 and interpolates the results with the barycentric formula.
 
 The numerical properties of Chebyshev interpolation pairs strongly with the physical properties of approximation-free \EB{} codes.
@@ -715,6 +736,11 @@ and give them a unique way to gain performance and precision.
 
 %Approximation-based codes: speed up with approximations, less smooth and need more points at a great cost in modeling complexity.
 %Approximation-free codes: more smooth and need more points, speed up by integrating fewer $k$-modes at no cost in modeling complexity.
+
+We also showed that $\ell$-interpolation can optionally be done by rounding Chebyshev nodes to their nearest integer.
+This performs identically without having to generalize the spherical Bessel functions to non-integer $\ell$.
+This near-Chebyshev strategy is straightforward to use even in curved universes,
+which need hyperspherical Bessel functions that are harder to compute with polynomial and recurrence relations between integers.
 
 If implemented carefully, it is possible that approximation-based codes also benefit from Chebyshev interpolation.
 For example, we saw that the Limber approximation for $\ell \geq \ell_\text{Limber}$ slowed convergence of Chebyshev $\ell$-interpolation,
@@ -734,19 +760,6 @@ such as better line-of-sight integration and beyond-Limber methods \cite[e.g.]{s
 is needed to make the final result accurate to high precision and make full use of Chebyshev interpolation.
 We believe Chebyshev interpolation is one of the ingredients for designing \EB{} codes
 with numerical algorithms that leverage the physical properties of the equations as much as possible.
-
-We have here focused on a flat universe.
-In open and closed universes,
-the perturbations depend on the \enquote{generalized wavenumber} $q(k)$ instead of $k$.
-Generalizing Chebyshev interpolation here should be straightforward by interpolating in $q$ instead of $k$.
-Additionally, the spherical Bessel functions $j_\ell(x)$
--- which we needed at both integer and non-integer $\ell$ --
-generalize to hyperspherical Bessel functions $\Phi^\nu_\ell(x)$,
-that depend on an additional curvature-dependent argument $\nu$ in addition to the multipole $\ell$.
-Special methods have been devised for computing them for integer $\ell$ and $\nu$ using polynomial or recurrence relations \cite{lesgourguesFastAccurateCMB2014a,tramComputationHypersphericalBessel2017a},
-but Chebyshev interpolation would require $\Phi_\ell^\nu(x)$ also at non-integer $\ell$,
-This requires additional work to generalize this computation to non-integer $\ell$,
-but one could fall back to integrating the ODE that defines $\Phi^\nu_\ell(x)$.
 
 \iffalse
 \begin{acknowledgements}

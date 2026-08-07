@@ -391,7 +391,7 @@ end
 p
 
 # l-interpolation
-mode = :ψψ # :TT or :EE or :ψψ
+mode = :TT # :TT or :EE or :ψψ
 
 ls = unique([2.0:1.0:50.0; 50.0:5.0:200.0; 200.0:10.0:3000.0]) # every 1/5/10-th l
 jl = SphericalBesselCache(ls)
@@ -401,19 +401,26 @@ plot(log.(1e3 .+ ls), Cls .* ls .^ 5; label = nothing, marker = :circle, markers
 jl_cub = SphericalBesselCache(CubicSplineInterpolator(joingrids!(lingrid(2, 10; length=8), lingrid(10, 100; length=9), lingrid(100, 3000; length=55))))
 jl_cheb = SphericalBesselCache(ChebyshevInterpolator(ls[begin], ls[end], 69)) #; f = l -> log(1e3 + l)))
 jl_piecewise = SphericalBesselCache(PiecewiseChebyshevInterpolator((2, 10, 3000), (5, 64)))
+jl_chebint = SphericalBesselCache(ChebyshevIntegerInterpolator(ls[begin], ls[end], 69))
 Cls_cub = spectrum_cmb(mode, prob, jl_cub, ls; linterp_normalization = l -> l^5)
 Cls_cheb = spectrum_cmb(mode, prob, jl_cheb, ls; linterp_normalization = l -> l^5)
 Cls_piecewise = spectrum_cmb(mode, prob, jl_piecewise, ls; linterp_normalization = l -> l^5)
+Cls_chebint = spectrum_cmb(mode, prob, jl_chebint, ls; linterp_normalization = l -> l^5)
 
 p = begin
-    plot(xscale = :log10, layout = grid(2, 1; heights = [0.75, 0.25]), size = (600, 500), link = :x, legend_position = :topright)
-    plot!(ls, @. 1e9 * Cls * ls^2 * (ls + 1)^2; color = :black, linewidth = 2, label = "no interpolation: $(length(ls)) points", ylabel = "10⁹ l²(l+1)² Cₗᴸᴸ", subplot = 1, xformatter = _ -> "")
-    plot!(ls, @. 1e9 * Cls_cub * ls^2 * (ls + 1)^2; color = 1, label = "cubic spline: $(length(jl_cub.l)) points", subplot = 1)
-    plot!(ls, @. 1e9 * Cls_cheb * ls^2 * (ls + 1)^2; color = 2, label = "Chebyshev: $(length(jl_cheb.l)) points", subplot = 1)
-    plot!(ls, @. 1e9 * Cls_piecewise * ls^2 * (ls + 1)^2; color = 3, label = "Piecewise Chebyshev: $(length(jl_piecewise.l)) points", subplot = 1)
+    n = mode == :ψψ ? 2 : 1
+    ylabel = "10⁹ " * Dict(:TT => "l (l+1) Cₗᵀᵀ", :EE => "l (l+1) Cₗᴱᴱ", :ψψ => "l²(l+1)² Cₗᴸᴸ")[mode]
+    legend_position = mode == :TT ? :topleft : nothing
+    plot(; xscale = :log10, layout = grid(2, 1; heights = [0.75, 0.25]), size = (600, 500), link = :x, legend_position)
+    plot!(ls, @. 1e9 * Cls * ls^n * (ls + 1)^n; color = :black, linewidth = 2, label = "no interpolation: $(length(ls)) points", ylabel, subplot = 1, xformatter = _ -> "")
+    plot!(ls, @. 1e9 * Cls_cub * ls^n * (ls + 1)^n; color = 1, label = "cubic spline: $(length(jl_cub.l)) points", subplot = 1)
+    plot!(ls, @. 1e9 * Cls_cheb * ls^n * (ls + 1)^n; color = 2, label = "Chebyshev: $(length(jl_cheb.l)) points", subplot = 1)
+    plot!(ls, @. 1e9 * Cls_piecewise * ls^n * (ls + 1)^n; color = 3, label = "Piecewise Chebyshev: $(length(jl_piecewise.l)) points", subplot = 1)
+    plot!(ls, @. 1e9 * Cls_chebint * ls^n * (ls + 1)^n; color = 4, label = "Integer-rounded Chebyshev: $(length(jl_chebint.l)) points", subplot = 1)
     plot!(ls, @. max(abs(Cls_cub / Cls - 1), 1e-99); color = 1, yscale = :log10, ylims = (1e-8, 1e0), label = nothing, ylabel = "rel. err.", subplot = 2, xlabel = "l", top_margin = -5*Plots.mm)
     plot!(ls, @. max(abs(Cls_cheb / Cls - 1), 1e-99); color = 2, label = nothing, subplot = 2)
     plot!(ls, @. max(abs(Cls_piecewise / Cls - 1), 1e-99); color = 3, label = nothing, subplot = 2)
+    plot!(ls, @. max(abs(Cls_chebint / Cls - 1), 1e-99); color = 4, label = nothing, subplot = 2)
 end
 savefig(p, "papers/paper2_chebyshev/figures/cmb$mode.pdf")
 
@@ -471,10 +478,12 @@ nls = 20:10:200
 
 jls_cheb = [SphericalBesselCache(ChebyshevInterpolator(lmin, lmax, nl)) for nl in nls]
 jls_cub = [SphericalBesselCache(CubicSplineInterpolator(lmin, lmax, nl)) for nl in nls]
+jls_chebint = [nl ≤ 110 ? SphericalBesselCache(ChebyshevIntegerInterpolator(lmin, lmax, nl)) : nothing for nl in nls]
 kinterps_cheb = [ChebyshevInterpolator(kmin, kmax, nk) for nk in nks]
 kinterps_cub = [CubicSplineInterpolator(kmin, kmax, nk) for nk in nks]
 Dls_cheb = [spectrum_cmb(mode, prob, jl, ls; normalization, kinterp) for jl in jls_cheb, kinterp in kinterps_cheb]
 Dls_cub = [spectrum_cmb(mode, prob, jl, ls; normalization, kinterp) for jl in jls_cub, kinterp in kinterps_cub]
+Dls_chebint = [isnothing(jl) ? fill(NaN, length(ls)) : spectrum_cmb(mode, prob, jl, ls; normalization, kinterp) for jl in jls_chebint, kinterp in kinterps_cheb]
 
 plot(ls, [abs.(Dls ./ Dl_ref .- 1) for Dls in vec(Dls_cheb)]; yscale = :log10, legend = false, ylims = (1e-10, 1e1), yticks = 10.0 .^ (-10:1))
 plot(ls, [abs.(Dls ./ Dl_ref .- 1) for Dls in vec(Dls_cub)]; yscale = :log10, legend = false, ylims = (1e-10, 1e1), yticks = 10.0 .^ (-10:1))
@@ -486,13 +495,17 @@ ledges = nls[begin:end-1] .+ diff(nls) ./ 2
 is = ls .≥ 250
 l2rel(Dl) = norm(Dl[is] ./ Dl_ref[is] .- 1, 2) / sqrt(length(Dl[is])) # RMS relative error over ls
 
-p_cheb = heatmap(nks, nls, log10.(l2rel.(Dls_cheb)); xlabel = "number of k-points", ylabel = "number of ℓ-points", title = "L₂-norm of relative error in Cₗᵀᵀ (Chebyshev interpolation)", xticks = nks, yticks = nls, colorbar = true, clims = (-6.5, 0.5))
+p_cheb = heatmap(nks, nls, log10.(l2rel.(Dls_cheb)); xlabel = "number of k-points", ylabel = "number of ℓ-points", title = "RMS of rel. err. of Cₗᵀᵀ (Chebyshev)", xticks = nks, yticks = nls, colorbar = true, clims = (-6.5, 0.5))
 vline!(p_cheb, kedges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
 hline!(p_cheb, ledges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
 
-p_cub = heatmap(nks, nls, log10.(l2rel.(Dls_cub)); xlabel = "number of k-points", ylabel = "number of ℓ-points", title = "L₂-norm of relative error in Cₗᵀᵀ (cubic spline interpolation)", xticks = nks, yticks = nls, colorbar = true, clims = (-6.5, 0.5))
+p_cub = heatmap(nks, nls, log10.(l2rel.(Dls_cub)); xlabel = "number of k-points", ylabel = "number of ℓ-points", title = "RMS of rel. err. of Cₗᵀᵀ (cubic spline)", xticks = nks, yticks = nls, colorbar = true, clims = (-6.5, 0.5))
 vline!(p_cub, kedges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
 hline!(p_cub, ledges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
+
+p_chebint = heatmap(nks, nls, log10.(l2rel.(Dls_chebint)); xlabel = "number of k-points", ylabel = "number of ℓ-points", title = "RMS of rel. err. of Cₗᵀᵀ (integer Chebyshev)", xticks = nks, yticks = nls, colorbar = true, clims = (-6.5, 0.5))
+vline!(p_chebint, kedges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
+hline!(p_chebint, ledges; color = :black, alpha = 0.2, linewidth = 1, label = nothing)
 
 function colorbar_strip(clims; n = 512, title = "", kw...)
     ys = range(clims[1], clims[2]; length = n) # log10(error) values, used for coloring
@@ -501,11 +514,12 @@ function colorbar_strip(clims; n = 512, title = "", kw...)
 end
 
 p = plot(
-    plot(p_cheb; left_margin = 6*Plots.mm),
+    plot(p_cheb; left_margin = 8*Plots.mm),
+    plot(p_chebint; ylabel = nothing, yticks = nothing),
     plot(p_cub; ylabel = nothing, yticks = nothing),
     colorbar_strip(p_cheb[1][:clims]; left_margin = -2*Plots.mm);
     xrotation = 0, colorbar = nothing,
-    size = (1450, 500), layout = grid(1, 3; widths = [0.49, 0.49, 0.02]), bottom_margin = 5*Plots.mm, top_margin = 3*Plots.mm,
+    size = (1650, 450), layout = grid(1, 4; widths = [0.33, 0.33, 0.33, 0.01]), bottom_margin = 7*Plots.mm, top_margin = 3*Plots.mm,
 )
 savefig(p, "papers/paper2_chebyshev/figures/kl.pdf")
 
