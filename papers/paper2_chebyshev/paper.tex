@@ -19,6 +19,8 @@
 \newcommand\taurec{\tau_\text{rec}}
 \newcommand\kmin{{k_\text{min}}}
 \newcommand\kmax{{k_\text{max}}}
+\newcommand\ellmin{{\ell_\text{min}}}
+\newcommand\ellmax{{\ell_\text{max}}}
 \newcommand\EB{Einstein–Boltzmann}
 \newcommand\boldu{{\bf u}}
 \newcommand\scrH{\mathscr{H}}
@@ -28,26 +30,27 @@
 
 \begin{document}
 
-\title{Spectral interpolation in \EB{} codes}
+\title{Chebyshev interpolation in \EB{} codes}
 \authorrunning{Sletmoen, H.}
 \author{Herman Sletmoen\thanks{Email: \texttt{herman.sletmoen@astro.uio.no}}}
 \institute{Institute of Theoretical Astrophysics, University of Oslo, PO Box 1029 Blindern, 0315 Oslo, Norway}
 \date{Received XX / Accepted XX}
 \abstract{
 	\EB{} codes compute theoretical predictions of cosmological models
-	and rely heavily on interpolation in their independent variables:
+	and rely heavily on interpolation in the independent variables:
 	conformal time $\tau$, wavenumber $k$ and multipole $\ell$.
-	We give a practical introduction to Chebyshev interpolation,
-	which converges rapidly for smooth functions and thus pairs strongly with approximation-free codes.
+	We give a practical introduction to Chebyshev polynomial interpolation,
+	which converges rapidly for smooth functions and thus synergizes with approximation-free codes.
 	We show that interpolating in $k$ and $\ell$ with Chebyshev polynomials instead of traditional cubic splines
 	results in higher precision from fewer solutions to the perturbations and line-of-sight integrals.
-	On a set of example source functions and angular spectra for matter and the cosmic microwave background (CMB),
-	we find anywhere from $0$-$4$ orders of magnitude lower interpolation error using the same number of points
-	(the exact improvement depends largely on the target function and becomes more dramatic at higher precision levels).
+	On a set of example spectra for matter and the cosmic microwave background (CMB),
+	we find $0$-$4$ orders of magnitude lower interpolation error using the same number of points
+	(the exact improvement depends largely on the target function and is more dramatic at high precision levels).
 	For a typical CMB temperature spectrum computed with interpolation in both $k$ and $\ell$,
 	Chebyshev polynomials converge to $10^{-4}$-$10^{-5}$ relative error with only $50$-$80$ points per dimension,
-	while cubic splines approach $10^{-4}$ error with $200$ points -- a $2.5\times$-$4\times$ improvement.
-	We also explain how $\ell$-interpolation can be done by rounding Chebyshev nodes to their nearest integers at no loss in performance.
+	while cubic splines approach $10^{-4}$ error with $200$ points, which translates to a $2.5\times$-$4\times$ speedup.
+	The $\ell$-interpolation needs line-of-sight integrals at non-integer $\ell$,
+	but we also explain how it can be done by rounding Chebyshev nodes to their nearest integers at no performance loss.
 	Chebyshev interpolation is implemented in SymBoltz (version 1.7),
 	which is publicly available at \url{https://github.com/hersle/SymBoltz.jl}.
 }
@@ -63,7 +66,7 @@
 
 \EB{} codes, such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, CLASS \citep{blasCosmicLinearAnisotropy2011b} and CAMB \citep{lewisEfficientComputationCMB2000b},
 are fundamental tools for computing theoretical predictions from cosmological models.
-They solve large and stiff ordinary differential equations (ODEs) and many line-of-sight integrals for the background and perturbation equations.
+They solve large and stiff ordinary differential equations (ODEs) and many line-of-sight integrals of the background and perturbation equations.
 This yields source functions $S(\tau)$ and $S(\tau, k)$ and transfer functions $\Delta_\ell(k)$
 of conformal time $\tau$, perturbation wavenumber $k$ and angular multipole $\ell$.
 
@@ -79,26 +82,26 @@ interpolation has been done with cubic splines.
 While solid for general-purpose interpolation,
 they are outperformed by spectral methods such as interpolation with Chebyshev polynomials \citep{trefethenApproximationTheoryApproximation2019}.
 Cubic splines interpolate a function through $N$ points with $n=N-1$ piecewise cubic polynomials and an error that falls algebraically as $n^{-4}$.
-In contrast, Chebyshev interpolation fits a single degree-$n$ polynomial through all points with an error that can decay exponentially as $\rho^{-n}$.
+In contrast, Chebyshev interpolation fits a single degree-$n$ polynomial through all points with an error that can decay exponentially as $\rho^{-n}$ for some $\rho$.
 This converges faster and interpolates to higher precision with fewer samples.
 It is also simple to implement with the barycentric interpolation formula \citep{berrutBarycentricLagrangeInterpolation2004},
 and unlike equispaced polynomial interpolation it is stable \citep{trefethenSixMythsPolynomial}.
 %For example, Chebyshev approximation has popularized and shown to be very powerful by the Chebfun package in MATLAB \citep{battlesExtensionMATLABContinuous2004}.
 However, the remarkably fast convergence depends on the function being smooth,
 % (infinitely differentiable with bounded derivatives),
-which makes them relevant in physics.
+as is often the case in physics.
 
-Traditional \EB{} codes such as CAMB and CLASS use approximation schemes to switch between different equations at different $\tau$, $k$ and $\ell$ \citep[particularly Figure 10]{blasCosmicLinearAnisotropy2011b}.
-This speeds up their solution, but significantly complicates both the physical and numerical implementation.
-Moreover, it breaks smoothness by introducing discontinuities or kinks at the switching points.
-Cubic splines are well suited for interpolation in this case because they use piecewise polynomials and behave locally,
-so a change somewhere in the interpolant has little impact on it elsewhere.
-Chebyshev interpolation instead uses one global polynomial, and a fault in one point can slow the interpolation convergence over the entire domain.
+Traditional \EB{} codes such as CAMB and CLASS use approximation schemes to switch between different equations at different $\tau$, $k$ and $\ell$ \citep[notably Figure 10]{blasCosmicLinearAnisotropy2011b}.
+This speeds up the solution, but significantly complicates both the physical and numerical implementation.
+Moreover, it breaks smoothness by introducing discontinuities or kinks at the switches.
+Cubic splines are good for interpolating such functions because they join piecewise polynomials,
+so a change somewhere in the interpolant affects it only locally.
+Chebyshev interpolation instead uses global polynomials, and a fault in one point can slow interpolation convergence over the entire domain.
 
-Recently, however, approximation-free \EB{} such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
-They integrate the same equations for all $\tau$, $k$ and $\ell$ and spend more effort per point, but obtain fully smooth solutions.
-In this paper, we investigate whether approximation-free can leverage this smoothness together with the rapid convergence of Chebyshev interpolation to improve performance and precision.
-We implement this feature for flat universes in SymBoltz\footnote{\url{https://hersle.github.io/SymBoltz.jl/}}.
+Recently, approximation-free \EB{} codes such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
+They integrate the same equations at all times to obtain fully smooth solutions, but spend more effort per point.
+In this paper, we show that approximation-free codes can leverage this smoothness with the rapid convergence of Chebyshev interpolation for performance and precision.
+We implement this feature in SymBoltz\footnote{\url{https://hersle.github.io/SymBoltz.jl/}}.
 
 \section{Computations in \EB{} codes}
 \label{sec:sources}
@@ -107,12 +110,13 @@ The equations in \EB{} codes are solved in stages for $\tau$, $k$ and $\ell$,
 each interpolating solutions of earlier stages.
 Background functions $S(\tau)$ are interpolated in $\tau$;
 perturbation sources $S(\tau, k)$ in $\tau$ and $k$;
-and angular spectra $C_\ell$ in $\ell$.
+and angular spectra $C_\ell$ in $\ell$ \TODO{a ref?}.
 
 First, background and thermodynamics equations are solved for variables $S(\tau)$ that depend only on $\tau$.
 For example, the Friedmann, continuity and Peebles equations are solved for the Hubble function $\scrH(\tau)$, free electron fraction $X_e(\tau)$, optical depth $\kappa(\tau)$, visibility function $v(\tau)$ and lookback time $\chi(\tau) = \tau_0 - \tau$.
 
-Second, perturbation equations are solved for sources $S(\tau, k)$ by integrating large ODEs in $\tau$ for each independent $k$.
+Second, perturbation equations are solved for sources $S(\tau, k)$ by integrating large and stiff ODEs in $\tau$ for each independent $k$.
+This interpolates the background solution in $\tau$.
 For example, this provides sources for CMB temperature ($T$), polarization ($E$), lensing ($\psi$) and matter overdensity ($m$):
 \begin{subequations}
 	\begin{align}
@@ -123,8 +127,8 @@ For example, this provides sources for CMB temperature ($T$), polarization ($E$)
 	\end{align}
 	\label{eq:sources}%
 \end{subequations}
-\Cref{fig:sources} plots examples of these functions.
-This requires the background solution to be interpolated in $\tau$.
+\Cref{fig:sources} shows these functions.
+This is usually the bottleneck.
 
 Third, line-of-sight integrals for transfer function multipoles%
 \begin{equation}
@@ -135,12 +139,11 @@ are evaluated for a given source $S^A(\tau, k)$,
 which must be interpolated in $\tau$ and $k$.
 In turn, this is used to compute angular spectra%
 \begin{equation}
-    C_\ell^{AB} \propto \int_\kmin^\kmax \diff{k} \, k^2 P_0(k) \Delta^A_\ell(k) \Delta^B_\ell(k) \quad \text{(up to an $\ell$-scaling)},
+    C_\ell^{AB} \propto \int_\kmin^\kmax \diff{k} \, k^2 P_0(k) \Delta^A_\ell(k) \Delta^B_\ell(k) \quad \text{(up to an $\ell$-scaling)}.
     \label{eq:spectra}
 \end{equation}
-which correlates two sources $S^A(\tau, k)$ and $S^B(\tau, k)$.
 
-Most sources $S(\tau, k)$ are smooth in $k$, but $j_\ell(k\chi)$ makes $\Delta_\ell(k)$ oscillate rapidly in $k$,
+Most $S(\tau, k)$ are smooth in $k$, but $j_\ell(k\chi)$ makes $\Delta_\ell(k)$ oscillate rapidly in $k$,
 so the integrand of $C_\ell$ must be sampled at many $k$.
 A standard strategy is therefore to solve the expensive perturbations explicitly for only $10^2$-$10^3$ $k$-values,
 and then interpolate $S(\tau, k)$ to $10^3$-$10^4$ $k$-values before line-of-sight integration.
@@ -210,10 +213,7 @@ This also leads to a significant speedup.
 %We briefly summarize polynomial interpolation from the simplest possible practical angle, using the barycentric interpolation formula.
 %As is common in the literature, we assume the domain is $x \in [-1, 1]$; otherwise it is trivial to linearly transform the domain before/after interpolation.
 
-Any function $f(x)$ on the domain $x \in [-1, 1]$%
-\footnote{To interpolate over an arbitrary domain $y \in [a, b]$, first map $y$ to the canonical domain $x \in [-1, 1]$ with $x(y) = 2 ( y - (b+a)/2 ) / (b-a)$.}
-%\footnote{It is customary to work with the canonical interpolation domain $x \in [-1, 1]$. An arbitrary domain $y \in [a, b]$ is easily mapped to this domain with the transformation $x(y) = 2 ( y - (b+a)/2 ) / (b-a)$ and its inverse.}
-is interpolated by a polynomial $p_n(x)$ of order $n=N-1$ through $N$ points $(x_i, f_i)$:
+Any function $f(x)$ is interpolated through $N$ points $(x_i, f_i)$ by a polynomial $p_n(x)$ of order $n=N-1$:%
 \begin{equation}
 	f(x) \approx p_n(x) = \sum_j f_j \, \ell_j(x)
 	\quad \text{with} \quad
@@ -221,6 +221,8 @@ is interpolated by a polynomial $p_n(x)$ of order $n=N-1$ through $N$ points $(x
 \label{eq:interppoly}
 \end{equation}
 The Lagrange polynomials satisfy $\ell_j(x_k) = \delta_{jk}$, so $p_n(x_k) = f_k$.
+We work with the standard domain $x \in [-1, 1]$,
+and map interpolation over arbitrary $y \in [a, b]$ with $x(y) = ( 2y-b-a ) / (b-a)$.
 
 \iffalse
 By convention, we here consider all points to lie on the canonical domain $x \in [-1, 1]$.
@@ -232,55 +234,40 @@ It is trivial to map points from an arbitrary domain $y \in [a, b]$ with the aff
 \end{equation}
 \fi
 
-Not all placements of the points $x_j$ are wise, as the polynomial interpolation error is bounded by
+The polynomial interpolation error is bounded by
+%\citep{trefethenApproximationTheoryApproximation2019}
 \begin{equation}
-	\lvert f(x) - p_n(x) \rvert \leq \frac{M_{n+1}}{(n+1)!} \, \lvert \omega(x) \rvert,
+	\big\lvert f(x) - p_n(x) \big\rvert \leq \frac{M_{n+1}}{(n+1)!} \, \lvert \omega(x) \rvert,
 	\quad
-	\omega(x) = \prod_i (x-x_i),
+	\omega(x) = \prod_j (x-x_j),
 \label{eq:error}
 \end{equation}
-where $M_{n+1} = \max_{x\in[-1,1]} \lvert f^{(n+1)}(x) \rvert$.
-The points should therefore be placed in a way that minimizes the nodal polynomial $\lvert \omega(x) \rvert$.
+where $M_{n} = \max \lvert f^{(n)}(x) \rvert$ on $x\in[-1,1]$.
+Thus, the points should be placed in a way that minimizes the nodal polynomial $\lvert \omega(x) \rvert$.
 
-It is a bad idea to place $x_j$ with uniform spacing.
-Then $\omega(x)$ diverges near the boundaries $x = \pm 1$ as $n \rightarrow \infty$.
-This is called Runge's phenomenon, and is demonstrated in \cref{fig:recequi}.
+Unintuitively, it is a bad idea to use uniformly spaced $x_j$.
+Then $\omega(x)$ decays very slowly near the edges and is easily outrun by $M_{n+1}/(n+1)!$ as $n \rightarrow \infty$.
+This leads to violent oscillations called Runge's phenomenon, as demonstrated in \cref{fig:recequi}.
 
-Two particularly excellent ways to distribute the points are at the Chebyshev nodes of the first or second kind:
+Two particularly excellent ways to place the points are at the Chebyshev nodes of the first or second kind
+\citep{trefethenApproximationTheoryApproximation2019}:
 \begin{subequations}
 \begin{align}
 	x_m^{(1)} &= \cos \left( \frac{2m+1}{2n+2} \pi \right) \quad && (m = 0,\, 1,\, \ldots\, n), \label{eq:chebnodes1} \\
-	x_m^{(2)} &= \cos \left( \frac{m\pi}{n} \right) \quad && (m = 0,\, 1,\, \ldots\, n). \label{eq:chebnodes2}
+	x_m^{(2)} &= \cos \left( \frac{m}{n} \pi \right) \quad && (m = 0,\, 1,\, \ldots\, n). \label{eq:chebnodes2}
 \end{align}
 \label{eq:chebnodes}%
 \end{subequations}
-The former bounds $\lvert \omega(x) \rvert \leq 2^{-n}$ and excludes the endpoints $x = \pm 1$.
-No other points give a lower worst-case bound than this.
-The latter bounds $\lvert \omega(x) \rvert \leq 2^{-n+1}$ and includes the endpoints.
-The extra factor of $2$ is irrelevant in practice,
-and the choice usually depends on whether one can evaluate $f(x)$ at the endpoints.
+It is known that $x_m^{(1)}$ are the only points that bound $\lvert \omega(x) \rvert \leq 2^{-n}$ for all $x$.
+Meanwhile, $x_m^{(2)}$ bound $\lvert \omega(x) \rvert \leq 2^{-n+1}$ but includes the endpoints $x = \pm 1$,
+which is sometimes more or less practical.
+In practice the two sets perform equally,
+and other points with a similar $(1-x^2)^{-1/2}$ density profile are also effective.
 
 %As explained in \cref{sec:coeffs}, they are the roots of the type-I Chebyshev polynomials
 %and enable practical advantages such as Fast Fourier Transforms (FFTs) computations.
 %\TODO{finish}
 %This clusters points near the boundaries $x = \pm 1$ to prevent divergence there, and distributes them uniformly near the center $x = 0$.
-
-The most attractive property of interpolation with either Chebyshev nodes \eqref{eq:chebnodes}
-comes when $f(x)$ is so smooth that its derivatives grow at most factorially.
-Then $M_{n+1} \leq (n+1)! \, M_0$,
-and the error \eqref{eq:error} falls exponentially:%
-\begin{equation}
-	\left\lvert p_n(x) - f(x) \right\rvert \leq C M_0 \, \rho^{-n}
-	\qquad \text{(for some $C$ and $\rho$).}
-	%n \rightarrow \infty.
-\label{eq:convergence}
-\end{equation}
-
-To check when $p_n(x)$ converges,
-one can expand it in a series $p_n(x) = \sum_k a_k T_k(x)$ of Chebyshev polynomials $T_k(x)$
-and inspect the convergence of $\lvert a_k \rvert$ with $k$.
-A Discrete Cosine Transform can compute the coefficients $a_k$ from the values $f_i$ with only $O(n \log n)$ operations.
-\Cref{sec:coeffs} explains this in greater detail. 
  
 %To indicate the error without computing $f(x)$.
 %expand $p_n(x) = \sum_k a_k T_k(x)$ in a series of Chebyshev polynomials $T_n(x)$.
@@ -288,25 +275,61 @@ A Discrete Cosine Transform can compute the coefficients $a_k$ from the values $
 %One can then check convergence of $\lvert a_k \rvert$ with $k$.
 %See \cref{sec:coeffs}.
 
-The best way to evaluate $p_n(x)$ for interpolation is through the barycentric interpolation formula \citep{berrutBarycentricLagrangeInterpolation2004}:%
+The most attractive property of Chebyshev interpolation is that it converges faster the smoother $f(x)$ is \citep{trefethenSixMythsPolynomial}:
+\begin{subequations}
+\begin{align}
+	\big\lvert f(x) - p_n(x) \big\rvert &\leq C \, \rho^{-n} \quad \text{if $f(x)$ is analytic,} \label{eq:geometric} \\
+	\big\lvert f(x) - p_n(x) \big\rvert &\leq C \, n^{-\nu} \quad \text{if $f(x)$ is differentiable $\nu$ times.} \label{eq:algebraic}
+\end{align}
+\label{eq:convergence}%
+\end{subequations}
+This is called \enquote{geometric} and \enquote{algebraic} convergence, respectively.
+Here $C$ and $\rho > 1$ are constants that depend on $f(x)$.
+%The Chebyshev points are distributed with density $(1-x^2)^{-1/2}$ as $n \rightarrow \infty$,
+%but polynomial interpolation is also effective using other points with a similar density profile.
+
+\iffalse
+The nicest property of Chebyshev interpolation
+is seen when $f(x)$ is so smooth that its derivatives grow at most factorially.
+Then $M_{n+1} \leq (n+1)! \, M_0$,
+and the error \eqref{eq:error} falls exponentially:%
+\begin{equation}
+	\big\lvert f(x) - p_n(x) \big\rvert \leq 2^{-n} M_0.
+	%\left\lvert f(x) - p_n(x) \right\rvert \leq C M_0 \, \rho^{-n}
+	%\qquad \text{(for some $C$ and $\rho$).}
+	%n \rightarrow \infty.
+\label{eq:convergence}
+\end{equation}
+\fi
+
+The simplest way to evaluate $p_n(x)$ is through the barycentric interpolation formula \citep{berrutBarycentricLagrangeInterpolation2004}:%
 \begin{equation}
 	p_n(x) = \sum_{j=0}^n \frac{w_j}{x-x_j} f_j \,\,\,\Bigg/\,\,\, \sum_{j=0}^n \frac{w_j}{x-x_j}.
 \label{eq:bary}
 \end{equation}
-Here $w_j = 1 / \omega^\prime(x_j)$ are weights that depend only on $x_j$.
+This involves the point-dependent interpolation weights
+\begin{equation}
+	w_j = \frac{1}{\omega^\prime(x_j)} = \frac{1}{\prod_{k \neq j} (x_j - x_k)}.
+\label{eq:weights}
+\end{equation}
 They can be precomputed for a general scheme,
-but for the Chebyshev nodes \eqref{eq:chebnodes} one can use one of the even simpler formulas
+but for the Chebyshev nodes \eqref{eq:chebnodes} one can just use the analytical weights%
 \begin{subequations}
 \begin{align}
-	w_j^{(1)} &= (-1)^j \sin \left( \frac{(2j+1)}{2n+2} \pi \right), \\
-	w_j^{(2)} &= \begin{cases} (-1)^j/2 & \text{if } j = 0 \text{ or } j = n, \\ (-1)^j & \text{otherwise}. \end{cases}
+	w_j^{(1)} &= (-1)^j \sin \left( \frac{(2j+1)}{2n+2} \pi \right), \label{eq:chebweights1} \\
+	w_j^{(2)} &= \begin{cases} (-1)^j/2 & \text{if } j = 0 \text{ or } j = n, \\ (-1)^j & \text{otherwise}. \end{cases} \label{eq:chebweights2}
 \end{align}
-\label{eq:chebweights}
+\label{eq:chebweights}%
 \end{subequations}
-Barycentric interpolation is both stable and takes only $O(n)$ operations per $x$.
-Despite suspicious divisions by $x-x_j$, it is stable in floating point arithmetic even as $x \rightarrow x_j$
+Barycentric interpolation is stable and uses only $O(n)$ operations per $x$.
+Despite suspicious divisions by $x-x_j$, it is stable in floating point arithmetic even as $x \rightarrow x_j$,
 and needs only a simple exception to return $f_j$ if $x = x_j$ exactly \citep{highamNumericalStabilityBarycentric2004}.
-In contrast, direct evaluation of the Lagrange form \eqref{eq:interppoly} is unstable and requires $O(n^2)$ additions and multiplications per $x$.
+In contrast, the Lagrange form \eqref{eq:interppoly} is unstable and uses $O(n^2)$ operations per $x$.
+
+\Cref{sec:coeffs} explains an optional way of checking
+when $p_n(x)$ converges by expanding it in a series $p_n(x) = \sum_k a_k T_k(x)$ of Chebyshev polynomials $T_k(x)$
+and inspecting the convergence of $\lvert a_k \rvert$ with $k$.
+A Discrete Cosine Transform can compute the coefficients $a_k$ from the values $f_i$ with only $O(n \log n)$ operations.
 
 \Cref{sec:tricks} describes some additional implementation details for using Chebyshev interpolation in practice.
 
@@ -314,11 +337,11 @@ In contrast, piecewise interpolation methods join low-order polynomials between 
 Linear interpolation is simplest with an error that drops as $n^{-2}$.
 Cubic splines are smoother with an error that falls as $n^{-4}$.
 They cause problems near the ends, where the spline assumes boundary conditions that need not match the function.
-In return, splines work well with arbitrary point placements, are slightly faster, and responds better to localized imperfections in the data points.
+In return, splines are more stable for arbitrary point placements, are slightly faster, and respond better to localized imperfections in the data points.
 
-Thus, Chebyshev interpolation is extremely attractive when:%
+Thus, Chebyshev interpolation is very attractive when:%
 \begin{itemize}
-\item $f(x)$ is known to be smooth, to gain the fast convergence \eqref{eq:convergence};
+\item $f(x)$ is known to be smooth, to get the fast convergence \eqref{eq:convergence};
 \item $f(x)$ can be queried at any $x$, to match the points \eqref{eq:chebnodes};
 \item $f(x)$ is expensive to evaluate, to benefit from fewer samples.
 \end{itemize}
@@ -326,40 +349,44 @@ These conditions are seldom met when working with observed data, for example.
 But they are often satisfied in theoretical applications, and particularly in \EB{} codes,
 where the (unapproximated) underlying physics is smooth and the code is free to solve for any input.
 In the next sections, we systematically consider interpolation in each of the three independent variables:
-conformal time $\tau$, wavenumbers $k$ and multipoles $\ell$.
+conformal time $\tau$, wavenumber $k$ and multipole $\ell$.
 
 \section{Interpolation in time}
 \label{sec:time}
 
-We do not \emph{not} use Chebyshev interpolation in $\tau$.
-Nevertheless, we discuss this aspect to compare it to interpolation in $k$ and $\ell$.
+We do \emph{not} use Chebyshev interpolation in $\tau$.
+Nevertheless it is instructive to discuss why, to better understand the tradeoffs compared to Chebyshev interpolation in $k$ and $\ell$.
 
-The background and perturbation equations for each $k$-mode are ODEs $u^\prime(\tau) = f(u, \tau)$ in $\tau$.
-Their solutions have inherently local features,
+The background and perturbations for each $k$ are ODEs $u^\prime(\tau) = f(u, \tau)$ in $\tau$.
+They have inherently local features,
 as the universe undergoes eras dominated by radiation, matter and dark energy,
 and shorter events such as recombination (see \cref{fig:sourceT}) and reionization.
-Adaptive ODE solvers automatically adjust their time step to capture such local features.
+The ODEs are solved by adaptive methods that automatically adjust their time step to capture the local features.
+This conflicts with the rigid Chebyshev node placement \eqref{eq:chebnodes}.
 
-Moreover, ODE solvers feature specialized dense output methods for interpolating between (adaptive) time points.
-This is usually custom-tailored to the solver in a way that maximizes accuracy and reuses calculations of $f(u, \tau)$ at intermediate steps taken by the solver.
+Moreover, ODE solvers feature specialized dense output methods for interpolating over time steps.
+They are usually custom-tailored to the solver in a way that maximizes accuracy while reusing internal calculations of $f(u, \tau)$ at intermediate steps taken by the solver.
 SymBoltz defaults to the implicit Rodas5P ODE solver, which uses a specialized fourth-order interpolant \citep{steinebachConstructionRosenbrockWanner2023a}.
 Even without specialized dense output,
 the time derivative $u^\prime(\tau) = f(u, \tau)$ can be computed analytically \enquote{for free} from the solution $u(\tau)$ through the ODE definition.
-One can then fall back cubic Hermite interpolation,
-which takes both $u(\tau)$ and $u^\prime(\tau)$ into account for accurate interpolation.
+One can then fall back to cubic Hermite interpolation,
+which takes both $u(\tau)$ and $u^\prime(\tau)$ into account for accuracy.
+We prefer the algorithm's built-in or natural interpolation method,
+and use Chebyshev interpolation only when one does not exist.
 
-The combination of local features, adaptive time stepping and dense output methods of ODE solvers makes Chebyshev interpolation less suitable for $\tau$-interpolation.
-This also impacts performance less,
-as it is cheap to save more time points when integrating an ODE.
-To take use of Chebyshev polynomials in time seriously,
-one could rather attempt to use spectral ODE methods.
-They expand $u(\tau) = \sum_k a_k T_k(\tau)$ in Chebyshev polynomials $T_k(\tau)$,
-and use the ODE equations to set up and solve a matrix equation for $a_k$.
+%The combination of local features, adaptive time stepping and dense output methods of ODE solvers makes Chebyshev interpolation less suitable for $\tau$-interpolation.
+%This also impacts performance less,
+%as it is cheap to save more time points when integrating an ODE.
+To take Chebyshev polynomials in time seriously,
+one could rather try to use spectral ODE methods.
+Instead of solving for $u(\tau)$ directly,
+they expand $u(\tau) = \sum_k a_k T_k(\tau)$ in Chebyshev polynomials $T_k(\tau)$
+and use the ODE to set up and solve a matrix equation for $a_k$.
 This is outside the scope of this paper, however.%
 %In contrast, interpolation in $k$ (for fixed $\tau$) and $\ell$ has a is more independent and global in nature,
 %and is a much better fit for Chebyshev interpolation.
 
-\section{Interpolation over wavenumbers}
+\section{Interpolation in wavenumber}
 \label{sec:wavenumbers}
 
 In $k$, however, Chebyshev interpolation is a good candidate.
@@ -367,11 +394,12 @@ The perturbation ODEs are independent for different $k$,
 contain no analytical $k$-derivatives for Hermite interpolation,
 and have a global nature in $k$ as the background affects all scales at a time $\tau$.
 
-To use Chebyshev $k$-interpolation, SymBoltz reads a wavenumber interval $[\kmin, \kmax]$ and a polynomial degree $n$.
-It then scales the Chebyshev grid \eqref{eq:chebnodes2} to $[\kmin, \kmax]$ and solves the perturbation ODEs for every $k_j$ on the grid.
-Finally, any source $S(\tau, k)$ is interpolated to any $k \in [\kmin, \kmax]$ by evaluating the barycentric formula \eqref{eq:bary} with $f_j = S(\tau, k_j)$ for some  $\tau$.
+SymBoltz creates a \texttt{ChebyshevInterpolator} type from a wavenumber interval $[\kmin, \kmax]$ and a polynomial degree $n$.
+It then maps the Chebyshev grid \eqref{eq:chebnodes2} to $[\kmin, \kmax]$ and solves the perturbation ODEs for every $k_j$ on the grid.
+Afterwards, any source $S(\tau, k)$ is interpolated to any $k$ by evaluating the barycentric formula \eqref{eq:bary} with $f_j = S(\tau, k_j)$ and weights \eqref{eq:chebweights2} at fixed $\tau$.
+A \texttt{PiecewiseChebyshevInterpolator} type is also available to perform Chebyshev interpolation on independent domains.
 
-\Cref{fig:sources} shows four test source functions \eqref{eq:sources} that we will interpolate.
+\Cref{fig:sources} shows the four test source functions \eqref{eq:sources} that we interpolate.
 We interpolate $k \, S^T(\tau, k)$ and $k^2 \, S^E(\tau, k)$,
 as they are smoother and of similar magnitude for fixed $\tau$ (see \cref{sec:tricks}).
 
@@ -401,13 +429,12 @@ as they are smoother and of similar magnitude for fixed $\tau$ (see \cref{sec:tr
 	}
 \end{figure*}
 
-\Cref{fig:rec} shows the temperature source interpolated over $k$ at recombination.
+\Cref{fig:rec} shows the temperature source interpolated in $k$ at recombination.
 It illustrates that interpolation with Chebyshev polynomials and equispaced cubic splines is stable,
-while equispaced polynomial interpolation is unstable due to Runge's phenomenon.
-As $n$ increases, the error of Chebyshev interpolation falls quickly and fully converges to numerical noise with only 80 points.
-Cubic splines interpolate with 3-4 orders of magnitude higher error with the same number of points,
-and do not fully converge even with 400 points.
-This shows the fast convergence of Chebyshev interpolation for smooth functions.
+while Runge's phenomenon destabilizes equispaced polynomial interpolation.
+As $n$ increases, the Chebyshev interpolation error falls quickly and fully converges to numerical noise with only $n=80$.
+Cubic splines have 3 orders of magnitude higher error for $n=60$ and do not fully converge even with $n=400$.
+This is the fast convergence of Chebyshev interpolation for smooth functions.
 
 \begin{figure*}
 	\centering
@@ -461,15 +488,15 @@ This shows the fast convergence of Chebyshev interpolation for smooth functions.
 	}
 \end{figure*}
 
-\Cref{fig:heaterrs} generalizes the comparison between Chebyshev and cubic spline interpolation to the four sources \eqref{eq:sources} and the full $(\tau, k)$-space.
-We also include cubic splines using the Chebyshev interpolation points
-to detect any differences related only due to sampling.
+\Cref{fig:heaterrs} generalizes the comparison between Chebyshev and cubic spline interpolation to the four sources \eqref{eq:sources} and the full $(\tau, k)$-space for $n = 100$.
+We also include cubic splines on the Chebyshev grid
+to spot differences caused solely by sampling information.
 For the temperature and polarization sources,
-Chebyshev interpolation is again several orders of magnitude more accurate around recombination at $a(\tau) \approx 10^{-3}$,
+Chebyshev interpolation is several orders of magnitude more accurate in a band around recombination at $a(\tau) \approx 10^{-3}$,
 where they are most important to capture.
 For the matter and lensing sources,
 Chebyshev interpolation is also more accurate and distributes the error uniformly over $k$.
-Cubic splines struggle particularly at the boundaries of the interpolation interval,
+Note that cubic splines struggle particularly at the boundaries of the interpolation interval,
 due to their boundary conditions not matching the underlying function.
 
 \begin{figure*}
@@ -503,10 +530,10 @@ due to their boundary conditions not matching the underlying function.
 	}
 \end{figure*}
 
-\Cref{fig:convergence} compresses the error over $(\tau, k)$ to one number with the $L_2$ norm,
+\Cref{fig:convergence} compresses the error over $(\tau, k)$ to one root-mean-square number,
 and shows its convergence with more interpolation points.
-Every error falls faster or much faster with Chebyshev interpolation,
-again demonstrating exponential convergence.
+Again the error falls faster with Chebyshev interpolation,
+but the improvement depends on the particular source.
 
 \begin{figure*}
 	\centering
@@ -534,10 +561,10 @@ again demonstrating exponential convergence.
 	}
 \end{figure*}
 
-\Cref{fig:coeffs} studies the convergence of the Chebyshev coefficients $a_m$ in the expansion $p_n(x) = \sum_m a_m T_m(x)$ described in \cref{sec:coeffs}.
-This is a useful diagnostic,
-because convergence of $a_m$ implies convergence of $p_n(x)$,
-and has no counterpart with splines.
+\Cref{fig:coeffs} studies the decay of the Chebyshev coefficients $a_m$ in the expansion $p_n(x) = \sum_m a_m T_m(x)$.
+As described in \cref{sec:coeffs}, this alternative way of doing Chebyshev approximation offers a useful diagnostic:
+convergence of $a_m$ indicates convergence of $p_n(x)$.
+It has no direct counterpart with splines.
 %is not possible with spline interpolation, because the interpolation error is bounded by the neglected coefficients: $\max_x \lvert f(x) - p_n(x) \rvert \leq \sum_{k=n+1}^\infty \lvert a_k \rvert$.
 The convergence undergoes three phases (here for $S^T$):
 
@@ -548,70 +575,73 @@ the interpolant is still resolving the features of the source function and $a_m$
 
 \item
 For $25 \lesssim n \lesssim 75$,
-the interpolant has captured the main features and the coefficients decay rapidly.
+the interpolant has captured the main features and $a_m$ decays rapidly.
 The steepest fall is a line in the log-linear plot,
-reflecting $e^{-n}$-decay of the error.
+indicating the geometric convergence \eqref{eq:geometric}.
 
 \item
 For $n \gtrsim 75$,
-the interpolant has fully converged to the floor of numerical precision set by the ODE sovler tolerance,
-and there is no reason to go to higher order.
-This matches the convergence with around 80 points in \cref{fig:reccheb}.
+the interpolant and $a_m$ fully converges to the numerical noise floor.
+Smaller ODE solver tolerances make higher precision available.
+This matches the convergence around 80 points in \cref{fig:reccheb}.
+More points are not needed.
 \end{itemize}
 
-Chebyshev interpolation in $k$ is thus highly appropriate.
-It can interpolate with orders of magnitude lower error than cubic splines with the same number of points.
-The improvement depends on the source and generally becomes more dramatic at higher precision levels,
-where Chebyshev interpolation can reach the noise floor using many fewer points than cubic splines.
+Chebyshev interpolation in $k$ is thus highly beneficial.
+At high precision levels it interpolates with orders of magnitude lower error than cubic splines from the same number of points.
+%where Chebyshev interpolation can reach the noise floor using many fewer points than cubic splines.
 
-\section{Interpolation over multipoles}
+\section{Interpolation in multipole}
 \label{sec:multipoles}
 
 Angular power spectra $C_\ell$ are also smooth functions of the multipole $\ell$.
-Instead of computing every $C_\ell$ explicitly with line-of-sight integration for every $\ell$,
+Instead of computing $C_\ell$ explicitly with line-of-sight integration for every $\ell$,
 \EB{} codes do this only for some $\ell$ and then interpolate to all desired integer $\ell$.
 This again makes Chebyshev interpolation a good candidate.
 
-Unlike source functions that vary continuously with $k$,
-interpolation in the discrete $\ell$ raises a difficulty.
-As $C_\ell$ is physically interpreted only for integer $\ell$,
+However, the discreteness of $\ell$ raises a difficulty.
+As $C_\ell$ is physically interpreted only at integer $\ell$,
 other codes interpolate from an integer $\ell$-grid (e.g. using every low $\ell$ and every $30$th high $\ell$).
 This works with cubic splines because their stability is better for arbitrary grid configurations.
 %Because the $\ell$-spacing is in steps of 1, CLASS relies on recursion relations in $\ell$ to evaluate the (hyper)spherical Bessel functions.
 But it is incompatible with standard Chebyshev interpolation,
 because the node placement \eqref{eq:chebnodes} forces the interpolation grid to both integer and non-integer $\ell$.
-We propose two different solutions to this problem.
+This was not a concern in \cref{sec:wavenumbers},
+where sources vary continuously with $k$.
+We show two different ways to solve this problem.
 
-The first way is to proceed with standard Chebyshev interpolation
-and generalize the line-of-sight integrals \eqref{eq:los} and spherical Bessel functions $j_\ell(x)$ to arbitrary (integer and non-integer) $\ell$.
-This is unproblematic from a physical point of view,
-as $j_\ell(x)$ for $\ell > 0$ are (one of the linearly independent) solutions to the ODE%
+The first way is to proceed with standard Chebyshev interpolation,
+but generalize the line-of-sight integrals \eqref{eq:los} and spherical Bessel functions $j_\ell(x)$ to arbitrary (integer and non-integer) $\ell$.
+This is unproblematic from a physical point of view, as $j_\ell(x)$ is the solution that is regular at $x = 0$ of the ODE
 \begin{equation}
-	x^2 \frac{\mathrm{d}^2 j_\ell}{\mathrm{d} x^2} + 2x \frac{\mathrm{d} j_\ell}{\mathrm{d} x} + \left( x^2 - \ell(\ell+1) \right) j_\ell = 0,
-	\quad
-	j_\ell(0) = 0.
+	x^2 \frac{\mathrm{d}^2 j_\ell}{\mathrm{d} x^2} + 2x \frac{\mathrm{d} j_\ell}{\mathrm{d} x} + \left( x^2 - \ell(\ell+1) \right) j_\ell = 0.
+	%\quad\!\!
+	%j_\ell(0) = j_\ell^\prime(0) = 0.
 \label{eq:besselode}
 \end{equation}
 This is well-defined and smooth in both $\ell$ and $x$, so interpolation from non-integer to integer $\ell$ converges.
-The important part is not the precise value of $j_\ell(x)$ for non-integer $\ell$;
+The important part for interpolation is not the precise value of $j_\ell(x)$ for non-integer $\ell$;
 only that there is a continuation of $j_\ell(x)$ between integer $\ell$ that is as smooth as possible.
-Other codes that interpolate between integer-only $\ell$ with cubic splines also rely on the same property.%
+Even cubic spline interpolation between integer-only $\ell$ relies on this property.%
 \footnote{Extending $j_\ell(x)$ to continuous $\ell$ is analogous to analytically continuing the factorial $n!$ to the gamma function $\Gamma(n+1)$, for example.}
 %Thus, the discreteness concern is only a conceptual subtlety,
 %and practically it only means that $j_\ell(x)$ must be evaluated with $\ell$ treated as a continuous variable.%
+SymBoltz uses the library Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}} to evaluate $j_\ell(x)$ at arbitrary $\ell$
+when interpolating over $\ell \in [\ellmin, \ellmax]$ using a normal \texttt{ChebyshevInterpolator}.
 
-The second solution is to interpolate from Chebyshev points \eqref{eq:chebnodes} that are rounded to their closest integers
-and evaluate $j_\ell(x)$ only at integer $\ell$.
-Polynomial interpolation works well not only with the exact Chebyshev nodes,
-but performs comparably from any set of points with a similar density profile.
-The discreteness is also mitigated by the fine-grained $\ell$-grid over 1000s of commonly requested multipoles.
-Note that the Chebyshev weights \eqref{eq:chebweights} no longer apply after shifting the points,
-so we instead compute the weights from $w_j = 1/\omega^\prime(x_j)$ \TODO{formula}.
-We also throw an error if the requested order is so high that multiple Chebyshev nodes round to the same integer.
+The second solution is to evaluate $j_\ell(x)$ only at integer $\ell$,
+but interpolate from Chebyshev points that are rounded to their closest integers.
+Polynomial interpolation is reliable not only using the exact Chebyshev nodes \eqref{eq:chebnodes},
+but from any points with a similar density profile.
+Discreteness is also mitigated as the $\ell$-grid is quite fine-grained over 1000s of multipoles.
+Note that the non-standard points break the Chebyshev weights \eqref{eq:chebweights} and coefficients \eqref{eq:coeffsdiscrete},
+but barycentric interpolation is still straightforward using the general weights \eqref{eq:weights}.
+SymBoltz creates an integer-rounded Chebyshev grid with a \texttt{ChebyshevIntegerInterpolator}.
+It errors if the requested order is so high that multiple nodes round to the same integer.
 
-SymBoltz (version 1.7) enables both of these strategies.
-Line-of-sight integration is performed at non-integer $\ell$ by evaluating $j_\ell(x)$ at arbitrary $\ell$ with the library Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}}.
-Integer-rounded Chebyshev interpolation is offered by the \texttt{ChebyshevIntegerInterpolator} type.
+%SymBoltz (version 1.7) enables both of these strategies.
+%Line-of-sight integration is performed at non-integer $\ell$ by evaluating $j_\ell(x)$ at arbitrary $\ell$ with the library Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}}.
+%Integer-rounded Chebyshev interpolation is offered by the \texttt{ChebyshevIntegerInterpolator} type.
 %This enables Chebyshev interpolation, and also cubic spline interpolation without the integer-$\ell$ limitation.
 
 \begin{figure*}
@@ -635,9 +665,9 @@ Integer-rounded Chebyshev interpolation is offered by the \texttt{ChebyshevInteg
 	\end{subfigure}
 	\caption{%
 		\label{fig:cmb}
-		Angular temperature, polarization and lensing self-correlation spectra interpolated with cubic splines versus Chebyshev polynomials.
+		CMB temperature, polarization and lensing power spectra computed with cubic spline versus Chebyshev interpolation.
 		The interpolation is compared to the result from explicit line-of-sight integration for every $\ell$.
-		Interpolation happens in $(\ell, \ell^5 C_\ell)$-space, where we found all interpolation methods to behave well for all three spectra.
+		Interpolation happens in $(\ell, \ell^5 C_\ell)$-space, where we found all interpolation methods to behave best for all three spectra.
 		The cubic spline uses a grid with 8, 9 and 55 points on $\ell \in [2, 10]$, $[10, 100]$ and $[100, 3000]$, respectively, with shared points at $\ell = 10$ and $\ell = 100$.
 		Standard Chebyshev interpolation uses a single degree-69 polynomial through the Chebyshev nodes \eqref{eq:chebnodes2}, rescaled to $\ell \in [2, 3000]$.
 		Piecewise Chebyshev interpolation joins a degree-5 polynomial on $\ell \in [2, 10]$ with a degree-64 polynomial on $\ell \in [10, 3000]$, with a shared point at $\ell = 10$.
@@ -649,12 +679,13 @@ Integer-rounded Chebyshev interpolation is offered by the \texttt{ChebyshevInteg
 To fix the computational cost, we restrain all methods to exactly 70 $\ell$-points.
 For each method, we also require that the same $\ell$-grid interpolates all three spectra $C_\ell^\mathrm{TT}$, $C_\ell^\mathrm{EE}$ and $C_\ell^{\psi\psi}$, so the precomputed $j_\ell(x)$ is common.
 
-We see that Chebyshev interpolation converges to 3-4 orders of magnitude smaller relative error for $l \gtrsim 100$ than cubic splines for $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$.
-For $C_\ell^\mathrm{\psi\psi}$, the cubic spline performs better than a single Chebyshev polynomial.
-However, this is because the Limber approximation switches on for $\ell \geq 10$ and makes a kink in $C_\ell$ that disrupts the global polynomial interpolant.
-Cubic splines resist this because their behavior is local, so the high-$\ell$ region is not disrupted.
-To fix this, we make a piecewise Chebyshev interpolant with one polynomial for $\ell \in [2, 10]$ (Limber approximation off) and another independent polynomial for $\ell \in [10, 3000]$ (Limber approximation on).
-This restores the performance of Chebyshev interpolation to the level of the cubic spline.
+For $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$, Chebyshev interpolation converges to 3-4 orders of magnitude smaller error for $\ell \gtrsim 100$ than cubic splines.
+For $C_\ell^\mathrm{\psi\psi}$, the cubic spline does better than a single Chebyshev polynomial.
+This is because the Limber approximation switches on for $\ell \geq 10$ and makes a kink in $C_\ell$,
+which disrupts the global polynomial and degrades it to algebraic $n^{-1}$-convergence \eqref{eq:algebraic}.
+Cubic splines resist this because their behavior is local, so high $\ell$ is unaffected by the kink and they win with $n^{-4}$-convergence.
+To fix this, we make a piecewise Chebyshev interpolant with two independent polynomials for $\ell \in [2, 10]$ and $\ell \in [10, 3000]$ (Limber approximation off and on).
+This restores the performance of Chebyshev interpolation to the level of cubic splines.
 %which is already excellent for $C_\ell^{\mathrm{\psi\psi}}$ because it is much smoother than $C_\ell^{\mathrm{TT}}$ and $C_\ell^{\mathrm{EE}}$.
 
 Chebyshev interpolation is also simpler.
@@ -665,29 +696,25 @@ After progressively refining the $\ell$-grid with trial and error,
 we ended up with a high-medium-low density $\ell$-grid over the subintervals of $\ell \in [2, 10, 100, 3000]$.
 In contrast, Chebyshev interpolation performed better with a straightforward $\ell$-grid.
 
-Finally, it is clear that integer-rounded Chebyshev interpolation performs comparably to standard Chebyshev interpolation.
-
-In this section, we always used the Chebyshev interpolation in $k$ from \cref{sec:wavenumbers} in order to isolate the effect to $\ell$-interpolation.
-This means the cubic spline $\ell$-interpolation also benefits from Chebyshev $k$-interpolation.
-In \cref{sec:kl}, we show the effect of using each interpolation method in both $k$ and $\ell$.
+The figure also shows that integer-rounded and standard Chebyshev interpolation perform equally for $\ell$-interpolation.
 
 Note that we have concentrated on a flat universe here,
 as curved universes are not yet supported by SymBoltz.
 In curved universes the spherical Bessel functions generalize to hyperspherical Bessel functions \citep[e.g.][]{lesgourguesFastAccurateCMB2014a}.
 This modifies the ODE \eqref{eq:besselode} with an extra curvature-dependent term.
 They are harder to compute, for example with recurrence relations between integer $\ell$ \citep{tramComputationHypersphericalBessel2017a}.
-Particularly in closed universes, more restrictions is also placed on allowed integer values.
+Particularly in closed universes, more restrictions are also placed on allowed integer values.
 We anticipate that the integer-rounded Chebyshev interpolation strategy is easiest to generalize to curved geometries.
 
 We conclude that Chebyshev polynomials are excellent also for $\ell$-interpolation.
-They reach up to several orders of magnitude lower error in typical CMB temperature compared to cubic splines with the same number of points.
+They reach up to several orders of magnitude lower error in typical CMB temperature spectra compared to cubic splines with the same number of points.
 It is also used in the emulator Capse.jl \citep{boniciCapsejlEfficientAutodifferentiable2024a} for $C_\ell(\theta)$ of cosmological parameters $\theta$.
 However, there the main purpose is to train it on a smaller number of independent coefficients $a_n(\theta)$ in the Chebyshev expansion of $C_\ell(\theta) = \sum_n a_n(\theta) T_n(\ell)$,
 instead of every $C_\ell(\theta)$.
 %As a bonus, the coefficients $a_n(\theta)$ also accelerate the likelihood computation compared to $C_\ell(\theta)$ because it allows a significant part of the likelihood computation to be precomputed once.
-This approach is closely related to ours, as one can convert between $a_n$ and $C_\ell$ at the Chebyshev $\ell$-nodes by Fast Fourier Transforms (FFTs).
+This approach is related to ours, as FFTs can convert between $a_n$ and $C_\ell$ at the Chebyshev $\ell$-nodes (see \cref{sec:coeffs}).
 
-\section{Interpolation over wavenumbers and multipoles}
+\section{Interpolation in wavenumber and multipole}
 \label{sec:kl}
 
 \begin{figure*}
@@ -698,68 +725,65 @@ This approach is closely related to ours, as one can convert between $a_n$ and $
 		Root-mean-square relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
 		for $50 \leq \ell \leq 2500$,
 		computed with Chebyshev interpolation and cubic spline in both $k$ and $\ell$ using different numbers of points.
-		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebsyhev interpolation from 1025 $k$-points and 513 $\ell$-points.
+		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebyshev interpolation from 1025 $k$-points and 513 $\ell$-points.
 		The middle plot uses integer-rounded Chebyshev interpolation in $\ell$ and caps at 110 points, since more Chebyshev points would round to the same $\ell$.
 	}
 \end{figure*}
 
-Finally, we consider the combined effect of interpolating in both $k$ and $\ell$ with Chebyshev polynomials for angular spectra $C_\ell$.
+In \cref{sec:multipoles} on $\ell$-interpolation, we always used the Chebyshev $k$-interpolation from \cref{sec:wavenumbers} in order to isolate the effect to $\ell$.
 
-\Cref{fig:kl} shows that Chebyshev interpolation delivers 1-2 orders of magnitude lower relative error in $C_\ell$.
-Here we compute and interpolate the CMB temperature power spectrum $C_\ell^\text{TT}$ for $2 \leq l \leq 2500$.
-We then compute the relative error only for $\ell \geq 50$,
-where it is exceptionally smooth and converges to the lowest error(see \cref{fig:cmbTT}).
-To visualize the error as a function of the number of $k$-points and $\ell$-points,
-we compute the root-mean-square of the relative error over $\ell$.
-Chebyshev interpolation fully converges to the $10^{-4}$-$10{-5}$ level using only 40-80 interpolation points in both $k$ and $\ell$,
-while cubic splines approach the $10^{-4}$-level only closer to 200 points per dimension.
-This speeds up the solution of the perturbations by $4\times$,
-and also speeds up line-of-sight integration by $4\times$.
-Solving the perturbations is the main bottleneck,
-so this translates to slightly more than a $4\times$ total speedup.
+\Cref{fig:kl} instead shows the combined effect:
+the CMB temperature spectrum $C_\ell^\text{TT}$ interpolated with cubic splines in both $k$ and $\ell$,
+versus Chebyshev interpolation in both $k$ and $\ell$.
+Here we compute and interpolate $C_\ell$ for $2 \leq \ell \leq 2500$,
+but compute the relative error only for the smoothest $\ell \geq 50$ to skip the cosmic variance-dominated regime in \cref{fig:cmbTT}.
+We plot the root-mean-square of the relative error as a function of the number of $k$-points and $\ell$-points.
+Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$ level using only 40-80 points in both $k$ and $\ell$,
+while cubic splines approach the $10^{-4}$-level only closer to 200 points.
 
-\section{Conclusion and prospects}
+This speeds up the solution of the perturbations and hence the full computation by $4\times$ for this fixed high precision level.
+Line-of-sight integration is also sped up by $4\times$, but is not the main bottleneck of the computation.
+
+\section{Conclusion}
 \label{sec:conclusion}
 
-We have shown that Chebyshev polynomials improves the performance and precision of interpolation in $k$ and $\ell$ in \EB{} codes.
-Compared to traditional cubic spline interpolation,
-Chebyshev polynomials interpolate with significantly lower error from the same number of points.
-Our implementation in SymBoltz solves the perturbations and line-of-sight integrals on Chebyshev grids in $k$ and $\ell$ (including non-integer $\ell$),
-and interpolates the results with the barycentric formula.
+We implemented interpolation with Chebyshev polynomials with the barycentric formula in SymBoltz,
+by solving the perturbations and line-of-sight integrals at Chebyshev nodes in $k$ and $\ell$.
+We showed that they interpolate with significantly lower error than traditional cubic splines using the same number of points.
 
-The numerical properties of Chebyshev interpolation pairs strongly with the physical properties of approximation-free \EB{} codes.
-They deliver smooth solutions that enable up to exponential convergence of Chebyshev interpolation.
-Approximation-based codes instead switch equations in $\tau$, $k$ and $\ell$,
-which is faster to solve per point but complicates the physics and numerics and makes Chebyshev interpolation infeasible.
-This strengthens the position of approximation-free codes
-and give them a unique way to gain performance and precision.
+The rapid convergence of Chebyshev interpolation for smooth functions forms a synergy with approximation-free \EB{} codes.
+In contrast, approximation-based codes switch equations in $\tau$, $k$ and $\ell$ and solve each point faster,
+which breaks smoothness and complicates the physics and numerics.
+In other words, Chebyshev interpolation provides approximation-free codes a unique way to win back performance and precision.
 
 %Approximation-based codes: speed up with approximations, less smooth and need more points at a great cost in modeling complexity.
 %Approximation-free codes: more smooth and need more points, speed up by integrating fewer $k$-modes at no cost in modeling complexity.
 
-We also showed that $\ell$-interpolation can optionally be done by rounding Chebyshev nodes to their nearest integer.
-This performs identically without having to generalize the spherical Bessel functions to non-integer $\ell$.
-This near-Chebyshev strategy is straightforward to use even in curved universes,
-which need hyperspherical Bessel functions that are harder to compute with polynomial and recurrence relations between integers.
+Standard Chebyshev interpolation in $\ell$ requires line-of-sight integrals and spherical Bessel functions to be generalized to non-integer $\ell$,
+but we showed how this can be avoided by rounding Chebyshev nodes to their nearest integer.
+This performs comparably and would be easier to use in curved universes,
+where hyperspherical Bessel functions are typically computed with integer-based polynomial and recurrence relations.
 
-If implemented carefully, it is possible that approximation-based codes also benefit from Chebyshev interpolation.
-For example, we saw that the Limber approximation for $\ell \geq \ell_\text{Limber}$ slowed convergence of Chebyshev $\ell$-interpolation,
+If implemented carefully, we speculate that approximation-based codes may also benefit from Chebyshev interpolation.
+Due to its global nature,
+imperfections in one point can slow interpolation convergence over the whole domain.
+For example, we saw that the Limber approximation slowed convergence of Chebyshev $\ell$-interpolation,
 but restored it by interpolating piecewise for $\ell < \ell_\text{Limber}$ and $\ell \geq \ell_\text{Limber}$.
-The same strategy could be used in $k$-space in approximation-based codes,
-but could be problematic when the switching criterion varies with both $\tau$ and $k$.
-This could slow the convergence of Chebyshev interpolation because it responds globally to changes in one point.
-The error of cubic splines decays locally and faster in their vicinity and could be the better method in such cases,
-but they will not attain the same convergence rate and simplicity as Chebyshev interpolation in approximation-free codes.
+The same strategy could be used for approximations in $k$-space,
+but is not straightforward when the switching criterion varies with both $\tau$ and $k$.
+Cubic splines are safer with approximations because their error decays locally and faster around non-smooth features,
+but converge more slowly.
 
-Interpolation is only one of many computational methods in \EB{} codes.
-Here our scope has been to study the convergence when varying the number of interpolation points
+Finally, it must be said that interpolation is only one of many computational methods in \EB{} codes.
+Our scope here was to study convergence only of interpolation,
 while keeping other precision parameters fixed.
-However, it is possible that lower precision of methods such as line-of-sight quadrature and use of the Limber approximation could overshadow the high precision of Chebyshev interpolation.
-This means that research into other high-precision methods,
-such as better line-of-sight integration and beyond-Limber methods \cite[e.g.]{schonebergTraditionalLineofSightApproach2018,fangLimberEfficientComputation2019,chiarenzaBLASTLimberAngular2024a},
-is needed to make the final result accurate to high precision and make full use of Chebyshev interpolation.
-We believe Chebyshev interpolation is one of the ingredients for designing \EB{} codes
-with numerical algorithms that leverage the physical properties of the equations as much as possible.
+Of course, lower precision of line-of-sight quadrature, the Limber approximation and other methods may overshadow the high precision of Chebyshev interpolation.
+Convergence with respect to all precision parameters calls for research into more high-precision methods,
+such as better line-of-sight integration and beyond-Limber methods \citep[e.g.][]{schonebergTraditionalLineofSightApproach2018,fangLimberEfficientComputation2019,chiarenzaBLASTLimberAngular2024a}.
+
+We believe Chebyshev interpolation is a step forward for simpler \EB{} codes
+with numerical algorithms that make better use of the physical properties of the equations,
+instead of resorting to complicated approximation schemes.
 
 \iffalse
 \begin{acknowledgements}
@@ -921,7 +945,7 @@ the neglected coefficients indicate the maximum interpolation error
 so convergence of $a_k$ implies convergence of the whole $p_n(x)$.
 
 Chebyshev projection and Chebyshev interpolation are generally different methods with $\hat{p}_n(x) \neq p_n(x)$.
-Their coefficients $c_k \neq a_k$ is related by aliasing formulas,
+Their coefficients $c_k \neq a_k$ are related by aliasing formulas,
 and they usually perform within a factor of 2 of each other \citep{trefethenApproximationTheoryApproximation2019}.
 However, the latter is much more practical for interpolation from a finite set of points.
 It is also possible to interpolate with the roots \eqref{eq:chebnodes1_app} instead of the extrema \eqref{eq:chebnodes2_app} \TODO{ref}.
@@ -931,7 +955,7 @@ It is also possible to interpolate with the roots \eqref{eq:chebnodes1_app} inst
 
 To set up a Chebyshev interpolation object,
 the user specifies the endpoints of the interpolation domain $x \in [a, b]$ and the polynomial degree $n$.
-A grid $x_j$ of Chebyshev nodes \eqref{eq:chebnodes} is then created on $[-1, -1]$, and shifted and scaled to $[a, b]$.
+A grid $x_j$ of Chebyshev nodes \eqref{eq:chebnodes} is then created on $[-1, 1]$, and shifted and scaled to $[a, b]$.
 To interpolate a function $f(x)$ at one or more point(s) $x \in [a, b]$,
 we first evaluate $f_j = f(x_j)$ on all the grid points and then evaluate the barycentric formula \eqref{eq:bary}.
 
@@ -953,7 +977,7 @@ One can then apply a $\log$-transformation or multiply $f(x)$ by some power law 
 Our implementation permits this, and it can be combined with the domain transformation.
 \TODO{make callable interpolation object take in f and inverse kwargs?}
 
-A final trick that we accomodate is piecewise Chebyshev interpolation.
+A final trick that we accommodate is piecewise Chebyshev interpolation.
 This splits the interpolation domain $[a, b]$ into piecewise several domains $[a_i, b_i]$,
 where we apply independent Chebyshev interpolations on each subdomain.
 This is a useful alternative to the other strategies,
