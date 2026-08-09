@@ -1,4 +1,3 @@
-using Integrals
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using MatterPower
@@ -15,7 +14,7 @@ struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
+function SphericalBesselCache(ls; dx = 2π/15, xmax = 20*maximum(ls)+dx, hermite = true) # add one dx to xmax to prevent floating-point bounds checking issues
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
@@ -92,7 +91,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache[, quad::Quadrature]; l_limber = typemax(Int), thread = true, verbose = false) where {T}
 
 For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
@@ -106,7 +105,7 @@ Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, quad::Quadrature; l_limber = typemax(Int), thread = true, verbose = false) where {T}
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert collect(ls) == collect(jl.l) "ls must match the l-values stored in the Bessel cache"
@@ -122,18 +121,13 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     χs = τ0 .- τs
     nτ = length(τs)
 
-    ws = similar(τs) # precompute trapezoidal rule weights
-    ws[1] = 0.5 * (τs[2] - τs[1])
-    @inbounds for iτ in 2:nτ-1
-        ws[iτ] = 0.5 * (τs[iτ+1] - τs[iτ-1])
-    end
-    ws[nτ] = 0.5 * (τs[nτ] - τs[nτ-1])
-
     nl = length(ls)
     Is = similar(Ss, length(ks), nl)
     il_limber = searchsortedfirst(ls, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
+
+    ws = quad.w .* (quad.b-quad.a)/2
 
     # Loop order k → τ → l to get SIMD on the innermost l-loop
     @fastmath @inbounds @tasks for ik in eachindex(ks)
@@ -187,7 +181,7 @@ end
 
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
-    spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, thread = true)
+    spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector[, quad::Quadrature]; normalization = :Cl, thread = true)
 
 Compute the angular power spectrum
 ```math
@@ -196,22 +190,20 @@ Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,�
 for the given `ls`.
 If `normalization == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
 """
-function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; integrator = TrapezoidalRule(), normalization = :Cl, thread = true)
+function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector, quad::Quadrature; normalization = :Cl, thread = true)
     size(ΘlAs) == size(ΘlBs) || error("ΘlAs and ΘlBs have different sizes")
     eltype(ΘlAs) == eltype(ΘlBs) || error("ΘlAs and ΘlBs have different types")
 
     Cls = similar(ΘlAs, length(ls))
-    ks_with0 = [0.0; ks] # add dummy value with k=0 for integration
 
     @tasks for il in eachindex(ls)
         # TODO: skip kτ0 ≲ l?
         @set scheduler = thread ? :dynamic : :static
-        @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace (must zero first element)
+        @local dCl_dks = zeros(eltype(ΘlAs), length(ks)) # local task workspace (must zero first element)
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
-        @. dCl_dks_with0[2:end] = 2/π * ks^2 * P0s * ΘlA * ΘlB
-        spline = CubicSpline(dCl_dks_with0, ks_with0)
-        Cls[il] = DataInterpolations.integral(spline, ks_with0[begin], ks_with0[end]) # integrate over k (_with0 adds one additional point at (0,0))
+        dCl_dks .= 2/π .* ks .^ 2 .* P0s .* ΘlA .* ΘlB
+        Cls[il] = quad(dCl_dks) # integrate over k (_with0 adds one additional point at (0,0))
     end
 
     return normalize_spectrum_cmb(normalization, ls, Cls)
@@ -221,7 +213,7 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=300)), kquad = ClenshawCurtisQuadrature(8192), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -252,7 +244,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, integrator = TrapezoidalRule(), bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=300)), kquad = ClenshawCurtisQuadrature(8192), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -269,20 +261,11 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     ls = collect(jl.l)
     sol = solve(prob; bgopts, verbose)
-    τ0 = getsym(sol, prob.M.τ0)(sol)
-    ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
-
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
-    τs = τs[τs .≥ τcut]
-    if xs isa AbstractArray
-        # explicit fractional grid x = (τ-τi)/(τ0-τi) ∈ [0,1]
-        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
-        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
-    elseif xs isa Int
-        # interpolate xs points from background time grid, preserving its density structure
-        τs = LinearInterpolation(τs, 1.0:length(τs)).(range(1.0, length(τs), length = xs))
-    end
+    τquad = transform(τquad, (τs[begin], τs[end])) # map from [-1, 1] to [τi, τ0]
+    τs = nodes(τquad)
+    kquad = transform(kquad, extrema(kinterp))
+    ks_fine = nodes(kquad) # for k-quadrature after LOS integration
 
     # Integrate perturbations to calculate source function on coarse k-grid
     Ss = [S for (S, i) in [(prob.M.k*prob.M.ST, iT), (prob.M.k^2*prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
@@ -291,7 +274,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
 
     # Integrate all sources simultaneously without Limber approximation
-    Θls = los_integrate(Ss, ls, τs, ks_fine, jl; integrator, verbose, thread, kwargs...)
+    Θls = los_integrate(Ss, ls, τs, ks_fine, jl, τquad; verbose, thread, kwargs...)
     Θls = stack(Θls) # to 3D array
     if iT > 0
         Θls[iT, :, :] ./= ks_fine
@@ -300,7 +283,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) ./ (ks_fine .^ 2)
     end
     if iψ > 0 && l_limber ≤ ls[end]
-        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl; l_limber, integrator, verbose, thread, kwargs...) # overwrite with Limber result
+        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl, τquad; l_limber, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
@@ -327,7 +310,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         iB = geti(Symbol(mode[lastindex(mode)]))
         ΘlAs = @view(Θls[iA, :, :])
         ΘlBs = @view(Θls[iB, :, :])
-        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; integrator, normalization, thread)
+        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine, kquad; normalization, thread)
         spectrum *= factor^2 # possibly make dimensionful
         spectra[:, i] .= spectrum
     end
