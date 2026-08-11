@@ -70,33 +70,36 @@ They solve large and stiff ordinary differential equations (ODEs) and many line-
 This yields source functions $S(\tau)$ and $S(\tau, k)$ and transfer functions $\Delta_\ell(k)$
 of conformal time $\tau$, perturbation wavenumber $k$ and angular multipole $\ell$.
 
-Interpolation is one of the most effective optimizations that accelerate these codes.
-Instead of solving ODEs and integrals for every $k$ and $\ell$,
-they do this only on coarse grids of $k$ and $\ell$ and then interpolate to more values.
-This works because the output functions are smooth, but it introduces interpolation errors.
-The codes are tuned to balance performance and precision with default options,
-but they slow down significantly with finer precision parameters that use more interpolation points.
+Interpolation is one of the most effective optimizations in these codes.
+Instead of evolving every $k$ and $\ell$ explicitly,
+they do this only on coarse grids and then interpolate to more values.
+This works because the output is smooth and saves time, but introduces interpolation errors.
+Codes are tuned to balance performance and precision with default settings,
+but they slow down significantly with finer precision parameters that sample more points.
+Interpolation in cosmological parameters with polynomials or neural network \enquote{emulators} has received much attention in the literature
+\citep[e.g.][]{fendtPicoParametersImpatient2007,albersCosmicNetPhysicsdrivenImplementation2019a,manciniCOSMOPOWEREmulatingCosmological2021,boniciCapsejlEfficientAutodifferentiable2024a},
+but little has been given to interpolation in the independent variables $\tau$, $k$ and $\ell$.
 
 Since the pioneering COSMICS code \citep{maCosmologicalPerturbationTheory1995},
 interpolation has been done with cubic splines.
 While solid for general-purpose interpolation,
-they are outperformed by spectral methods such as interpolation with Chebyshev polynomials \citep{trefethenApproximationTheoryApproximation2019}.
+they are outperformed by interpolation with Chebyshev polynomials \citep{trefethenApproximationTheoryApproximation2019}.
 Cubic splines interpolate a function through $N$ points with $n=N-1$ piecewise cubic polynomials and an error that falls algebraically as $n^{-4}$.
-In contrast, Chebyshev interpolation fits a single degree-$n$ polynomial through all points with an error that can decay exponentially as $\rho^{-n}$ for some $\rho$.
-This converges faster and interpolates to higher precision with fewer samples.
-It is also simple to implement with the barycentric interpolation formula \citep{berrutBarycentricLagrangeInterpolation2004},
+In contrast, Chebyshev interpolation fits a single degree-$n$ polynomial through all points with an error that may drop exponentially as $\rho^{-n}$ for some $\rho$.
+This interpolates with higher precision using fewer samples.
+It is also simple to implement with the barycentric formula \citep{berrutBarycentricLagrangeInterpolation2004},
 and unlike equispaced polynomial interpolation it is stable \citep{trefethenSixMythsPolynomial}.
 %For example, Chebyshev approximation has popularized and shown to be very powerful by the Chebfun package in MATLAB \citep{battlesExtensionMATLABContinuous2004}.
 However, the remarkably fast convergence depends on the function being smooth,
 % (infinitely differentiable with bounded derivatives),
-as is often the case in physics.
+as is often true in physics.
 
 Traditional \EB{} codes such as CAMB and CLASS use approximation schemes to switch between different equations at different $\tau$, $k$ and $\ell$ \citep[notably Figure 10]{blasCosmicLinearAnisotropy2011b}.
-This speeds up the solution, but significantly complicates both the physical and numerical implementation.
+This is faster, but complicates both the physics and numerics.
 Moreover, it breaks smoothness by introducing discontinuities or kinks at the switches.
 Cubic splines are good for interpolating such functions because they join piecewise polynomials,
-so a change somewhere in the interpolant affects it only locally.
-Chebyshev interpolation instead uses global polynomials, and a fault in one point can slow interpolation convergence over the entire domain.
+so changing one point affects the interpolant only locally.
+Chebyshev interpolation instead uses global polynomials, and a fault in one point can slow convergence over the entire domain.
 
 Recently, approximation-free \EB{} codes such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
 They integrate the same equations at all times to obtain fully smooth solutions, but spend more effort per point.
@@ -110,14 +113,14 @@ The equations in \EB{} codes are solved in stages for $\tau$, $k$ and $\ell$,
 each interpolating solutions of earlier stages.
 Background functions $S(\tau)$ are interpolated in $\tau$;
 perturbation sources $S(\tau, k)$ in $\tau$ and $k$;
-and angular spectra $C_\ell$ in $\ell$ \TODO{a ref?}.
+and angular spectra $C_\ell$ in $\ell$ \citep[e.g.][]{callinHowCalculateCMB2006c}.
 
 First, background and thermodynamics equations are solved for variables $S(\tau)$ that depend only on $\tau$.
 For example, the Friedmann, continuity and Peebles equations are solved for the Hubble function $\scrH(\tau)$, free electron fraction $X_e(\tau)$, optical depth $\kappa(\tau)$, visibility function $v(\tau)$ and lookback time $\chi(\tau) = \tau_0 - \tau$.
 
 Second, perturbation equations are solved for sources $S(\tau, k)$ by integrating large and stiff ODEs in $\tau$ for each independent $k$.
 This interpolates the background solution in $\tau$.
-For example, this provides sources for CMB temperature ($T$), polarization ($E$), lensing ($\psi$) and matter overdensity ($m$):
+For example, this provides sources for CMB temperature ($T$), polarization ($E$), lensing ($\psi$) and matter overdensity ($m$; see \cref{fig:sources}):
 \begin{subequations}
 	\begin{align}
 		S^T    & = v \, \Bigg(\frac{\delta_\gamma}{4} + \Psi + \frac{\Pi_\gamma}{16}\Bigg) + e^{-\kappa} \, (\Psi + \Phi)^\prime + (v u_b)^\prime + \frac{3\big(v \Pi_\gamma\big)^{\prime\prime}}{16 k^2}, \\
@@ -127,10 +130,11 @@ For example, this provides sources for CMB temperature ($T$), polarization ($E$)
 	\end{align}
 	\label{eq:sources}%
 \end{subequations}
-\Cref{fig:sources} shows these functions.
-This is usually the bottleneck.
+%\Cref{fig:sources} shows these functions.
+%This is usually the bottleneck.
 
-Third, line-of-sight integrals for transfer function multipoles%
+Third, line-of-sight integrals
+\citep{seljakLineofSightIntegrationApproach1996}%
 \begin{equation}
     \Delta^A_\ell(k) = \int_{\tau_i}^{\tau_0} \diff{\tau} \, S^A(\tau, k) j_\ell(k \chi)
     \label{eq:los}
@@ -145,9 +149,10 @@ In turn, this is used to compute angular spectra%
 
 Most $S(\tau, k)$ are smooth in $k$, but $j_\ell(k\chi)$ makes $\Delta_\ell(k)$ oscillate rapidly in $k$,
 so the integrand of $C_\ell$ must be sampled at many $k$.
-A standard strategy is therefore to solve the expensive perturbations explicitly for only $10^2$-$10^3$ $k$-values,
-and then interpolate $S(\tau, k)$ to $10^3$-$10^4$ $k$-values before line-of-sight integration.
-This is $10\times$-$100\times$ faster than solving the perturbations explicitly for all $k$, as this typically dominates the runtime.
+A standard trick is to solve the perturbations explicitly for only $10^2$-$10^3$ $k$-modes
+and then interpolate $S(\tau, k)$ to $10^3$-$10^4$ values before line-of-sight integration.
+This is $10\times$-$100\times$ faster than evolving the perturbations for all $k$,
+as this bottlenecks the computation.
 
 Most $C_\ell$ are also smooth in $\ell$,
 so another standard trick is to line-of-sight integrate for some $\ell$,
@@ -378,11 +383,12 @@ and use Chebyshev interpolation only when one does not exist.
 %This also impacts performance less,
 %as it is cheap to save more time points when integrating an ODE.
 To take Chebyshev polynomials in time seriously,
-one could rather try to use spectral ODE methods.
-Instead of solving for $u(\tau)$ directly,
+one could try spectral ODE methods.
+Instead of integrating $u(\tau)$ directly,
 they expand $u(\tau) = \sum_k a_k T_k(\tau)$ in Chebyshev polynomials $T_k(\tau)$
-and use the ODE to set up and solve a matrix equation for $a_k$.
-This is outside the scope of this paper, however.%
+and use the ODE to derive equations for $a_k$
+\citep[e.g.][]{ranaSpectralChebyshevApproximation2025,choustikovOptimizingEvolutionPerturbations2023}.
+This is outside the scope of this paper.
 %In contrast, interpolation in $k$ (for fixed $\tau$) and $\ell$ has a is more independent and global in nature,
 %and is a much better fit for Chebyshev interpolation.
 
