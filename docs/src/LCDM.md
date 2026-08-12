@@ -46,6 +46,7 @@ D = Differential(τ) # derivative operator
 pars = @parameters begin
     k, τ0, # wavenumber and conformal time today
     h, H0SI, # Hubble parameter in SI units (most equations have units where H0=1 and do not need these)
+    Ωk0, K, # curvature K = -Ωk0 (K>0 closed, K=0 flat, K<0 open)
     Ωc0, # cold dark matter
     Ωb0, YHe, fHe, κ0, # baryons and recombination
     Tγ0, Ωγ0, # photons
@@ -87,7 +88,7 @@ eqs = [
     χ ~ τ0 - τ
 
     # gravity equations
-    D(a) ~ √(8π/3 * ρ) * a^2 # 1st Friedmann equation
+    D(a) ~ √(8π/3 * ρ * a^2 - K) * a # 1st Friedmann equation
     D(Φ) ~ -4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Ψ
     k^2 * (Φ - Ψ) ~ 12π * a^2 * Π
     ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
@@ -312,7 +313,8 @@ initial_conditions = [
     Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
-    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0
+    K => -Ωk0
+    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0 - Ωk0
     Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*H0SI^2)
     mh => mh_eV * eV/c^2
     yh0 => mh*c^2 / (kB*Th0)
@@ -332,6 +334,7 @@ Now set remaining parameter values and compile the numerical problem:
 ```@example LCDM
 p = Dict(
     M.h => 0.7,
+    M.Ωk0 => 0.0,
     M.Ωc0 => 0.3,
     M.Ωb0 => 0.05,
     M.YHe => 0.25,
