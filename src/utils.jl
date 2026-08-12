@@ -97,6 +97,53 @@ function filter_system(f::Function, sys::System)
     return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
 
+# Generalized trigonometric functions for a universe with curvature `K`:
+#   sinK(K, χ)  = sin(√K χ) / √K (→ χ as K → 0),
+#   cotK(K, χ)  = √K cot(√K χ) (→ 1/χ as K → 0),
+#   asinK(K, y) = inverse of sinK in χ for fixed K.
+# All are real and analytic in K (√K is imaginary for an open universe, but trig functions then turn into their hyperbolic counterparts).
+# Maclaurin series in u = Kχ² cover the removable singularities at K = 0 and the small-|u| region where the closed forms would cancel.
+function sinK(K::Real, χ::Real)
+    u = K * χ^2
+    if abs(u) < 1e-2
+        return χ * evalpoly(u, (1.0, -1/6, 1/120, -1/5040, 1/362880)) # χ⋅sin(√u)/√u
+    elseif K > 0
+        β = √K
+        return sin(β*χ) / β
+    else
+        β = √(-K)
+        return sinh(β*χ) / β
+    end
+end
+function cotK(K::Real, χ::Real)
+    u = K * χ^2
+    if abs(u) < 1e-2
+        return evalpoly(u, (1.0, -1/3, -1/45, -2/945, -1/4725, -2/93555)) / χ # √u⋅cot(√u)/χ
+    elseif K > 0
+        β = √K
+        return β * cot(β*χ)
+    else
+        β = √(-K)
+        return β * coth(β*χ)
+    end
+end
+function asinK(K::Real, y::Real)
+    u = K * y^2
+    if abs(u) < 1e-3
+        return y * evalpoly(u, (1.0, 1/6, 3/40, 15/336, 105/3456)) # y⋅asin(√u)/√u
+    elseif K > 0
+        β = √K
+        return asin(β*y) / β
+    else
+        β = √(-K)
+        return asinh(β*y) / β
+    end
+end
+
+# Define for symbolic use
+@register_symbolic sinK(K, χ)
+@register_symbolic cotK(K, χ)
+
 have(sys, s::Symbol) = s in nameof.(ModelingToolkit.get_systems(sys))
 have(s) = !isnothing(s) # shorthand for checking if we have a given species
 

@@ -59,6 +59,7 @@ export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, Ch
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
+export sinK, cotK, asinK
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
