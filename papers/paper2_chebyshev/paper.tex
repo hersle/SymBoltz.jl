@@ -1017,6 +1017,77 @@ To obtain the Chebyshev coefficients,
 To support both Chebyshev interpolation and cubic spline interpolation,
 we use the multiple dispatch feature of Julia ...
 
+\section{Implementation details}
+\label{sec:implementation}
+
+SymBoltz organizes different interpolation algorithms through a common \texttt{AbstractInterpolator} interface.
+Several concrete methods are implemented, such as \texttt{LinearInterpolator}, \texttt{CubicSplineInterpolator} and \texttt{ChebyshevInterpolator}.
+Each of them creates a grid of sample points $x_j$ as requested by the user's input,
+and interpolates any function $f(x)$ to any $x$ using the corresponding method.
+This interface makes it easy to switch the interpolation method anywhere in the code.
+
+The \texttt{ChebyshevInterpolator} constructor takes an interval $[a, b]$ and a polynomial order $n$ as input.
+It computes the Chebyshev nodes of the second kind \eqref{eq:chebnodes2} and transforms them to $[a, b]$.
+To interpolate, the object is called with a list of function values $f_j = f(x_j)$ and a point $x$,
+and then evaluates the barycentric quotient \eqref{eq:bary} with analytical weights \eqref{eq:chebweights2} after accumulating the numerator and denominator by looping over $j$.
+At every iteration, it checks if $x = x_j$ exactly, and immediately returns $f_j$ if so.
+
+The Chebyshev interpolation can be modified in a few ways.%
+
+\subsection{Domain transformation}
+
+Sometimes it is better to interpolate not $f(x)$ directly, but rather $f(x(y))$ where $y(x)$ is a domain transformation that maps $x$ to a different variable $y$.
+For example, if $f(x)$ has more or less features in some areas, a transformation of the domain can stretch out the features in busy areas and compress quiet areas.
+This is a useful technique with Chebyshev interpolation,
+because it effectively makes the fixed node placement \eqref{eq:chebnodes} more flexible.
+
+Optionally, \texttt{ChebyshevInterpolator} reads two keyword arguments $y$ and $y^{-1}$.
+Interpolation is then done in $y \in [y(a), y(b)]$ instead of $x \in [a, b]$.
+Corresponding $x$-points are found with $x_j = y^{-1}(y_j)$,
+where $f(x)$ needs to be evaluated.
+The function $y(x)$ should be chosen to make the composite function $f(x(y))$ as smooth as possible,
+so Chebyshev interpolation works best.
+%When the user asks for the interpolation to $x$,
+%$y = f(x)$ is computed and the interpolation is done in $y$.
+
+We currently use piecewise Chebyshev interpolation (see below) instead of domain transformation
+to make the point placement more flexible.
+For example, SymBoltz's default $k$-interpolator for spectra that include CMB lensing (\cref{sec:wavenumbers}) uses $y = f(k) = \tanh(k/k_0)$ with $k_0 = 2000$,
+which compresses the interpolation domain to $y \in (-1,1)$ and concentrates nodes around the acoustic oscillations at $k \lesssim k_0$ while still reaching $k_\text{max} = 10^4$.
+
+\subsection{Value transformation}
+
+Similarly, sometimes it is better to interpolate not $f(x)$ directly,
+but the transformed values $g(f(x))$ and use $g^{-1}$ to recover $f$ afterwards.
+This is useful if $f(x)$ spans many orders of magnitude and one wants to interpolate with minimal relative error,
+since Chebyshev interpolation minimizes the absolute error \eqref{eq:error}.
+Applying a $\log$-transformation or multiplying $f(x)$ by a power law $x^n$ can bring the function to a more uniform magnitude over the interpolation domain.
+This is handled by simply passing transformed $g(f(x_j))$-values to the interpolator.
+
+This trick also combines with domain transformation,
+so in general it is possible to interpolate $g(f(x(y)))$.
+
+For example, we interpolate $k\,S^T$ and $k^2\,S^E$ in $k$ and $\ell^5\,C_\ell$ in $\ell$.
+
+\subsection{Piecewise Chebyshev interpolation}
+
+An alternative to the domain and value transformations
+is to do Chebyshev interpolation on independent piecewise domains with their own polynomials.
+This is especially useful if $f(x)$ has a non-smooth feature at a point,
+as we saw with the Limber approximation in \cref{sec:multipoles}.
+
+\texttt{PiecewiseChebyshevInterpolator} takes a list of break points $[x_1, x_2, \ldots, x_{n+1}]$ and a list ....
+Look up which piecewise domain $x$ is in, etc.
+
+\subsection{Integer-rounded interpolation}
+\label{sec:integerrounded}
+
+\TODO{}
+
+\subsection{Chebyshev coefficients}
+
+\TODO{FastChebInterp.jl}
+
 \section{Notes to self}
 
 \TODO{quantify speedup and/or precision improvement, e.g. for CMB TT spectrum with 1e-4 error?}
