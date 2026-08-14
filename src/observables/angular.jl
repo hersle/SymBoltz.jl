@@ -184,6 +184,111 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     return Is
 end
 
+"""
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, ::Nothing; kwargs...) where {T}
+
+Same as `los_integrate(Ss, ls, τs, ks; ...)`. This lets callers that hold a `jl` which is either a
+`SphericalBesselCache` or `nothing` dispatch on it directly, instead of branching on `isnothing(jl)`.
+"""
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, ::Nothing; kwargs...) where {T}
+    return los_integrate(Ss, ls, τs, ks; kwargs...)
+end
+
+"""
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
+
+Same as `los_integrate(Ss, ls, τs, ks, jl::SphericalBesselCache; ...)`, but compute the spherical Bessel function
+``j_l(x)`` on the fly with recurrences for integer `ls` (without a precomputed cache).
+"""
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector; l_limber = typemax(Int), integrator = TrapezoidalRule(), thread = true, verbose = false) where {T}
+    @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
+    @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
+    @assert issorted(τs) "τs must be sorted in ascending order"
+    @assert issorted(ks) "ks must be sorted in ascending order"
+    @assert issorted(ls) "ls must be sorted in ascending order" # necessary for Limber indexing logic
+    all(l -> l == round(l), ls) || throw(ArgumentError(
+        "ls must be exact integer multipoles for the recursion-based los_integrate (got e.g. $(first(Iterators.filter(l -> l != round(l), ls)))). " *
+        "A coarse/fractional l-grid for interpolation is only supported by the SphericalBesselCache-based method."))
+    ls = round.(Int, ls)
+    error_if_nonfinite(Ss)
+
+    τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
+    τ0 = τs[end]
+    χs = τ0 .- τs
+    nτ = length(τs)
+
+    ws = similar(τs) # precompute trapezoidal rule weights
+    ws[1] = 0.5 * (τs[2] - τs[1])
+    @inbounds for iτ in 2:nτ-1
+        ws[iτ] = 0.5 * (τs[iτ+1] - τs[iτ-1])
+    end
+    ws[nτ] = 0.5 * (τs[nτ] - τs[nτ-1])
+
+    nl = length(ls)
+    Is = similar(Ss, length(ks), nl)
+    il_limber = searchsortedfirst(ls, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
+    ls_nonlimber = @view ls[1:il_limber-1] # only these need the (non-Limber) recursion
+    lmax = il_limber > 1 ? ls[il_limber-1] : 0 # largest l that needs the full (non-Limber) recursion
+    il_limber == 1 || lmax ≥ 2 || throw(ArgumentError("the recursion needs multipoles l ≥ 2, but got lmax = $lmax below l_limber = $l_limber"))
+    iJ = [l+1 for l in ls_nonlimber] # where each requested l sits in the recursion output, which is indexed by l itself
+
+    verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
+
+    @fastmath @inbounds @tasks for ik in eachindex(ks)
+        @set scheduler = thread ? :dynamic : :serial
+        @local begin
+            tmp = zeros(T, nl)
+            Jl = zeros(Float64, lmax+1) # jₗ(x) for every l = 0, …, lmax, refilled at every τ
+        end
+        k = ks[ik]
+        verbose && print("\rLOS integrating k-mode $ik / $(length(ks))")
+
+        # Full line-of-sight integrals for l < l_limber (skipped entirely when every requested l uses Limber)
+        fill!(tmp, zero(T))
+        if il_limber > 1
+            @inbounds for iτ in eachindex(τs)
+                kχ = k * χs[iτ]
+                Sw = ws[iτ] * Ss[iτ, ik]
+                jl_recurrence!(Jl, lmax, kχ) # one recursion sweep gives jₗ(kχ) for every l ≤ lmax at once
+                @inbounds @simd for il in 1:il_limber-1
+                    tmp[il] += Sw * Jl[iJ[il]]
+                end
+            end
+        end
+
+        # Limber approximation for l ≥ l_limber (identical to the cache-based method; does not use jₗ at all)
+        @inbounds for il in il_limber:nl
+            l = ls[il]
+            χ = (l + 1/2) / k
+            if χ ≤ χs[1] # otherwise source is zero before recombination
+                i₋ = searchsortedfirst(τs, τ0 - χ)
+                χ₋ = χs[i₋]
+                S₋ = Ss[i₋, ik]
+                if i₋ == 1
+                    S = S₋
+                else
+                    i₊ = i₋ - 1 # χs is descending, so χ₋ < χ < χ₊
+                    χ₊ = χs[i₊]
+                    S₊ = Ss[i₊, ik]
+                    Δχ = χ₊ - χ₋
+                    S′₋ = i₋ ≤ nτ-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
+                    S′₊ = i₊ ≥ 2    ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
+                    t = (χ - χ₋) / Δχ
+                    t² = t*t
+                    t³ = t²*t
+                    S = (2t³-3t²+1)*S₋ + (t³-2t²+t)*Δχ*S′₋ + (-2t³+3t²)*S₊ + (t³-t²)*Δχ*S′₊
+                    tmp[il] = √(π/(2l+1)) * S / k
+                end
+            end
+        end
+
+        Is[ik, :] .= tmp
+    end
+    verbose && println()
+
+    return Is
+end
+
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; normalization = :Cl, thread = true)
@@ -250,8 +355,31 @@ jl = SphericalBesselCache(ls)
 modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
+
+Alternatively, pass a plain vector of integer multipoles instead of a `jl::SphericalBesselCache`:
+```julia
+Dls = spectrum_cmb(modes, prob, ls; normalization = :Dl, unit = u"μK")
+```
+to compute ``j_l(x)`` on the fly with [`jl_recurrence!`](@ref) instead of from a precomputed cache (see that method's docstring for the tradeoffs).
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; kwargs...)
+    return spectrum_cmb(modes, prob, collect(jl.l); jl, kwargs...) # the cache already knows which l's it holds
+end
+
+"""
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::AbstractVector; jl = nothing, kwargs...)
+
+Same as `spectrum_cmb(modes, prob, jl::SphericalBesselCache; kwargs...)`, but without a precomputed spherical
+Bessel function cache: ``j_l(x)`` is instead computed on the fly with [`jl_recurrence!`](@ref) for every
+wavenumber and time. `ls` must consist of actual (sorted, ascending) integer multipoles, since a recursion in
+`l` can only ever produce values at integer `l` (unlike the cache-based method, which also supports a coarse,
+fractional `ls` grid for later interpolation).
+
+This method carries the implementation shared with the cache-based one, which calls it with `ls = jl.l` and the
+cache passed as `jl`.
+"""
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::AbstractVector; jl::Union{SphericalBesselCache, Nothing} = nothing, normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    ls = collect(ls)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -266,7 +394,6 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         end
     end
 
-    ls = collect(jl.l)
     sol = solve(prob; bgopts, verbose)
     τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
