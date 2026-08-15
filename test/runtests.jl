@@ -580,6 +580,12 @@ end
     @test isapprox(Dls_cheb, Dls; rtol = 1e-4)
     @test isapprox(Dls_chebint, Dls; rtol = 1e-4)
 
+    # Without precomputed Bessel (i.e. using Bessel recurrence on the fly)
+    @test_throws "must be exact integer" spectrum_cmb(:TT, prob, jl_cubic.l, ls; normalization = :Dl) # TODO: error
+    @test_throws "must be exact integer" spectrum_cmb(:TT, prob, jl_cheb.l, ls; normalization = :Dl) # TODO: error
+    Dls_chebint_recurrence = spectrum_cmb(:TT, prob, jl_chebint.l, ls; normalization = :Dl)
+    @test isapprox(Dls_chebint, Dls_chebint_recurrence; rtol = 1e-4)
+
     # Error with bad input
     @test_throws "outside the l-range" spectrum_cmb(:TT, prob, jl, 1:3000; normalization = :Dl)
 end

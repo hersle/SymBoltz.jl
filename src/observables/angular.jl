@@ -387,7 +387,7 @@ which also supports a coarse, fractional `ls` grid for later interpolation).
 This method carries the implementation shared with the cache-based one, which calls it with `ls = jl.l` and the
 cache passed as `jl`.
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::AbstractVector; jl::Union{SphericalBesselCache, Nothing} = nothing, normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::Union{AbstractArray, AbstractInterpolator}; jl::Union{SphericalBesselCache, Nothing} = nothing, normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
     ls = collect(ls)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
@@ -478,17 +478,29 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, l
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Union{SphericalBesselCache, AbstractVector}, ls::AbstractVector; kwargs...)
 
-Same, but compute the spectrum properly only for `jl.l` and then interpolate the results to all `ls`.
+Same, but compute the spectrum properly only for `jl` (a `SphericalBesselCache`, `AbstractInterpolator` over ``l`` or an `AbstractArray` of multipoles)
+and then interpolate the results to all `ls`.
 """
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls_coarse::Union{AbstractArray, AbstractInterpolator}, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
+    minimum(ls) ≥ minimum(ls_coarse) && maximum(ls) ≤ maximum(ls_coarse) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(ls_coarse)) of the coarse l-grid"))
+    spectra_coarse = spectrum_cmb(modes, prob, ls_coarse; kwargs...)
+    spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
+    for imode in eachindex(modes)
+        spectra_fine[:, imode] = interpolate(ls_coarse, spectra_coarse[:, imode] .* linterp_normalization.(ls_coarse), ls) ./ linterp_normalization.(ls)
+        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode])
+    end
+    return spectra_fine
+end
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
-    minimum(ls) ≥ minimum(jl.l) && maximum(ls) ≤ maximum(jl.l) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(jl.l)) of the spherical Bessel function"))
+    ls_coarse = jl.l
+    minimum(ls) ≥ minimum(ls_coarse) && maximum(ls) ≤ maximum(ls_coarse) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(ls_coarse)) of the coarse l-grid"))
     spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
     for imode in eachindex(modes)
-        spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode] .* linterp_normalization.(jl.l), ls) ./ linterp_normalization.(ls) # interpolate l⁵*Cₗ (by default) for smoothness
-        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode]) # normalize AFTER interpolation
+        spectra_fine[:, imode] = interpolate(ls_coarse, spectra_coarse[:, imode] .* linterp_normalization.(ls_coarse), ls) ./ linterp_normalization.(ls)
+        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode])
     end
     return spectra_fine
 end
