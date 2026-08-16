@@ -241,7 +241,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         @set scheduler = thread ? :dynamic : :serial
         @local begin
             tmp = zeros(T, nl)
-            Φl = zeros(Float64, lmax+1) # Φₗ(χ) for every l = 0, …, lmax, refilled at every τ
+            Φl = zeros(Float64, nτ, lmax+1) # Φₗ(χᵢ) for every τᵢ and l = 0, …, lmax at once (see Φl_recurrence!)
             sqK = zeros(Float64, lmax+2) # recursion coefficients √Kₗ = √(k²-Kl²) and 1/√Kₗ for l = 0, …, lmax+1,
             invsqK = zeros(Float64, lmax+2) # which depend on k but not on χ (so are tabulated once per k)
         end
@@ -252,11 +252,11 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         # Full line-of-sight integrals for l < l_limber (skipped entirely when every requested l uses Limber)
         fill!(tmp, zero(T))
         if il_limber > 1
+            Φl_recurrence!(Φl, lmax, χs, k, K, sqK, invsqK) # one recursion sweep gives Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once
             @inbounds for iτ in eachindex(τs)
                 Sw = ws[iτ] * Ss[iτ, ik]
-                Φl_recurrence!(Φl, lmax, χs[iτ], k, K, sqK, invsqK) # one recursion sweep gives Φₗ(χ) for every l ≤ lmax at once
                 @inbounds @simd for il in 1:il_limber-1
-                    tmp[il] += Sw * Φl[iΦ[il]]
+                    tmp[il] += Sw * Φl[iτ, iΦ[il]]
                 end
             end
         end

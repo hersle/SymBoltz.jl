@@ -100,6 +100,26 @@ function Φl_recurrence!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abst
     return out
 end
 
+"""
+    Φl_recurrence!(out::AbstractMatrix, lmax, χs::AbstractVector, k, K, sqK, invsqK)
+
+Same as above for every radial coordinate in `χs` at once, storing ``Φ_l(χ_i)`` in `out[i, l+1]` (so `out` must
+be `length(χs)` × ``l_\\mathrm{max}+1``). `χs` must be sorted in descending order, as it is in the line-of-sight
+integral, so that the parts above and below the turning point are contiguous views that can be handed to the
+(vectorized) forward and backward recursion.
+"""
+function Φl_recurrence!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    @assert size(out) == (length(χs), lmax+1) "out is $(size(out)), but should be $((length(χs), lmax+1))"
+    @assert issorted(χs; rev = true) "χs must be sorted in descending order"
+    ifwd = count(χ -> k * sinK(K, χ) ≥ √(lmax*(lmax+1)), χs) # χs[1:ifwd] are above the turning point,
+    izero = count(!=(0.0), χs) # and χs[izero+1:end] are exactly zero
+    @views Φl_forward!(out[1:ifwd, :], lmax, χs[1:ifwd], k, K, sqK, invsqK)
+    @views Φl_backward!(out[ifwd+1:izero, :], lmax, χs[ifwd+1:izero], k, K, sqK, invsqK)
+    @views out[izero+1:end, :] .= 0.0 # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
+    @views out[izero+1:end, 1] .= 1.0 # Φ₀(0) = 1
+    return out
+end
+
 function Φl_forward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
     ck = cotK(K, χ)
     sk = sinK(K, χ)
@@ -107,6 +127,24 @@ function Φl_forward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abstrac
     out[2] = (ck * out[1] - cos(k*χ) / sk) * invsqK[2] # Φ₁ = (cotK Φ₀ - k cot(kχ) Φ₀) / √K₁
     @inbounds for l in 1:lmax-1
         out[l+2] = ((2l+1) * ck * out[l+1] - sqK[l+1] * out[l]) * invsqK[l+2] # sqK[l+1] = √Kₗ, invsqK[l+2] = 1/√Kₗ₊₁
+    end
+    return out
+end
+
+# Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]). The recursion in l is serial, but
+# different χ are independent, so the χ-loop is innermost and vectorizes (hence χ is the contiguous dimension).
+function Φl_forward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    ck = cotK.(K, χs) # depends on χ but not on l, so tabulate it once instead of recomputing it every step
+    @inbounds for i in eachindex(χs)
+        sk = sinK(K, χs[i])
+        out[i, 1] = sin(k*χs[i]) / (k * sk) # Φ₀
+        out[i, 2] = (ck[i] * out[i, 1] - cos(k*χs[i]) / sk) * invsqK[2] # Φ₁ = (cotK Φ₀ - k cot(kχ) Φ₀) / √K₁
+    end
+    @inbounds for l in 1:lmax-1
+        a, b, c = 2l+1, sqK[l+1], invsqK[l+2] # sqK[l+1] = √Kₗ, invsqK[l+2] = 1/√Kₗ₊₁; hoisted out of the χ-loop
+        @simd for i in eachindex(χs) # since it does not depend on χ
+            out[i, l+2] = (a * ck[i] * out[i, l+1] - b * out[i, l]) * c
+        end
     end
     return out
 end
@@ -131,6 +169,40 @@ function Φl_backward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abstra
     end
     s = sin(k*χ) / (k * sinK(K, χ)) / out[1]
     out .*= s
+    return out
+end
+
+# Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]); see Φl_forward! above. The overflow
+# check and rescaling below happen exactly as in the single-χ method, just once per χ instead of once overall.
+function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    ck = cotK.(K, χs)
+    Φₗ = similar(ck)
+    Φₗ₊₁ = similar(ck)
+    @inbounds for i in eachindex(χs)
+        Φₗ[i] = 2.0^-900 # Φₗₘₐₓ, arbitrary nonzero seed (fixed by the final normalization)
+        Φₗ′_Φₗ = Φl_logderiv(lmax, χs[i], k, K) # continued fraction of Φₗₘₐₓ′/Φₗₘₐₓ
+        Φₗ₊₁[i] = Φₗ[i] * (lmax*ck[i] - Φₗ′_Φₗ) * invsqK[lmax+2] # Φₗₘₐₓ₊₁ from the derivative recursion Φₗ′ = l cotK Φₗ - √Kₗ₊₁ Φₗ₊₁
+        out[i, lmax+1] = Φₗ[i]
+    end
+    @inbounds for l in lmax:-1:1
+        a, b, c = 2l+1, sqK[l+2], invsqK[l+1] # sqK[l+2] = √Kₗ₊₁, invsqK[l+1] = 1/√Kₗ; hoisted, see Φl_forward!
+        for i in eachindex(χs)
+            Φₗ₋₁ = (a * ck[i] * Φₗ[i] - b * Φₗ₊₁[i]) * c
+            if abs(Φₗ₋₁) > 2.0^900 # renormalize previously computed Φₗ (for this χ) before overflow
+                s = 2.0^-900
+                Φₗ₋₁ *= s
+                Φₗ[i] *= s
+                @views out[i, l+1:lmax+1] .*= s
+            end
+            Φₗ₊₁[i] = Φₗ[i]
+            Φₗ[i] = Φₗ₋₁
+            out[i, l] = Φₗ[i]
+        end
+    end
+    @inbounds for i in eachindex(χs)
+        s = sin(k*χs[i]) / (k * sinK(K, χs[i])) / out[i, 1]
+        @views out[i, :] .*= s
+    end
     return out
 end
 
