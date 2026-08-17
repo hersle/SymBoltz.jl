@@ -822,7 +822,7 @@ nterpolate smooth and expensive functions on the forum for the Julia programming
 
 Instead of interpolating with the barycentric formula in \cref{sec:chebyshev},
 a function can be approximated with a series of Chebyshev polynomials.
-This offers an alternative approach to Chebyshev interpolation that is particularly useful for error analysis.
+This alternative approach to Chebyshev interpolation is particularly useful for error analysis.
 We give a brief summary of this approach based on \cite{trefethenApproximationTheoryApproximation2019}.
 
 \iffalse
@@ -843,8 +843,8 @@ The Chebyshev polynomials of the first kind are defined as
 	x \in [-1, 1].
 \label{eq:chebpolydef}
 \end{equation}
-To see that $T_n(x)$ is a polynomial,
-evaluate $T_0(x)$ and $T_1(x)$ explicitly and use the identities $\cos(n\theta\pm\theta) = \cos(n\theta) \cos(\theta) \mp \sin(n\theta) \sin(\theta)$ with $\theta = \arccos x$ to find the polynomial recurrence%
+To see it is really a polynomial,
+evaluate $T_0(x)$ and $T_1(x)$ explicitly and use the identities $\cos(n\theta\pm\theta) = \cos(n\theta) \cos(\theta) \mp \sin(n\theta) \sin(\theta)$ with $\theta = \arccos x$ to get the polynomial recurrence%
 \begin{equation}
 	T_0(x) = 1,
 	\quad
@@ -853,25 +853,8 @@ evaluate $T_0(x)$ and $T_1(x)$ explicitly and use the identities $\cos(n\theta\p
 	T_{n+1}(x) = 2 x T_n(x) - T_{n-1}(x).
 \label{eq:recurrence}
 \end{equation}
-From the trigonometric definition, we see that $T_n(x) = 0$ when $n\theta = \frac{\pi}{2}(1+2m)$ for integer $m$, so its roots are the Chebyshev nodes of the first kind:
-\begin{subequations}
-\begin{equation}
-	x_m = \cos \frac{\pi(1+2m)}{2n}
-	\qquad (0 \leq m \leq n-1).
-\label{eq:chebnodes1_app}
-\end{equation}
-Similarly, $\lvert T_n(x) \rvert = 1$ when $n\theta = m\pi$, so its extrema are the Chebyshev nodes of the second kind (including the endpoints $x = \pm 1$):
-\begin{equation}
-	x_m = \cos \frac{m\pi}{n}
-	\qquad
-	(0 \leq m \leq n).
-\label{eq:chebnodes2_app}
-\end{equation}
-\end{subequations}
-Both sets of points have the optimal density \eqref{eq:density} for robust polynomial interpolation.
-As we will see soon, their $\cos$-dependence also opens the door to Fast Fourier Transform methods.
 
-Chebyshev polynomials are an orthogonal basis for expanding a function $f(x)$ on $x \in [-1, 1]$ in a unique series%
+The Chebyshev polynomials are an orthogonal basis for expanding a function $f(x)$ on $x \in [-1, 1]$ in a unique series%
 \begin{equation}
 	f(x) = \sum_{k=0}^\infty c_k T_k(x).
 \label{eq:infseries}
@@ -880,8 +863,8 @@ They are orthogonal with respect to the inner product
 (change variables to $x = \cos \theta$ and use orthogonality of cosines)
 \begin{equation}
 	%\innerproduct{T_m(x)}{T_n(x)} =
-	\frac{1}{\pi} \int_{-1}^1 \frac{T_m(x) T_n(x)}{\sqrt{1-x^2}} \, \diff{x} =
-	\begin{cases} 0 & \text{if $m \neq n$,} \\ 1 & \text{if $m=n=0$,} \\ 1/2 & \text{if $m=n \geq 1$,} \end{cases}
+	\int_{-1}^1 \frac{T_m(x) T_n(x)}{\sqrt{1-x^2}} \, \diff{x} =
+	\begin{cases} 0 & \text{if $m \neq n$,} \\ \pi & \text{if $m=n=0$,} \\ \pi/2 & \text{if $m=n \geq 1$,} \end{cases}
 \label{eq:innerprodcont}
 \end{equation}
 so the coefficients for representing a function $f(x)$ are
@@ -892,52 +875,62 @@ so the coefficients for representing a function $f(x)$ are
 \label{eq:coeffscont}
 \end{equation}
 and half of that for $c_0$.
-These coefficients represent $f(x)$ in the infinite-dimensional space of \cref{eq:infseries}, and is not very practical.%
+These coefficients represent $f(x)$ in the infinite-dimensional space \eqref{eq:infseries}, and is not very practical.%
 
 \subsection{Approximation with Chebyshev projection}
 
-A more practical way to approximate $f(x)$ is to take the coefficients $c_k$,
+One way to approximate $f(x)$ is to take the coefficients \eqref{eq:coeffscont},
 but truncate the infinite series \eqref{eq:infseries} at a finite $n$:
 \begin{equation}
 	f(x) \approx \hat{p}_n(x) = \sum_{k=0}^n c_k T_k(x).
 \label{eq:projection}
 \end{equation}
 This is called Chebyshev projection,
-because dropping coefficients effectively projects $f(x)$ from an infinite-dimensional vector space down to a lower-dimensional polynomial space.
-It requires $f(x)$ at arbitrary $x$ to compute the integrals \eqref{eq:coeffscont}.
+because dropping coefficients effectively projects $f(x)$ from an infinite-dimensional space of continuous functions
+onto a lower-dimensional space of polynomials.
+It is impractical for interpolation,
+because the integrals \eqref{eq:coeffscont} needs $f(x)$ at arbitrary $x$.
 %If the integrand is sampled at $n$ points, it amounts to $O(n^2)$ work to construct the approximation.
-This method is sometimes appropriate when one has an expression for $f(x)$ and can evaluate the integrals analytically, for example.
-However, it is impractical for interpolation purposes.
+This method can be appropriate when one has an expression for $f(x)$ and can evaluate the integrals analytically, for example.
 
 \subsection{Approximation with Chebyshev interpolation}
 
 % https://www.buttenschoen.ca/MATH551/build/point-choice-4c36fbc36ea8e8d082339f77a23601f8.pdf
-An even more practical method is to construct the polynomial $p_n(x)$ that passes through $f(x)$ at the Chebyshev nodes \eqref{eq:chebnodes2_app}.
-Instead of using the barycentric formula in \cref{sec:chebyshev},
-we can expand $p_n(x)$ in Chebyshev polynomials:
+A practical interpolation method is to construct the polynomial $p_n(x)$ that passes through $f(x)$ at certain points $x_m$,
+and expand that in a series of Chebyshev polynomials:
 \begin{equation}
 	f(x) \approx p_n(x) = \sum_{k=0}^n a_k T_k(x)
 	\quad \text{such that} \quad
 	p_n(x_m) = f(x_m).
 \label{eq:interpolation}
 \end{equation}
-Analogously to the continuous inner product \eqref{eq:innerprodcont}, the Chebyshev polynomials also satisfy a discrete orthogonality relationship at the Chebyshev nodes \eqref{eq:chebnodes2_app}:
+
+It is convenient to select $x_m$ as the extrema of $T_n(x)$.
+The trigonometric definition \eqref{eq:chebpolydef} reaches $\lvert T_n(x) \rvert = 1$ when $n\theta = m\pi$,
+so its extrema are
+\begin{equation}
+	x_m = \cos \left( \frac{m\pi}{n} \right)
+	\qquad
+	(0 \leq m \leq n).
+\label{eq:chebnodes2_app}
+\end{equation}
+Analogously to the continuous inner product \eqref{eq:innerprodcont},
+the extrema give rise to a discrete orthogonality relationship:
 \begin{equation}
 	%\innerproduct{T_i(x_k)}{T_j(x_k)} =
-	\frac{1}{n} \sideset{}{''}\sum_{k=0}^n T_i(x_k) T_j(x_k) =
-	\begin{cases} 0 & \text{if $i \neq j$,} \\ 1 & \text{if $i = j \in \{0, n\}$,} \\ 1/2 & \text{if $i = j \in [1,n-1]$,} \end{cases}
+	\sideset{}{''}\sum_{k=0}^n T_i(x_k) T_j(x_k) =
+	\begin{cases} 0 & \text{if $i \neq j$,} \\ n & \text{if $i = j \in \{0, n\}$,} \\ n/2 & \text{if $i = j \in [1,n-1]$,} \end{cases}
 \label{eq:innerproddiscrete}
 \end{equation}
-where the double-primed sum means that the first and last terms are halved.
+where the double-primed sum means that its first and last terms are halved.
 This means that the coefficients $a_k$ are picked out as
 \begin{equation}
 	a_k = \frac{2}{n} \sideset{}{''}\sum_{j=0}^n f(x_j) \cos \left( \frac{jk\pi}{n} \right) .
 \label{eq:coeffsdiscrete}
 \end{equation}
 This is exactly a type-I Discrete Cosine Transform (DCT),
-so the coefficients can be computed with only $O(n \log n)$ instead of $O(n^2)$ operations!
-It is another reason for why Chebyshev points are particularly attractive for polynomial interpolation.
-The DCT converts from the function values $f(x_j)$ of the barycentric approach to the coefficients $a_k$ of the series approach.
+which can be computed with only $O(n \log n)$ instead of $O(n^2)$ operations.
+This special property makes Chebyshev interpolation particularly attractive.
 
 Once $a_k$ are known, the interpolating series \eqref{eq:interpolation} is easily computed for any $x$ with $O(n)$ operations.
 A naive implementation is to iterate through every term while computing the recurrence \eqref{eq:recurrence} forwards, but this loses precision for $\lvert x \rvert \rightarrow 1$.
@@ -951,20 +944,21 @@ with an intermediate variable $b_k(x)$:
 \end{align}
 \end{subequations}
 
-Interpolating with the Chebyshev series \eqref{eq:interpolation} instead of the barycentric formula \eqref{eq:bary}
-is the method of choice when one wants the coefficients $a_k$.
-They provide a useful diagnostic:
-the neglected coefficients indicate the maximum interpolation error
+Interpolating with the Chebyshev series \eqref{eq:interpolation} is fully equivalent to the barycentric formula \eqref{eq:bary}
+with the Chebyshev points \eqref{eq:chebnodes2} and weights \eqref{eq:chebweights2} of the second kind.
+The DCT \eqref{eq:coeffsdiscrete} converts the function values $f(x_j)$ of the barycentric approach to the coefficients $a_k$ of the series approach.
+While the barycentric approach is simpler, faster and more flexible,
+the advantage of the series approach is that the coefficients $a_k$
+provide a useful diagnostic for analyzing the maximum interpolation error:
 \begin{equation}
-	\max_{-1 \leq x \leq 1} \big\lvert f(x) - p_n(x) \big\rvert \leq \sum_{k=n+1}^\infty \lvert a_k \rvert,
+	\big\lvert f(x) - p_n(x) \big\rvert \leq \sum_{k=n+1}^\infty \lvert a_k \rvert.
 \label{eq:coefferr}
 \end{equation}
-so convergence of $a_k$ implies convergence of the whole $p_n(x)$.
+In other words the neglected coefficients bound the interpolation error,
+so convergence of $a_k$ implies convergence of the full $p_n(x)$.
 
-Chebyshev projection and Chebyshev interpolation are generally different methods with $\hat{p}_n(x) \neq p_n(x)$.
-Their coefficients $c_k \neq a_k$ are related by aliasing formulas,
-and they usually perform within a factor of 2 of each other \citep{trefethenApproximationTheoryApproximation2019}.
-However, the latter is much more practical for interpolation from a finite set of points.
-It is also possible to interpolate with the roots \eqref{eq:chebnodes1_app} instead of the extrema \eqref{eq:chebnodes2_app} \TODO{ref}.
+SymBoltz always uses barycentric interpolation,
+but we implemented the DCT \eqref{eq:coeffsdiscrete} for the coefficients $a_k$
+as an additional way to inspect convergence of interpolation in \cref{fig:coeffs} this paper.
 
 \end{document}
