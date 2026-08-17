@@ -192,16 +192,23 @@ function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, 
                 s = 2.0^-900
                 Φₗ₋₁ *= s
                 Φₗ[i] *= s
-                @views out[i, l+1:lmax+1] .*= s
+                for m in l+1:lmax+1
+                    out[i, m] *= s
+                end
             end
-            Φₗ₊₁[i] = Φₗ[i]
-            Φₗ[i] = Φₗ₋₁
-            out[i, l] = Φₗ[i]
+            Φₗ₊₁[i] = Φₗ₋₁ # old Φₗ₊₁[i] is no longer needed (already used above); overwrite it with the new value
+            out[i, l] = Φₗ₋₁
         end
+        Φₗ, Φₗ₊₁ = Φₗ₊₁, Φₗ # pointer swap instead of copying every element: what now holds Φₗ₋₁ becomes Φₗ for the next l
     end
+    s = Φₗ # reuse as dummy array
     @inbounds for i in eachindex(χs)
-        s = sin(k*χs[i]) / (k * sinK(K, χs[i])) / out[i, 1]
-        @views out[i, :] .*= s
+        s[i] = sin(k*χs[i]) / (k * sinK(K, χs[i])) / out[i, 1]
+    end
+    @inbounds for m in 1:lmax+1
+        @simd for i in eachindex(χs)
+            out[i, m] *= s[i]
+        end
     end
     return out
 end
