@@ -106,21 +106,41 @@ end
 Same as above for every radial coordinate in `χs` at once, storing ``Φ_l(χ_i)`` in `out[i, l+1]` (so `out` must
 be `length(χs)` × ``l_\\mathrm{max}+1``). `χs` must be sorted in descending order, as it is in the line-of-sight
 integral, so that the parts above and below the turning point are contiguous views that can be handed to the
-(vectorized) forward and backward recursion.
+(vectorized) forward and backward recursion. Tables for `sqK` and `invsqK` are precomputed unless given explictly.
 """
 function Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-20)
+    K ≤ 0 || throw(ArgumentError("K must be non-positive (flat or open universe), but got $K"))
+    size(out) == (length(χs), length(ls)) || throw(ArgumentError("out size is $(size(out)), but should be $((length(χs), length(ls)))"))
+    issorted(χs; rev = true) || throw(ArgumentError("χs is not sorted in descending order"))
+    issorted(ls) || throw(ArgumentError("ls is not sorted in descending order"))
     lmax = ls[end]
-    @assert size(out) == (length(χs), length(ls)) "out is $(size(out)), but should be $((length(χs), length(ls)))"
-    @assert issorted(χs; rev = true) "χs must be sorted in descending order"
-    ifwd = count(χ -> k * sinK(K, χ) ≥ √(lmax*(lmax+1)), χs) # χs[1:ifwd] are above the turning point,
-    izero = count(!=(0.0), χs) # and χs[izero+1:end] are exactly zero
-    @views Φl_forward!(out[1:ifwd, :], ls, χs[1:ifwd], k, K, sqK, invsqK)
-    @views Φl_backward!(out[ifwd+1:izero, :], ls, χs[ifwd+1:izero], k, K, sqK, invsqK; Φmin)
-    @views out[izero+1:end, :] .= 0.0 # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
-    if ls[1] == 0
-        @views out[izero+1:end, 1] .= 1.0 # Φ₀(0) = 1, only if l = 0 was requested
+    turningpoint = √(lmax*(lmax+1))
+    ifwd = 1 : searchsortedlast(k .* sinK.(K, χs), turningpoint; rev = true) # LHS monotonically increasing for K < 0
+    ibwd = (last(ifwd) + 1) : (iszero(χs[end]) ? length(χs) - 1 : length(χs))
+    izero = (last(ibwd) + 1) : length(χs)
+    if !isempty(ifwd)
+        @views Φl_forward!(out[ifwd, :], ls, χs[ifwd], k, K, sqK, invsqK)
+    end
+    if !isempty(ibwd)
+        @views Φl_backward!(out[ibwd, :], ls, χs[ibwd], k, K, sqK, invsqK; Φmin)
+    end
+    if !isempty(izero)
+        @views out[izero, :] .= 0.0 # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
+        if ls[1] == 0
+            @views out[izero, 1] .= 1.0 # Φ₀(0) = 1, only if l = 0 was requested
+        end
     end
     return out
+end
+
+# Same, but without sqK and invsqK arrays
+function Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K; kwargs...)
+    K ≤ 0 || throw(ArgumentError("K must be non-positive (flat or open universe), but got $K"))
+    lmax = ls[end]
+    sqK = zeros(Float64, lmax+2) # TODO: don't require Float64
+    invsqK = zeros(Float64, lmax+2)
+    sqrtK_table!(sqK, invsqK, K, k)
+    return Φl_recurrence!(out, ls, χs, k, K, sqK, invsqK; kwargs...)
 end
 
 function Φl_forward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
