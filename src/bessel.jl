@@ -172,42 +172,25 @@ function Φl_backward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abstra
     return out
 end
 
-# Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]); see Φl_forward! above. The overflow
-# check and rescaling below happen exactly as in the single-χ method, just once per χ instead of once overall.
-function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
-    ck = cotK.(K, χs)
-    Φₗ = similar(ck)
-    Φₗ₊₁ = similar(ck)
-    @inbounds for i in eachindex(χs)
-        Φₗ[i] = 2.0^-900 # Φₗₘₐₓ, arbitrary nonzero seed (fixed by the final normalization)
-        Φₗ′_Φₗ = Φl_logderiv(lmax, χs[i], k, K) # continued fraction of Φₗₘₐₓ′/Φₗₘₐₓ
-        Φₗ₊₁[i] = Φₗ[i] * (lmax*ck[i] - Φₗ′_Φₗ) * invsqK[lmax+2] # Φₗₘₐₓ₊₁ from the derivative recursion Φₗ′ = l cotK Φₗ - √Kₗ₊₁ Φₗ₊₁
-        out[i, lmax+1] = Φₗ[i]
-    end
-    @inbounds for l in lmax:-1:1
-        a, b, c = 2l+1, sqK[l+2], invsqK[l+1] # sqK[l+2] = √Kₗ₊₁, invsqK[l+1] = 1/√Kₗ; hoisted, see Φl_forward!
-        for i in eachindex(χs)
-            Φₗ₋₁ = (a * ck[i] * Φₗ[i] - b * Φₗ₊₁[i]) * c
-            if abs(Φₗ₋₁) > 2.0^900 # renormalize previously computed Φₗ (for this χ) before overflow
-                s = 2.0^-900
-                Φₗ₋₁ *= s
-                Φₗ[i] *= s
-                for m in l+1:lmax+1
-                    out[i, m] *= s
-                end
-            end
-            Φₗ₊₁[i] = Φₗ₋₁ # old Φₗ₊₁[i] is no longer needed (already used above); overwrite it with the new value
-            out[i, l] = Φₗ₋₁
+# Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]); see Φl_forward! above. The recurrence
+# and the overflow check are split into separate loops so that the recurrence can be @simd-vectorized over χ.
+function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-100)
+    _out = zeros(size(out, 2))
+    out .= 0.0
+    for i in eachindex(χs)
+        #println("χ = $(χs[i]), lmax = $lmax")
+        Φl_backward!(_out, lmax, χs[i], k, K, sqK, invsqK)
+
+        # Lower lmax to skip the recurrence Φₗ where it is below a tiny threshold
+        # Immediately set Φₗ = 0 there
+        # Works because Φₗ decreases monotonically as l decreases when χ is below the turning point
+        while lmax ≥ 1 && abs(_out[1+lmax]) < Φmin
+            _out[1+lmax] = 0.0
+            lmax -= 1
         end
-        Φₗ, Φₗ₊₁ = Φₗ₊₁, Φₗ # pointer swap instead of copying every element: what now holds Φₗ₋₁ becomes Φₗ for the next l
-    end
-    s = Φₗ # reuse as dummy array
-    @inbounds for i in eachindex(χs)
-        s[i] = sin(k*χs[i]) / (k * sinK(K, χs[i])) / out[i, 1]
-    end
-    @inbounds for m in 1:lmax+1
-        @simd for i in eachindex(χs)
-            out[i, m] *= s[i]
+
+        for j in 1:lmax
+            out[i, j] = _out[j]
         end
     end
     return out
