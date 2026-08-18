@@ -101,21 +101,21 @@ function Φl_recurrence!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abst
 end
 
 """
-    Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-20)
 
 Same as above for every radial coordinate in `χs` at once, storing ``Φ_l(χ_i)`` in `out[i, l+1]` (so `out` must
 be `length(χs)` × ``l_\\mathrm{max}+1``). `χs` must be sorted in descending order, as it is in the line-of-sight
 integral, so that the parts above and below the turning point are contiguous views that can be handed to the
 (vectorized) forward and backward recursion.
 """
-function Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+function Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-20)
     lmax = ls[end]
     @assert size(out) == (length(χs), length(ls)) "out is $(size(out)), but should be $((length(χs), length(ls)))"
     @assert issorted(χs; rev = true) "χs must be sorted in descending order"
     ifwd = count(χ -> k * sinK(K, χ) ≥ √(lmax*(lmax+1)), χs) # χs[1:ifwd] are above the turning point,
     izero = count(!=(0.0), χs) # and χs[izero+1:end] are exactly zero
     @views Φl_forward!(out[1:ifwd, :], ls, χs[1:ifwd], k, K, sqK, invsqK)
-    @views Φl_backward!(out[ifwd+1:izero, :], ls, χs[ifwd+1:izero], k, K, sqK, invsqK)
+    @views Φl_backward!(out[ifwd+1:izero, :], ls, χs[ifwd+1:izero], k, K, sqK, invsqK; Φmin)
     @views out[izero+1:end, :] .= 0.0 # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
     if ls[1] == 0
         @views out[izero+1:end, 1] .= 1.0 # Φ₀(0) = 1, only if l = 0 was requested
@@ -196,7 +196,7 @@ end
 
 # Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]); see Φl_forward! above. The recurrence
 # and the overflow check are split into separate loops so that the recurrence can be @simd-vectorized over χ.
-function Φl_backward!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-100)
+function Φl_backward!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 0.0)
     lmax = ls[end]
     _out = zeros(lmax + 1) # TODO: take as input argument?
     @inbounds for i in eachindex(χs)
