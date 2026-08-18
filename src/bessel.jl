@@ -101,22 +101,25 @@ function Φl_recurrence!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abst
 end
 
 """
-    Φl_recurrence!(out::AbstractMatrix, lmax, χs::AbstractVector, k, K, sqK, invsqK)
+    Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
 
 Same as above for every radial coordinate in `χs` at once, storing ``Φ_l(χ_i)`` in `out[i, l+1]` (so `out` must
 be `length(χs)` × ``l_\\mathrm{max}+1``). `χs` must be sorted in descending order, as it is in the line-of-sight
 integral, so that the parts above and below the turning point are contiguous views that can be handed to the
 (vectorized) forward and backward recursion.
 """
-function Φl_recurrence!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
-    @assert size(out) == (length(χs), lmax+1) "out is $(size(out)), but should be $((length(χs), lmax+1))"
+function Φl_recurrence!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    lmax = ls[end]
+    @assert size(out) == (length(χs), length(ls)) "out is $(size(out)), but should be $((length(χs), length(ls)))"
     @assert issorted(χs; rev = true) "χs must be sorted in descending order"
     ifwd = count(χ -> k * sinK(K, χ) ≥ √(lmax*(lmax+1)), χs) # χs[1:ifwd] are above the turning point,
     izero = count(!=(0.0), χs) # and χs[izero+1:end] are exactly zero
-    @views Φl_forward!(out[1:ifwd, :], lmax, χs[1:ifwd], k, K, sqK, invsqK)
-    @views Φl_backward!(out[ifwd+1:izero, :], lmax, χs[ifwd+1:izero], k, K, sqK, invsqK)
+    @views Φl_forward!(out[1:ifwd, :], ls, χs[1:ifwd], k, K, sqK, invsqK)
+    @views Φl_backward!(out[ifwd+1:izero, :], ls, χs[ifwd+1:izero], k, K, sqK, invsqK)
     @views out[izero+1:end, :] .= 0.0 # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
-    @views out[izero+1:end, 1] .= 1.0 # Φ₀(0) = 1
+    if ls[1] == 0
+        @views out[izero+1:end, 1] .= 1.0 # Φ₀(0) = 1, only if l = 0 was requested
+    end
     return out
 end
 
@@ -131,20 +134,39 @@ function Φl_forward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::Abstrac
     return out
 end
 
+@inline function Φₗ_save_if_requested!(out, ls, l, Φ, lstoreidx)
+    if l == ls[lstoreidx]
+        @inbounds for i in 1:size(out, 1)
+            out[i, lstoreidx] = Φ[i]
+        end
+        return lstoreidx + 1
+    end
+    return lstoreidx
+end
+
 # Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]). The recursion in l is serial, but
 # different χ are independent, so the χ-loop is innermost and vectorizes (hence χ is the contiguous dimension).
-function Φl_forward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+function Φl_forward!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector)
     ck = cotK.(K, χs) # depends on χ but not on l, so tabulate it once instead of recomputing it every step
-    @inbounds for i in eachindex(χs)
+    Φₗ₋₁ = similar(χs)
+    Φₗ = similar(χs)
+    for i in eachindex(χs) # TODO: dot syntax
         sk = sinK(K, χs[i])
-        out[i, 1] = sin(k*χs[i]) / (k * sk) # Φ₀
-        out[i, 2] = (ck[i] * out[i, 1] - cos(k*χs[i]) / sk) * invsqK[2] # Φ₁ = (cotK Φ₀ - k cot(kχ) Φ₀) / √K₁
+        Φₗ₋₁[i] = sin(k*χs[i]) / (k * sk) # Φ₀
+        Φₗ[i] = (ck[i] * Φₗ₋₁[i] - cos(k*χs[i]) / sk) * invsqK[2] # Φ₁
     end
-    @inbounds for l in 1:lmax-1
-        a, b, c = 2l+1, sqK[l+1], invsqK[l+2] # sqK[l+1] = √Kₗ, invsqK[l+2] = 1/√Kₗ₊₁; hoisted out of the χ-loop
+
+    lstoreidx = 1 # ls[lstoreidx] is the next multipole to output
+    lstoreidx = Φₗ_save_if_requested!(out, ls, 0, Φₗ₋₁, lstoreidx) # save Φ₀?
+    lstoreidx = Φₗ_save_if_requested!(out, ls, 1, Φₗ, lstoreidx) # save Φ₁?
+
+    @inbounds for l in 1:ls[end]-1
+        Φₗ₊₁ = Φₗ₋₁ # reuse array name (Φₗ₋₁[i] is not needed anymore writing Φₗ₊₁[i])
         @simd for i in eachindex(χs) # since it does not depend on χ
-            out[i, l+2] = (a * ck[i] * out[i, l+1] - b * out[i, l]) * c
+            Φₗ₊₁[i] = ((2l+1) * ck[i] * Φₗ[i] - sqK[l+1] * Φₗ₋₁[i]) * invsqK[l+2]
         end
+        lstoreidx = Φₗ_save_if_requested!(out, ls, l+1, Φₗ₊₁, lstoreidx) # save Φₗ₊₁?
+        Φₗ, Φₗ₋₁ = Φₗ₋₁, Φₗ # swap array pointers for next iteration
     end
     return out
 end
@@ -174,10 +196,10 @@ end
 
 # Same for many radial coordinates at once, with out[i, l+1] = Φₗ(χs[i]); see Φl_forward! above. The recurrence
 # and the overflow check are split into separate loops so that the recurrence can be @simd-vectorized over χ.
-function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-100)
-    _out = zeros(size(out, 2))
-    out .= 0.0
-    for i in eachindex(χs)
+function Φl_backward!(out::AbstractMatrix, ls::AbstractArray{<:Integer}, χs::AbstractVector, k, K, sqK::AbstractVector, invsqK::AbstractVector; Φmin = 1e-100)
+    lmax = ls[end]
+    _out = zeros(lmax + 1) # TODO: take as input argument?
+    @inbounds for i in eachindex(χs)
         #println("χ = $(χs[i]), lmax = $lmax")
         Φl_backward!(_out, lmax, χs[i], k, K, sqK, invsqK)
 
@@ -189,8 +211,8 @@ function Φl_backward!(out::AbstractMatrix, lmax::Integer, χs::AbstractVector, 
             lmax -= 1
         end
 
-        for j in 1:lmax
-            out[i, j] = _out[j]
+        for j in eachindex(ls)
+            out[i, j] = _out[1 + ls[j]]
         end
     end
     return out

@@ -235,13 +235,12 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
     il_limber == 1 || lmax ≥ 2 || throw(ArgumentError("the recursion needs multipoles l ≥ 2, but got lmax = $lmax below l_limber = $l_limber"))
-    iΦ = [l+1 for l in ls_nonlimber] # where each requested l sits in the recursion output, which is indexed by l itself
 
     @fastmath @inbounds @tasks for ik in eachindex(ks)
         @set scheduler = thread ? :dynamic : :serial
         @local begin
             tmp = zeros(T, nl)
-            Φl = zeros(Float64, nτ, lmax+1) # Φₗ(χᵢ) for every τᵢ and l = 0, …, lmax at once (see Φl_recurrence!)
+            Φl = zeros(Float64, nτ, length(ls_nonlimber)) # Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once (see Φl_recurrence!)
             sqK = zeros(Float64, lmax+2) # recursion coefficients √Kₗ = √(k²-Kl²) and 1/√Kₗ for l = 0, …, lmax+1,
             invsqK = zeros(Float64, lmax+2) # which depend on k but not on χ (so are tabulated once per k)
         end
@@ -252,11 +251,11 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         # Full line-of-sight integrals for l < l_limber (skipped entirely when every requested l uses Limber)
         fill!(tmp, zero(T))
         if il_limber > 1
-            Φl_recurrence!(Φl, lmax, χs, k, K, sqK, invsqK) # one recursion sweep gives Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once
+            Φl_recurrence!(Φl, ls_nonlimber, χs, k, K, sqK, invsqK) # one recursion sweep gives Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once
             @inbounds for iτ in eachindex(τs)
                 Sw = ws[iτ] * Ss[iτ, ik]
                 @inbounds @simd for il in 1:il_limber-1
-                    tmp[il] += Sw * Φl[iτ, iΦ[il]]
+                    tmp[il] += Sw * Φl[iτ, il]
                 end
             end
         end
