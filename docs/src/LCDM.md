@@ -338,7 +338,7 @@ Now set remaining parameter values and compile the numerical problem:
 ```@example LCDM
 p = Dict(
     M.h => 0.7,
-    M.Ωk0 => 0.0,
+    M.Ωk0 => 0.1,
     M.Ωc0 => 0.3,
     M.Ωb0 => 0.05,
     M.YHe => 0.25,
@@ -376,10 +376,9 @@ plot(log10.(ks), log10.(transpose(Ps)), xlabel = "log10(k / (H₀/c))", ylabel =
 
 Now compute the CMB power spectrum:
 ```@example LCDM
-jl = SphericalBesselCache(25:25:3000)
-ls = 25:3000
 modes = [:TT, :EE, :TE]
-Dls = spectrum_cmb(modes, prob, jl, ls; normalization = :Dl)
+ls = 25:3000
+Dls = spectrum_cmb(modes, prob, 25:25:3000, ls; normalization = :Dl)
 plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (3, 1), size = (600, 1000), left_margin=5*Plots.mm)
 plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2)
 plot!(ls, Dls[:,3]*1e12, ylabel = "10¹² D(ℓ)", label = "TE", subplot = 3, color = 3, xlabel = "ℓ")
