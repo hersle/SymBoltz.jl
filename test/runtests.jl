@@ -1010,3 +1010,19 @@ end
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
 end
+
+@testset "hyperspherical Bessel function recursion" begin
+    K = -0.1
+    ls = unique(Int.(round.(exp.(range(log(2), log(2500); length = 100)))))
+
+    χs = collect(reverse(range(0.0, 3.0; length = 500)))
+    Φl = zeros(length(χs), length(ls))
+
+    k = 1e1
+    Φmin = 1e-20
+    @time SymBoltz.Φl_recurrence!(Φl, ls, χs, k, K; Φmin)
+
+    #using Plots
+    #heatmap(reverse(χs), ls, max.(log10.(abs.(reverse(transpose(Φl); dims=2))), log10(Φmin)); xlabel = "χ", ylabel = "ℓ", title = "Φ(χ, ℓ, k=$k)")
+    #plot(k .* χs, Φl[:, 1]; xlims = (0, 10))
+end
