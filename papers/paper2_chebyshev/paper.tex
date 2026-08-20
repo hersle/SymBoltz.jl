@@ -221,12 +221,12 @@ This holds particularly in curved universes, which need hyperspherical Bessel fu
 
 Any function $f(x)$ is interpolated through $N$ points $(x_i, f_i)$ by a polynomial $p_n(x)$ of order $n=N-1$:%
 \begin{equation}
-	f(x) \approx p_n(x) = \sum_j f_j \, \ell_j(x)
+	f(x) \approx p_n(x) = \sum_j f_j \, L_j(x)
 	\quad \text{with} \quad
-	\ell_j(x) = \frac{\prod_{k \neq j} \, (x-x_k)}{\prod_{k \neq j} \, (x_j-x_k)} .
+	L_j(x) = \frac{\prod_{k \neq j} \, (x-x_k)}{\prod_{k \neq j} \, (x_j-x_k)} .
 \label{eq:interppoly}
 \end{equation}
-The Lagrange polynomials satisfy $\ell_j(x_k) = \delta_{jk}$, so $p_n(x_k) = f_k$.
+The Lagrange polynomials satisfy $L_j(x_k) = \delta_{jk}$, so $p_n(x_k) = f_k$.
 We work with the standard domain $x \in [-1, 1]$,
 and map interpolation over arbitrary $y \in [a, b]$ with $x(y) = ( 2y-b-a ) / (b-a)$.
 
