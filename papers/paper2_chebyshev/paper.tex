@@ -626,14 +626,13 @@ We believe Chebyshev interpolation is a step forward for simpler \EB{} codes
 with numerical algorithms that make better use of the physical properties of the equations,
 instead of resorting to complicated approximation schemes.
 
-\iffalse
 \begin{acknowledgements}
-	I thank heltonmc for implementing arbitrary $\ell$ in Bessels.jl.
-	I thank Steven G. Johnson for creating the FastChebInterp.jl package and for advocating its use to 
-nterpolate smooth and expensive functions on the forum for the Julia programming language.%
-	\footnote{\url{https://discourse.julialang.org/t/117640/11}}
+	I thank Hans A. Winther for providing valuable feedback on drafts of this paper.
+	I thank Michael Helton for creating the Bessels.jl package,
+	which made it easy to compute spherical Bessel functions with both integer and non-integer order in this paper.
+	I thank Steven G. Johnson for creating the FastChebInterp.jl package,
+	which made it easy to inspect the convergence of Chebyshev coefficients in this paper.
 \end{acknowledgements}
-\fi
 
 \bibliographystyle{aa}
 \bibliography{paper}
