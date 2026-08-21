@@ -316,7 +316,7 @@ We do not use Chebyshev interpolation to compete with an interpolation method th
 To go beyond the scope of this paper and take Chebyshev polynomials in time seriously,
 one could use spectral ODE methods.
 Instead of evolving $u(\tau)$,
-they expand $u(\tau) = \sum_m a_m T_m(\tau)$ in Chebyshev polynomials $T_m(\tau)$
+they expand $u(\tau) = \sum_m a_m T_m(x(\tau))$ in Chebyshev polynomials $T_m(x(\tau))$
 and derive equations for $a_m$ from the ODE.
 \citep[e.g.][]{choustikovOptimizingEvolutionPerturbations2023,ranaSpectralChebyshevApproximation2025}.
 
@@ -413,7 +413,7 @@ but the improvement depends on the particular source.
 	\includegraphics[width=\textwidth]{figures/coeffs.pdf}
 	\caption{%
 		\label{fig:coeffs}
-		Coefficients $a_m$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{400} a_m(\tau) T_m(k)$ of the source functions in \cref{fig:sources}.
+		Coefficients $a_m$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{400} a_m(\tau) T_m(x(k))$ of the source functions in \cref{fig:sources}.
 		The temperature and polarization sources are evaluated at recombination,
 		and the matter and lensing sources today.
 		The curves correspond to decreasing ODE solver tolerances for the perturbations,
@@ -556,7 +556,7 @@ We therefore anticipate that the integer-rounded Chebyshev interpolation strateg
 Thus, Chebyshev interpolation is better also in $\ell$.
 It reaches up to several orders of magnitude lower error in CMB spectra than cubic splines with the same number of samples.
 The emulator Capse.jl for $C_\ell(\theta)$ of cosmological parameters $\theta$ also uses it,
-but their main purpose is to train on fewer independent coefficients $a_m(\theta)$ in the Chebyshev series $C_\ell(\theta) = \sum_m a_m(\theta) T_m(\ell)$ instead of every $C_\ell(\theta)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
+but their main purpose is to train on fewer independent coefficients $a_m(\theta)$ in the Chebyshev series $C_\ell(\theta) = \sum_m a_m(\theta) T_m(x(\ell))$ instead of every $C_\ell(\theta)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
 \Cref{sec:coeffs} links the coefficients to our barycentric approach.
 
 \section{Interpolation in wavenumber and multipole}
