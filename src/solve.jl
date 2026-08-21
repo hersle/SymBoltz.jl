@@ -8,7 +8,7 @@ import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
-import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values
+import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values, variable_index, parameter_index
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
 import NumericalIntegration: cumul_integrate
 using SparseArrays
@@ -158,7 +158,7 @@ function CosmologyProblem(
         # Set up callback for today # TODO: specify callbacks symbolically?
         iv = ModelingToolkit.get_iv(M)
         if Symbol(iv) == :τ
-            aidx = ModelingToolkit.variable_index(bg, :a)
+            aidx = variable_index(bg, :a)
             f = (u, τ, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
         elseif Symbol(iv) == :a
             f = (u, a, integrator) -> a - 1.0 # a is independent variable
@@ -166,19 +166,19 @@ function CosmologyProblem(
             error("Don't know what to do when independent variable is $iv.")
         end
         parsymbols = Symbol.(parameters(bg))
-        τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? ModelingToolkit.parameter_index(bg, :τ0) : nothing
+        τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? parameter_index(bg, :τ0) : nothing
         # TODO: specify callbacks symbolically
         if have(M, :b)
-            _κidx = ModelingToolkit.variable_index(bg, M.b._κ)
-            κ0idx = ModelingToolkit.parameter_index(bg, M.b.κ0)
+            _κidx = variable_index(bg, M.b._κ)
+            κ0idx = parameter_index(bg, M.b.κ0)
         elseif hasproperty(M, :κ)
-            _κidx = ModelingToolkit.variable_index(bg, M._κ)
-            κ0idx = ModelingToolkit.parameter_index(bg, :κ0)
+            _κidx = variable_index(bg, M._κ)
+            κ0idx = parameter_index(bg, :κ0)
         else
             κ0idx = nothing
             _κidx = nothing
         end
-        τrecidx = Symbol("τrec") in parsymbols ? ModelingToolkit.parameter_index(bg, :τrec) : nothing
+        τrecidx = Symbol("τrec") in parsymbols ? parameter_index(bg, :τrec) : nothing
         vfunc = !isnothing(τrecidx) && have(M, :b) && hasproperty(M.b, :v) ? ModelingToolkit.build_explicit_observed_function(bg, M.b.v) : nothing
         function affect!(integrator)
             if !isnothing(τ0idx)
