@@ -221,12 +221,12 @@ This holds particularly in curved universes, which need hyperspherical Bessel fu
 
 Any function $f(x)$ is interpolated through $N$ points $(x_i, f_i)$ by a polynomial $p_n(x)$ of order $n=N-1$:%
 \begin{equation}
-	f(x) \approx p_n(x) = \sum_j f_j \, L_j(x)
+	f(x) \approx p_n(x) = \sum_i f_i \, L_i(x)
 	\quad \text{with} \quad
-	L_j(x) = \frac{\prod_{k \neq j} \, (x-x_k)}{\prod_{k \neq j} \, (x_j-x_k)} .
+	L_i(x) = \frac{\prod_{j \neq i} \, (x-x_j)}{\prod_{j \neq i} \, (x_i-x_j)} .
 \label{eq:interppoly}
 \end{equation}
-The Lagrange polynomials satisfy $L_j(x_k) = \delta_{jk}$, so $p_n(x_k) = f_k$.
+The Lagrange polynomials satisfy $L_i(x_j) = \delta_{ij}$, so $p_n(x_i) = f_i$.
 We work with the standard domain $x \in [-1, 1]$,
 and map interpolation over arbitrary $y \in [a, b]$ with $x(y) = ( 2y-b-a ) / (b-a)$.
 
@@ -245,30 +245,30 @@ The polynomial interpolation error is bounded by
 \begin{equation}
 	\big\lvert f(x) - p_n(x) \big\rvert \leq \frac{M_{n+1}}{(n+1)!} \, \lvert \omega(x) \rvert,
 	\quad
-	\omega(x) = \prod_j (x-x_j),
+	\omega(x) = \prod_i (x-x_i),
 \label{eq:error}
 \end{equation}
 where $M_{n} = \max \lvert f^{(n)}(x) \rvert$ on $x\in[-1,1]$.
 Thus, the points should be placed in a way that minimizes the nodal polynomial $\lvert \omega(x) \rvert$.
 
-Unintuitively, it is a bad idea to use uniformly spaced $x_j$.
+Unintuitively, it is a bad idea to use uniformly spaced $x_i$.
 Then $\omega(x)$ decays very slowly near the edges and is easily outrun by $M_{n+1}/(n+1)!$ as $n \rightarrow \infty$.
-This is called Runge's phenomenon and causes violent oscillations, as demonstrated in \cref{fig:recequi}.
+This is called Runge's phenomenon and causes violent oscillations demonstrated in \cref{fig:recequi}.
 
 Two particularly excellent ways to place the points are at the Chebyshev nodes of the first or second kind
 \citep{trefethenApproximationTheoryApproximation2019}:
 \begin{subequations}
 \begin{align}
-	x_m^{(1)} &= \cos \left( \frac{2m+1}{2n+2} \pi \right) \quad && (m = 0,\, 1,\, \ldots\, n), \label{eq:chebnodes1} \\
-	x_m^{(2)} &= \cos \left( \frac{m}{n} \pi \right) \quad && (m = 0,\, 1,\, \ldots\, n). \label{eq:chebnodes2}
+	x_i^{(1)} &= \cos \left( \frac{2i+1}{2n+2} \pi \right) && (i = 0,\, 1,\, \ldots\, n), \label{eq:chebnodes1} \\
+	x_i^{(2)} &= \cos \left( \frac{i}{n} \pi \right) && (i = 0,\, 1,\, \ldots\, n). \label{eq:chebnodes2}
 \end{align}
 \label{eq:chebnodes}%
 \end{subequations}
-It is known that $x_m^{(1)}$ are the only points that bound $\lvert \omega(x) \rvert \leq 2^{-n}$ for all $x$.
-Meanwhile, $x_m^{(2)}$ bound $\lvert \omega(x) \rvert \leq 2^{-n+1}$ but includes the endpoints $x = \pm 1$,
+The points $x_i^{(1)}$ give the best possible bound $\lvert \omega(x) \rvert \leq 2^{-n}$ for all $x$.
+Meanwhile, $x_i^{(2)}$ bound $\lvert \omega(x) \rvert \leq 2^{-n+1}$ but includes the endpoints $x = \pm 1$,
 which is sometimes more or less practical.
-They perform comparably in practice,
-and other points distributed with a similar $(1-x^2)^{-1/2}$ density are also effective.
+In practice,
+$x_i^{(1)}$ and $x_i^{(2)}$ and any other set of points distributed with a similar $(1-x^2)^{-1/2}$-proportional density are effective.
 
 %As explained in \cref{sec:coeffs}, they are the roots of the type-I Chebyshev polynomials
 %and enable practical advantages such as Fast Fourier Transforms (FFTs) computations.
@@ -310,31 +310,31 @@ and the error \eqref{eq:error} falls exponentially:%
 
 Evaluating $p_n(x)$ is simple, fast and robust through the barycentric interpolation formula \citep{berrutBarycentricLagrangeInterpolation2004}:%
 \begin{equation}
-	p_n(x) = \sum_{j=0}^n \frac{w_j}{x-x_j} f_j \,\,\,\Bigg/\,\,\, \sum_{j=0}^n \frac{w_j}{x-x_j}.
+	p_n(x) = \sum_i \frac{w_i}{x-x_i} f_i \,\,\,\Bigg/\,\,\, \sum_i \frac{w_i}{x-x_i}.
 \label{eq:bary}
 \end{equation}
 This involves the point-dependent interpolation weights
 \begin{equation}
-	w_m = \frac{1}{\omega^\prime(x_m)} = \frac{1}{\prod_{k \neq m} (x_m - x_k)}.
+	w_i = \frac{1}{\omega^\prime(x_i)} = \frac{1}{\prod_{j \neq i} (x_i - x_j)}.
 \label{eq:weights}
 \end{equation}
 They can be precomputed for a general scheme,
 but for the Chebyshev nodes \eqref{eq:chebnodes} one can instead just use the exact weights%
 \begin{subequations}
 \begin{align}
-	w_m^{(1)} &= (-1)^m \sin \left( \frac{(2m+1)}{2n+2} \pi \right), \label{eq:chebweights1} \\
-	w_m^{(2)} &= \begin{cases} (-1)^m/2 & \text{if } m = 0 \text{ or } m = n, \\ (-1)^m & \text{otherwise}. \end{cases} \label{eq:chebweights2}
+	w_i^{(1)} &= (-1)^i \sin \left( \frac{(2i+1)}{2n+2} \pi \right), \label{eq:chebweights1} \\
+	w_i^{(2)} &= \begin{cases} (-1)^i/2 & \text{if } i = 0 \text{ or } i = n, \\ (-1)^i & \text{otherwise}. \end{cases} \label{eq:chebweights2}
 \end{align}
 \label{eq:chebweights}%
 \end{subequations}
 Barycentric interpolation is robust and uses only $O(n)$ operations per $x$.
-Despite suspicious divisions by $x-x_j$, it is stable in floating point arithmetic even as $x \rightarrow x_j$,
-and needs only a simple exception to return $f_j$ if $x = x_j$ exactly \citep{highamNumericalStabilityBarycentric2004}.
+Despite suspicious divisions by $x-x_i$, it is stable in floating point arithmetic even as $x \rightarrow x_i$,
+and needs only a simple exception to return $f_i$ if $x = x_i$ exactly \citep{highamNumericalStabilityBarycentric2004}.
 In contrast, the Lagrange form \eqref{eq:interppoly} is unstable and uses $O(n^2)$ operations per $x$.
 
 Our implementation creates a \texttt{ChebyshevInterpolator} from an interval $[a, b]$ and polynomial degree $n$,
 computes and transforms the nodes \eqref{eq:chebnodes} to $[a, b]$,
-and then evaluates the barycentric formula \eqref{eq:bary} with weights \eqref{eq:chebweights} and any function values $f(x_j)$.
+and then evaluates the barycentric formula \eqref{eq:bary} with weights \eqref{eq:chebweights} and any function values $f(x_i)$.
 
 %Our implementation of Chebyshev interpolation simply consists of
 %evaluating the barycentric formula \eqref{eq:bary} with points \eqref{eq:chebnodes} and weights \eqref{eq:chebweights}.
@@ -343,9 +343,9 @@ and then evaluates the barycentric formula \eqref{eq:bary} with weights \eqref{e
 %barycentric formula \eqref{eq:bary}
 %and weights \eqref{eq:chebweights}.
 
-An alternative implementation expands $p_n(x) = \sum_k a_k T_k(x)$ in a series of Chebyshev polynomials $T_k(x)$.
-A Discrete Cosine Transform converts between the coefficients $a_k$ and function values $f_j$.
-This lets us inspect the convergence of $\lvert a_k \rvert$ with $k$,
+An alternative implementation expands $p_n(x) = \sum_m a_m T_m(x)$ in a series of Chebyshev polynomials $T_m(x)$.
+A Discrete Cosine Transform converts between the coefficients $a_m$ and function values $f_i$.
+This lets us inspect the convergence of $\lvert a_m \rvert$ with $m$,
 and thus convergence of the full polynomial $p_n(x)$.
 It is not necessary, but is useful for error analysis and described in \cref{sec:coeffs}.
 
@@ -394,10 +394,10 @@ We do not use Chebyshev interpolation to compete with an interpolation method th
 %This also impacts performance less,
 %as it is cheap to save more time points when integrating an ODE.
 To go beyond the scope of this paper and take Chebyshev polynomials in time seriously,
-one could attempt spectral ODE methods.
-Instead of integrating $u(\tau)$ directly,
-they expand $u(\tau) = \sum_k a_k T_k(\tau)$ in Chebyshev polynomials $T_k(\tau)$
-and use the ODE to derive equations for $a_k$
+one could use spectral ODE methods.
+Instead of evolving $u(\tau)$,
+they expand $u(\tau) = \sum_m a_m T_m(\tau)$ in Chebyshev polynomials $T_m(\tau)$
+and derive equations for $a_m$ from the ODE.
 \citep[e.g.][]{choustikovOptimizingEvolutionPerturbations2023,ranaSpectralChebyshevApproximation2025}.
 %This is outside the scope of this paper.
 %In contrast, interpolation in $k$ (for fixed $\tau$) and $\ell$ has a is more independent and global in nature,
@@ -727,10 +727,10 @@ We therefore anticipate that the integer-rounded Chebyshev interpolation strateg
 
 Thus, Chebyshev interpolation is better also in $\ell$.
 It reaches up to several orders of magnitude lower error in CMB spectra than cubic splines with the same number of samples.
-Note that it is also used in the Capse.jl emulator for $C_\ell(\theta)$ of cosmological parameters $\theta$,
-but their main purpose is to train on fewer independent coefficients $a_n(\theta)$ in the Chebyshev series $C_\ell(\theta) = \sum_n a_n(\theta) T_n(\ell)$ instead of every $C_\ell(\theta)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
+The emulator Capse.jl for $C_\ell(\theta)$ of cosmological parameters $\theta$ also uses it,
+but their main purpose is to train on fewer independent coefficients $a_m(\theta)$ in the Chebyshev series $C_\ell(\theta) = \sum_m a_m(\theta) T_m(\ell)$ instead of every $C_\ell(\theta)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
 %As a bonus, the coefficients $a_n(\theta)$ also accelerate the likelihood computation compared to $C_\ell(\theta)$ because it allows a significant part of the likelihood computation to be precomputed once.
-\Cref{sec:coeffs} links these coefficients to our barycentric approach.
+\Cref{sec:coeffs} links the coefficients to our barycentric approach.
 
 \section{Interpolation in wavenumber and multipole}
 \label{sec:kl}
@@ -838,9 +838,8 @@ We give a brief summary of this approach based on \cite{trefethenApproximationTh
 The Chebyshev polynomials of the first kind are defined as
 \begin{equation}
 	T_n(x) = \cos(n \arccos x)
-	\quad \text{for} \quad
-	%\theta(x) = \arccos x
-	x \in [-1, 1].
+	\qquad
+	(x \in [-1, 1]).
 \label{eq:chebpolydef}
 \end{equation}
 To see it is really a polynomial,
@@ -856,22 +855,22 @@ evaluate $T_0(x)$ and $T_1(x)$ explicitly and use the identities $\cos(n\theta\p
 
 The Chebyshev polynomials are an orthogonal basis for expanding a function $f(x)$ on $x \in [-1, 1]$ in a unique series%
 \begin{equation}
-	f(x) = \sum_{k=0}^\infty c_k T_k(x).
+	f(x) = \sum_{m=0}^\infty c_m T_m(x).
 \label{eq:infseries}
 \end{equation}
 They are orthogonal with respect to the inner product
 (change variables to $x = \cos \theta$ and use orthogonality of cosines)
 \begin{equation}
-	%\innerproduct{T_m(x)}{T_n(x)} =
-	\int_{-1}^1 \frac{T_m(x) T_n(x)}{\sqrt{1-x^2}} \, \diff{x} =
-	\begin{cases} 0 & \text{if $m \neq n$,} \\ \pi & \text{if $m=n=0$,} \\ \pi/2 & \text{if $m=n \geq 1$,} \end{cases}
+	%\innerproduct{T_m(x)}{T_{m'}(x)} =
+	\int_{-1}^1 \frac{T_m(x) T_{m'}(x)}{\sqrt{1-x^2}} \, \diff{x} =
+	\begin{cases} 0 & \text{if $m \neq m'$,} \\ \pi & \text{if $m=m'=0$,} \\ \pi/2 & \text{if $m=m' \geq 1$,} \end{cases}
 \label{eq:innerprodcont}
 \end{equation}
 so the coefficients that represent a given function $f(x)$ are
 \begin{subequations}
 \begin{align}
 	c_0 &= \frac{1}{\pi} \int_{-1}^1 \frac{T_0(x) f(x)}{\sqrt{1-x^2}} \, \diff{x}, \\
-	c_k &= \frac{2}{\pi} \int_{-1}^1 \frac{T_k(x) f(x)}{\sqrt{1-x^2}} \, \diff{x} \qquad (k \geq 1).
+	c_m &= \frac{2}{\pi} \int_{-1}^1 \frac{T_m(x) f(x)}{\sqrt{1-x^2}} \, \diff{x} \qquad (m \geq 1).
 \end{align}
 \label{eq:coeffscont}%
 \end{subequations}
@@ -883,7 +882,7 @@ and are not very practical.
 One way to approximate $f(x)$ is to take the coefficients \eqref{eq:coeffscont},
 but truncate the infinite series \eqref{eq:infseries} at a finite $n$:
 \begin{equation}
-	f(x) \approx \hat{p}_n(x) = \sum_{k=0}^n c_k T_k(x).
+	f(x) \approx \hat{p}_n(x) = \sum_{m=0}^n c_m T_m(x).
 \label{eq:projection}
 \end{equation}
 This is called Chebyshev projection,
@@ -898,50 +897,50 @@ but it is impractical for other purposes.
 \subsection{Chebyshev interpolation}
 
 % https://www.buttenschoen.ca/MATH551/build/point-choice-4c36fbc36ea8e8d082339f77a23601f8.pdf
-A practical interpolation method is to construct the polynomial $p_n(x)$ that passes through $f(x)$ at certain points $x_m$.
+A practical interpolation method is to construct the polynomial $p_n(x)$ that passes through $f(x)$ at certain points $x_i$.
 However, instead of expanding it in Lagrange polynomials as in \cref{sec:chebyshev},
 we can expand it in a series of Chebyshev polynomials:
 \begin{equation}
-	f(x) \approx p_n(x) = \sum_{k=0}^n a_k T_k(x)
+	f(x) \approx p_n(x) = \sum_{m=0}^n a_m T_m(x)
 	\quad \text{such that} \quad
-	p_n(x_m) = f(x_m).
+	p_n(x_i) = f(x_i).
 \label{eq:interpolation}
 \end{equation}
 
-It is convenient to select $x_m$ as the extrema of $T_n(x)$.
-The trigonometric definition \eqref{eq:chebpolydef} reaches $\lvert T_n(x) \rvert = 1$ when $n\theta = m\pi$,
+It is convenient to select $x_i$ as the extrema of $T_n(x)$.
+The trigonometric definition \eqref{eq:chebpolydef} reaches $\lvert T_n(x) \rvert = 1$ when $n\theta = i\pi$ for integer $i$,
 so its extrema are
 \begin{equation}
-	x_m = \cos \left( \frac{m}{n} \pi \right)
+	x_i = \cos \left( \frac{i}{n} \pi \right)
 	\qquad
-	(0 \leq m \leq n).
+	(0 \leq i \leq n).
 \label{eq:chebnodes2_app}
 \end{equation}
 Analogously to the continuous inner product \eqref{eq:innerprodcont},
 the extrema give rise to a discrete orthogonality relationship:
 \begin{equation}
-	%\innerproduct{T_i(x_k)}{T_j(x_k)} =
-	\sideset{}{''}\sum_{k=0}^n T_i(x_k) T_j(x_k) =
-	\begin{cases} 0 & \text{if $i \neq j$,} \\ n & \text{if $i = j \in \{0, n\}$,} \\ n/2 & \text{if $i = j \in [1,n-1]$,} \end{cases}
+	%\innerproduct{T_m(x_i)}{T_{m'}(x_i)} =
+	\sideset{}{''}\sum_{i=0}^n T_m(x_i) T_{m'}(x_i) =
+	\begin{cases} 0 & \text{if $m \neq m'$,} \\ n & \text{if $m = m' \in \{0, n\}$,} \\ n/2 & \text{if $m = m' \in [1,n-1]$,} \end{cases}
 \label{eq:innerproddiscrete}
 \end{equation}
-where the first and last terms of the double-primed sum are halved.
-Thus, the coefficients $a_k$ that interpolate a given $f(x)$ are%
+where the double-primed sum halves its first and last terms.
+Thus, the coefficients $a_m$ that interpolate a given $f(x)$ are%
 \begin{equation}
-	a_k = \frac{2}{n} \sideset{}{''}\sum_{j=0}^n f(x_j) \cos \left( \frac{jk\pi}{n} \right) .
+	a_m = \frac{2}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) .
 \label{eq:coeffsdiscrete}
 \end{equation}
 This is exactly a type-I Discrete Cosine Transform (DCT),
 which can be computed with only $O(n \log n)$ instead of $O(n^2)$ operations.
 This special property makes Chebyshev interpolation particularly attractive.
 
-Once $a_k$ are known, the interpolating series \eqref{eq:interpolation} is easily evaluated for any $x$ with $O(n)$ operations.
+Once $a_m$ are known, the interpolating series \eqref{eq:interpolation} is easily evaluated for any $x$ with $O(n)$ operations.
 A naive implementation is to iterate through every term while computing the recurrence \eqref{eq:recurrence} forwards, but this is unstable for $\lvert x \rvert \rightarrow 1$.
-A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebyshev1955} algorithm with an intermediate variable $b_k(x)$:
+A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebyshev1955} algorithm with an intermediate variable $b_m(x)$:
 \begin{subequations}
 \begin{align}
 	b_{n+1}(x) &= b_{n+2}(x) = 0, \\
-	b_k(x) &= a_k + 2x b_{k+1}(x) - b_{k+2}(x) \quad (k = n, \ldots, 0), \\
+	b_m(x) &= a_m + 2x b_{m+1}(x) - b_{m+2}(x) \quad (m = n,\, \ldots,\, 0), \\
 	p_n(x) &= \textstyle{\frac12 \big(a_0 + b_0(x) - b_2(x)\big)}.
 \end{align}
 \end{subequations}
@@ -949,19 +948,19 @@ A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebysh
 Interpolating with the Chebyshev series \eqref{eq:interpolation} is fully equivalent to the barycentric formula \eqref{eq:bary}
 with the Chebyshev points \eqref{eq:chebnodes2} and weights \eqref{eq:chebweights2} of the second kind,
 as the interpolating polynomial is of the same order and passes through the same points.
-The DCT \eqref{eq:coeffsdiscrete} converts the function values $f(x_j)$ of the barycentric approach to the coefficients $a_k$ of the series approach.
+The DCT \eqref{eq:coeffsdiscrete} converts the function values $f(x_i)$ of the barycentric approach to the coefficients $a_m$ of the series approach.
 While the barycentric approach is simpler, faster and more flexible,
-the advantage of the series approach is that the coefficients $a_k$
+the advantage of the series approach is that the coefficients $a_m$
 provide a useful diagnostic for analyzing the maximum interpolation error:
 \begin{equation}
-	\big\lvert f(x) - p_n(x) \big\rvert \leq \sum_{k=n+1}^\infty \lvert a_k \rvert.
+	\big\lvert f(x) - p_n(x) \big\rvert \leq \sum_{m=n+1}^\infty \lvert a_m \rvert.
 \label{eq:coefferr}
 \end{equation}
 In other words the neglected coefficients bound the interpolation error,
-so convergence of $a_k$ implies convergence of the full $p_n(x)$.
+so convergence of $a_m$ implies convergence of the full $p_n(x)$.
 
 SymBoltz always uses barycentric interpolation,
-but we implemented the DCT \eqref{eq:coeffsdiscrete} for the coefficients $a_k$
+but we implemented the DCT \eqref{eq:coeffsdiscrete} for the coefficients $a_m$
 as an additional way to inspect convergence of interpolation in \cref{fig:coeffs} in this paper.
 
 \end{document}
