@@ -13,10 +13,10 @@ ST = (M.k*M.χ)*M.ST
 SE = (M.k*M.χ)^2*M.SE
 SM = M.m.Δ
 SL = -(M.g.Φ+M.g.Ψ)
-pT = surface(sol, log10(M.g.a), M.k, ST; xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = ST, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pE = surface(sol, log10(M.g.a), M.k, SE; xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SE, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pM = surface(sol, log10(M.g.a), M.k, SM; xlims = (-2.5, 0), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SM, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pL = surface(sol, log10(M.g.a), M.k, SL; xlims = (-5, 0), zticks = nothing, zlabel = nothing, title = SL, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pT = surface(sol, log10(M.g.a), M.k, ST; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = ST, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pE = surface(sol, log10(M.g.a), M.k, SE; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SE, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pM = surface(sol, log10(M.g.a), M.k, SM; ylabel = "k / (H₀/c)", xlims = (-2.5, 0), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SM, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pL = surface(sol, log10(M.g.a), M.k, SL; ylabel = "k / (H₀/c)", xlims = (-5, 0), zticks = nothing, zlabel = nothing, title = SL, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
 p = plot(pT, pE, pM, pL, layout = (1, 4), size = (1000, 300), zticks = nothing, margin = -1*Plots.mm, tickfontsize = 7)
 savefig(pT, "papers/paper2_chebyshev/figures/ST.pdf")
 savefig(pE, "papers/paper2_chebyshev/figures/SE.pdf")
@@ -126,10 +126,10 @@ end
 kgrid_cheb = ChebyshevInterpolator(1.0, 2000.0, 99)
 kgrid_cub = CubicSplineInterpolator(1.0, 2000.0, 99)
 kgrid_cubcheb = CubicSplineInterpolator(kgrid_cheb.xs)
-pTcheb, pTcub, pTcubcheb = plot_heatmap_errors(ST, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pEcheb, pEcub, pEcubcheb = plot_heatmap_errors(SE, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k", clims = (-9.5, -3.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pMcheb, pMcub, pMcubcheb = plot_heatmap_errors(SM, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pLcheb, pLcub, pLcubcheb = plot_heatmap_errors(SL, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k", clims = (-8.5, -2.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pTcheb, pTcub, pTcubcheb = plot_heatmap_errors(ST, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pEcheb, pEcub, pEcubcheb = plot_heatmap_errors(SE, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-9.5, -3.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pMcheb, pMcub, pMcubcheb = plot_heatmap_errors(SM, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pLcheb, pLcub, pLcubcheb = plot_heatmap_errors(SL, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-8.5, -2.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
 pTcheb
 pTcub
 pTcubcheb
@@ -155,15 +155,15 @@ p = plot(
     colorbar_strip(pEcheb[1][:clims]; title = "$SE"),
     colorbar_strip(pMcheb[1][:clims]; title = "$SM"),
     colorbar_strip(pLcheb[1][:clims]; title = "$SL"),
-    plot(pTcheb; xlabel = nothing, xticks = nothing, ylabel = "k", title = "", left_margin = 6*Plots.mm),
+    plot(pTcheb; xlabel = nothing, xticks = nothing, ylabel = "k / (H₀/c)", title = "", left_margin = 6*Plots.mm),
     plot(pEcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pMcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pLcheb; xlabel = nothing, xticks = nothing, yticks = ([1000], ["Chebyshev polynomials"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = ""),
-    plot(pTcub; xlabel = nothing, xticks = nothing, title = ""),
+    plot(pTcub; xlabel = nothing, xticks = nothing, ylabel = "k / (H₀/c)", title = ""),
     plot(pEcub; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pMcub; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pLcub; xlabel = nothing, xticks = nothing, ylabel = nothing, yticks = ([1000], ["cubic splines (uniform points)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = ""),
-    plot(pTcubcheb; ylabel = "k", title = ""),
+    plot(pTcubcheb; ylabel = "k / (H₀/c)", title = ""),
     plot(pEcubcheb; ylabel = nothing, yticks = nothing, title = "", bottom_margin = 5*Plots.mm),
     plot(pMcubcheb; ylabel = nothing, yticks = nothing, title = ""),
     plot(pLcubcheb; ylabel = nothing, yticks = ([1000], ["cubic splines (Chebyshev grid)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = "");
@@ -177,7 +177,7 @@ function plot_time_slice(S, τ, ks_raw, klengths; f = identity, tol = 1e-7, kint
     Ss_raw = source_grid(prob, S, [τ], ks_raw, sol.bg; ptopts)
     Ss_raw = Ss_raw[1, :] # slice in time
     margin = 3*Plots.mm
-    title = "S(τ = $(round(τ, digits=3)), k) = $S"
+    title = "$S, z(τ) = $(Int(round(sol(M.g.z, τ))))"
     p = plot(ks_raw, Ss_raw; title, label = "$(length(ks_raw)) solved k-modes", color = :black, linewidth = 4, size = (600, 500), layout = grid(2, 1, heights=[0.75, 0.25]), link = :x, margin)
     for (color, klength) in enumerate(klengths)
         label = "$klength interpolation k-points"
@@ -192,7 +192,7 @@ function plot_time_slice(S, τ, ks_raw, klengths; f = identity, tol = 1e-7, kint
         Ss = source_grid(prob, S, [τ], ks_raw, kgrid, sol.bg; ptopts)
         Ss = Ss[1, :] # slice in time
         plot!(p, ks_raw, Ss; color, label, xformatter = _ -> "", bottom_margin = -5*Plots.mm, top_margin = -1*Plots.mm, subplot = 1, kwargs...)
-        plot!(p, ks_raw, abs.(Ss .- Ss_raw); color, xlabel = M.k, ylabel = "error", yscale = :log10, label = nothing, ylims = yerrlims, yticks = 10.0 .^ (-8:8), subplot = 2)
+        plot!(p, ks_raw, abs.(Ss .- Ss_raw); color, xlabel = "k / (H₀/c)", ylabel = "error", yscale = :log10, label = nothing, ylims = yerrlims, yticks = 10.0 .^ (-8:8), subplot = 2)
     end
     return p
 end
@@ -222,7 +222,7 @@ function plot_chebyshev_coefficients(S, τ, kgrid; tols = 1e-7, kwargs...)
     end
     return p
 end
-kgrid = ChebyshevInterpolator(1.0, 2000.0, 400)
+kgrid = ChebyshevInterpolator(1.0, 2000.0, 300)
 pT = plot_chebyshev_coefficients(ST, τrec, kgrid; tols = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7], yticks = 10.0 .^ (-20:20), ylims = (1e-6, 1e5))
 pE = plot_chebyshev_coefficients(SE, τrec, kgrid; tols = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7], yticks = 10.0 .^ (-20:20))
 pM = plot_chebyshev_coefficients(SM, τ0, kgrid; tols = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7], yticks = 10.0 .^ (-20:20), ylims = (1e-6, 1e5))
@@ -232,10 +232,10 @@ savefig(pM, "papers/paper2_chebyshev/figures/coeffsM.pdf")
 
 # Merge to one figure
 p = plot(
-    plot(pT; title = "$ST, τ=$(round(τrec; digits = 2))", ylims = (1e-6, 1e5), ylabel = "|aₘ|", legend = nothing, left_margin = 7*Plots.mm),
-    plot(pE; title = "$SE, τ=$(round(τrec; digits = 2))", ylims = (1e-10, 1e1), ylabel = nothing, legend = nothing),
-    plot(pM; title = "$SM, τ=$(round(τ0; digits = 2))", ylims = (1e-7, 1e4), ylabel = nothing, legend = nothing),
-    plot(pL; title = "$SL, τ=$(round(τ0; digits = 2))", ylims = (1e-11, 1e0), ylabel = nothing);
+    plot(pT; title = "$ST, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-6, 1e5), ylabel = "|aₘ|", legend = nothing, left_margin = 7*Plots.mm),
+    plot(pE; title = "$SE, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-10, 1e1), ylabel = nothing, legend = nothing),
+    plot(pM; title = "$SM, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-7, 1e4), ylabel = nothing, legend = nothing),
+    plot(pL; title = "$SL, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-11, 1e0), ylabel = nothing);
     xlims = (0, 300), xticks = 0:50:500,
     size = (1400, 400), layout = (1, 4), top_margin = 3*Plots.mm, bottom_margin = 7*Plots.mm, link = :y,
 )
@@ -391,7 +391,7 @@ end
 p
 
 # l-interpolation
-mode = :TT # :TT or :EE or :ψψ
+mode = :ψψ # :TT or :EE or :ψψ
 
 ls = unique([2.0:1.0:50.0; 50.0:5.0:200.0; 200.0:10.0:3000.0]) # every 1/5/10-th l
 jl = SphericalBesselCache(ls)

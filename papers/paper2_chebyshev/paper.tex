@@ -357,7 +357,7 @@ as they are smoother and more similar in magnitude over $k$ than $S(\tau, k)$.
 	\caption{%
 		\label{fig:rec}
 		Temperature source function $S^T(\tau, k)$ in \cref{fig:sourceT} at recombination interpolated with \subref{fig:recequi} equispaced polynomials, \subref{fig:reccheb} Chebyshev polynomials and \subref{fig:reccubic} cubic splines with uniform spacing.
-		The interpolated results are compared to explicit (non-interpolated) solutions of the perturbation ODEs for 500 $k$-modes.
+		The interpolated results are compared to non-interpolated explicit solutions of the perturbation ODEs for 500 $k$-modes.
 	}
 \end{figure*}
 
@@ -376,8 +376,8 @@ This is the fast convergence \eqref{eq:convergence} of Chebyshev interpolation w
 	\caption{%
 		\label{fig:heaterrs}
 		Interpolation error of temperature, polarization, matter and lensing source functions in \cref{fig:sources} (left to right)
-		interpolated with Chebyshev polynomials, cubic splines through uniform points and cubic splines through Chebyshev points (top to bottom) from 100 $k$-points in $k \in [1, 2000]$.
-		As in \cref{fig:rec}, the error is computed relative to 500 explicitly solved perturbation $k$-modes.
+		interpolated from 100 $k$-points using Chebyshev polynomials, equispaced cubic splines and cubic splines on a grid of Chebyshev points (top to bottom).
+		As in \cref{fig:rec}, the error is computed relative to 500 explicitly solved perturbation $k$-modes without interpolation.
 	}
 \end{figure*}
 
@@ -398,8 +398,9 @@ which disagrees with the underlying function.
 	\includegraphics[width=\textwidth]{figures/conv.pdf}
 	\caption{
 		\label{fig:convergence}
-		Convergence of the $L_2$ norm of the interpolation errors over $(\tau, k)$ in \cref{fig:heaterrs}
-		for interpolation with Chebyshev polynomials, uniformly spaced cubic splines and cubic splines through the points used for Chebyshev interpolation.
+		Root-mean-square of the interpolation error over $(\tau, k)$
+		for interpolation with Chebyshev polynomials, equispaced cubic splines and cubic splines with Chebyshev points (as in \cref{fig:heaterrs})
+		from an increasing number of $k$-samples.
 	}
 \end{figure*}
 
@@ -413,11 +414,10 @@ but the improvement depends on the particular source.
 	\includegraphics[width=\textwidth]{figures/coeffs.pdf}
 	\caption{%
 		\label{fig:coeffs}
-		Coefficients $a_m$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{400} a_m(\tau) T_m(x(k))$ of the source functions in \cref{fig:sources}.
+		Coefficients $a_m$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{300} a_m(\tau) T_m(x(k))$ of the source functions in \cref{fig:sources}.
 		The temperature and polarization sources are evaluated at recombination,
 		and the matter and lensing sources today.
-		The curves correspond to decreasing ODE solver tolerances for the perturbations,
-		which lowers the noise floor for the solution.
+		The noise floor for the interpolation error is lowered by stricter ODE solver tolerances for the perturbations.
 	}
 \end{figure*}
 
@@ -514,13 +514,13 @@ and errors if the requested order is so high that multiple nodes round to the sa
 	\end{subfigure}
 	\caption{%
 		\label{fig:cmb}
-		CMB temperature, polarization and lensing power spectra computed with cubic spline versus Chebyshev interpolation.
-		The interpolation is compared to the result from explicit line-of-sight integration for every $\ell$.
-		Interpolation happens in $(\ell, \ell^5 C_\ell)$-space, where we found all interpolation methods to behave best for all three spectra.
-		The cubic spline uses a grid with 8, 9 and 55 points on $\ell \in [2, 10]$, $[10, 100]$ and $[100, 3000]$, respectively, with shared points at $\ell = 10$ and $\ell = 100$.
-		Standard Chebyshev interpolation uses a single degree-69 polynomial through the Chebyshev nodes \eqref{eq:chebnodes2}, rescaled to $\ell \in [2, 3000]$.
-		Piecewise Chebyshev interpolation joins a degree-5 polynomial on $\ell \in [2, 10]$ with a degree-64 polynomial on $\ell \in [10, 3000]$, with a shared point at $\ell = 10$.
-		Integer-rounded Chebyshev interpolation instead runs the degree-69 polynomial through the integers that are closest to the standard nodes.
+		CMB temperature, polarization and lensing spectra interpolated in $\ell$ with cubic spline versus Chebyshev polynomials.
+		We interpolate $\ell^5 C_\ell$ as a function of $\ell$, for which we found all methods to perform best.
+		Cubic splines uses 8, 9 and 55 samples on $\ell \in [2, 10]$, $[10, 100]$ and $[100, 3000]$, respectively.
+		Standard Chebyshev interpolation fits a single 69th order polynomial through the Chebyshev nodes on $\ell \in [2, 3000]$.
+		The piecewise variant joins a 5th order polynomial on $\ell \in [2, 10]$ with a 64th order polynomial on $\ell \in [10, 3000]$.
+		The integer-rounded variant instead runs the degree-69 polynomial through the integers that are closest to the standard Chebyshev nodes.
+		Every interpolated spectrum is compared to explicit line-of-sight integration for 359 $\ell$-values.
 	}
 \end{figure*}
 
@@ -567,11 +567,11 @@ but their main purpose is to train on fewer independent coefficients $a_m(\theta
 	\includegraphics[width=\textwidth]{figures/kl.pdf}
 	\caption{%
 		\label{fig:kl}
-		Root-mean-square relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
+		Root-mean-square of the relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
 		for $50 \leq \ell \leq 2500$,
-		computed with Chebyshev interpolation and cubic spline in both $k$ and $\ell$ using different numbers of points.
+		computed with Chebyshev interpolation in both $k$ and $\ell$ versus cubic splines in both $k$ and $\ell$ with different numbers of samples.
 		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebyshev interpolation from 1025 $k$-points and 513 $\ell$-points.
-		The middle plot uses integer-rounded Chebyshev interpolation in $\ell$ and caps at 110 points, since more Chebyshev points would round to the same $\ell$.
+		The middle plot uses integer-rounded Chebyshev $\ell$-interpolation, where more than 110 Chebyshev points would round to the same $\ell$.
 	}
 \end{figure*}
 
