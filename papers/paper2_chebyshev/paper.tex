@@ -770,8 +770,9 @@ provide a useful diagnostic for analyzing the maximum interpolation error:
 In other words the neglected coefficients bound the interpolation error,
 so convergence of $a_m$ implies convergence of the full $p_n(x)$.
 
-SymBoltz always uses barycentric interpolation,
-but we implemented the DCT \eqref{eq:coeffsdiscrete} for the coefficients $a_m$
-as an additional way to inspect convergence of interpolation in \cref{fig:coeffs} in this paper.
+SymBoltz always interpolates with the barycentric formula.
+In addition,
+we compute the DCT for the coefficients \eqref{eq:coeffsdiscrete} with the FastChebInterp.jl\footnote{\url{https://github.com/JuliaMath/FastChebInterp.jl}} package,
+as an additional way to inspect the interpolation convergence in \cref{fig:coeffs}.
 
 \end{document}
