@@ -207,8 +207,8 @@ interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
 interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
 interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
 
-Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
-Base.show(io::IO, interp::ChebyshevIntegerInterpolator) = print(io, "Integer-rounded Chebyshev interpolator: domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: type = $(eltype(interp)), domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::ChebyshevIntegerInterpolator) = print(io, "Integer-rounded Chebyshev interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
