@@ -29,6 +29,7 @@ const τ, k, D = let
 end
 
 include("utils.jl")
+include("interpolation.jl")
 include("constants.jl")
 include("models/metric.jl")
 include("models/gravity.jl")
