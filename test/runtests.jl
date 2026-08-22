@@ -10,6 +10,7 @@ using Base.Threads
 using Statistics
 using DelimitedFiles
 using StaticArrays
+using SciMLBase
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -606,6 +607,31 @@ end
     ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),)
     sol = solve(prob2, k; bgopts, ptopts)
     @test issuccess(sol)
+end
+
+@testset "Is-in-place and specialization level" begin
+    ks = 10 .^ range(0, 3, length=5)
+    for iip in (true, false), specialize in (SciMLBase.AutoSpecialize, SciMLBase.FullSpecialize)
+        prob = CosmologyProblem(M, pars; iip, specialize)
+        @test isinplace(prob.bg) == iip
+        @test isinplace(prob.pt) == iip
+        @test isinplace(prob.bg.f) == iip
+        @test isinplace(prob.pt.f) == iip
+        @test typeof(prob.bg.f).parameters[2] == specialize
+        @test typeof(prob.pt.f).parameters[2] == specialize
+        @test issuccess(solve(prob, ks))
+
+        # iip/specialize should propagate to problems created from an existing one
+        probgen = parameter_updater(prob, [M.c.Ω₀])
+        prob2 = probgen([0.3])
+        @test isinplace(prob2.bg) == iip
+        @test isinplace(prob2.pt) == iip
+        @test isinplace(prob.bg.f) == iip
+        @test isinplace(prob.pt.f) == iip
+        @test typeof(prob2.bg.f).parameters[2] == specialize
+        @test typeof(prob2.pt.f).parameters[2] == specialize
+        @test issuccess(solve(prob2, ks))
+    end
 end
 
 @testset "Check compatibility between dense/sparse Jacobian and (non)linear solver" begin

@@ -47,54 +47,10 @@ The excellent [Makie plotting library](https://docs.makie.org/stable/) can be us
 ```julia
 using GLMakie
 ```
-We can now build a simple interactive interface that updates a plotted function when the user drags parameter value sliders:
+The function `plot_interactive` builds a figure with one slider per parameter.
+Whenever a slider is moved, it updates the problem with the new parameter values and replots the data returned by a user-supplied function of the new problem:
 ```@example plot
 using CairoMakie # for showing static doc image # hide
-
-# TODO: move into SymBoltz plotting recipes once MakieCore supports @lift etc.
-# TODO: take in (xyfunc) as a function that can plot anything # hide
-# TODO: handle wavenumber perturbations etc. # hide
-# TODO: plot multiple y vars # hide
-function plot_interactive(prob::CosmologyProblem, xyfunc::Function, obspars...; xlabel = "", ylabel = "", kwargs...)
-    fig = Figure(size = (800, 800), fontsize = 18)
-    ax = Axis(fig[1, 1]; xlabel, ylabel)
-    sg = SliderGrid(fig[2, 1], ((label = SymBoltz.displayname(par), range = range, startvalue = prob.bg.ps[par]) for (par, range) in obspars)...)
-
-    obs = Observable([pars[par] for (par, _) in obspars]) # observable array for all parameters
-    obss = [Observable(pars[par]) for (par, _) in obspars] # array of observables for each parameter
-
-    for i in 1:length(obspars)
-        # update full parameter array when individual parameters change
-        on(obss[i]) do val
-            vals = obs[]
-            vals[i] = val
-            obs[] = vals
-        end
-        connect!(obss[i], sg.sliders[i].value)
-    end
-
-    lines!(ax, @lift(xyfunc($obs)); kwargs...)
-
-    return fig
-end
-function plot_interactive(prob::CosmologyProblem, xvar::SymBoltz.Num, yvar::SymBoltz.Num, obspars...; N = 2000, kwargs...)
-    # select points according to cumulative distribution of ODE solver's adaptive time steps
-    function τs(sol)
-        τ = sol.bg.t
-        τcum(n) = τ[Int(floor(n))] + (τ[min(Int(floor(n))+1,length(τ))] - τ[Int(floor(n))]) * (n - floor(n)) # <3
-        return τcum.(range(1, length(τ), length = N))
-    end
-    probgen = parameter_updater(prob, [par for (par, _) in obspars])
-    function xyfunc(θ)
-        prob = probgen(θ)
-        sol = solve(prob)
-        τ = τs(sol)
-        xs = sol(xvar, τ)
-        ys = sol(yvar, τ)
-        return collect(zip(xs, ys)) # [(x1, y1), (x2, y2), ...]
-    end
-    return plot_interactive(prob, xyfunc, obspars...; xlabel = SymBoltz.displayname(xvar), ylabel = SymBoltz.displayname(yvar), kwargs...)
-end
 
 obspars = [
     M.g.h => 0.60:0.01:0.70,
@@ -105,7 +61,11 @@ obspars = [
     M.b.YHe => 0.20:0.01:0.30,
     M.ν.Neff => 2.90:0.01:3.10
 ]
-fig = plot_interactive(prob, log10(M.g.a), M.b.Xe, obspars...)
+fig = plot_interactive(prob, obspars; xlabel = "lg(a)", ylabel = "Xₑ") do prob′
+    sol = solve(prob′)
+    τ = SymBoltz.timeseries(sol)
+    collect(zip(log10.(sol(M.g.a, τ)), sol(M.b.Xe, τ))) # [(x1, y1), (x2, y2), ...]
+end
 ```
 
 !!! info
@@ -121,12 +81,10 @@ obspars = [
     M.I.ln_As1e10 => 2.0:0.1:4.0
     M.I.ns => 0.90:0.01:1.10
 ]
-probgen = parameter_updater(prob, [par for (par, _) in obspars])
-function xyfunc(θ)
-    prob = probgen(θ)
+fig = plot_interactive(prob, obspars; xlabel = "lg(k / Mpc⁻¹)", ylabel = "lg(P / Mpc³)") do prob′
     lgks = unique([-4:0.5:-3; -3:0.2:-2; -2:0.05:0]) # as few points as possible
     ks = 10 .^ lgks / u"Mpc"
-    Ps = spectrum_matter(prob, ks; ptopts = (alg = SymBoltz.TRBDF2(), reltol = 1e-4, abstol = 1e-4))
+    Ps = spectrum_matter(prob′, ks; ptopts = (alg = SymBoltz.TRBDF2(), reltol = 1e-4, abstol = 1e-4))
     lgPs = log10.(Ps/u"Mpc^3")
 
     # smoothen with spline and sample more densely
@@ -134,9 +92,8 @@ function xyfunc(θ)
     lgks = range(lgks[begin], lgks[end]; step = 0.01)
     lgPs = lgPspline(lgks)
 
-    return collect(zip(lgks, lgPs)) # [(x1, y1), (x2, y2), ...]
+    collect(zip(lgks, lgPs)) # [(x1, y1), (x2, y2), ...]
 end
-fig = plot_interactive(prob, xyfunc, obspars...; xlabel = "lg(k / Mpc⁻¹)", ylabel = "lg(P / Mpc³)")
 ```
 
 !!! info

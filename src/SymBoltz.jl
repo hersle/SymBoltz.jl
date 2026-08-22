@@ -57,15 +57,14 @@ export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
+export plot_interactive
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
-    using SymBoltz
-    @variables a(SymBoltz.τ)
-    @named M = System([SymBoltz.D(a) ~ a], SymBoltz.τ, [a], [SymBoltz.k])
-    p = Dict(a => 1e-5)
-    prob = CosmologyProblem(M, p; pt = false, jac = false, sparse = false)
-    sol = solve(prob)
+    M = ΛCDM()
+    p = parameters_Planck18(M)
+    prob = CosmologyProblem(M, p)
+    sol = solve(prob, 1.0)
 end
 
 end
