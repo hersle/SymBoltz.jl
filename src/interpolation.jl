@@ -27,10 +27,10 @@ struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpol
     iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
 end
 
-struct ChebyshevIntegerInterpolator{T <: Real, F} <: AbstractInterpolator{T}
-    xs::Vector{T}
-    ys::Vector{T}
-    ws::Vector{T}
+struct ChebyshevIntegerInterpolator{Tx <: Integer, Tw <: Real, F} <: AbstractInterpolator{Tx}
+    xs::Vector{Tx}
+    ys::Vector{Tx}
+    ws::Vector{Tw}
     f::F
 end
 
@@ -125,7 +125,7 @@ function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
     order ≥ 1 || throw(ArgumentError("Order must be ≥ 1, got $order"))
 
     xs = reverse!(chebpoints(order, xmin, xmax)) # start with Chebyshev points
-    xs = round.(xs) # round each point to its nearest integer
+    xs = round.(Int, xs) # round each point to its nearest integer
     allunique(xs) || throw(ArgumentError(
         "Integer-rounded Chebyshev nodes on ($xmin, $xmax) of order $order collide. Reduce the order or widen the interval."
     ))
@@ -136,6 +136,7 @@ function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
     return ChebyshevIntegerInterpolator(xs, ys, ws, identity)
 end
 
+Base.eltype(::Type{<:AbstractInterpolator{T}}) where {T} = T # type of x-points
 Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
 Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
 Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
@@ -159,6 +160,7 @@ order(interp::AbstractInterpolator) = length(interp) - 1
 
 # Barycentric interpolation formula https://epubs.siam.org/doi/10.1137/S0036144502417715
 function (interp::AbstractInterpolator)(f::AbstractVector, y::Number)
+    # promote e.g. integer input to float weights
     num = zero(eltype(f))
     den = zero(typeof(y))
     @fastmath @inbounds for j in eachindex(interp.ys)
