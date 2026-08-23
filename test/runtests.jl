@@ -591,8 +591,10 @@ end
 end
 
 @testset "Toggle threading" begin
-    @test length(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), true), 1:10)))) > 1
-    @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
+    if nthreads() > 1
+        @test length(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), true), 1:10)))) > 1
+        @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
+    end
 end
 
 @testset "Sparse Jacobian" begin
