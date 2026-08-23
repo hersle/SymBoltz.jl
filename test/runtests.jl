@@ -969,6 +969,13 @@ end
     interp = CubicSplineInterpolator(x)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
+
+    # interpolators are vectors of their x-points satisfying the AbstractArray interface
+    @test interp isa AbstractVector{eltype(x)}
+    @test size(interp) == size(x) && length(interp) == length(x)
+    @test collect(interp) == interp.xs == x
+    @test interp[begin] == minimum(interp) == x[begin] && interp[end] == maximum(interp) == x[end]
+    @test sprint(show, MIME"text/plain"(), interp) == sprint(show, interp) # summary, not all x-points
     x′ = range(x[begin], x[end]; length = 1000)
     y′ = interpolate(interp, sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation

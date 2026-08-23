@@ -1,4 +1,4 @@
-abstract type AbstractInterpolator{T} end
+abstract type AbstractInterpolator{T} <: AbstractVector{T} end # interpolation x-grid is indexable/iterable/broadcastable like a vector
 
 struct CubicSplineInterpolator{T, F <: Function} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
@@ -136,14 +136,15 @@ function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
     return ChebyshevIntegerInterpolator(xs, ys, ws, identity)
 end
 
-Base.eltype(::Type{<:AbstractInterpolator{T}}) where {T} = T # type of x-points
-Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
-Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
-Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
+# Array interface over the x-points, so an interpolator can be indexed/iterated/broadcast like a vector
+Base.size(interp::AbstractInterpolator) = size(interp.xs)
+Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
+Base.IndexStyle(::Type{<:AbstractInterpolator}) = IndexLinear()
+
+# The x-points are sorted in ascending order, so their extrema are the endpoints (instead of a linear scan)
 Base.minimum(interp::AbstractInterpolator) = interp[begin]
 Base.maximum(interp::AbstractInterpolator) = interp[end]
-Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
-Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
+Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
 
 # Compute Barycentric interpolation weights wᵢ = 1 / ∏_{j≠i}(xᵢ - xⱼ) for arbitrary points
 # See https://people.maths.ox.ac.uk/trefethen/barycentric.pdf (section 7)
@@ -155,7 +156,6 @@ function baryweights(x::AbstractVector)
     return w
 end
 
-Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
 
 # Barycentric interpolation formula https://epubs.siam.org/doi/10.1137/S0036144502417715
@@ -207,6 +207,7 @@ interpolate(x::AbstractInterpolator, y, x′) = x(y, x.f.(x′))
 interpolate(x::PiecewiseChebyshevInterpolator, y, x′) = x(y, x′) # no f field
 interpolate(x::AbstractVector, y, x′) = interpolate(CubicSplineInterpolator(x), y, x′)
 
+Base.show(io::IO, ::MIME"text/plain", interp::AbstractInterpolator) = show(io, interp) # summarize instead of listing all x-points
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::EquispacedInterpolator) = print(io, "Equispaced polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::ChebyshevInterpolator) = print(io, "Chebyshev polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
