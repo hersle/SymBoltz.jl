@@ -66,7 +66,7 @@ end
 
 # Out-of-place spherical Bessel function variants
 jl(l, x) = sphericalbesselj(l, x) # for l ≥ 0, from Bessels.jl
-jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analytical relation
+jl′(l, x) = iszero(l) ? -jl(one(l), x) : l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # analytical relation with special case for j₀′(x) = -j₁(x), where the general relation would evaluate j₋₁, which diverges at x = 0, with zero weight)
 
 # In-place spherical Bessel function variants
 # TODO: contribute back to Bessels.jl
