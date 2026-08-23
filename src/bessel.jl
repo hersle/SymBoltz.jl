@@ -13,6 +13,43 @@ Backward/downward recursion is stable for χ below the turning point:
     3. rescale all Φₗ depending on Φ₀
 =#
 
+# Tabulate spherical Bessel functions jₗ(x) and its derivative jₗ′(x) (if passed) using integer-l recurrence (faster)
+function jl_table!(ys::AbstractMatrix, dys::Union{AbstractMatrix, Nothing}, ls::AbstractArray{<:Integer}, xs::AbstractVector; thread = true)
+    minimum(ls) ≥ 0 || throw(ArgumentError("multipoles must be non-negative, but got minimum(ls) = $(minimum(ls))"))
+    lmax = maximum(ls)
+    @inbounds @tasks for ix in eachindex(xs) # parallelized over independent x
+        @set scheduler = thread ? :dynamic : :serial
+        @local jls = zeros(Float64, lmax+2) # one multipole higher than requested, because jₗ′(x) depends on jₗₘₐₓ₊₁(x)
+        jl_recurrence!(jls, lmax+1, xs[ix])
+        for (il, l) in enumerate(ls)
+            ys[il, ix] = jls[l+1]
+            if !isnothing(dys)
+                dys[il, ix] = if l == 0
+                    -jls[2] # j₀′(x) = -j₁(x) (general relation would index jls[0] = j₋₁ with zero weight)
+                else
+                    (l*jls[l] - (l+1)*jls[l+2]) / (2l+1) # jₗ′(x) = l/(2l+1) * jₗ₋₁(x) - (l+1)/(2l+1) * jₗ₊₁(x)
+                end
+            end
+        end
+    end
+    return ys, dys
+end
+
+# When l is not integer, fall back to evaluating jₗ(x) and jₗ′(x) with Bessels.jl for arbitrary l (slower)
+function jl_table!(ys::AbstractMatrix, dys::Union{AbstractMatrix, Nothing}, ls, xs::AbstractVector; thread = true)
+    @inbounds @tasks for ix in eachindex(xs) # parallelized over independent x
+        @set scheduler = thread ? :dynamic : :serial
+        x = xs[ix]
+        for (il, l) in enumerate(ls)
+            ys[il, ix] = jl(l, x)
+            if !isnothing(dys)
+                dys[il, ix] = jl′(l, x)
+            end
+        end
+    end
+    return ys, dys
+end
+
 """
     jl_recurrence!(out, lmax, x)
 

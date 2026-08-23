@@ -14,13 +14,23 @@ struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     x::Vector{Float64}
 end
 
-function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
+"""
+    SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true, thread = true)
+
+Create interpolation cache for the spherical Bessel function ``jₗ(x)`` for orders `ls` for `0 ≤ x ≤ xmax` with uniform spacing `dx`.
+If `hermite`, cubic Hermite interpolation is used with the analytical derivative ``jₗ′(x)`` instead of linear interpolation.
+The computation uses fast recurrence relations when `ls` contains `Integer` orders only,
+and otherwise falls back to explicit ``jₗ(x)`` evaluation for every ``l`` and ``x``.
+If `thread`, the tabulation is parallellized over independent ``x``.
+"""
+function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true, thread = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
     invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
-    ys  = jl.(ls, xs') # contiguous in l
-    dys = hermite ? jl′.(ls, xs') : nothing
+    ys = Matrix{Float64}(undef, length(ls), length(xs)) # contiguous in l
+    dys = hermite ? similar(ys) : nothing
+    jl_table!(ys, dys, ls, xs; thread)
     return SphericalBesselCache{typeof(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
 end
 
