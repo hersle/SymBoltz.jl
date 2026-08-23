@@ -1,3 +1,18 @@
+#=
+Recurrence for spherical Bessel functions jₗ(k*χ) and hyperspherical Bessel functions Φₗ(χ, k)
+inspired by arXiv:1312.2697 and arXiv:1311.0839 and CLASS' hyperspherical.c.
+
+Forward/upward recursion is stable for χ above the turning point where k sinK(K,χ) = √(l(l+1)):
+    1. seed Φ₀ = sin(kχ) / (k sinK(K,χ))
+    2. seed Φ₁ = (cotK(K,χ) Φ₀ - cos(kχ)/sinK(K,χ)) / √K₁
+    3. iterate √Kₗ Φₗ = (2l-1) cotK(K,χ) Φₗ₋₁ - √Kₗ₋₁ Φₗ₋₂ (where √Kₗ = √(k² - K l²))
+
+Backward/downward recursion is stable for χ below the turning point:
+    1. seed Φₗₘₐₓ₊₁/Φₗₘₐₓ from a continued fraction expansion
+    2. iterate √Kₗ Φₗ₋₁ = (2l+1) cotK(K,χ) Φₗ - √Kₗ₊₁ Φₗ₊₁
+    3. rescale all Φₗ depending on Φ₀
+=#
+
 """
     jl_recurrence!(out, lmax, x)
 
@@ -64,4 +79,92 @@ function jl_logderiv(l::Integer, x)
         abs(CD - 1) < eps(typeof(x)) && return f # converged
     end
     error("Continued fraction for jₗ′(x)/jₗ(x) did not converge at (l, x) = ($l, $x)")
+end
+
+"""
+    Φl_recurrence!(out, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+
+Compute hyperspherical Bessel functions ``Φₗ(χ, k)`` of a universe with curvature `K` for every integer
+``l = 0, \\dots, l_\\mathrm{max}`` and store them in `out[l+1]`. Uses forward/backward recurrence
+above/below the turning point, where ``k * sinK(K, χ) ≥ √(lmax*(lmax+1))``.
+"""
+function Φl_recurrence!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    if χ == 0.0
+        fill!(out, zero(eltype(χ))) # Φₗ(0) = 0 for l > 0 (the recursions would divide by 0)
+        out[1] = one(eltype(χ)) # Φ₀(0) = 1
+    elseif k * sinK(K, χ) ≥ √(lmax*(lmax+1)) # above or below turning point?
+        Φl_forward!(out, lmax, χ, k, K, sqK, invsqK)
+    else
+        Φl_backward!(out, lmax, χ, k, K, sqK, invsqK)
+    end
+    return out
+end
+
+function Φl_forward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    ck = cotK(K, χ)
+    sk = sinK(K, χ)
+    out[1] = sin(k*χ) / (k * sk) # Φ₀
+    out[2] = (ck * out[1] - cos(k*χ) / sk) * invsqK[2] # Φ₁ = (cotK Φ₀ - k cot(kχ) Φ₀) / √K₁
+    @inbounds for l in 1:lmax-1
+        out[l+2] = ((2l+1) * ck * out[l+1] - sqK[l+1] * out[l]) * invsqK[l+2] # sqK[l+1] = √Kₗ, invsqK[l+2] = 1/√Kₗ₊₁
+    end
+    return out
+end
+
+function Φl_backward!(out::AbstractVector, lmax::Integer, χ, k, K, sqK::AbstractVector, invsqK::AbstractVector)
+    ck = cotK(K, χ)
+    Φₗ = 2.0^-900 # Φₗₘₐₓ, arbitrary nonzero seed (fixed by the final normalization)
+    Φₗ′_Φₗ = Φl_logderiv(lmax, χ, k, K) # continued fraction of Φₗₘₐₓ′/Φₗₘₐₓ
+    Φₗ₊₁ = Φₗ * (lmax*ck - Φₗ′_Φₗ) * invsqK[lmax+2] # Φₗₘₐₓ₊₁ from the derivative recursion Φₗ′ = l cotK Φₗ - √Kₗ₊₁ Φₗ₊₁
+    out[lmax+1] = Φₗ
+    @inbounds for l in lmax:-1:1
+        Φₗ₋₁ = ((2l+1) * ck * Φₗ - sqK[l+2] * Φₗ₊₁) * invsqK[l+1] # sqK[l+2] = √Kₗ₊₁, invsqK[l+1] = 1/√Kₗ
+        if abs(Φₗ₋₁) > 2.0^900 # renormalize previously computed Φₗ before overflow
+            s = 2.0^-900
+            Φₗ₋₁ *= s
+            Φₗ *= s
+            @views out[l+1:lmax+1] .*= s
+        end
+        Φₗ₊₁ = Φₗ
+        Φₗ = Φₗ₋₁
+        out[l] = Φₗ
+    end
+    s = sin(k*χ) / (k * sinK(K, χ)) / out[1]
+    out .*= s
+    return out
+end
+
+# Evaluate Φₗ'(χ; k)/Φₗ(χ; k) from its continued fraction expansion with the modified Lentz algorithm
+function Φl_logderiv(l::Integer, χ, k, K)
+    ck = cotK(K, χ)
+    σ(m) = √(k^2 - K*m^2) # √Kₘ, computed on the fly since the fraction runs to arbitrarily high m
+    nudge(x) = copysign(max(abs(x), 1e-100), x) # keep x not too close to zero
+    f = nudge(l * ck) # b₀
+    C = f
+    D = zero(typeof(χ))
+    σj = σ(l+1) # √K_{l+j} at j = 1
+    @inbounds for j in 1:1000000 # increase max iterations if not converging
+        σj1 = σ(l+j+1) # √K_{l+j+1}
+        a = -σj / σj1
+        j == 1 && (a *= σj) # the leading √K_{l+1} of the fraction, folded into the first numerator
+        b = (2*(l+j)+1) * ck / σj1
+        D = 1 / nudge(b + a*D)
+        C = nudge(b + a/C)
+        CD = C * D
+        f *= CD # fₗ = Φₗ′/Φₗ
+        abs(CD - 1) < eps(typeof(χ)) && return f # converged
+        σj = σj1
+    end
+    error("Continued fraction for Φₗ′(χ)/Φₗ(χ) did not converge at (l, χ, k, K) = ($l, $χ, $k, $K)")
+end
+
+# Tabulate l-dependent coefficients ``√(Kₗ) = √(k² - K l²)`` of the hyperspherical Bessel recurrence and their inverses.
+function sqrtK_table!(sqK::AbstractVector, invsqK::AbstractVector, K, k)
+    @inbounds for i in eachindex(sqK, invsqK)
+        l = i - 1
+        Kₗ = k^2 - K*l^2
+        sqK[i] = √(Kₗ)
+        invsqK[i] = 1 / sqK[i]
+    end
+    return sqK, invsqK
 end
