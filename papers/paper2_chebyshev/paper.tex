@@ -93,12 +93,12 @@ and unlike equispaced polynomial interpolation it is stable \citep{trefethenSixM
 However, the remarkably fast convergence depends on the function being smooth,
 as is often true in physics.
 
-Traditional \EB{} codes such as CAMB and CLASS use approximation schemes to switch between different equations at different $\tau$, $k$ and $\ell$ \citep[notably Figure 10]{blasCosmicLinearAnisotropy2011b}.
+Traditional \EB{} codes such as CAMB and CLASS use approximation schemes to switch between different equations at different $\tau$, $k$ and $\ell$,
+particularly in the perturbations \citep[notably Figure 10]{blasCosmicLinearAnisotropy2011b}.
 This is faster, but complicates both the physics and numerics.
-Moreover, it breaks smoothness by introducing discontinuities or kinks at the switches.
-Cubic splines are good for interpolating such functions because they join piecewise polynomials,
-so changing one point affects the interpolant only locally.
-Chebyshev interpolation instead uses global polynomials, and a fault in one point can slow convergence over the entire domain.
+Moreover, it breaks smoothness by introducing kinks at the switches.
+Cubic splines are good for interpolating such functions because kinks affect their piecewise polynomials only locally.
+Chebyshev interpolation instead uses global polynomials, and a non-smooth feature in one point can slow convergence over the entire domain.
 
 Recently, approximation-free \EB{} codes such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
 They integrate the same equations at all times to obtain fully smooth solutions, but spend more effort per point.
