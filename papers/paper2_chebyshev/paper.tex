@@ -38,19 +38,19 @@
 	\EB{} codes compute theoretical predictions of cosmological models
 	and rely heavily on interpolation in their independent variables:
 	time $\tau$, wavenumber $k$ and multipole $\ell$.
-	We give a practical introduction to interpolation with Chebyshev polynomials,
-	which converges rapidly for smooth functions and thus synergizes with newer approximation-free \EB{} codes.
-	We show that interpolating in $k$ and $\ell$ with Chebyshev polynomials instead of traditional cubic splines
-	results in higher precision from fewer solutions to the perturbations and line-of-sight integrals.
+	We give a practical summary of interpolation with Chebyshev polynomials,
+	which converges rapidly for smooth functions and thus pairs naturally with approximation-free \EB{} codes.
+	By solving the perturbations and line-of-sight integrals at Chebyshev nodes in $k$ and $\ell$,
+	we show that Chebyshev polynomials interpolate to higher precision than traditional cubic splines from fewer explicit solutions.
 	On a set of example spectra for matter and the cosmic microwave background (CMB),
-	we find $0$-$4$ orders of magnitude lower interpolation error using the same number of points.
+	we find up to four orders of magnitude lower interpolation error using the same number of points.
 	For a typical CMB temperature spectrum computed with interpolation in both $k$ and $\ell$,
-	Chebyshev polynomials converge to $10^{-4}$-$10^{-5}$ relative error with only $50$-$80$ points per variable,
+	Chebyshev polynomials converge to $10^{-4}$-$10^{-5}$ relative error with only 50-80 points per variable,
 	while cubic splines approach $10^{-4}$ error with $200$ points, translating to a $2.5\times$-$4\times$ speedup.
-	The exact improvement depends largely on the target function,
+	The exact improvement depends on the target function
 	and is generally more dramatic at high precision levels.
-	Standard Chebyshev $\ell$-interpolation needs line-of-sight integrals at non-integer $\ell$,
-	but we show a way to interpolate with integer-rounded $\ell$ without losing precision.
+	Standard Chebyshev $\ell$-interpolation needs line-of-sight integrals generalized to non-integer $\ell$,
+	but we show a way to avoid this by rounding each $\ell$ to its nearest integer.
 	Chebyshev interpolation is implemented in SymBoltz,
 	which is available at \url{https://github.com/hersle/SymBoltz.jl}.
 }
@@ -103,7 +103,7 @@ Chebyshev interpolation instead uses global polynomials, and a fault in one poin
 Recently, approximation-free \EB{} codes such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
 They integrate the same equations at all times to obtain fully smooth solutions, but spend more effort per point.
 In this paper, we show that approximation-free codes can leverage this smoothness with the rapid convergence of Chebyshev interpolation for performance and precision.
-We implement this feature in SymBoltz\footnote{\url{https://hersle.github.io/SymBoltz.jl/}}.
+We implement this feature in SymBoltz\footnote{\url{https://hersle.github.io/SymBoltz.jl}}.
 
 \section{Computations in \EB{} codes}
 \label{sec:sources}
@@ -328,7 +328,7 @@ The perturbation ODEs are independent for different $k$,
 contain no analytical $k$-derivatives for Hermite interpolation,
 and have a global nature in $k$ as all scales inherit the background at a time $\tau$.
 
-Chebyshev $k$-interpolation consists of evolving the perturbation ODEs for the Chebyshev $k$-nodes of a wavenumber interval $[\kmin, \kmax]$.
+Chebyshev $k$-interpolation consists of evolving the perturbation ODEs for the Chebyshev $k$-nodes \eqref{eq:chebnodes} of a wavenumber interval $[\kmin, \kmax]$.
 Afterwards, any source $S(\tau, k)$ is computed at any $k$ by doing Chebyshev interpolation in $k$ over fixed $\tau$-slices.
 
 \Cref{fig:sources} shows the four test source functions \eqref{eq:sources} that we interpolate.
@@ -480,7 +480,7 @@ but that there is a continuation of $j_\ell(x)$ between integer $\ell$ that is s
 \footnote{Extending $j_\ell(x)$ to continuous $\ell$ is analogous to analytically continuing the factorial $n!$ to the gamma function $\Gamma(n+1)$, for example.}
 Cubic spline interpolation between integer-only $\ell$ also relies on this property.
 When a standard \texttt{ChebyshevInterpolator} is used to interpolate over $\ell \in [\ellmin, \ellmax]$,
-SymBoltz follows this path by evaluating $j_\ell(x)$ at arbitrary $\ell$ with the Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl/}} package.
+SymBoltz follows this path by evaluating $j_\ell(x)$ at arbitrary $\ell$ with the Bessels.jl\footnote{\url{https://github.com/JuliaMath/Bessels.jl}} package.
 
 The second way is to compute $j_\ell(x)$ only at integer $\ell$,
 but round Chebyshev nodes to their nearest integers.
@@ -583,10 +583,11 @@ the CMB temperature spectrum $C_\ell^\text{TT}$ interpolated with cubic splines 
 versus Chebyshev interpolation in both $k$ and $\ell$.
 Here we skip the cosmic variance-dominated $\ell \lesssim 50$ in \cref{fig:cmbTT},
 and take the root-mean-square of the relative $C_\ell$ error for the smoothest $50 \leq \ell \leq 2500$ as a function of the number of $k$-points and $\ell$-points.
-Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$-level with only 40-80 points in both $k$ and $\ell$,
+Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$-level with only 50-80 points in both $k$ and $\ell$,
 while cubic splines approach the $10^{-4}$-level closer to 200 points.
-This speeds up the perturbations and hence the full computation by $4\times$ for a fixed high precision level.
-Line-of-sight integration is also sped up by $4\times$, but is not the main bottleneck of this computation.
+This speeds up the perturbations and hence the full computation by $2.5\times$-$4\times$ for a fixed high precision level.
+Line-of-sight integration is sped up by a similar factor,
+but is not the main bottleneck of the computation in flat universes.
 
 \section{Conclusion}
 \label{sec:conclusion}
