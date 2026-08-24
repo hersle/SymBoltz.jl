@@ -586,9 +586,12 @@ Here we skip the cosmic variance-dominated $\ell \lesssim 50$ in \cref{fig:cmbTT
 and take the root-mean-square of the relative $C_\ell$ error for the smoothest $50 \leq \ell \leq 2500$ as a function of the number of $k$-points and $\ell$-points.
 Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$-level with only 50-80 points in both $k$ and $\ell$,
 while cubic splines approach the $10^{-4}$-level closer to 200 points.
-This speeds up the perturbations and hence the full computation by $2.5\times$-$4\times$ for a fixed high precision level.
+This speeds up the perturbations and hence the full computation by $2.5\times$-$4\times$ for a fixed high precision level
+(e.g. 0.2s for $50 \times 50$ points vs 0.8s for $200 \times 200$ on our machine).
 Line-of-sight integration is sped up by a similar factor,
 but is not the main bottleneck of the computation in flat universes.
+In curved universes, hyperspherical Bessel functions are more expensive to compute,
+so the speedup of line-of-sight integration may become more visible there.
 
 \section{Conclusion}
 \label{sec:conclusion}

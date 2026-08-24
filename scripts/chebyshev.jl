@@ -536,3 +536,12 @@ ks = loggrid(kinterp[begin], kinterp[end]; length = 500)
 surface(log10.(as), log.(ks), -Φs'; colorbar = true, xlims = (-3, 0))
 heatmap(τs, log10.(ks), log10.(abs.(Φs_lin .- Φs))'; colorbar = true, clims = (-8, 0))
 heatmap(τs, log10.(ks), log10.(abs.(Φs_log .- Φs))'; colorbar = true, clims = (-8, 0))
+
+# Benchmark Chebyshev with 50 points vs cubic splines with 200 points
+jl = SphericalBesselCache(ChebyshevIntegerInterpolator(lmin, lmax, 50))
+kinterp = ChebyshevInterpolator(kmin, kmax, 50)
+@time Dls = spectrum_cmb(:TT, prob, jl; kinterp);
+
+jl = SphericalBesselCache(CubicSplineInterpolator(lmin, lmax, 200))
+kinterp = CubicSplineInterpolator(kmin, kmax, 200)
+@time Dls = spectrum_cmb(:TT, prob, jl; kinterp);
