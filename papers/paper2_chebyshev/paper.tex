@@ -78,7 +78,7 @@ Codes have default settings tuned to balance performance and precision,
 but they slow down significantly with finer precision parameters that sample more points.
 In the literature,
 interpolation in parameter space with polynomials or neural network \enquote{emulators} has received much attention
-\citep[e.g.][]{fendtPicoParametersImpatient2007,albersCosmicNetPhysicsdrivenImplementation2019a,manciniCOSMOPOWEREmulatingCosmological2021,boniciCapsejlEfficientAutodifferentiable2024a},
+\citep[e.g.][]{fendtPicoParametersImpatient2007,albersCosmicNetPhysicsdrivenImplementation2019a,manciniCOSMOPOWEREmulatingCosmological2022,boniciCapsejlEfficientAutodifferentiable2024a},
 while comparatively little has been given to interpolation in the independent variables.
 
 Since the pioneering COSMICS code \citep{maCosmologicalPerturbationTheory1995},
@@ -620,7 +620,7 @@ Our scope here was to study convergence only of interpolation,
 while fixing other precision parameters.
 Of course, lower precision of line-of-sight quadrature, the Limber approximation and other methods may overshadow the high precision of Chebyshev interpolation.
 Convergence with respect to \emph{all} precision parameters calls for more research into high-precision methods,
-such as better line-of-sight integration and beyond-Limber methods \citep[e.g.][]{schonebergTraditionalLineofSightApproach2018,fangLimberEfficientComputation2019,chiarenzaBLASTLimberAngular2024a,reischkePylevinEfficientNumerical2025}.
+such as better line-of-sight integration and beyond-Limber methods \citep[e.g.][]{schonebergTraditionalLineofSightApproach2018,fangLimberEfficientComputation2020,chiarenzaBLASTLimberAngular2024a,reischkePylevinEfficientNumerical2025}.
 
 We believe Chebyshev interpolation is a step forward for simpler \EB{} codes
 with numerical algorithms that make better use of the physical properties of the equations,
