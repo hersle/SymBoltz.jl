@@ -423,9 +423,9 @@ but the improvement depends on the particular source.
 \end{figure*}
 
 \Cref{fig:coeffs} studies the decaying coefficients $a_m$ in the Chebyshev series expansion $p_n(x) = \sum_m a_m T_m(x)$ of the interpolant.
-As described in \cref{sec:coeffs}, this alternative way of doing Chebyshev approximation offers a useful diagnostic:
+As \cref{sec:coeffs} explains, this is an equivalent Chebyshev interpolation method that offers a useful diagnostic:
 convergence of $\lvert a_m \rvert$ indicates convergence of $p_n(x)$.
-This has no direct counterpart with splines.
+It has no direct counterpart with splines.
 The convergence undergoes three phases (here for $S^T$):%
 
 \begin{itemize}
@@ -446,6 +446,7 @@ Smaller ODE solver tolerances lower the precision floor.
 This matches the convergence with 60-80 points in \cref{fig:reccheb},
 and there is no gain in using more points.
 \end{itemize}
+In principle, the code could use this decay to choose $n$ adaptively.
 
 Chebyshev interpolation in $k$ is thus highly beneficial.
 At high precision levels, it interpolates with orders of magnitude lower error than cubic splines from the same number of samples.
