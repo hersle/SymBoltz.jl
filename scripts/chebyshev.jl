@@ -13,10 +13,14 @@ ST = (M.k*M.χ)*M.ST
 SE = (M.k*M.χ)^2*M.SE
 SM = M.m.Δ
 SL = -(M.g.Φ+M.g.Ψ)
-pT = surface(sol, log10(M.g.a), M.k, ST; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = ST, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pE = surface(sol, log10(M.g.a), M.k, SE; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SE, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pM = surface(sol, log10(M.g.a), M.k, SM; ylabel = "k / (H₀/c)", xlims = (-2.5, 0), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SM, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
-pL = surface(sol, log10(M.g.a), M.k, SL; ylabel = "k / (H₀/c)", xlims = (-5, 0), zticks = nothing, zlabel = nothing, title = SL, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+STtitle = "k⋅χ⋅Sᵀ(τ,k)"
+SEtitle = "(k⋅χ)²⋅Sᴱ(τ,k)"
+SMtitle = "Sᴹ(τ,k)"
+SLtitle = "Sᴸ(τ,k)"
+pT = surface(sol, log10(M.g.a), M.k, ST; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = STtitle, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pE = surface(sol, log10(M.g.a), M.k, SE; ylabel = "k / (H₀/c)", xlims = (-3.2, -2.8), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SEtitle, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pM = surface(sol, log10(M.g.a), M.k, SM; ylabel = "k / (H₀/c)", xlims = (-2.5, 0), ylims = (0, 2000), zticks = nothing, zlabel = nothing, title = SMtitle, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
+pL = surface(sol, log10(M.g.a), M.k, SL; ylabel = "k / (H₀/c)", xlims = (-5, 0), zticks = nothing, zlabel = nothing, title = SLtitle, cam = (40, 25), seriescolor = :plasma, size = (500, 500), margin = -10*Plots.mm)
 p = plot(pT, pE, pM, pL, layout = (1, 4), size = (1000, 300), zticks = nothing, margin = -1*Plots.mm, tickfontsize = 7)
 savefig(pT, "papers/paper2_chebyshev/figures/ST.pdf")
 savefig(pE, "papers/paper2_chebyshev/figures/SE.pdf")
@@ -100,10 +104,10 @@ savefig(pL, "papers/paper2_chebyshev/figures/convL.pdf")
 
 # Plot in one figure
 p = plot(
-    plot(pT; title = ST, ylabel = "error", left_margin = 7*Plots.mm),
-    plot(pE; title = SE, ylabel = nothing, legend = nothing),
-    plot(pM; title = SM, ylabel = nothing, legend = nothing),
-    plot(pL; title = SL, ylabel = nothing, legend = nothing);
+    plot(pT; title = STtitle, ylabel = "error", left_margin = 7*Plots.mm),
+    plot(pE; title = SEtitle, ylabel = nothing, legend = nothing),
+    plot(pM; title = SMtitle, ylabel = nothing, legend = nothing),
+    plot(pL; title = SLtitle, ylabel = nothing, legend = nothing);
     xticks = 32:32:256, xlabel = "number of interpolation points",
     bottom_margin = 7*Plots.mm, top_margin = 3*Plots.mm,
     size = (1400, 325), layout = (1, 4), yticks = 10.0 .^ (-10:10),
@@ -151,10 +155,10 @@ function colorbar_strip(clims; n = 512, title = "", kw...)
     return heatmap(10.0 .^ xs, [0], reshape(xs, 1, n); clims, xscale = :log10, xticks, colorbar = false, yticks = nothing, ylabel = "", xlabel = "", title, framestyle = :box, xmirror = true, kw...)
 end
 p = plot(
-    colorbar_strip(pTcheb[1][:clims]; title = "$ST", yticks = ([0], ["error"]), ytickfontsize = 9, top_margin = 3*Plots.mm),
-    colorbar_strip(pEcheb[1][:clims]; title = "$SE"),
-    colorbar_strip(pMcheb[1][:clims]; title = "$SM"),
-    colorbar_strip(pLcheb[1][:clims]; title = "$SL"),
+    colorbar_strip(pTcheb[1][:clims]; title = "$STtitle", yticks = ([0], ["error"]), ytickfontsize = 9, top_margin = 3*Plots.mm),
+    colorbar_strip(pEcheb[1][:clims]; title = "$SEtitle"),
+    colorbar_strip(pMcheb[1][:clims]; title = "$SMtitle"),
+    colorbar_strip(pLcheb[1][:clims]; title = "$SLtitle"),
     plot(pTcheb; xlabel = nothing, xticks = nothing, ylabel = "k / (H₀/c)", title = "", left_margin = 6*Plots.mm),
     plot(pEcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pMcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
@@ -196,9 +200,9 @@ function plot_time_slice(S, τ, ks_raw, klengths; f = identity, tol = 1e-7, kint
     end
     return p
 end
-pcheb = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:100; kinterpolate = :chebyshev, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright) # at recombination (peak of visibility function)
-pcub = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), [20:20:100; 200:100:400]; kinterpolate = :cubic, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright)
-pequi = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:60; kinterpolate = :equispaced, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright)
+pcheb = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:100; kinterpolate = :chebyshev, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle") # at recombination (peak of visibility function)
+pcub = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), [20:20:100; 200:100:400]; kinterpolate = :cubic, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle")
+pequi = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:60; kinterpolate = :equispaced, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle")
 #pchebzoom = plot_time_slice(ST, τrec, lingrid(500.0, 750.0; length = 200), 5:5:20; kinterpolate = :chebyshev, yerrlims = (1e-4, 1e5), ylims = (-1.3e5, 1.3e5))
 #pcubzoom = plot_time_slice(ST, τrec, lingrid(500.0, 750.0; length = 200), 5:5:80; kinterpolate = :cubic, yerrlims = (1e-4, 1e5), ylims = (-1.3e5, 1.3e5))
 savefig(pcheb, "papers/paper2_chebyshev/figures/reccheb.pdf")
@@ -232,10 +236,10 @@ savefig(pM, "papers/paper2_chebyshev/figures/coeffsM.pdf")
 
 # Merge to one figure
 p = plot(
-    plot(pT; title = "$ST, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-6, 1e5), ylabel = "|aₘ|", legend = nothing, left_margin = 7*Plots.mm),
-    plot(pE; title = "$SE, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-10, 1e1), ylabel = nothing, legend = nothing),
-    plot(pM; title = "$SM, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-7, 1e4), ylabel = nothing, legend = nothing),
-    plot(pL; title = "$SL, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-11, 1e0), ylabel = nothing);
+    plot(pT; title = "$STtitle, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-6, 1e5), ylabel = "|aₘ|", legend = nothing, left_margin = 7*Plots.mm),
+    plot(pE; title = "$SEtitle, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-10, 1e1), ylabel = nothing, legend = nothing),
+    plot(pM; title = "$SMtitle, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-7, 1e4), ylabel = nothing, legend = nothing),
+    plot(pL; title = "$SLtitle, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-11, 1e0), ylabel = nothing);
     xlims = (0, 300), xticks = 0:50:500,
     size = (1400, 400), layout = (1, 4), top_margin = 3*Plots.mm, bottom_margin = 7*Plots.mm, link = :y,
 )

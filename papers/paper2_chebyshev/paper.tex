@@ -119,12 +119,12 @@ For example, the Friedmann, continuity and Peebles equations are solved for the 
 
 Second, large and stiff perturbation ODEs are integrated in $\tau$ for independent $k$-modes.
 This must interpolate the background solution in $\tau$.
-It produces source functions $S(\tau, k)$ for CMB temperature ($T$), polarization ($E$), lensing ($\psi$) and matter overdensity ($m$; see \cref{fig:sources} and \cite{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a} for full variable definitions):%
+It produces source functions $S(\tau, k)$ for CMB temperature ($T$), polarization ($E$), lensing ($L$) and matter overdensity ($m$; see \cref{fig:sources} and \cite{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a} for full variable definitions):%
 \begin{subequations}
 	\begin{align}
 		S^T    & = v \, \Bigg(\frac{\delta_\gamma}{4} + \Psi + \frac{\Pi_\gamma}{16}\Bigg) + e^{-\kappa} \, (\Psi + \Phi)^\prime + (v u_b)^\prime + \frac{3\big(v \Pi_\gamma\big)^{\prime\prime}}{16 k^2}, \\
 		S^E    & = \frac{3 v \Pi_\gamma}{16 \, (k \chi)^2}, \\
-		S^\psi & = (\Psi+\Phi) \, \frac{\chi_\text{rec}}{(\chi-\chi_\text{rec}) \chi} \, \theta(\tau - \taurec), \\
+		S^L    & = (\Psi+\Phi) \, \frac{\chi_\text{rec}}{(\chi-\chi_\text{rec}) \chi} \, \theta(\tau - \taurec), \\
 		S^m    & = \delta_m + 3 (1+w_m) \, \frac{\scrH}{k^2} \, \theta_m .
 	\end{align}
 	\label{eq:sources}%
@@ -513,7 +513,7 @@ and errors if the requested order is so high that multiple nodes round to the sa
 	\hfill
 	\begin{subfigure}{0.32\textwidth}
 		\includegraphics[width=\textwidth]{figures/cmbLL.pdf}
-		\subcaption{Lensing ($C_\ell^\mathrm{\psi\psi}$)}
+		\subcaption{Lensing ($C_\ell^\mathrm{LL}$)}
 		\label{fig:cmbLL}
 	\end{subfigure}
 	\caption{%
@@ -530,10 +530,10 @@ and errors if the requested order is so high that multiple nodes round to the sa
 
 \Cref{fig:cmb} compares $\ell$-interpolation performance of cubic splines versus Chebyshev polynomials.
 To fix the computational cost, we use 70 $\ell$-points with each method.
-For each method, we also require that the same $\ell$-grid interpolates all three spectra $C_\ell^\mathrm{TT}$, $C_\ell^\mathrm{EE}$ and $C_\ell^{\psi\psi}$, so the precomputed $j_\ell(x)$ is common.
+For each method, we also require that the same $\ell$-grid interpolates all three spectra $C_\ell^\mathrm{TT}$, $C_\ell^\mathrm{EE}$ and $C_\ell^{LL}$, so the precomputed $j_\ell(x)$ is common.
 
 For $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$, Chebyshev interpolation converges to 3-4 orders of magnitude smaller error for $\ell \gtrsim 100$ than cubic splines.
-But for $C_\ell^\mathrm{\psi\psi}$, the cubic spline does better than a single Chebyshev polynomial.
+But for $C_\ell^\mathrm{LL}$, the cubic spline does better than a single Chebyshev polynomial.
 This is because the Limber approximation switches on for $\ell \geq 10$ and makes a kink in $C_\ell$,
 which degrades it to algebraic $n^{-1}$-convergence \eqref{eq:algebraic}.
 The cubic spline then wins with $n^{-4}$ convergence because it responds locally,
