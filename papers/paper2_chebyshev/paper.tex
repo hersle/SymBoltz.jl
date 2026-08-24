@@ -335,7 +335,7 @@ Chebyshev $k$-interpolation consists of evolving the perturbation ODEs for the C
 Afterwards, any source $S(\tau, k)$ is computed at any $k$ by doing Chebyshev interpolation in $k$ over fixed $\tau$-slices.
 
 \Cref{fig:sources} shows the four test source functions \eqref{eq:sources} that we interpolate.
-We interpolate $k \, S^T(\tau, k)$ and $k^2 \, S^E(\tau, k)$,
+We interpolate $k \chi \, S^T(\tau, k)$ and $(k\chi)^2 \, S^E(\tau, k)$,
 as they are smoother and more similar in magnitude over $k$ than $S(\tau, k)$.
 
 \begin{figure*}
@@ -354,24 +354,24 @@ as they are smoother and more similar in magnitude over $k$ than $S(\tau, k)$.
 	\hfill
 	\begin{subfigure}{0.32\textwidth}
 		\includegraphics[width=\textwidth]{figures/reccub.pdf}
-		\subcaption{Cubic spline interpolation}
+		\subcaption{Equispaced cubic spline interpolation}
 		\label{fig:reccubic}
 	\end{subfigure}
 	\caption{%
 		\label{fig:rec}
-		Temperature source function $S^T(\tau, k)$ in \cref{fig:sourceT} at recombination interpolated with \subref{fig:recequi} equispaced polynomials, \subref{fig:reccheb} Chebyshev polynomials and \subref{fig:reccubic} cubic splines with uniform spacing.
-		The interpolated results are compared to non-interpolated explicit solutions of the perturbation ODEs for 500 $k$-modes.
+		Temperature source in \cref{fig:sourceT} at recombination interpolated with \subref{fig:recequi} equispaced polynomials, \subref{fig:reccheb} Chebyshev polynomials and \subref{fig:reccubic} equispaced cubic splines.
+		The interpolated values are compared to explicit solutions for 500 perturbation $k$-modes.
 	}
 \end{figure*}
 
 \Cref{fig:rec} shows the temperature source interpolated in $k$ at recombination.
-It demonstrates that interpolation with Chebyshev polynomials and equispaced cubic splines is stable,
+It demonstrates that Chebyshev interpolation and equispaced cubic splines is stable,
 while Runge's phenomenon destabilizes equispaced polynomial interpolation.
 At $n \gtrsim 40$, the Chebyshev interpolation error falls rapidly below the cubic spline error.
-At $n = 80$, Chebyshev interpolation has fully converged to the floor of numerical noise and is indistinguishable from solving all perturbation $k$-modes explicitly,
+At $n = 80$, Chebyshev interpolation has fully converged to the numerical noise floor and is indistinguishable from solving all perturbation $k$-modes explicitly,
 while cubic splines have 4 orders of magnitude higher error.
-At $n = 400$, cubic splines are still not fully converged to that level.
-This is the fast convergence \eqref{eq:convergence} of Chebyshev interpolation with smooth functions.
+At $n = 400$, cubic splines have still not fully converged.
+This is the fast convergence \eqref{eq:convergence} of Chebyshev interpolation for smooth functions.
 
 \begin{figure*}
 	\centering
@@ -379,16 +379,14 @@ This is the fast convergence \eqref{eq:convergence} of Chebyshev interpolation w
 	\caption{%
 		\label{fig:heaterrs}
 		Interpolation error of temperature, polarization, matter and lensing source functions in \cref{fig:sources} (left to right)
-		interpolated from 100 $k$-points using Chebyshev polynomials, equispaced cubic splines and cubic splines on a grid of Chebyshev points (top to bottom).
-		As in \cref{fig:rec}, the error is computed relative to 500 explicitly solved perturbation $k$-modes without interpolation.
+		interpolated in $k$ from 100 points using Chebyshev polynomials, equispaced cubic splines, cubic splines on a Chebyshev grid and cubic splines on a CLASS-like grid (top to bottom).
+		As in \cref{fig:rec}, the error is computed relative to 500 explicitly solved perturbation $k$-modes.
 	}
 \end{figure*}
 
-\Cref{fig:heaterrs} generalizes the comparison between Chebyshev and cubic spline interpolation to all the four sources \eqref{eq:sources} and the full $(\tau, k)$-space for $n = 100$.
-We include cubic splines on the Chebyshev grid
-to confirm that the difference is due to the interpolation method and not sampling information.
+\Cref{fig:heaterrs} generalizes the comparison to all the four sources \eqref{eq:sources} and the full $(\tau, k)$-space for $n = 100$.
 For the temperature and polarization sources,
-Chebyshev interpolation is 4 orders of magnitude more accurate in a band around recombination at $a(\tau) \approx 10^{-3}$,
+Chebyshev interpolation is 4 orders of magnitude more accurate than uniform cubic splines in a band around recombination at $a(\tau) \approx 10^{-3}$,
 where they are most important to capture.
 For the matter and lensing sources,
 Chebyshev interpolation is also more accurate and distributes the error uniformly over $k$.
@@ -396,21 +394,31 @@ Note that cubic splines struggle particularly at the boundaries of the interpola
 This is because their natural boundary conditions assume that second derivatives are zero there,
 which disagrees with the underlying function.
 
+\Cref{fig:heaterrs} also shows cubic splines interpolated on the Chebyshev grid \eqref{eq:chebnodes}.
+This only gives somewhat lower error near the boundaries,
+so the advantage of Chebyshev interpolation over equispaced cubic splines is not merely due to its sample locations.
+In addition, the fourth row shows cubic splines with a non-uniform $k$-grid using CLASS' default strategy,
+where $k$-modes are sampled with $25\times$ higher density for scales above the sound horizon at recombination than below it.%
+\footnote{Using \texttt{k\_step\_sub=0.05} and \texttt{k\_step\_super=0.002} in CLASS v3.3.4, but downsampling the grid from around 500 to 100 $k$-points.}
+This much denser sampling gives cubic splines the lowest error for $k \lesssim 200\,H_0/c$.
+Meanwhile, Chebyshev interpolation gives low average error throughout the domain with straightforward sampling.
+
 \begin{figure*}
 	\centering
 	\includegraphics[width=\textwidth]{figures/conv.pdf}
 	\caption{
 		\label{fig:convergence}
 		Root-mean-square of the interpolation error over $(\tau, k)$
-		for interpolation with Chebyshev polynomials, equispaced cubic splines and cubic splines with Chebyshev points (as in \cref{fig:heaterrs})
-		from an increasing number of $k$-samples.
+		for interpolation in $k$ with Chebyshev polynomials, equispaced cubic splines, cubic splines with Chebyshev points and cubic splines with a CLASS-like $k$-grid (as in \cref{fig:heaterrs})
+		as the number of $k$-samples increases.
 	}
 \end{figure*}
 
 \Cref{fig:convergence} compresses the error over $(\tau, k)$ to one root-mean-square number,
-and shows its convergence with more interpolation points.
-Again the error falls faster with Chebyshev interpolation,
-but the improvement depends on the particular source.
+and shows its convergence with more samples.
+The ranking of the methods depends on the source, and also crosses over with $n$.
+Nevertheless, by this metric, Chebyshev interpolation achieves the lowest error for every source and $n \gtrsim 48$.
+This further supports that it is a better overall interpolation method measured over the entire $k$-domain.
 
 \begin{figure*}
 	\centering
@@ -450,8 +458,8 @@ and there is no gain in using more points.
 \end{itemize}
 In principle, the code could use this decay to choose $n$ adaptively.
 
-Chebyshev interpolation in $k$ is thus highly beneficial.
-At high precision levels, it interpolates with orders of magnitude lower error than cubic splines from the same number of samples.
+Thus, we find Chebyshev interpolation in $k$ to be a better overall method for the whole $k$-domain.
+At high precision levels, it interpolates with orders of magnitude lower error than cubic splines from fewer explicit solutions to the perturbation ODEs.
 
 \section{Interpolation in multipole}
 \label{sec:multipoles}
@@ -573,7 +581,7 @@ but their main purpose is to train on fewer independent coefficients $a_m(\theta
 		\label{fig:kl}
 		Root-mean-square of the relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
 		for $50 \leq \ell \leq 2500$,
-		computed with Chebyshev interpolation in both $k$ and $\ell$ versus cubic splines in both $k$ and $\ell$ with different numbers of samples.
+		computed with Chebyshev interpolation in both $k$ and $\ell$ versus equispaced cubic splines in both $k$ and $\ell$ with different numbers of samples.
 		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebyshev interpolation from 1025 $k$-points and 513 $\ell$-points.
 		The middle plot uses integer-rounded Chebyshev $\ell$-interpolation, where more than 110 Chebyshev points would round to the same $\ell$.
 	}

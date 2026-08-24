@@ -1,4 +1,4 @@
-using SymBoltz, Plots, StaticArrays, LinearAlgebra, Printf
+using SymBoltz, Plots, StaticArrays, LinearAlgebra, Printf, DataInterpolations
 Plots.default(dpi = 96, colorbar = nothing, framestyle = :box, grid = false)
 M = ΛCDM()
 pars = parameters_Planck18(M)
@@ -67,12 +67,42 @@ p3 = surface(τs, ks_raw, transpose(Ss_cub); xlabel = "τ", ylabel = "k", title 
 #plot(p1, p2, p3, layout = (1, 3), size = (2000, 400))
 =#
 
+# CLASS-like cubic spline k-interpolation grid of order n (i.e. n+1 points), like `CubicSplineInterpolator(xmin, xmax, n)`.
+function CLASSCubicSplineWavenumberInterpolator(
+    kmin, kmax, n;
+    k_step_super = 0.002, k_step_sub = 0.05, k_step_transition = 0.2, k_step_super_reduction = 0.1
+)
+    # 1) construct native CLASS k-sampling grid
+    N = n + 1 # number of points
+    c_H0_Mpc = 2997.92458 / 0.6736 # c/H₀ ≈ 4451 Mpc for the h in parameters_Planck18
+    rs_rec = 144.43 / c_H0_Mpc # sound horizon at recombination ≈ 0.032 c/H₀ (144.43 Mpc)
+    krec = 2π / rs_rec # ≈ 194 H₀/c
+    ks = [kmin]
+    while ks[end] < kmax
+        k = ks[end]
+        step = (k_step_super + 0.5 * (tanh((k - krec) / krec / k_step_transition) + 1) * (k_step_sub - k_step_super)) * krec
+        step *= (k^2 + 1) / (k^2 + 1 / k_step_super_reduction) # refine towards k → 0 (scale2 = 1 for K = 0)
+        push!(ks, k + step)
+    end
+    ks[end] = kmax # snap the overshooting last point onto the requested endpoint
+
+    # 2) resample native k-grid (down) to N requested k-values
+    cdf = LinearInterpolation(ks, eachindex(ks)) # k as a function of its cumulative count
+    ks = cdf(range(firstindex(ks), lastindex(ks); length = N)) # uniform in cumulative count
+
+    return CubicSplineInterpolator(ks)
+end
+
+kgrid_class = CLASSCubicSplineWavenumberInterpolator(1.0, 2000.0, 99)
+plot(kgrid_class.xs, eachindex(kgrid_class.xs); xlabel = "k", ylabel = "N(<k)", marker = :dot, label = nothing)
+
 function plot_convergence(S, τs, ks_raw; tol = 1e-7, klengths = 16:16:256, kwargs...)
     ptopts = (abstol = tol, reltol = tol)
     Ss_raw = source_grid(prob, S, τs, ks_raw, sol.bg; ptopts)
     norms_cheb = Float64[]
     norms_cub = Float64[]
     norms_cub_at_cheb = Float64[]
+    norms_class = Float64[]
     error(Ss, p = 2) = norm(Ss .- Ss_raw, p) / length(Ss)^(1/p)
     for klength in klengths
         # 1) Chebyshev interpolation at chebyshev k-nodes
@@ -90,8 +120,13 @@ function plot_convergence(S, τs, ks_raw; tol = 1e-7, klengths = 16:16:256, kwar
         kgrid = CubicSplineInterpolator(kgrid_cheb.xs) # to ascending order
         Ss = source_grid(prob, S, τs, ks_raw, kgrid, sol.bg; ptopts)
         push!(norms_cub_at_cheb, error(Ss))
+
+        # 4) Cubic spline interpolation at CLASS-like k-nodes
+        kgrid_class = CLASSCubicSplineWavenumberInterpolator(ks_raw[begin], ks_raw[end], korder)
+        Ss = source_grid(prob, S, τs, ks_raw, kgrid_class, sol.bg; ptopts)
+        push!(norms_class, error(Ss))
     end
-    return plot(klengths, [norms_cheb, norms_cub, norms_cub_at_cheb]; xticks = klengths, yscale = :log10, xlabel = "number of k-points", ylabel = "‖S(interp) - S(direct)‖", marker = :circle, label = ["Chebyshev (Chebyshev points)" "cubic spline (uniform points)" "cubic spline (Chebyshev points)"], title = "S(τ, k) = $S", kwargs...)
+    return plot(klengths, [norms_cheb, norms_cub, norms_cub_at_cheb, norms_class]; xticks = klengths, yscale = :log10, xlabel = "number of k-points", ylabel = "‖S(interp) - S(direct)‖", marker = :circle, label = ["Chebyshev (Chebyshev grid)" "cubic spline (equispaced grid)" "cubic spline (Chebyshev grid)" "cubic spline (CLASS grid)"], title = "S(τ, k) = $S", kwargs...)
 end
 pT = plot_convergence(ST, sol.bg.t[begin:end-1], lingrid(1, 2500; length = 500); yticks = 10.0 .^ (-1:4)) # multiply by χ to smooth out χ=0-behavior
 pE = plot_convergence(SE, sol.bg.t[begin:end-1], lingrid(1, 2500; length = 500); yticks = 10.0 .^ (-6:0))
@@ -115,28 +150,32 @@ p = plot(
 savefig(p, "papers/paper2_chebyshev/figures/conv.pdf")
 
 # Plot heatmap of errors for Chebyshev vs cubic splines
-function plot_heatmap_errors(S, τs, ks, kgrid1, kgrid2, kgrid3; xvar = τ, tol = 1e-7, kwargs...)
+function plot_heatmap_errors(S, τs, ks, kgrid1, kgrid2, kgrid3, kgrid4; xvar = τ, tol = 1e-7, kwargs...)
     ptopts = (abstol = tol, reltol = tol)
     Ss = source_grid(prob, S, τs, ks, sol.bg; ptopts)
     Ss1 = source_grid(prob, S, τs, ks, kgrid1, sol.bg; ptopts)
     Ss2 = source_grid(prob, S, τs, ks, kgrid2, sol.bg; ptopts)
     Ss3 = source_grid(prob, S, τs, ks, kgrid3, sol.bg; ptopts)
+    Ss4 = source_grid(prob, S, τs, ks, kgrid4, sol.bg; ptopts)
     title = "log10(S(interp)-S(direct)): S=$S"
     p1 = heatmap(sol(xvar, τs), ks, transpose(max.(log10.(abs.(Ss1 .- Ss)), -300.0)); title, xlabel = xvar, kwargs...)
     p2 = heatmap(sol(xvar, τs), ks, transpose(max.(log10.(abs.(Ss2 .- Ss)), -300.0)); title, xlabel = xvar, kwargs...)
     p3 = heatmap(sol(xvar, τs), ks, transpose(max.(log10.(abs.(Ss3 .- Ss)), -300.0)); title, xlabel = xvar, kwargs...)
-    return p1, p2, p3
+    p4 = heatmap(sol(xvar, τs), ks, transpose(max.(log10.(abs.(Ss4 .- Ss)), -300.0)); title, xlabel = xvar, kwargs...)
+    return p1, p2, p3, p4
 end
 kgrid_cheb = ChebyshevInterpolator(1.0, 2000.0, 99)
 kgrid_cub = CubicSplineInterpolator(1.0, 2000.0, 99)
 kgrid_cubcheb = CubicSplineInterpolator(kgrid_cheb.xs)
-pTcheb, pTcub, pTcubcheb = plot_heatmap_errors(ST, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pEcheb, pEcub, pEcubcheb = plot_heatmap_errors(SE, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-9.5, -3.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pMcheb, pMcub, pMcubcheb = plot_heatmap_errors(SM, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
-pLcheb, pLcub, pLcubcheb = plot_heatmap_errors(SL, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb; ylabel = "k / (H₀/c)", clims = (-8.5, -2.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+kgrid_class = CLASSCubicSplineWavenumberInterpolator(1.0, 2000.0, 99)
+pTcheb, pTcub, pTcubcheb, pTclass = plot_heatmap_errors(ST, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb, kgrid_class; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pEcheb, pEcub, pEcubcheb, pEclass = plot_heatmap_errors(SE, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb, kgrid_class; ylabel = "k / (H₀/c)", clims = (-9.5, -3.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pMcheb, pMcub, pMcubcheb, pMclass = plot_heatmap_errors(SM, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb, kgrid_class; ylabel = "k / (H₀/c)", clims = (-5.5,  0.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
+pLcheb, pLcub, pLcubcheb, pLclass = plot_heatmap_errors(SL, sol.bg.t, lingrid(1, 2000; length = 500), kgrid_cheb, kgrid_cub, kgrid_cubcheb, kgrid_class; ylabel = "k / (H₀/c)", clims = (-8.5, -2.5), cbar = true, xvar = log10(M.g.a), xlims = (-3.4, 0.0))
 pTcheb
 pTcub
 pTcubcheb
+pTclass
 #=
 savefig(pTcheb, "papers/paper2_chebyshev/figures/heaterrTcheb.pdf")
 savefig(pTcub, "papers/paper2_chebyshev/figures/heaterrTcub.pdf")
@@ -166,15 +205,20 @@ p = plot(
     plot(pTcub; xlabel = nothing, xticks = nothing, ylabel = "k / (H₀/c)", title = ""),
     plot(pEcub; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
     plot(pMcub; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
-    plot(pLcub; xlabel = nothing, xticks = nothing, ylabel = nothing, yticks = ([1000], ["cubic splines (uniform points)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = ""),
-    plot(pTcubcheb; ylabel = "k / (H₀/c)", title = ""),
-    plot(pEcubcheb; ylabel = nothing, yticks = nothing, title = "", bottom_margin = 5*Plots.mm),
-    plot(pMcubcheb; ylabel = nothing, yticks = nothing, title = ""),
-    plot(pLcubcheb; ylabel = nothing, yticks = ([1000], ["cubic splines (Chebyshev grid)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = "");
+    plot(pLcub; xlabel = nothing, xticks = nothing, ylabel = nothing, yticks = ([1000], ["cubic splines (equispaced)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = ""),
+    plot(pTcubcheb; xlabel = nothing, xticks = nothing, ylabel = "k / (H₀/c)", title = ""),
+    plot(pEcubcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
+    plot(pMcubcheb; xlabel = nothing, xticks = nothing, yticks = nothing, ylabel = nothing, title = ""),
+    plot(pLcubcheb; xlabel = nothing, xticks = nothing, ylabel = nothing, yticks = ([1000], ["cubic splines (Chebyshev grid)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = ""),
+    plot(pTclass; ylabel = "k / (H₀/c)", title = ""),
+    plot(pEclass; ylabel = nothing, yticks = nothing, title = "", bottom_margin = 5*Plots.mm),
+    plot(pMclass; ylabel = nothing, yticks = nothing, title = ""),
+    plot(pLclass; ylabel = nothing, yticks = ([1000], ["cubic splines (CLASS grid)"]), yrotation = -90, ymirror = true, ytickfontsize = 9, title = "");
     yguidefontsize = 9, xguidefontsize = 9,
-    colorbar = false, layout = grid(4, 4; heights = [0.025, 0.325, 0.325, 0.325]), size = (1400, 750), margin = -0.75*Plots.mm
+    colorbar = false, layout = grid(5, 4; heights = [0.02, 0.245, 0.245, 0.245, 0.245]), size = (1400, 950), margin = -0.75*Plots.mm
 )
 savefig(p, "papers/paper2_chebyshev/figures/heaterr.pdf")
+p
 
 function plot_time_slice(S, τ, ks_raw, klengths; f = identity, tol = 1e-7, kinterpolate = :chebyshev, yerrlims = (1e-10, 1e0), kwargs...)
     ptopts = (abstol = tol, reltol = tol)
@@ -192,6 +236,11 @@ function plot_time_slice(S, τ, ks_raw, klengths; f = identity, tol = 1e-7, kint
         elseif kinterpolate == :equispaced
             @assert f == identity
             kgrid = EquispacedInterpolator(ks_raw[begin], ks_raw[end], klength - 1)
+        elseif kinterpolate == :class
+            @assert f == identity
+            kgrid = CLASSCubicSplineWavenumberInterpolator(ks_raw[begin], ks_raw[end], klength - 1)
+        else
+            throw(ArgumentError("Unknown k-interpolation method $kinterpolate"))
         end
         Ss = source_grid(prob, S, [τ], ks_raw, kgrid, sol.bg; ptopts)
         Ss = Ss[1, :] # slice in time
@@ -203,11 +252,13 @@ end
 pcheb = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:100; kinterpolate = :chebyshev, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle") # at recombination (peak of visibility function)
 pcub = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), [20:20:100; 200:100:400]; kinterpolate = :cubic, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle")
 pequi = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), 20:20:60; kinterpolate = :equispaced, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle")
+pclass = plot_time_slice(1e-5*ST, τrec, lingrid(1, 2000; length = 500), [20:20:100; 200:100:400]; kinterpolate = :class, yerrlims = (1e-9, 1e0), ylims = (-1.3, 1.3), legend_position = :topright, title = "10⁻⁵⋅$STtitle")
 #pchebzoom = plot_time_slice(ST, τrec, lingrid(500.0, 750.0; length = 200), 5:5:20; kinterpolate = :chebyshev, yerrlims = (1e-4, 1e5), ylims = (-1.3e5, 1.3e5))
 #pcubzoom = plot_time_slice(ST, τrec, lingrid(500.0, 750.0; length = 200), 5:5:80; kinterpolate = :cubic, yerrlims = (1e-4, 1e5), ylims = (-1.3e5, 1.3e5))
 savefig(pcheb, "papers/paper2_chebyshev/figures/reccheb.pdf")
 savefig(pcub, "papers/paper2_chebyshev/figures/reccub.pdf")
 savefig(pequi, "papers/paper2_chebyshev/figures/recequi.pdf")
+savefig(pclass, "papers/paper2_chebyshev/figures/recclass.pdf")
 #savefig(pchebzoom, "papers/paper2_chebyshev/figures/recchebzoom.pdf")
 #savefig(pcubzoom, "papers/paper2_chebyshev/figures/reccubzoom.pdf")
 
