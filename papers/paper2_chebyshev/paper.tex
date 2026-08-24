@@ -276,8 +276,10 @@ It is not necessary, but is useful for error analysis and described in \cref{sec
 
 In contrast, piecewise interpolation methods join several low-order polynomials and converge more slowly.
 Cubic splines are popular for smooth data and interpolates with an error that falls as $n^{-4}$.
-They can struggle near the ends, where the spline assumes boundary conditions that need not match the data.
-In return, splines have better stability on arbitrary $x$-grids, are slightly faster, and respond locally to changes in the data points.
+They can struggle near the ends, where splines assume boundary conditions that need not match the data.
+In return, splines have better stability on arbitrary $x$-grids and respond locally to changes in the data.
+Splines are also faster to evaluate,
+but this is irrelevant when the cost of evaluating $f(x)$ dominates.
 
 Thus, Chebyshev interpolation is very attractive when:%
 \begin{itemize}
