@@ -79,7 +79,7 @@ but they slow down significantly with finer precision parameters that sample mor
 In the literature,
 interpolation in parameter space with polynomials or neural network \enquote{emulators} has received much attention
 \citep[e.g.][]{fendtPicoParametersImpatient2007,albersCosmicNetPhysicsdrivenImplementation2019a,manciniCOSMOPOWEREmulatingCosmological2022,boniciCapsejlEfficientAutodifferentiable2024a},
-while comparatively little has been paid to interpolation in the independent variables.
+while comparatively little attention has been paid to interpolation in the independent variables.
 
 Since the pioneering COSMICS code \citep{maCosmologicalPerturbationTheory1995},
 interpolation has been done with cubic splines.
@@ -98,7 +98,7 @@ particularly in the perturbations \citep[notably Figure 10]{blasCosmicLinearAnis
 This is faster, but complicates both the physics and numerics.
 Moreover, it breaks smoothness by introducing kinks at the switches.
 Cubic splines are good for interpolating such functions because kinks affect their piecewise polynomials only locally.
-Chebyshev interpolation instead uses global polynomials, and a non-smooth feature in one point can slow convergence over the entire domain.
+Chebyshev interpolation instead uses global polynomials, and a non-smooth feature at one point can slow convergence over the entire domain.
 
 Recently, approximation-free \EB{} codes such as SymBoltz \citep{sletmoenSymBoltzjlSymbolicnumericApproximationfree2026a}, DISCO-EB \citep{hahnDISCODJDifferentiableEinsteinBoltzmann2024} and PyCosmo \citep{refregierPyCosmoIntegratedCosmological2018} have emerged.
 They integrate the same equations at all times to obtain fully smooth solutions, but spend more effort per point.
@@ -210,7 +210,7 @@ where $M_{n} = \max \lvert f^{(n)}(x) \rvert$ on $x\in[-1,1]$.
 Thus, the points should be placed in a way that minimizes the nodal polynomial $\lvert \omega(x) \rvert$.
 
 Unintuitively, it is a bad idea to use uniformly spaced $x_i$.
-Then $\omega(x)$ decays very slowly near the edges and is easily outrun by $M_{n+1}/(n+1)!$ as $n \rightarrow \infty$.
+Then $\omega(x)$ decays very slowly with $n$ near the edges and is easily outrun by $M_{n+1}/(n+1)!$ as $n \rightarrow \infty$.
 This is called Runge's phenomenon and causes violent oscillations demonstrated in \cref{fig:recequi}.
 
 Two particularly excellent ways to place the points are at the Chebyshev nodes of the first or second kind
@@ -332,7 +332,7 @@ contain no analytical $k$-derivatives for Hermite interpolation,
 and have a global nature in $k$ as all scales inherit the background at a time $\tau$.
 
 Chebyshev $k$-interpolation consists of evolving the perturbation ODEs for the Chebyshev $k$-nodes \eqref{eq:chebnodes} of a wavenumber interval $[\kmin, \kmax]$.
-Afterwards, any source $S(\tau, k)$ is computed at any $k$ by doing Chebyshev interpolation in $k$ over fixed $\tau$-slices.
+Afterwards, any source $S(\tau, k)$ is computed at any $k$ by doing barycentric interpolation in $k$ over fixed $\tau$-slices.
 
 \Cref{fig:sources} shows the four test source functions \eqref{eq:sources} that we interpolate.
 We interpolate $k \chi \, S^T(\tau, k)$ and $(k\chi)^2 \, S^E(\tau, k)$,
@@ -409,8 +409,8 @@ Meanwhile, Chebyshev interpolation gives low average error throughout the domain
 	\caption{
 		\label{fig:convergence}
 		Root-mean-square of the interpolation error over $(\tau, k)$
-		for interpolation in $k$ with Chebyshev polynomials, equispaced cubic splines, cubic splines with Chebyshev points and cubic splines with a CLASS-like $k$-grid (as in \cref{fig:heaterrs})
-		as the number of $k$-samples increases.
+		using $k$-interpolation with Chebyshev polynomials, uniform cubic splines, cubic splines with Chebyshev points and cubic splines with CLASS-like $k$-sampling (as in \cref{fig:heaterrs})
+		as the number of samples increases.
 	}
 \end{figure*}
 
@@ -579,11 +579,12 @@ but their main purpose is to train on fewer independent coefficients $a_m(p)$ in
 	\includegraphics[width=\textwidth]{figures/kl.pdf}
 	\caption{%
 		\label{fig:kl}
-		Root-mean-square of the relative error $\big(\sum_\ell (C_\ell^\text{TT}/\bar{C}_\ell^\text{TT}-1)^2/N_\ell\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\text{TT}$
+		Root-mean-square of the relative error $\big(\sum_\ell (C_\ell^\mathrm{TT}/\bar{C}_\ell^\mathrm{TT}-1)^2/N_\ell\big)^\frac12$ of the CMB temperature power spectrum $C_\ell^\mathrm{TT}$
 		for $50 \leq \ell \leq 2500$,
 		computed with Chebyshev interpolation in both $k$ and $\ell$ versus equispaced cubic splines in both $k$ and $\ell$ with different numbers of samples.
-		The error is relative to a reference spectrum $\bar{C}_\ell^\text{TT}$ computed with Chebyshev interpolation from 1025 $k$-points and 513 $\ell$-points.
-		The middle plot uses integer-rounded Chebyshev $\ell$-interpolation, where more than 110 Chebyshev points would round several $\ell$ to the same integer.
+		The error is relative to a reference spectrum $\bar{C}_\ell^\mathrm{TT}$ computed with Chebyshev interpolation from 1025 $k$-points and 513 $\ell$-points.
+		The middle plot uses integer-rounded Chebyshev $\ell$-interpolation and is capped at 110 Chebyshev nodes,
+		because a higher number would round several $\ell$-nodes to the same integer.
 	}
 \end{figure*}
 
@@ -591,14 +592,14 @@ In the previous section on $\ell$-interpolation,
 we always used Chebyshev $k$-interpolation of the source functions $S(\tau, k)$ before line-of-sight integration in order to isolate the effect to $\ell$.
 
 \Cref{fig:kl} instead shows the combined effect:
-the CMB temperature spectrum $C_\ell^\text{TT}$ interpolated with cubic splines in both $k$ and $\ell$,
+the CMB temperature spectrum $C_\ell^\mathrm{TT}$ interpolated with cubic splines in both $k$ and $\ell$,
 versus Chebyshev interpolation in both $k$ and $\ell$.
 Here we skip the cosmic variance-dominated $\ell \lesssim 50$ in \cref{fig:cmbTT},
 and take the root-mean-square of the relative $C_\ell$ error for the smoothest $50 \leq \ell \leq 2500$ as a function of the number of $k$-points and $\ell$-points.
 Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$-level with only 50-80 points in both $k$ and $\ell$,
 while cubic splines approach the $10^{-4}$-level around 200 points.
 This speeds up the perturbations and hence the full computation by $2.5\times$-$4\times$ for a fixed high precision level
-(e.g. 0.2s for $50 \times 50$ points vs 0.8s for $200 \times 200$ on our machine).
+(e.g. 0.2 s for $50 \times 50$ points vs 0.8 s for $200 \times 200$ on our machine).
 Line-of-sight integration is sped up by a similar factor,
 but is not the main bottleneck of the computation in flat universes.
 In curved universes, hyperspherical Bessel functions are more expensive to compute,
@@ -622,8 +623,8 @@ This near-Chebyshev strategy performs comparably and would be easier to use in c
 which need hyperspherical Bessel functions that are typically computed with integer-based recurrences and polynomials.
 
 If implemented carefully, we believe approximation-based codes could also benefit from Chebyshev interpolation.
-Due to its global nature,
-imperfections in one point can slow interpolation convergence over the whole domain.
+As it is a global method,
+imperfections at one point can slow interpolation convergence over the whole domain.
 For example, we saw that the Limber approximation slowed convergence of Chebyshev $\ell$-interpolation,
 but restored it by interpolating piecewise for $\ell < \ell_\text{Limber}$ and $\ell \geq \ell_\text{Limber}$.
 The same strategy could be used for approximations in $k$-space,
