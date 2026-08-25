@@ -610,7 +610,8 @@ so the speedup of line-of-sight integration may become more visible there.
 
 We implemented interpolation with Chebyshev polynomials with the barycentric formula in the approximation-free \EB{} code SymBoltz.
 By solving the perturbation ODEs and line-of-sight integrals at Chebyshev nodes in $k$ and $\ell$,
-we reached significantly lower interpolation error than traditional cubic splines using the same number of samples.
+we reached significantly lower interpolation error than traditional cubic splines using the same number of samples.%
+\footnote{Results in this paper were generated with SymBoltz 1.7.0 and the script \url{https://github.com/hersle/SymBoltz.jl/blob/v1.7.0/scripts/chebyshev.jl}.}
 
 The rapid convergence of Chebyshev interpolation for smooth functions forms a synergy with approximation-free \EB{} codes.
 In contrast, approximation-based codes switch equations in $\tau$, $k$ and $\ell$ to solve each point faster,
