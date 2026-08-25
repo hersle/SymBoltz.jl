@@ -697,13 +697,13 @@ They are orthogonal with respect to the inner product
 \label{eq:innerprodcont}
 \end{equation}
 so the coefficients that represent a given function $f(x)$ are
-\begin{subequations}
-\begin{align}
-	a_0 &= \frac{1}{\pi} \int_{-1}^1 \frac{f(x) T_0(x)}{\sqrt{1-x^2}} \, \diff{x}, \\
-	a_m &= \frac{2}{\pi} \int_{-1}^1 \frac{f(x) T_m(x)}{\sqrt{1-x^2}} \, \diff{x} \qquad (m \geq 1).
-\end{align}
+\begin{equation}
+	a_m = \begin{cases}
+		\displaystyle \frac{1}{\pi} \int_{-1}^1 \frac{f(x) T_0(x)}{\sqrt{1-x^2}} \, \diff{x} & \text{if $m = 0$}, \\
+		\displaystyle \frac{2}{\pi} \int_{-1}^1 \frac{f(x) T_m(x)}{\sqrt{1-x^2}} \, \diff{x} & \text{if $m \geq 1$}.
+	\end{cases}
 \label{eq:coeffscont}%
-\end{subequations}
+\end{equation}
 These coefficients represent $f(x)$ in the infinite-dimensional space \eqref{eq:infseries},
 and are not very practical.
 
@@ -756,7 +756,10 @@ the extrema give rise to a discrete orthogonality relationship:
 where the double-primed sum halves its first and last terms.
 Thus, the coefficients $c_m$ that interpolate a given $f(x)$ are%
 \begin{equation}
-	c_m = \frac{2}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) .
+	c_m = \begin{cases}
+		\displaystyle \frac{1}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) & \text{if $m \in \{0, n\}$}, \\
+		\displaystyle \frac{2}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) & \text{if $m \in [1, n-1]$}.
+	\end{cases}
 \label{eq:coeffsdiscrete}
 \end{equation}
 This is a type-I Discrete Cosine Transform (DCT).
@@ -764,8 +767,8 @@ It can be computed with only $O(n \log n)$ operations.
 This special property makes Chebyshev interpolation particularly attractive.
 
 Once $c_m$ are known, the interpolating series \eqref{eq:interpolation} is easily evaluated for any $x$ with $O(n)$ operations.
-A naive implementation is to iterate through every term while computing the recurrence \eqref{eq:recurrence} forwards, but this is unstable for $\lvert x \rvert \rightarrow 1$.
-A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebyshev1955} algorithm with an intermediate variable $b_m(x)$:
+Forward iteration through the recurrence \eqref{eq:recurrence} may be most natural, but this is unstable for $\lvert x \rvert \rightarrow 1$.
+A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebyshev1955} algorithm with an intermediate variable $b_m(x)$:%
 \begin{subequations}
 \begin{align}
 	b_{n+1}(x) &= b_{n+2}(x) = 0, \\
