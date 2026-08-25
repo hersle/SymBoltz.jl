@@ -45,8 +45,8 @@
 	On a set of example spectra for matter and the cosmic microwave background (CMB),
 	we find up to four orders of magnitude lower interpolation error using the same number of points.
 	For a typical CMB temperature spectrum computed with interpolation in both $k$ and $\ell$,
-	Chebyshev polynomials converge to $10^{-4}$-$10^{-5}$ relative error with only 50-80 points per variable,
-	while cubic splines approach $10^{-4}$ error with $200$ points, translating to a $2.5\times$-$4\times$ speedup.
+	Chebyshev polynomials converge to $10^{-4}$--$10^{-5}$ relative error with only 50--80 points per variable,
+	while cubic splines approach $10^{-4}$ error with $200$ points, translating to a $2.5\times$--$4\times$ speedup.
 	The exact improvement depends on the target function
 	and is generally more dramatic at high precision levels.
 	Standard Chebyshev $\ell$-interpolation needs line-of-sight integrals generalized to non-integer $\ell$,
@@ -147,9 +147,9 @@ In turn, this is used to compute angular spectra%
 Most $S(\tau, k)$ are smooth in $k$.
 But the spherical Bessel function $j_\ell(k\chi)$ makes $\Delta_\ell(k)$ oscillate rapidly in $k$,
 so the integrand of $C_\ell$ must be sampled at many $k$.
-A standard trick is to solve perturbations explicitly for only $10^2$-$10^3$ $k$-modes,
-and then interpolate $S(\tau, k)$ to $10^3$-$10^4$ values before line-of-sight integration.
-This is $10\times$-$100\times$ faster than evolving the perturbations for all $k$.
+A standard trick is to solve perturbations explicitly for only $10^2$--$10^3$ $k$-modes,
+and then interpolate $S(\tau, k)$ to $10^3$--$10^4$ values before line-of-sight integration.
+This is $10\times$--$100\times$ faster than evolving the perturbations for all $k$.
 
 Most $C_\ell$ are also smooth in $\ell$.
 Similarly, it is faster to interpolate $C_\ell$ from some $\ell$ to every integer.
@@ -453,7 +453,7 @@ indicating geometric convergence \eqref{eq:geometric}.
 For $m \gtrsim 75$,
 the interpolant and $\lvert c_m \rvert$ fully converge to the numerical noise floor.
 Smaller ODE solver tolerances lower the precision floor.
-This matches the convergence with 60-80 points in \cref{fig:reccheb},
+This matches the convergence with 60--80 points in \cref{fig:reccheb},
 and there is no gain in using more points.
 \end{itemize}
 In principle, the code could use this decay to choose $n$ adaptively.
@@ -501,7 +501,7 @@ but barycentric interpolation is still straightforward using the general weights
 This near-Chebyshev method is robust,
 as polynomial interpolation is stable for any points with density similar to the Chebyshev nodes \eqref{eq:chebnodes}.
 It also helps that $C_\ell$ is needed for 1000s of multipoles,
-which mitigates discreteness effects when rounding 10s-100s of interpolation points.
+which mitigates discreteness effects when rounding 10s--100s of interpolation points.
 SymBoltz implements a \texttt{ChebyshevIntegerInterpolator} with this strategy,
 and errors if the requested order is so high that multiple nodes round to the same $\ell$.
 
@@ -540,7 +540,7 @@ and errors if the requested order is so high that multiple nodes round to the sa
 To fix the computational cost, we use 70 $\ell$-points with each method.
 For each method, we also require that the same $\ell$-grid interpolates all three spectra $C_\ell^\mathrm{TT}$, $C_\ell^\mathrm{EE}$ and $C_\ell^\mathrm{LL}$, so the precomputed $j_\ell(x)$ is common.
 
-For $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$, Chebyshev interpolation converges to 3-4 orders of magnitude smaller error for $\ell \gtrsim 100$ than cubic splines.
+For $C_\ell^\mathrm{TT}$ and $C_\ell^\mathrm{EE}$, Chebyshev interpolation converges to 3--4 orders of magnitude smaller error for $\ell \gtrsim 100$ than cubic splines.
 But for $C_\ell^\mathrm{LL}$, the cubic spline does better than a single Chebyshev polynomial.
 This is because the Limber approximation switches on for $\ell \geq 10$ and makes a kink in $C_\ell$,
 leading to only algebraic $n^{-1}$-convergence \eqref{eq:algebraic}.
@@ -596,9 +596,9 @@ the CMB temperature spectrum $C_\ell^\mathrm{TT}$ interpolated with cubic spline
 versus Chebyshev interpolation in both $k$ and $\ell$.
 Here we skip the cosmic variance-dominated $\ell \lesssim 50$ in \cref{fig:cmbTT},
 and take the root-mean-square of the relative $C_\ell$ error for the smoothest $50 \leq \ell \leq 2500$ as a function of the number of $k$-points and $\ell$-points.
-Chebyshev interpolation converges to the $10^{-4}$-$10^{-5}$-level with only 50-80 points in both $k$ and $\ell$,
+Chebyshev interpolation converges to the $10^{-4}$--$10^{-5}$-level with only 50--80 points in both $k$ and $\ell$,
 while cubic splines approach the $10^{-4}$-level around 200 points.
-This speeds up the perturbations and hence the full computation by $2.5\times$-$4\times$ for a fixed high precision level
+This speeds up the perturbations and hence the full computation by $2.5\times$--$4\times$ for a fixed high precision level
 (e.g. 0.2 s for $50 \times 50$ points vs 0.8 s for $200 \times 200$ on our machine).
 Line-of-sight integration is sped up by a similar factor,
 but is not the main bottleneck of the computation in flat universes.
