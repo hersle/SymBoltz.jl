@@ -567,8 +567,8 @@ We therefore anticipate that the integer-rounded Chebyshev interpolation strateg
 
 Thus, Chebyshev interpolation is better also in $\ell$.
 It reaches up to several orders of magnitude lower error in CMB spectra than cubic splines with the same number of samples.
-The emulator Capse.jl for $C_\ell(\theta)$ of cosmological parameters $\theta$ also uses it,
-but their main purpose is to train on fewer independent coefficients $a_m(\theta)$ in the Chebyshev series $C_\ell(\theta) = \sum_m a_m(\theta) T_m(x(\ell))$ instead of every $C_\ell(\theta)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
+The emulator Capse.jl for $C_\ell(p)$ of cosmological parameters $p$ also uses it,
+but their main purpose is to train on fewer independent coefficients $a_m(p)$ in the Chebyshev series $C_\ell(p) = \sum_m a_m(p) T_m(x(\ell))$ instead of every $C_\ell(p)$ \citep{boniciCapsejlEfficientAutodifferentiable2024a}.
 \Cref{sec:coeffs} links the coefficients to our barycentric approach.
 
 \section{Interpolation in wavenumber and multipole}
