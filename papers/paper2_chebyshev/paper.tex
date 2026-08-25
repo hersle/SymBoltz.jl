@@ -268,9 +268,9 @@ Our implementation creates a \texttt{ChebyshevInterpolator} from an interval $[a
 computes and transforms the nodes \eqref{eq:chebnodes} to $[a, b]$,
 and then evaluates the barycentric formula \eqref{eq:bary} with weights \eqref{eq:chebweights} and any function values $f(x_i)$.
 
-An alternative implementation expands $p_n(x) = \sum_m a_m T_m(x)$ in a series of Chebyshev polynomials $T_m(x)$.
-A Discrete Cosine Transform converts between the coefficients $a_m$ and function values $f_i$.
-This lets us inspect the convergence of $\lvert a_m \rvert$ with $m$,
+An alternative implementation expands $p_n(x) = \sum_m c_m T_m(x)$ in a series of Chebyshev polynomials $T_m(x)$.
+A Discrete Cosine Transform converts between the coefficients $c_m$ and function values $f_i$.
+This lets us inspect the convergence of $\lvert c_m \rvert$ with $m$,
 and thus convergence of the full polynomial $p_n(x)$.
 It is not necessary, but is useful for error analysis and described in \cref{sec:coeffs}.
 
@@ -425,33 +425,33 @@ This further supports that it is a better overall interpolation method measured 
 	\includegraphics[width=\textwidth]{figures/coeffs.pdf}
 	\caption{%
 		\label{fig:coeffs}
-		Coefficients $a_m$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{300} a_m(\tau) T_m(x(k))$ of the source functions in \cref{fig:sources}.
+		Coefficient magnitudes $\lvert c_m \rvert$ in the Chebyshev polynomial expansion $S(\tau, k) \approx \sum_{m=0}^{300} c_m(\tau) T_m(x(k))$ of the source functions in \cref{fig:sources}.
 		The temperature and polarization sources are evaluated at recombination,
 		and the matter and lensing sources today.
 		The noise floor for the interpolation error is lowered by stricter ODE solver tolerances for the perturbations.
 	}
 \end{figure*}
 
-\Cref{fig:coeffs} studies the decaying coefficients $a_m$ in the Chebyshev series expansion $p_n(x) = \sum_m a_m T_m(x)$ of the interpolant.
+\Cref{fig:coeffs} studies the decaying coefficients $c_m$ in the Chebyshev series expansion $p_n(x) = \sum_m c_m T_m(x)$ of the interpolant.
 As \cref{sec:coeffs} explains, this is an equivalent Chebyshev interpolation method that offers a useful diagnostic:
-convergence of $\lvert a_m \rvert$ indicates convergence of $p_n(x)$.
+convergence of $\lvert c_m \rvert$ indicates convergence of $p_n(x)$.
 It has no direct counterpart with splines.
 The convergence undergoes three phases (here for $S^T$):%
 
 \begin{itemize}
 \item
 For $0 \lesssim m \lesssim 25$,
-the interpolant is still resolving the features of the source function and $\lvert a_m \rvert$ has not yet begun to converge.
+the interpolant is still resolving the features of the source function and $\lvert c_m \rvert$ has not yet begun to converge.
 
 \item
 For $25 \lesssim m \lesssim 75$,
-the interpolant has captured the main features and $\lvert a_m \rvert$ decays rapidly.
+the interpolant has captured the main features and $\lvert c_m \rvert$ decays rapidly.
 The steepest fall is a line in the log-linear plot,
 indicating geometric convergence \eqref{eq:geometric}.
 
 \item
 For $m \gtrsim 75$,
-the interpolant and $\lvert a_m \rvert$ fully converge to the numerical noise floor.
+the interpolant and $\lvert c_m \rvert$ fully converge to the numerical noise floor.
 Smaller ODE solver tolerances lower the precision floor.
 This matches the convergence with 60-80 points in \cref{fig:reccheb},
 and there is no gain in using more points.
@@ -684,7 +684,7 @@ evaluate $T_0(x)$ and $T_1(x)$ explicitly and use the identities $\cos(n\theta\p
 
 The Chebyshev polynomials are an orthogonal basis for expanding a function $f(x)$ on $x \in [-1, 1]$ in a unique series%
 \begin{equation}
-	f(x) = \sum_{m=0}^\infty c_m T_m(x).
+	f(x) = \sum_{m=0}^\infty a_m T_m(x).
 \label{eq:infseries}
 \end{equation}
 They are orthogonal with respect to the inner product
@@ -697,8 +697,8 @@ They are orthogonal with respect to the inner product
 so the coefficients that represent a given function $f(x)$ are
 \begin{subequations}
 \begin{align}
-	c_0 &= \frac{1}{\pi} \int_{-1}^1 \frac{f(x) T_0(x)}{\sqrt{1-x^2}} \, \diff{x}, \\
-	c_m &= \frac{2}{\pi} \int_{-1}^1 \frac{f(x) T_m(x)}{\sqrt{1-x^2}} \, \diff{x} \qquad (m \geq 1).
+	a_0 &= \frac{1}{\pi} \int_{-1}^1 \frac{f(x) T_0(x)}{\sqrt{1-x^2}} \, \diff{x}, \\
+	a_m &= \frac{2}{\pi} \int_{-1}^1 \frac{f(x) T_m(x)}{\sqrt{1-x^2}} \, \diff{x} \qquad (m \geq 1).
 \end{align}
 \label{eq:coeffscont}%
 \end{subequations}
@@ -710,7 +710,7 @@ and are not very practical.
 One way to approximate $f(x)$ is to take the coefficients \eqref{eq:coeffscont},
 but truncate the infinite series \eqref{eq:infseries} at a finite $n$:
 \begin{equation}
-	f(x) \approx \hat{p}_n(x) = \sum_{m=0}^n c_m T_m(x).
+	f(x) \approx \hat{p}_n(x) = \sum_{m=0}^n a_m T_m(x).
 \label{eq:projection}
 \end{equation}
 This is called Chebyshev projection,
@@ -729,7 +729,7 @@ A practical interpolation method is to construct the polynomial $p_n(x)$ that pa
 However, instead of expanding it in Lagrange polynomials as in \cref{sec:chebyshev},
 we can expand it in a series of Chebyshev polynomials:
 \begin{equation}
-	f(x) \approx p_n(x) = \sum_{m=0}^n a_m T_m(x)
+	f(x) \approx p_n(x) = \sum_{m=0}^n c_m T_m(x)
 	\quad \text{such that} \quad
 	p_n(x_i) = f(x_i).
 \label{eq:interpolation}
@@ -752,43 +752,46 @@ the extrema give rise to a discrete orthogonality relationship:
 \label{eq:innerproddiscrete}
 \end{equation}
 where the double-primed sum halves its first and last terms.
-Thus, the coefficients $a_m$ that interpolate a given $f(x)$ are%
+Thus, the coefficients $c_m$ that interpolate a given $f(x)$ are%
 \begin{equation}
-	a_m = \frac{2}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) .
+	c_m = \frac{2}{n} \sideset{}{''}\sum_{i=0}^n f(x_i) \cos \left( \frac{im\pi}{n} \right) .
 \label{eq:coeffsdiscrete}
 \end{equation}
-This is exactly a type-I Discrete Cosine Transform (DCT),
-which can be computed with only $O(n \log n)$ instead of $O(n^2)$ operations.
+This is a type-I Discrete Cosine Transform (DCT).
+It can be computed with only $O(n \log n)$ operations.
 This special property makes Chebyshev interpolation particularly attractive.
 
-Once $a_m$ are known, the interpolating series \eqref{eq:interpolation} is easily evaluated for any $x$ with $O(n)$ operations.
+Once $c_m$ are known, the interpolating series \eqref{eq:interpolation} is easily evaluated for any $x$ with $O(n)$ operations.
 A naive implementation is to iterate through every term while computing the recurrence \eqref{eq:recurrence} forwards, but this is unstable for $\lvert x \rvert \rightarrow 1$.
 A stable way is to iterate backwards with the \cite{clenshawNoteSummationChebyshev1955} algorithm with an intermediate variable $b_m(x)$:
 \begin{subequations}
 \begin{align}
 	b_{n+1}(x) &= b_{n+2}(x) = 0, \\
-	b_m(x) &= a_m + 2x b_{m+1}(x) - b_{m+2}(x) \quad (m = n,\, \ldots,\, 0), \\
-	p_n(x) &= \textstyle{\frac12 \big(a_0 + b_0(x) - b_2(x)\big)}.
+	b_m(x) &= c_m + 2x b_{m+1}(x) - b_{m+2}(x) \quad (m = n,\, \ldots,\, 0), \\
+	p_n(x) &= \textstyle{\frac12 \big(c_0 + b_0(x) - b_2(x)\big)}.
 \end{align}
 \end{subequations}
 
-Interpolating with the Chebyshev series \eqref{eq:interpolation} is fully equivalent to the barycentric formula \eqref{eq:bary}
+Interpolating with the series \eqref{eq:interpolation} is equivalent to the barycentric formula \eqref{eq:bary}
 with the Chebyshev points \eqref{eq:chebnodes2} and weights \eqref{eq:chebweights2} of the second kind,
-as the interpolating polynomial is of the same order and passes through the same points.
-The DCT \eqref{eq:coeffsdiscrete} converts the function values $f(x_i)$ of the barycentric approach to the coefficients $a_m$ of the series approach.
+as the polynomial is of the same order and goes through the same points.
+The DCT \eqref{eq:coeffsdiscrete} converts the function values $f(x_i)$ of the barycentric approach to the coefficients $c_m$ of the series approach.
 While the barycentric approach is simpler, faster and more flexible,
-the advantage of the series approach is that the coefficients $a_m$
-provide a useful diagnostic for analyzing the maximum interpolation error:
+the advantage of the series is that the coefficients
+provide a useful diagnostic for the maximum interpolation error \citep[Chapter 4]{trefethenApproximationTheoryApproximation2019}:
 \begin{equation}
-	\big\lvert f(x) - p_n(x) \big\rvert \leq \sum_{m=n+1}^\infty \lvert a_m \rvert.
+	\big\lvert f(x) - p_n(x) \big\rvert \leq 2 \sum_{m=n+1}^\infty \lvert a_m \rvert .
 \label{eq:coefferr}
 \end{equation}
-In other words the neglected coefficients bound the interpolation error,
-so convergence of $a_m$ implies convergence of the full $p_n(x)$.
+This bound involves the projection coefficients $a_m$, not the interpolation coefficients $c_m$.
+The two differ by aliasing effects that diminish as the series converges.
+Thus $c_m \rightarrow a_m$ in practice,
+so we can compute the DCT coefficients \eqref{eq:coeffsdiscrete} and check for their convergence,
+which also implies convergence of the full $p_n(x)$.
 
 SymBoltz always interpolates with the barycentric formula.
 In addition,
-we compute the DCT for the coefficients \eqref{eq:coeffsdiscrete} with the FastChebInterp.jl\footnote{\url{https://github.com/JuliaMath/FastChebInterp.jl}} package,
+we added a way to compute the DCT for the coefficients \eqref{eq:coeffsdiscrete} with the FastChebInterp.jl\footnote{\url{https://github.com/JuliaMath/FastChebInterp.jl}} package,
 as an additional way to inspect the interpolation convergence in \cref{fig:coeffs}.
 
 \end{document}

@@ -268,7 +268,7 @@ savefig(pclass, "papers/paper2_chebyshev/figures/recclass.pdf")
 
 # Plot decay of Chebyshev coefficients
 function plot_chebyshev_coefficients(S, τ, kgrid; tols = 1e-7, kwargs...)
-    p = plot(; yscale = :log10, xlabel = "m", ylabel = "|aₘ|", title = @sprintf("S(τ = %.3f, k) = %s", τ, S))
+    p = plot(; yscale = :log10, xlabel = "m", ylabel = "|cₘ|", title = @sprintf("S(τ = %.3f, k) = %s", τ, S))
     for tol in tols
         interp = only(source_grid_interp(prob, S, [τ], kgrid, sol.bg; ptopts = (abstol = tol, reltol = tol)))
         ns = 0:order(kgrid)
@@ -287,7 +287,7 @@ savefig(pM, "papers/paper2_chebyshev/figures/coeffsM.pdf")
 
 # Merge to one figure
 p = plot(
-    plot(pT; title = "$STtitle, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-6, 1e5), ylabel = "|aₘ|", legend = nothing, left_margin = 7*Plots.mm),
+    plot(pT; title = "$STtitle, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-6, 1e5), ylabel = "|cₘ|", legend = nothing, left_margin = 7*Plots.mm),
     plot(pE; title = "$SEtitle, z(τ) = $(Int(round(sol(M.g.z, τrec))))", ylims = (1e-10, 1e1), ylabel = nothing, legend = nothing),
     plot(pM; title = "$SMtitle, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-7, 1e4), ylabel = nothing, legend = nothing),
     plot(pL; title = "$SLtitle, z(τ) = $(Int(round(sol(M.g.z, τ0))))", ylims = (1e-11, 1e0), ylabel = nothing);
