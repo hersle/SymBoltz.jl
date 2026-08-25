@@ -25,7 +25,6 @@
 \newcommand\boldu{{\bf u}}
 \newcommand\scrH{\mathscr{H}}
 \newcommand\diff[1]{\mathrm{d}{#1}}
-\newcommand\TODO[1]{\textcolor{red}{TODO: #1}}
 
 \begin{document}
 
@@ -46,7 +45,7 @@
 	we find up to four orders of magnitude lower interpolation error using the same number of points.
 	For a typical CMB temperature spectrum computed with interpolation in both $k$ and $\ell$,
 	Chebyshev polynomials converge to $10^{-4}$--$10^{-5}$ relative error with only 50--80 points per variable,
-	while cubic splines approach $10^{-4}$ error with $200$ points, translating to a $2.5\times$--$4\times$ speedup.
+	while cubic splines approach $10^{-4}$ error with 200 points, translating to a $2.5\times$--$4\times$ speedup.
 	The exact improvement depends on the target function
 	and is generally more dramatic at high precision levels.
 	Standard Chebyshev $\ell$-interpolation needs line-of-sight integrals generalized to non-integer $\ell$,
@@ -395,8 +394,8 @@ This is because their natural boundary conditions assume that second derivatives
 which disagrees with the underlying function.
 
 \Cref{fig:heaterrs} also shows cubic splines interpolated on the Chebyshev grid \eqref{eq:chebnodes}.
-This only gives somewhat lower error near the boundaries,
-so the advantage of Chebyshev interpolation over equispaced cubic splines is not merely due to its sample locations.
+This only gives a lower error near the boundaries,
+confirming that the advantage of Chebyshev interpolation over uniform cubic splines is not merely due to its sample locations.
 In addition, the fourth row shows cubic splines with a non-uniform $k$-grid using CLASS' default strategy,
 where $k$-modes are sampled with $25\times$ higher density for scales above the sound horizon at recombination than below it.%
 \footnote{Using \texttt{k\_step\_sub=0.05} and \texttt{k\_step\_super=0.002} in CLASS v3.3.4, but downsampling the grid from around 500 to 100 $k$-points.}
@@ -417,8 +416,8 @@ Meanwhile, Chebyshev interpolation gives low average error throughout the domain
 \Cref{fig:convergence} compresses the error over $(\tau, k)$ to one root-mean-square number,
 and shows its convergence with more samples.
 The ranking of the methods depends on the source, and also crosses over with $N$.
-Nevertheless, by this metric, Chebyshev interpolation achieves the lowest error for every source and $N \gtrsim 48$.
-This further supports that it is a better overall interpolation method measured over the entire $k$-domain.
+By this metric, Chebyshev interpolation achieves the lowest error for every source and $N \gtrsim 48$.
+This further supports that it is a better overall interpolation method when measured over the entire $k$-domain.
 
 \begin{figure*}
 	\centering
@@ -454,7 +453,7 @@ For $m \gtrsim 75$,
 the interpolant and $\lvert c_m \rvert$ fully converge to the numerical noise floor.
 Smaller ODE solver tolerances lower the precision floor.
 This matches the convergence with 60--80 points in \cref{fig:reccheb},
-and there is no gain in using more points.
+and there is little gain in using more points.
 \end{itemize}
 In principle, the code could use this decay to choose $n$ adaptively.
 
@@ -657,6 +656,7 @@ instead of resorting to complicated approximation schemes.
 
 \appendix
 \crefalias{section}{appendix} % make cleverref render "appendix A" instead of "section A"
+\nolinenumbers
 
 \section{Chebyshev coefficients}
 \label{sec:coeffs}
