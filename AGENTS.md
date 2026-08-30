@@ -62,3 +62,8 @@ plot(log10.(jl.l), log10.(Dls))
     - `initialization_eqs` is an array of `x ~ y` equations that is solved during initialization.
     - `constraints` is an array of `x ~ y` equations that the shooting method will solve the background for repeatedly to determine an equal number of shooting variables.
     - `guesses` is an array of `x => y` approximate guesses for variables that are solved for during initialization or in the shooting method.
+
+## Code style
+
+- Prefer short and explicit code. Do not over-engineer.
+- Write comments that are short, to-the-point and in a clear buzzword-free language. Avoid obvious comments.
