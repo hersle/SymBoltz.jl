@@ -45,6 +45,7 @@ include("models/cosmologies.jl")
 include("solve.jl")
 include("observables/distances.jl")
 include("observables/fourier.jl")
+include("bessel.jl")
 include("observables/angular.jl")
 include("parameters.jl")
 include("plot.jl")
@@ -59,6 +60,7 @@ export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, Ch
 export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
+export sinK, cotK, asinK
 
 using PrecompileTools: @compile_workload
 @compile_workload begin

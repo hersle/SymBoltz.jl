@@ -38,6 +38,10 @@ x, W = SymBoltz.momentum_quadrature(f₀, nx)
 x² = x .^ 2
 ∫dx_x²_f₀(f) = sum(collect(f .* W))
 
+# Curvature factors sₗ = √(1-(l²-1)K/k²) in perturbations
+# max(…, 0) makes k support only multipoles l ≲ k/√K in closed universes
+sl(l) = l ≤ 1 ? 1 : √(max(1 - (l^2-1)*K/k^2, 0))
+
 # 1) Independent variable for time evolution
 @independent_variables τ # conformal time
 D = Differential(τ) # derivative operator
@@ -46,6 +50,7 @@ D = Differential(τ) # derivative operator
 pars = @parameters begin
     k, τ0, # wavenumber and conformal time today
     h, H0SI, # Hubble parameter in SI units (most equations have units where H0=1 and do not need these)
+    Ωk0, K, # curvature K = -Ωk0 (K>0 closed, K=0 flat, K<0 open)
     Ωc0, # cold dark matter
     Ωb0, YHe, fHe, κ0, # baryons and recombination
     Tγ0, Ωγ0, # photons
@@ -87,8 +92,8 @@ eqs = [
     χ ~ τ0 - τ
 
     # gravity equations
-    D(a) ~ √(8π/3 * ρ) * a^2 # 1st Friedmann equation
-    D(Φ) ~ -4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Ψ
+    D(a) ~ √(8π/3 * ρ * a^2 - K) * a # 1st Friedmann equation
+    D(Φ) ~ -4π/3*a^2/ℋ*δρ - (k^2-3K)/(3ℋ)*Φ - ℋ*Ψ
     k^2 * (Φ - Ψ) ~ 12π * a^2 * Π
     ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
     P ~ Pγ + Pν + Ph + PΛ
@@ -165,17 +170,17 @@ eqs = [
     wγ ~ 1/3
     Pγ ~ wγ * ργ
     D(Fγ0) ~ -k*Fγ[1] + 4*D(Φ)
-    D(Fγ[1]) ~ k/3*(Fγ0-2Fγ[2]+4Ψ) - 4/3 * D(κ)/k * (θb - θγ)
-    [D(Fγ[l]) ~ k/(2l+1) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + D(κ) * (Fγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
-    D(Fγ[lγmax]) ~ k*Fγ[lγmax-1] - (lγmax+1) / τ * Fγ[lγmax] + D(κ) * Fγ[lγmax]
+    D(Fγ[1]) ~ k/3*(Fγ0-2*sl(2)*Fγ[2]+4Ψ) - 4/3 * D(κ)/k * (θb - θγ)
+    [D(Fγ[l]) ~ k/(2l+1) * (l*sl(l)*Fγ[l-1] - (l+1)*sl(l+1)*Fγ[l+1]) + D(κ) * (Fγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
+    D(Fγ[lγmax]) ~ k*sl(lγmax)*Fγ[lγmax-1] - (lγmax+1) * cotK(K, τ) * Fγ[lγmax] + D(κ) * Fγ[lγmax]
     δγ ~ Fγ0
     θγ ~ 3k*Fγ[1]/4
-    σγ ~ Fγ[2]/2
+    σγ ~ Fγ[2]/(2*sl(2))
     Πγ ~ Fγ[2] + Gγ0 + Gγ[2]
     D(Gγ0) ~ k * (-Gγ[1]) + D(κ) * (Gγ0 - Πγ/2)
-    D(Gγ[1]) ~ k/(2*1+1) * (1*Gγ0 - 2*Gγ[2]) + D(κ) * Gγ[1]
-    [D(Gγ[l]) ~ k/(2l+1) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + D(κ) * (Gγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
-    D(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + D(κ) * Gγ[lγmax]
+    D(Gγ[1]) ~ k/(2*1+1) * (1*Gγ0 - 2*sl(2)*Gγ[2]) + D(κ) * Gγ[1]
+    [D(Gγ[l]) ~ k/(2l+1) * (l*sl(l)*Gγ[l-1] - (l+1)*sl(l+1)*Gγ[l+1]) + D(κ) * (Gγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
+    D(Gγ[lγmax]) ~ k*sl(lγmax)*Gγ[lγmax-1] - (lγmax+1) * cotK(K, τ) * Gγ[lγmax] + D(κ) * Gγ[lγmax]
 
     # cold dark matter
     ρc ~ 3/8π * Ωc0 / a^3
@@ -189,12 +194,12 @@ eqs = [
     Pν ~ wν * ρν
     Tν ~ Tν0 / a
     D(Fν0) ~ -k*Fν[1] + 4*D(Φ)
-    D(Fν[1]) ~ k/3*(Fν0-2Fν[2]+4Ψ)
-    [D(Fν[l]) ~ k/(2l+1) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
-    D(Fν[lνmax]) ~ k*Fν[lνmax-1] - (lνmax+1) / τ * Fν[lνmax]
+    D(Fν[1]) ~ k/3*(Fν0-2*sl(2)*Fν[2]+4Ψ)
+    [D(Fν[l]) ~ k/(2l+1) * (l*sl(l)*Fν[l-1] - (l+1)*sl(l+1)*Fν[l+1]) for l in 2:lνmax-1]...
+    D(Fν[lνmax]) ~ k*sl(lνmax)*Fν[lνmax-1] - (lνmax+1) * cotK(K, τ) * Fν[lνmax]
     δν ~ Fν0
     θν ~ 3k*Fν[1]/4
-    σν ~ Fν[2]/2
+    σν ~ Fν[2]/(2*sl(2))
 
     # massive neutrinos
     Th ~ Th0 / a
@@ -209,13 +214,13 @@ eqs = [
     Δh ~ δh + 3ℋ*(1+wh)*θh/k^2
     uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
     θh ~ k * uh
-    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
+    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3) / sl(2)
     csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
     [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [D(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [D(ψh[i,l]) ~ k/(2l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
-    [D(ψh[i,lhmax]) ~ k/(2lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
+    [D(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2*sl(2)*ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [D(ψh[i,l]) ~ k/(2l+1) * x[i]/Eh[i] * (l*sl(l)*ψh[i,l-1] - (l+1)*sl(l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
+    [D(ψh[i,lhmax]) ~ k * x[i]/Eh[i] * sl(lhmax)*ψh[i,lhmax-1] - (lhmax+1) * cotK(K, τ) * ψh[i,lhmax] for i in 1:nx]...
 
     # dark energy (cosmological constant or w0wa)
     wΛ ~ w0 + wa*(1-a)
@@ -236,12 +241,12 @@ eqs = [
     Δm ~ (ρb*Δb + ρc*Δc + ρh*Δh) / ρm
 
     # CMB source functions
-    ST_SW ~ v * (δγ/4 + Ψ + Πγ/16)
+    ST_SW ~ v * (δγ/4 + Ψ + Πγ/(16*sl(2))) # quadrupole source is the physical Πγ = Πγ_hierarchy/s₂ (see σγ)
     ST_ISW ~ exp(-κ) * D(Ψ + Φ) |> expand_derivatives
     ST_Doppler ~ D(v*θb) / k^2 |> expand_derivatives
-    ST_polarization ~ 3/(16k^2) * D(D(v*Πγ)) |> expand_derivatives
+    ST_polarization ~ 3/(16k^2*sl(2)) * D(D(v*Πγ)) |> expand_derivatives
     ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
-    SE ~ 3/16 * v*Πγ / (k*χ)^2
+    SE ~ 3/16 * v*Πγ / (k*sinK(K,χ))^2 / sl(2) # angular size of a comoving scale is set by sinK(K,χ), not χ, in a curved universe
     Sψ ~ 0 # ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0) # TODO # hide
 ]
 
@@ -258,12 +263,12 @@ initialization_eqs = [
     # photons
     Fγ0 ~ -2Ψ
     Fγ[1] ~ 2/3 * k*τ*Ψ
-    Fγ[2] ~ -8/15 * k/D(κ) * Fγ[1]
-    [Fγ[l] ~ -l/(2l+1) * k/D(κ) * Fγ[l-1] for l in 3:lγmax]...
+    Fγ[2] ~ -8/15 * k*sl(2)/D(κ) * Fγ[1]
+    [Fγ[l] ~ -l/(2l+1) * k*sl(l)/D(κ) * Fγ[l-1] for l in 3:lγmax]...
     Gγ0 ~ 5/16 * Fγ[2]
-    Gγ[1] ~ -1/16 * k/D(κ) * Fγ[2]
+    Gγ[1] ~ -(5-2*sl(2))/48 * k/D(κ) * Fγ[2] # → -1/16 as K → 0
     Gγ[2] ~ 1/16 * Fγ[2]
-    [Gγ[l] ~ -l/(2l+1) * k/D(κ) * Gγ[l-1] for l in 3:lγmax]...
+    [Gγ[l] ~ -l/(2l+1) * k*sl(l)/D(κ) * Gγ[l-1] for l in 3:lγmax]...
 
     # cold dark matter
     δc ~ -3/2 * Ψ
@@ -272,13 +277,13 @@ initialization_eqs = [
     # massless neutrinos
     δν ~ -2 * Ψ
     θν ~ 1/2 * (k^2*τ) * Ψ
-    σν ~ 1/15 * (k*τ)^2 * Ψ
-    [Fν[l] ~ l/(2l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
+    Fν[2] ~ 2*sl(2)/15 * (k*τ)^2 * Ψ # i.e. σν = (kτ)²Ψ/15, curvature-independent at leading order; set on the hierarchy moment so it stays well-defined when s₂ = 0
+    [Fν[l] ~ l/(2l+1) * k*τ*sl(l) * Fν[l-1] for l in 3:lνmax]...
 
     # massive neutrinos
     [ψh0[i] ~ -1/4 * (-2Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [ψh[i,1] ~ -1/3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [ψh[i,2] ~ -1/2 * (1/15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh[i,2] ~ -1/2 * (sl(2)/15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
 
     # dark energy (w0wa)
@@ -312,7 +317,8 @@ initial_conditions = [
     Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
-    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0
+    K => -Ωk0
+    ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0 - Ωk0
     Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*H0SI^2)
     mh => mh_eV * eV/c^2
     yh0 => mh*c^2 / (kB*Th0)
@@ -332,6 +338,7 @@ Now set remaining parameter values and compile the numerical problem:
 ```@example LCDM
 p = Dict(
     M.h => 0.7,
+    M.Ωk0 => 0.1,
     M.Ωc0 => 0.3,
     M.Ωb0 => 0.05,
     M.YHe => 0.25,
@@ -369,10 +376,9 @@ plot(log10.(ks), log10.(transpose(Ps)), xlabel = "log10(k / (H₀/c))", ylabel =
 
 Now compute the CMB power spectrum:
 ```@example LCDM
-jl = SphericalBesselCache(25:25:3000)
-ls = 25:3000
 modes = [:TT, :EE, :TE]
-Dls = spectrum_cmb(modes, prob, jl, ls; normalization = :Dl)
+ls = 25:3000
+Dls = spectrum_cmb(modes, prob, 25:25:3000, ls; normalization = :Dl)
 plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (3, 1), size = (600, 1000), left_margin=5*Plots.mm)
 plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2)
 plot!(ls, Dls[:,3]*1e12, ylabel = "10¹² D(ℓ)", label = "TE", subplot = 3, color = 3, xlabel = "ℓ")

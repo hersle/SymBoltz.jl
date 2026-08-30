@@ -1,86 +1,6 @@
 using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using MatterPower
-using ForwardDiff
-using ForwardDiffChainRules
-import ChainRulesCore
-
-struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
-    l::Tl
-    y::Matrix{Float64}
-    dy::Tdy
-    dx::Float64
-    invdx::Float64
-    x::Vector{Float64}
-end
-
-function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
-    xmin = 0.0
-    xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
-    invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
-    xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
-    ys  = jl.(ls, xs') # contiguous in l
-    dys = hermite ? jl′.(ls, xs') : nothing
-    return SphericalBesselCache{typeof(ls), typeof(dys)}(ls, ys, dys, dx, invdx, xs)
-end
-
-# First argument is the cache index il, not the multipole l
-@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Tl, Nothing})(il::Int, x) where {Tl}
-    w = x * jl.invdx # 0-based float index (assume x0 = 0)
-    i = trunc(Int, w) # 0-based integer index of left interval point; faster than searchsortedfirst(jl.x, x)
-    w = w - i # remainder ∈ [0, 1]
-    y₋ = jl.y[il, i+1] # +1 for 1-based indexing
-    y₊ = jl.y[il, i+2]
-    return muladd(w, y₊ - y₋, y₋) # i.e. y₋ + (y₊ - y₋) * (x - x₋) * jl.invdx
-end
-
-@inline Base.@propagate_inbounds @fastmath function (jl::SphericalBesselCache{Tl, Matrix{Float64}})(il::Int, x) where {Tl}
-    w = x * jl.invdx
-    i = trunc(Int, w)
-    w = w - i
-    wm1 = w - 1.0
-    y₋  = jl.y[il, i+1]
-    y₊  = jl.y[il, i+2]
-    dy₋ = jl.dy[il, i+1]
-    dy₊ = jl.dy[il, i+2]
-    return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
-end
-
-function Base.show(io::IO, jl::SphericalBesselCache{Tl, Tdy}) where {Tl, Tdy}
-    method = Tdy == Nothing ? "linear" : "Hermite"
-    print(io, "jₗ(x) $method interpolation cache ")
-    print(io, "for $(minimum(jl.l)) ≤ l ≤ $(maximum(jl.l)) and ")
-    print(io, "$(jl.x[begin]) ≤ x ≤ $(jl.x[end]) ")
-    print(io, "($(Base.format_bytes(Base.summarysize(jl))))\n")
-end
-
-# Out-of-place spherical Bessel function variants
-jl(l, x) = sphericalbesselj(l, x) # for l ≥ 0, from Bessels.jl
-jl′(l, x) = l/(2l+1)*jl(l-1,x) - (l+1)/(2l+1)*jl(l+1,x) # for l ≥ 1, analytical relation
-
-# In-place spherical Bessel function variants
-# TODO: contribute back to Bessels.jl
-function jl!(out, l::AbstractRange, x::Number)
-    besselj!(out, l .+ 0.5, x)
-    if x == 0.0 && l[begin] == 0
-        out[begin] = 1.0
-    elseif x != 0.0
-        out .*= √(π/(2*x))
-    end
-    return out
-end
-function jlsafe!(out, l::AbstractRange, x::Number)
-    out .= jl.(l, x)
-    return out
-end
-function jl′(l, ls::AbstractRange, Jls)
-    i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
-    return l/(2l+1)*Jls[i-1] - (l+1)/(2l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
-end
-
-# Overload chain rule for spherical Bessel function
-ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * Δx # (value, derivative)
-@ForwardDiff_frule jl(l::Integer, x::ForwardDiff.Dual) # define dispatch
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(τ0-τini)
@@ -91,7 +11,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, K::Real = 0.0; l_limber = typemax(Int), thread = true, verbose = false) where {T}
 
 For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
@@ -105,7 +25,8 @@ Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, K::Real = 0.0; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+    @assert K == 0 "the spherical Bessel function cache only covers a flat universe (K = 0), but got K = $K; pass the multipoles `ls` instead of a `SphericalBesselCache` to use the hyperspherical recursion"
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert collect(ls) == collect(jl.l) "ls must match the l-values stored in the Bessel cache"
@@ -184,6 +105,118 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     return Is
 end
 
+"""
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, ::Nothing, K::Real = 0.0; kwargs...) where {T}
+
+Same as `los_integrate(Ss, ls, τs, ks, K; ...)`. This lets callers that hold a `jl` which is either a
+`SphericalBesselCache` or `nothing` dispatch on it directly, instead of branching on `isnothing(jl)`.
+"""
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, ::Nothing, K::Real = 0.0; kwargs...) where {T}
+    return los_integrate(Ss, ls, τs, ks, K; kwargs...)
+end
+
+"""
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, K::Real = 0.0; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+
+Same as `los_integrate(Ss, ls, τs, ks, jl::SphericalBesselCache; ...)`, but compute the hyperspherical Bessel function
+``Φₗ^k(χ)`` on the fly with recurrences for integer `ls` (without a precomputed cache) and with curvature ``K``.
+"""
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, K::Real = 0.0; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+    K ≤ 0 || throw(ArgumentError("line-of-sight integration is only implemented for flat (K = 0) and open (K < 0) universes, but got K = $K (closed)"))
+    @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
+    @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
+    @assert issorted(τs) "τs must be sorted in ascending order"
+    @assert issorted(ks) "ks must be sorted in ascending order"
+    @assert issorted(ls) "ls must be sorted in ascending order" # necessary for Limber indexing logic
+    all(l -> l == round(l), ls) || throw(ArgumentError(
+        "ls must be exact integer multipoles for the recursion-based los_integrate (got e.g. $(first(Iterators.filter(l -> l != round(l), ls)))). " *
+        "A coarse/fractional l-grid for interpolation is only supported by the SphericalBesselCache-based method."))
+    ls = round.(Int, ls)
+    error_if_nonfinite(Ss)
+
+    τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
+    τ0 = τs[end]
+    χs = τ0 .- τs
+    nτ = length(τs)
+
+    ws = similar(τs) # precompute trapezoidal rule weights
+    ws[1] = 0.5 * (τs[2] - τs[1])
+    @inbounds for iτ in 2:nτ-1
+        ws[iτ] = 0.5 * (τs[iτ+1] - τs[iτ-1])
+    end
+    ws[nτ] = 0.5 * (τs[nτ] - τs[nτ-1])
+
+    nl = length(ls)
+    Is = similar(Ss, length(ks), nl)
+    il_limber = searchsortedfirst(ls, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
+    ls_nonlimber = @view ls[1:il_limber-1] # only these need the (non-Limber) recursion; Φl is sized/indexed to match
+    lmax = il_limber > 1 ? ls[il_limber-1] : 0 # largest l that needs the full (non-Limber) recursion
+
+    verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
+
+    il_limber == 1 || lmax ≥ 2 || throw(ArgumentError("the recursion needs multipoles l ≥ 2, but got lmax = $lmax below l_limber = $l_limber"))
+
+    @fastmath @inbounds @tasks for ik in eachindex(ks)
+        @set scheduler = thread ? :dynamic : :serial
+        @local begin
+            tmp = zeros(T, nl)
+            Φl = zeros(Float64, nτ, length(ls_nonlimber)) # Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once (see Φl_recurrence!)
+            sqK = zeros(Float64, lmax+2) # recursion coefficients √Kₗ = √(k²-Kl²) and 1/√Kₗ for l = 0, …, lmax+1,
+            invsqK = zeros(Float64, lmax+2) # which depend on k but not on χ (so are tabulated once per k)
+        end
+        k = ks[ik]
+        sqrtK_table!(sqK, invsqK, K, k)
+        verbose && print("\rLOS integrating k-mode $ik / $(length(ks))")
+
+        # Full line-of-sight integrals for l < l_limber (skipped entirely when every requested l uses Limber)
+        fill!(tmp, zero(T))
+        if il_limber > 1
+            Φl_recurrence!(Φl, ls_nonlimber, χs, k, K, sqK, invsqK) # one recursion sweep gives Φₗ(χᵢ) for every τᵢ and l ≤ lmax at once
+            @inbounds for iτ in eachindex(τs)
+                Sw = ws[iτ] * Ss[iτ, ik]
+                @inbounds @simd for il in 1:il_limber-1
+                    tmp[il] += Sw * Φl[iτ, il]
+                end
+            end
+        end
+
+        # Limber approximation for l ≥ l_limber (does not use Φₗ at all). Φₗ acts like a delta function at its
+        # turning point, which now sits at k⋅sinK(K,χ) = l+½ instead of at kχ = l+½. Matching turning points is
+        # exactly CLASS' flat approximation Φₗ(χ) ≈ A⋅jₗ(γkχ) with γk = (l+½)/χₗ (transfer.c, `rescale_argument`
+        # and `rescale_amplitude`), so the flat Limber result carries over with 1/k → A⋅χₗ/(l+½).
+        @inbounds for il in il_limber:nl
+            l = ls[il]
+            χ = asinK(K, (l + 1/2) / k) # turning point χₗ, where k⋅sinK(K,χ) = l+½
+            if χ ≤ χs[1] # otherwise source is zero before recombination
+                i₋ = searchsortedfirst(τs, τ0 - χ)
+                χ₋ = χs[i₋]
+                S₋ = Ss[i₋, ik]
+                if i₋ == 1
+                    S = S₋
+                else
+                    i₊ = i₋ - 1 # χs is descending, so χ₋ < χ < χ₊
+                    χ₊ = χs[i₊]
+                    S₊ = Ss[i₊, ik]
+                    Δχ = χ₊ - χ₋
+                    S′₋ = i₋ ≤ nτ-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
+                    S′₊ = i₊ ≥ 2    ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
+                    t = (χ - χ₋) / Δχ
+                    t² = t*t
+                    t³ = t²*t
+                    S = (2t³-3t²+1)*S₋ + (t³-2t²+t)*Δχ*S′₋ + (-2t³+3t²)*S₊ + (t³-t²)*Δχ*S′₊
+                    A = (1 - K*l*(l+1)/k^2)^(-1/12) # amplitude of the same rescaling (CLASS' `rescale_amplitude`); → 1 when K = 0
+                    tmp[il] = √(π/(2l+1)) * S * A * χ / (l + 1/2) # → the flat √(π/(2l+1))⋅S/k, since χ = (l+½)/k there
+                end
+            end
+        end
+
+        Is[ik, :] .= tmp
+    end
+    verbose && println()
+
+    return Is
+end
+
 # TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector; normalization = :Cl, thread = true)
@@ -250,25 +283,54 @@ jl = SphericalBesselCache(ls)
 modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
 ```
+
+Alternatively, pass a plain vector of integer multipoles instead of a `jl::SphericalBesselCache`:
+```julia
+Dls = spectrum_cmb(modes, prob, ls; normalization = :Dl, unit = u"μK")
+```
+to compute ``Φ_l(χ)`` on the fly with [`Φl_recurrence!`](@ref) instead of from a precomputed cache (see that method's docstring for the tradeoffs).
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; kwargs...)
+    return spectrum_cmb(modes, prob, collect(jl.l); jl, kwargs...) # the cache already knows which l's it holds
+end
+
+"""
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::AbstractVector; jl = nothing, kwargs...)
+
+Same as `spectrum_cmb(modes, prob, jl::SphericalBesselCache; kwargs...)`, but without a precomputed spherical
+Bessel function cache: ``Φ_l(χ)`` is instead computed on the fly with [`Φl_recurrence!`](@ref) for every
+wavenumber and time, which also covers curved universes. `ls` must consist of actual (sorted, ascending) integer
+multipoles, since a recursion in `l` can only ever produce values at integer `l` (unlike the cache-based method,
+which also supports a coarse, fractional `ls` grid for later interpolation).
+
+This method carries the implementation shared with the cache-based one, which calls it with `ls = jl.l` and the
+cache passed as `jl`.
+"""
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, ls::AbstractArray; jl::Union{SphericalBesselCache, Nothing} = nothing, normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=300), τcut = 1e-2, l_limber = 10, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    ls = collect(ls)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
     iψ = 'ψ' in join(modes) ? max(iE, iT) + 1 : 0
 
+    sol = solve(prob; bgopts, verbose)
+    K = curvature(sol) # spatial curvature constant of the model, passed on to the line-of-sight integration
+    τ0 = getsym(sol, prob.M.τ0)(sol)
+
+    # An open universe has no super-curvature modes: its scalar spectrum is bounded below by k² ≥ -K.
+    # Including k < √(-K) anyway inflates the lowest multipoles by an order of magnitude.
+    kmin = max(1e-2, K < 0 ? √(-K) : 0.0)
+
     # Automatically determine grid if not provided manually
     if isnothing(kinterp)
         if iψ > 0
-            kinterp = ChebyshevInterpolator(1e-2, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
+            kinterp = ChebyshevInterpolator(kmin, 1e4, 130; f = fk_tanh, f⁻¹ = fk⁻¹_tanh) # higher kmax for lensing; f that stretches acoustic oscillations for k ≲ 2000 with higher sampling density
         else
-            kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
+            kinterp = ChebyshevInterpolator(kmin, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
         end
+    elseif minimum(kinterp) < kmin
+        throw(ArgumentError("k-grid starts at k = $(minimum(kinterp)), below the smallest wavenumber √(-K) = $kmin supported by this open universe"))
     end
-
-    ls = collect(jl.l)
-    sol = solve(prob; bgopts, verbose)
-    τ0 = getsym(sol, prob.M.τ0)(sol)
     ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
 
     τs = sol.bg.t # by default, use background (thermodynamics) time points for line of sight integration
@@ -290,7 +352,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
 
     # Integrate all sources simultaneously without Limber approximation
-    Θls = los_integrate(Ss, ls, τs, ks_fine, jl; verbose, thread, kwargs...)
+    Θls = los_integrate(Ss, ls, τs, ks_fine, jl, K; verbose, thread, kwargs...)
     Θls = stack(Θls) # to 3D array
     if iT > 0
         Θls[iT, :, :] ./= ks_fine
@@ -299,7 +361,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) ./ (ks_fine .^ 2)
     end
     if iψ > 0 && l_limber ≤ ls[end]
-        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl; l_limber, verbose, thread, kwargs...) # overwrite with Limber result
+        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl, K; l_limber, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
@@ -335,17 +397,29 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 end
 
 """
-    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; kwargs...)
+    spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::Union{SphericalBesselCache, AbstractVector}, ls::AbstractVector; kwargs...)
 
-Same, but compute the spectrum properly only for `jl.l` and then interpolate the results to all `ls`.
+Same, but compute the spectrum properly only for `jl` (a `SphericalBesselCache`, `AbstractInterpolator` over ``l`` or an `AbstractArray` of multipoles)
+and then interpolate the results to all `ls`.
 """
+function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, ls_coarse::AbstractArray, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
+    minimum(ls) ≥ minimum(ls_coarse) && maximum(ls) ≤ maximum(ls_coarse) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(ls_coarse)) of the coarse l-grid"))
+    spectra_coarse = spectrum_cmb(modes, prob, ls_coarse; kwargs...)
+    spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
+    for imode in eachindex(modes)
+        spectra_fine[:, imode] = interpolate(ls_coarse, spectra_coarse[:, imode] .* linterp_normalization.(ls_coarse), ls) ./ linterp_normalization.(ls)
+        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode])
+    end
+    return spectra_fine
+end
 function spectrum_cmb(modes::AbstractVector, prob::CosmologyProblem, jl::SphericalBesselCache, ls::AbstractVector; normalization = :Cl, linterp_normalization = l -> l^5, kwargs...)
-    minimum(ls) ≥ minimum(jl.l) && maximum(ls) ≤ maximum(jl.l) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(jl.l)) of the spherical Bessel function"))
+    ls_coarse = jl.l
+    minimum(ls) ≥ minimum(ls_coarse) && maximum(ls) ≤ maximum(ls_coarse) || throw(ArgumentError("l-range $(extrema(ls)) is outside the l-range $(extrema(ls_coarse)) of the coarse l-grid"))
     spectra_coarse = spectrum_cmb(modes, prob, jl; kwargs...)
     spectra_fine = similar(spectra_coarse, (length(ls), size(spectra_coarse)[2]))
     for imode in eachindex(modes)
-        spectra_fine[:, imode] = interpolate(jl.l, spectra_coarse[:, imode] .* linterp_normalization.(jl.l), ls) ./ linterp_normalization.(ls) # interpolate l⁵*Cₗ (by default) for smoothness
-        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode]) # normalize AFTER interpolation
+        spectra_fine[:, imode] = interpolate(ls_coarse, spectra_coarse[:, imode] .* linterp_normalization.(ls_coarse), ls) ./ linterp_normalization.(ls)
+        spectra_fine[:, imode] = normalize_spectrum_cmb(normalization, ls, spectra_fine[:, imode])
     end
     return spectra_fine
 end

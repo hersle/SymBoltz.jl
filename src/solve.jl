@@ -617,6 +617,20 @@ function issuccess(sol::CosmologySolution)
     return successful_retcode(sol.bg) && (isnothing(sol.pts) || all(successful_retcode(pt) for pt in sol.pts))
 end
 
+"""
+    curvature(sol::CosmologySolution)
+
+Spatial curvature constant ``K = -Ω_{k0}`` of the solved model, in units where ``H₀ = c = 1``
+(``K > 0`` closed, ``K = 0`` flat, ``K < 0`` open). Returns `0.0` for a model without curvature.
+"""
+function curvature(sol::CosmologySolution)
+    M = sol.prob.M
+    have(M, :K) && return -sol[M.K.Ω₀] # curvature as an effective species (see `curvature(g; ...)`)
+    hasproperty(M, :K) && return sol[M.K] # curvature as a bare parameter (as in the minimal ΛCDM model)
+    hasproperty(M, :Ωk0) && return -sol[M.Ωk0]
+    return 0.0
+end
+
 function integrate(xs, ys; integrator = Trapezoidal())
     return NumericalIntegration.integrate(xs, ys, integrator)
 end

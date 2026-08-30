@@ -580,13 +580,21 @@ end
     @test isapprox(Dls_cheb, Dls; rtol = 1e-4)
     @test isapprox(Dls_chebint, Dls; rtol = 1e-4)
 
+    # Without precomputed Bessel (i.e. using Bessel recurrence on the fly)
+    @test_throws "must be exact integer" spectrum_cmb(:TT, prob, jl_cubic.l, ls; normalization = :Dl) # TODO: error
+    @test_throws "must be exact integer" spectrum_cmb(:TT, prob, jl_cheb.l, ls; normalization = :Dl) # TODO: error
+    Dls_chebint_recurrence = spectrum_cmb(:TT, prob, jl_chebint.l, ls; normalization = :Dl)
+    @test isapprox(Dls_chebint, Dls_chebint_recurrence; rtol = 1e-4)
+
     # Error with bad input
     @test_throws "outside the l-range" spectrum_cmb(:TT, prob, jl, 1:3000; normalization = :Dl)
 end
 
 @testset "Toggle threading" begin
-    @test length(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), true), 1:10)))) > 1
-    @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
+    if nthreads() > 1
+        @test length(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), true), 1:10)))) > 1
+        @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
+    end
 end
 
 @testset "Sparse Jacobian" begin
@@ -963,6 +971,13 @@ end
     interp = CubicSplineInterpolator(x)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
+
+    # interpolators are vectors of their x-points satisfying the AbstractArray interface
+    @test interp isa AbstractVector{eltype(x)}
+    @test size(interp) == size(x) && length(interp) == length(x)
+    @test collect(interp) == interp.xs == x
+    @test interp[begin] == minimum(interp) == x[begin] && interp[end] == maximum(interp) == x[end]
+    @test sprint(show, MIME"text/plain"(), interp) == sprint(show, interp) # summary, not all x-points
     x′ = range(x[begin], x[end]; length = 1000)
     y′ = interpolate(interp, sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
@@ -1003,4 +1018,20 @@ end
     y′ = interpolate(interp, sin.(π/30 .* interp), x′)
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
+end
+
+@testset "hyperspherical Bessel function recursion" begin
+    K = -0.1
+    ls = unique(Int.(round.(exp.(range(log(2), log(2500); length = 100)))))
+
+    χs = collect(reverse(range(0.0, 3.0; length = 500)))
+    Φl = zeros(length(χs), length(ls))
+
+    k = 1e1
+    Φmin = 1e-20
+    @time SymBoltz.Φl_recurrence!(Φl, ls, χs, k, K; Φmin)
+
+    #using Plots
+    #heatmap(reverse(χs), ls, max.(log10.(abs.(reverse(transpose(Φl); dims=2))), log10(Φmin)); xlabel = "χ", ylabel = "ℓ", title = "Φ(χ, ℓ, k=$k)")
+    #plot(k .* χs, Φl[:, 1]; xlims = (0, 10))
 end
