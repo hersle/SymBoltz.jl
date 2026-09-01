@@ -277,7 +277,9 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         # explicit fractional grid x = (τ-τi)/(τ0-τi) ∈ [0,1]
         xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
         xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        τs = τs[begin] .+ (τs[end] .- τs[begin]) .* xs
+        τi, τf = τs[begin], τs[end]
+        τs = τi .+ (τf - τi) .* xs
+        τs[begin], τs[end] = τi, τf # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
     elseif xs isa Int
         # interpolate xs points from background time grid, preserving its density structure
         τs = LinearInterpolation(τs, 1.0:length(τs)).(range(1.0, length(τs), length = xs))
