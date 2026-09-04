@@ -928,7 +928,8 @@ end
     Dls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl, ls_class; normalization = :Dl)
     @test isapprox(Dls[:, 1], DlTTs_class; rtol = 2e-3)
     @test isapprox(Dls[:, 2], DlEEs_class; rtol = 2e-3)
-    @test isapprox(Dls[:, 3], Dlϕϕs_class; rtol = 2e-3)
+    @test isapprox(Dls[ls_class .< 11, 3], Dlϕϕs_class[ls_class .< 11]; rtol = 1e-2) # full line-of-sight integration below l_limber (l = 2 has higher error and breaks isapprox(...; rtol = 2e-3) for all l)
+    @test isapprox(Dls[ls_class .≥ 11, 3], Dlϕϕs_class[ls_class .≥ 11]; rtol = 1e-3) # Limber approximation enabled
 end
 
 @testset "Error if nonfinite error message" begin
