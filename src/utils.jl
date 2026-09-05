@@ -128,7 +128,7 @@ end
 
 function dummyspline(N)
     nans = SVector{N}(zeros(N))
-    return CubicHermiteSpline([nans, nans], [nans, nans], [0.0, 1.0])
+    return CubicHermiteSpline([nans, nans], [nans, nans], [-floatmax(), floatmax()]) # spans any finite domain in practice
 end
 
 # https://github.com/SciML/ModelingToolkit.jl/issues/4202#issuecomment-3799583124
@@ -205,7 +205,7 @@ function mtkcompile_spline(sys::System, vars)
             i = findfirst(eq -> isequal(diffvar(eq.lhs), var), eqs)
             isnothing(i) && error("$var is not an unknown in the system $(nameof(sys))")
             deleteat!(eqs, i) # delete unknown equation
-            insert!(obs, 1, var ~ splvalue(spl, τ, uprototype)[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
+            insert!(obs, 1, var ~ splvalue(spl, iv, uprototype)[vari]) # add observed equation (at the top, for safety, since observed equations are already topsorted in mtkcompile; alternatively consider calling ModelingToolkit.topsort_equations)
         end
 
         # Remove splined variables from unknowns (they no longer need to be solved for)

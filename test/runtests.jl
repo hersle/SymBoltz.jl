@@ -19,7 +19,7 @@ prob = CosmologyProblem(M, pars)
 prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
 prob_sparse = prob
 
-τ, D = SymBoltz.τ, SymBoltz.D
+τ, k, D = SymBoltz.τ, SymBoltz.k, SymBoltz.D
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
@@ -1004,4 +1004,55 @@ end
     y′ = interpolate(interp, sin.(π/30 .* interp), x′)
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
+end
+
+@testset "Model with logarithmic scale factor as independent variable" begin
+    @independent_variables b
+    D = Differential(b)
+    pars = @parameters Ωr0 Ωm0 ΩΛ0
+    vars = @variables a(b) ρ(b) ρr(b) ρm(b) H(b) ℋ(b) τ(b) Φ(b, k) Ψ(b, k) δρ(b, k) δr(b, k) θr(b, k) δm(b, k) θm(b, k)
+    eqs = [
+        # background (Friedmann equation)
+        a ~ exp(b)
+        ρr ~ 3/8π * Ωr0/a^4
+        ρm ~ 3/8π * Ωm0/a^3
+        ρ ~ ρr + ρm + 3/8π * ΩΛ0
+        H ~ √(8π/3 * ρ)
+        ℋ ~ a * H
+        D(τ) ~ 1 / ℋ
+        # perturbations (Newtonian gauge, no anisotropic stress)
+        Ψ ~ Φ
+        δρ ~ ρr*δr + ρm*δm
+        D(Φ) ~ (-4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Ψ) / ℋ
+        D(δr) ~ -4/3*θr/ℋ + 4*D(Φ)
+        D(θr) ~ (k^2*δr/4 + k^2*Ψ) / ℋ
+        D(δm) ~ -θm/ℋ + 3*D(Φ)
+        D(θm) ~ -θm + k^2*Ψ/ℋ
+    ]
+    initial_conditions = [
+        τ => 2 * (√(Ωr0 + Ωm0*a) - √(Ωr0)) / Ωm0
+        Φ => 20/15
+        δr => -2*Φ
+        δm => -3/2*Φ
+        θr => 1/2*k^2*τ*Φ
+        θm => 1/2*k^2*τ*Φ
+        ΩΛ0 => 1 - Ωm0 - Ωr0
+    ]
+    M = complete(System(eqs, b, vars, [pars; k]; initial_conditions, name = :RMΛ))
+    p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
+
+    # use timespan that goes past today, but terminate when a = 1 with a callback
+    prob = CosmologyProblem(M, p; ivspan = (-9.0, 0.1), terminate = M.a ~ 1)
+    ks = 10.0 .^ 0:0.5:3
+    sol = solve(prob, ks)
+    @test issuccess(sol)
+    @test sol[M.a][end] ≈ 1.0
+    @test sol[M.H][end] ≈ 1.0
+
+    # integrate exactly to a = 1 with no termination condition
+    prob = CosmologyProblem(M, p; ivspan = (-9.0, 0.0), terminate = nothing)
+    sol = solve(prob, ks)
+    @test issuccess(sol)
+    @test sol[M.a][end] ≈ 1.0
+    @test sol[M.H][end] ≈ 1.0
 end

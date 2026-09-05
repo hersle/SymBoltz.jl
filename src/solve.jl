@@ -110,7 +110,7 @@ end
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), terminate_today = true,
+        ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
         bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
         bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
         kwargs...
@@ -118,6 +118,10 @@ end
 
 Create a numerical cosmological problem from the model `M` with parameters `pars`.
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
+
+The background is integrated over `ivspan` of the independent variable, until it hits the event given by the symbolic equation `terminate`.
+Pass `terminate = nothing` to always integrate to the final value of the independent variable.
+Default termination happens today when the scale factor ``a = 1``, but any equation can be specified.
 
 If `bg` and `pt`, the model is split into the background and perturbations stages.
 
@@ -131,7 +135,7 @@ The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interface
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), terminate_today = true,
+    ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
     kwargs...
@@ -159,16 +163,8 @@ function CosmologyProblem(
             bg = debug_system(bg)
         end
 
-        # Set up callback for today # TODO: specify callbacks symbolically?
+        # Set up callback for the event given by the symbolic `terminate` event (default is today: a ~ 1)
         iv = ModelingToolkit.get_iv(M)
-        if Symbol(iv) == :τ
-            aidx = variable_index(bg, :a)
-            f = (u, τ, integrator) -> u[aidx] - 1.0 # trigger callback when a = 1 (today)
-        elseif Symbol(iv) == :a
-            f = (u, a, integrator) -> a - 1.0 # a is independent variable
-        else
-            error("Don't know what to do when independent variable is $iv.")
-        end
         parsymbols = Symbol.(parameters(bg))
         τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? parameter_index(bg, :τ0) : nothing
         # TODO: specify callbacks symbolically
@@ -197,13 +193,18 @@ function CosmologyProblem(
                 vs = [vfunc(bgsol.u[i], integrator.p, bgsol.t[i]) for i in eachindex(bgsol.t)]
                 integrator.ps[τrecidx] = bgsol.t[argmax(vs)]
             end
-            terminate_today && terminate!(integrator) # stop integration if desired
+            terminate!(integrator) # stop integration at the event
         end
-        callback = ContinuousCallback(
-            f, affect!;
-            save_positions = (true, false), # don't duplicate final point
-            rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
-        )
+        callback = if isnothing(terminate)
+            nothing # no event; integrate the whole ivspan
+        else
+            eventfunc = ModelingToolkit.build_explicit_observed_function(bg, terminate.lhs - terminate.rhs) # works whether the event's variables are independent, unknown or observed
+            ContinuousCallback(
+                (u, t, integrator) -> eventfunc(u, integrator.p, t), affect!;
+                save_positions = (true, false), # don't duplicate final point
+                rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
+            )
+        end
 
         bg = ODEProblem{iip, specialize}(bg, parsk, ivspan; fully_determined, callback, jac, bgopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
     else
