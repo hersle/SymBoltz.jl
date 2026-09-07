@@ -30,7 +30,7 @@ prob_sparse = prob
     bgsol = @test_nowarn solvebg(prob.bg)
 
     @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN]; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0]; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, bgsol, [2.0]; thread = false)
 end
 
 @testset "Solution accessing" begin
