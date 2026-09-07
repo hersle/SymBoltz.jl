@@ -86,13 +86,15 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
     if Heswitch == 0 # no corrections
         append!(eqs, [DXHet⁺ ~ 0, invKHe1 ~ 0, invKHe2 ~ 0])
     elseif Heswitch == 6 # all corrections (Doppler, triplet etc.)
-        ϵ = 1e-9 # original RECFAST switches off He corrections when XHe⁺ ≈ 1.0; I add a tiny ϵ to avoid numerical instabilities
+        # RECFAST switches off He corrections when XH⁺ ≈ XHe⁺ ≈ 1, but we use a smooth+symmetric regularization of
+        # (1-X) that makes it a small positive number, even if numerical errors causes X to drift slightly above 1
+        reg(x; ϵ = 1e-9) = √(x^2 + ϵ^2) # regularize x so it remains small and positive even if x→0 or drifts to x<0
         A2ps = 1.798287e9 # A 2p singlet
         A2pt = 177.58e0 # A 2p triplet
-        γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
+        γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*reg(1-XHe⁺)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*reg(1-XH⁺)*f^3)
         append!(vars, @variables γ2ps(τ) αHet(τ) βHet(τ) τHet(τ) pHet(τ) CHet(τ) CHetnum(τ) γ2pt(τ))
         append!(eqs, [
-            τHe ~ 3*A2ps*nHe*(1-XHe⁺+ϵ) / invKHe0
+            τHe ~ 3*A2ps*nHe*reg(1-XHe⁺) / invKHe0
             invKHe1 ~ -exp(-τHe) * invKHe0 # RECFAST He flag 1
 
             γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
@@ -101,11 +103,11 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
             # He⁺ + e⁻ triplet recombination
             αHet ~ αHefit(T; q=10^(-16.306), p=0.761)
             βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
-            τHet ~ A2pt*nHe*(1-XHe⁺+ϵ)*3 * λHet2p1s^3/(8π*H)
+            τHet ~ A2pt*nHe*reg(1-XHe⁺)*3 * λHet2p1s^3/(8π*H)
             pHet ~ (1 - exp(-τHet)) / τHet
             γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
             CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet
-            CHet ~ (ϵ + CHetnum) / (ϵ + CHetnum + βHet) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
+            CHet ~ reg(CHetnum) / (reg(CHetnum) + βHet) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
             DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
         ])
     else
