@@ -20,7 +20,9 @@ using SymBoltz
 lγmax = 10
 lνmax = 10
 lhmax = 10
-ϵ = 1e-9
+# RECFAST switches off He corrections when XH⁺ ≈ XHe⁺ ≈ 1, but we use a smooth+symmetric regularization of
+# (1-X) that makes it a small positive number, even if numerical errors causes X to drift slightly above 1
+reg(x; ϵ = 1e-9) = √(x^2 + ϵ^2)
 ΛH = 8.2245809
 ΛHe = 51.3
 A2ps = 1.798287e9
@@ -28,7 +30,7 @@ A2pt = 177.58e0
 αHfit(T; F=1.125, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d)
 αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p))
 KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
-γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*(1-XHe⁺+ϵ)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*(1-XH⁺+ϵ)*f^3)
+γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*reg(1-XHe⁺)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*reg(1-XH⁺)*f^3)
 
 # Massive neutrino distribution function and quadrature momenta
 nx = 4 # number of momenta
@@ -125,7 +127,7 @@ eqs = [
     βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
     KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2)
     invKHe0 ~ 8π*HSI / λHe2p1s^3
-    τHe ~ 3*A2ps*nHe*(1-XHe⁺+ϵ) / invKHe0
+    τHe ~ 3*A2ps*nHe*reg(1-XHe⁺) / invKHe0
     invKHe1 ~ -exp(-τHe) * invKHe0
     γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
     invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺)
@@ -135,11 +137,11 @@ eqs = [
     # baryon He⁺ + e⁻ triplet recombination
     αHet ~ αHefit(Tb; q=10^(-16.306), p=0.761)
     βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
-    τHet ~ 3*A2pt*nHe*(1-XHe⁺+ϵ) * λHet2p1s^3/(8π*HSI)
+    τHet ~ 3*A2pt*nHe*reg(1-XHe⁺) * λHet2p1s^3/(8π*HSI)
     pHet ~ (1 - exp(-τHet)) / τHet
     γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
     CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s)
-    CHet ~ (ϵ + CHetnum) / (ϵ + CHetnum + βHet)
+    CHet ~ reg(CHetnum) / (reg(CHetnum) + βHet)
     DXHet⁺ ~ -a/H0SI * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
 
     # baryon He⁺ + e⁻ total recombination

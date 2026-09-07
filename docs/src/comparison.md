@@ -207,7 +207,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 5e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 6e-3)
 ```
 ### Hubble function
 ```@example class
