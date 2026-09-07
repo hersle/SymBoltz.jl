@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Performance and benchmarks · SymBoltz</title><meta name="title" content="Performance and benchmarks · SymBoltz"/><meta property="og:title" content="Performance and benchmarks · SymBoltz"/><meta property="twitter:title" content="Performance and benchmarks · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li class="is-active"><a class="tocitem" href>Performance and benchmarks</a><ul class="internal"><li><a class="tocitem" href="#Background:-ODE-solver"><span>Background: ODE solver</span></a></li><li><a class="tocitem" href="#Background:-precision-work-diagram"><span>Background: precision-work diagram</span></a></li><li><a class="tocitem" href="#Perturbations:-ODE-solver"><span>Perturbations: ODE solver</span></a></li><li><a class="tocitem" href="#Perturbations:-precision-work-diagram"><span>Perturbations: precision-work diagram</span></a></li><li><a class="tocitem" href="#Perturbations:-time-per-mode"><span>Perturbations: time per mode</span></a></li><li><a class="tocitem" href="#Perturbations:-Jacobian-method"><span>Perturbations: Jacobian method</span></a></li><li><a class="tocitem" href="#Perturbations:-linear-system-solver"><span>Perturbations: linear system solver</span></a></li><li><a class="tocitem" href="#Perturbations:-parallelization"><span>Perturbations: parallelization</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Performance and benchmarks</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Performance and benchmarks</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/benchmarks.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Performance-and-benchmarks"><a class="docs-heading-anchor" href="#Performance-and-benchmarks">Performance and benchmarks</a><a id="Performance-and-benchmarks-1"></a><a class="docs-heading-anchor-permalink" href="#Performance-and-benchmarks" title="Permalink"></a></h1><p>Model setup and hardware information:</p><pre><code class="language-julia hljs">using MKL, SymBoltz, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots, LinearSolve
+M = ΛCDM(ν = nothing, K = nothing, h = nothing)
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+benchmarks = BenchmarkGroup()
+
+using Dates, InteractiveUtils, LinearAlgebra
+LinearAlgebra.BLAS.set_num_threads(1)
+println(&quot;Current time: &quot;, now(), &quot;\n&quot;)
+println(sprint(InteractiveUtils.versioninfo)) # show computer information
+println(LinearAlgebra.BLAS.get_config())
+println(&quot;BLAS threads: &quot;, LinearAlgebra.BLAS.get_num_threads())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Current time: 2025-11-26T11:37:38.650
+
+Julia Version 1.12.2
+Commit ca9b6662be4 (2025-11-20 16:25 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver3)
+  GC: Built with stock GC
+Threads: 4 default, 1 interactive, 4 GC (on 4 virtual cores)
+Environment:
+  JULIA_DEBUG = Documenter
+
+LBTConfig([ILP64] libmkl_rt.so, [LP64] libmkl_rt.so)
+BLAS threads: 1</code></pre><h2 id="Background:-ODE-solver"><a class="docs-heading-anchor" href="#Background:-ODE-solver">Background: ODE solver</a><a id="Background:-ODE-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Background:-ODE-solver" title="Permalink"></a></h2><p>This plot shows the time to solve the background using different (implicit) Rosenbrock methods with a fixed tolerance.</p><pre><code class="language-julia hljs">bgalgs = [
+    Rodas4()
+    Rodas5()
+    Rodas4P()
+    Rodas5P()
+    FBDF() # unstable for some tolerances
+    QNDF() # unstable for some tolerances
+]
+for alg in bgalgs
+    bgopts = (alg = alg, reltol = 1e-9)
+    benchmarks[&quot;bgsolver&quot;][nameof(typeof(alg))] = @benchmarkable $solve($prob; bgopts = $bgopts)
+end
+results = run(benchmarks[&quot;bgsolver&quot;]; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="99da6152.svg" alt="Example block output"/><h2 id="Background:-precision-work-diagram"><a class="docs-heading-anchor" href="#Background:-precision-work-diagram">Background: precision-work diagram</a><a id="Background:-precision-work-diagram-1"></a><a class="docs-heading-anchor-permalink" href="#Background:-precision-work-diagram" title="Permalink"></a></h2><p>This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances. Every solution is compared to a reference solution with very small tolerance. The points on each curve correspond to a sequence of tolerances.</p><pre><code class="language-julia hljs"># following e.g. https://github.com/SciML/ModelingToolkit.jl/issues/2971#issuecomment-2310016590
+using DiffEqDevTools
+
+refalg = Rodas4P()
+bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+
+abstols = 1 ./ 10 .^ (5:9)
+reltols = 1 ./ 10 .^ (5:9)
+setups = [Dict(:alg =&gt; alg) for alg in bgalgs]
+wp = WorkPrecisionSet(prob.bg, abstols, reltols, setups; appxsol = bgsol, save_everystep = false, error_estimate = :l2)
+plot(wp; title = &quot;Reference: $(SymBoltz.algname(refalg))&quot;, size = (800, 400), margin = 5*Plots.mm)</code></pre><img src="0299dcea.svg" alt="Example block output"/><h2 id="Perturbations:-ODE-solver"><a class="docs-heading-anchor" href="#Perturbations:-ODE-solver">Perturbations: ODE solver</a><a id="Perturbations:-ODE-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-ODE-solver" title="Permalink"></a></h2><p>This plot shows the time to solve several perturbation <span>$k$</span>-modes using different implicit ODE solvers with fixed tolerance.</p><pre><code class="language-julia hljs">ks = 10 .^ range(-1, 4, length = 100)
+ptalgs = [
+    TRBDF2()
+    KenCarp4()
+    KenCarp47()
+    Kvaerno5()
+    Rodas5P()
+    Rodas5()
+    Rodas4()
+    Rodas4P()
+    QNDF()
+    FBDF()
+]
+for alg in ptalgs
+    ptopts = (alg = alg, reltol = 1e-5)
+    benchmarks[&quot;ptsolver&quot;][nameof(typeof(alg))] = @benchmarkable $solve($prob, $ks; ptopts = $ptopts)
+end
+results = run(benchmarks[&quot;ptsolver&quot;]; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="2a9e2591.svg" alt="Example block output"/><h2 id="Perturbations:-precision-work-diagram"><a class="docs-heading-anchor" href="#Perturbations:-precision-work-diagram">Perturbations: precision-work diagram</a><a id="Perturbations:-precision-work-diagram-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-precision-work-diagram" title="Permalink"></a></h2><p>This plot compares the time to solve a perturbation <span>$k$</span>-mode vs. accuracy of the solution using different ODE solvers and tolerances. Each subplot corresponds to a different <span>$k$</span>-mode. Every solution is compared to a reference solution with very small tolerance. The points on each curve correspond to a sequence of tolerances.</p><pre><code class="language-julia hljs">ks = [1e0, 1e1, 1e2, 1e3]
+ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+
+refalg = Rodas4P()
+setups = [Dict(:alg =&gt; alg) for alg in ptalgs]
+wps = []
+for (i, k) in enumerate(ks)
+    ptprob = ptprobgen(ptprob0, k)
+    ptsol = solve(ptprob, refalg; reltol = 1e-12, abstol = 1e-12) # reference solution (results are similar compared to QNDF/FBDF/Rodas4/4P/5P/, somewhat different with KenCarp4/Kvaerno5; use Rodas4P which is also used in CLASS comparison)
+    wp = WorkPrecisionSet(ptprob, abstols, reltols, setups; appxsol = ptsol, save_everystep = false, error_estimate = :l2)
+    push!(wps, wp)
+end
+p = plot(layout = (length(ks), 1), size = (800, 500*length(ks)))
+for (i, k) in enumerate(ks)
+    wp = wps[i]
+    plot!(p[i,1], wp; title = &quot;Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c&quot;, left_margin = 15*Plots.mm, bottom_margin = 5*Plots.mm)
+end
+p</code></pre><img src="b408b485.svg" alt="Example block output"/><h2 id="Perturbations:-time-per-mode"><a class="docs-heading-anchor" href="#Perturbations:-time-per-mode">Perturbations: time per mode</a><a id="Perturbations:-time-per-mode-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-time-per-mode" title="Permalink"></a></h2><p>This plot shows the time spent solving individual perturbation <span>$k$</span>-modes using different ODE solvers with fixed tolerance.</p><pre><code class="language-julia hljs">ptprob0, ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, prob.bgspline)
+solvemode(k, ptalg) = solve(ptprobgen(ptprob0, k); alg = ptalg, reltol = 1e-7, abstol = 1e-7)
+
+ks = 10 .^ range(-2, 5, length = 50)
+times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
+
+plot(
+    log10.(ks), map(ts -&gt; log10.(ts), times); marker = :auto, markersize = 2,
+    xlabel = &quot;lg(k)&quot;, ylabel = &quot;lg(time / s)&quot;, xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
+    label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft
+)</code></pre><img src="e666fd1c.svg" alt="Example block output"/><h2 id="Perturbations:-Jacobian-method"><a class="docs-heading-anchor" href="#Perturbations:-Jacobian-method">Perturbations: Jacobian method</a><a id="Perturbations:-Jacobian-method-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-Jacobian-method" title="Permalink"></a></h2><p>The Jacobian of the perturbation ODEs can be computed in three ways:</p><ol><li>explicitly from a symbolically generated function,</li><li>numerically using forward-mode dual numbers, or</li><li>numerically using finite differences.</li></ol><p>This plot shows the time to solve several perturbation <span>$k$</span>-modes for each such method.</p><pre><code class="language-julia hljs">ks = 10 .^ range(-2, 5, length = 200)
+prob_nojac = CosmologyProblem(M, pars; jac = false)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(),), reltol = 1e-9)
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(),), reltol = 1e-8) # generate function for J symbolically
+benchmarks[&quot;jacobian&quot;][&quot;symbolic&quot;] = @benchmarkable $solve($prob, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-9)
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-8) # compute J with forward-mode AD
+benchmarks[&quot;jacobian&quot;][&quot;forward diff&quot;] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+bgopts = (alg = Rodas4P(linsolve = RFLUFactorization(), autodiff = true), reltol = 1e-9) # fails with finite diff background J
+ptopts = (alg = KenCarp4(linsolve = RFLUFactorization(), autodiff = false), reltol = 1e-8) # compute J with finite differences
+benchmarks[&quot;jacobian&quot;][&quot;finite diff&quot;] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts)
+
+results = run(benchmarks[&quot;jacobian&quot;]; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="36608157.svg" alt="Example block output"/><h2 id="Perturbations:-linear-system-solver"><a class="docs-heading-anchor" href="#Perturbations:-linear-system-solver">Perturbations: linear system solver</a><a id="Perturbations:-linear-system-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-linear-system-solver" title="Permalink"></a></h2><p>At every time step, the implicit perturbation ODE solver solves a system of (nonlinear) equations with Newton&#39;s method. In turn, Newton&#39;s method involves iteratively solving several linear systems <span>$Ax = b$</span>, where <span>$A$</span> involves the ODE Jacobian matrix <span>$J$</span>. This can be a bottleneck, so it is very important to use a linear solver that does this as fast as possible!</p><p><strong>Note that the optimal linear solver depends on both the model and your hardware.</strong> See <a href="https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/">this tutorial on accelerating linear solves</a>. Also run Julia with the <a href="https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra">optimal BLAS backend for your platform</a>, such as <a href="https://github.com/JuliaLinearAlgebra/MKL.jl">MKL.jl</a> for Intel or <a href="https://github.com/JuliaLinearAlgebra/AppleAccelerate.jl">AppleAccelerate.jl</a> for Macs, instead of Julia&#39;s default OpenBLAS backend.</p><p>In particular, for large models the ODE Jacobian can have lots of zeros. Here is an example for a model with many perturbation equations.</p><pre><code class="language-julia hljs">lmaxs = [4, 8, 16, 32, 64]
+Ms = [ΛCDM(ν = nothing, K = nothing, h = nothing; lmax) for lmax in lmaxs]
+
+probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
+probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
+
+probs_sparse[end].pt.f.jac_prototype # example of sparse Jacobian</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">135×135 SparseArrays.SparseMatrixCSC{Float64, Int64} with 423 stored entries:
+⎡⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤
+⎢⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⎥
+⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣦⣀⡀⎥
+⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⎦</code></pre><p>Sparse matrix methods are therefore very important to speed up the solution of large perturbation systems. This plot compares the time to solve several perturbation <span>$k$</span>-modes with different dense and sparse linear matrix solvers.</p><pre><code class="language-julia hljs">ks = 10 .^ range(-2, 5, length=200)
+ptopts_dense1 = (alg = KenCarp4(linsolve = LUFactorization()),)
+ptopts_dense2 = (alg = KenCarp4(linsolve = RFLUFactorization()),)
+ptopts_sparse1 = (alg = KenCarp4(linsolve = LUFactorization()),) # Base dispatch on SparseMatrixCSC
+ptopts_sparse2 = (alg = KenCarp4(linsolve = KLUFactorization()),)
+ptopts_sparse3 = (alg = KenCarp4(linsolve = UMFPACKFactorization()),)
+ts_dense1 = [@belapsed solve($prob, $ks; ptopts = $ptopts_dense1) samples=1 evals=3 for prob in probs_dense]
+ts_dense2 = [@belapsed solve($prob, $ks; ptopts = $ptopts_dense2) samples=1 evals=3 for prob in probs_dense]
+ts_sparse1 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse1) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse2 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse2) samples=1 evals=3 for prob in probs_sparse]
+ts_sparse3 = [@belapsed solve($prob, $ks; ptopts = $ptopts_sparse3) samples=1 evals=3 for prob in probs_sparse]
+
+p1 = plot(ylabel = &quot;time / s&quot;, xticks = (lmaxs, &quot;&quot;), ylims = (0.0, ceil(max(maximum(ts_dense1), maximum(ts_dense2)))))
+marker = :circle
+plot!(p1, lmaxs, ts_sparse1; label = &quot;sparse $(nameof(typeof(ptopts_sparse1.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts_sparse2; label = &quot;sparse $(nameof(typeof(ptopts_sparse2.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts_sparse3; label = &quot;sparse $(nameof(typeof(ptopts_sparse3.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts_dense1; label = &quot;dense $(nameof(typeof(ptopts_dense1.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts_dense2; label = &quot;dense $(nameof(typeof(ptopts_dense2.alg.linsolve))), $(length(ks))×k&quot;, marker)
+text(prob::CosmologyProblem) = &quot;$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse&quot;
+annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
+
+speedups1 = [ts_dense2[i]/ts_sparse1[i] for i in eachindex(lmaxs)]
+speedups2 = [ts_dense2[i]/ts_sparse2[i] for i in eachindex(lmaxs)]
+speedups3 = [ts_dense2[i]/ts_sparse3[i] for i in eachindex(lmaxs)]
+speedups4 = [ts_dense2[i]/ts_dense1[i] for i in eachindex(lmaxs)]
+speedups5 = [ts_dense2[i]/ts_dense2[i] for i in eachindex(lmaxs)]
+ymax = Int(ceil(maximum(maximum.([speedups1, speedups2, speedups3, speedups4, speedups5]))))
+ylims = (0, ymax)
+yticks = 0:1:ymax
+yticks = (collect(yticks), collect(&quot;$y×&quot; for y in yticks))
+p2 = plot(; xlabel = &quot;ℓmax&quot;, ylabel = &quot;speedup&quot;, xticks = lmaxs, yticks, ylims, marker)
+plot!(p2, lmaxs, speedups1; marker, label = nothing)
+plot!(p2, lmaxs, speedups2; marker, label = nothing)
+plot!(p2, lmaxs, speedups3; marker, label = nothing)
+plot!(p2, lmaxs, speedups4; marker, label = nothing)
+plot!(p2, lmaxs, speedups5; marker, label = nothing)
+
+plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(3//4, 1//4)))</code></pre><img src="77bd887c.svg" alt="Example block output"/><p>Except for models with a very small perturbation system, it is a good idea to generate the sparse Jacobian and use the sparse <code>KLUFactorization</code> linear solver.</p><h2 id="Perturbations:-parallelization"><a class="docs-heading-anchor" href="#Perturbations:-parallelization">Perturbations: parallelization</a><a id="Perturbations:-parallelization-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-parallelization" title="Permalink"></a></h2><p>SymBoltz parallelizes integration of different perturbation <span>$k$</span>-modes with multithreading by default. Make sure you <a href="https://docs.julialang.org/en/v1/manual/multi-threading/">run Julia with multiple threads</a>. This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent. It leads to a performance improvement depending on the number of threads available. It <a href="../solve/#Solving-models">can be disabled</a>, for example if your application permits parallelization at a higher level.</p><pre><code class="language-julia hljs">using Base.Threads
+ks = 10 .^ range(-1, 4, length = 100)
+for thread in [true, false]
+    label = thread ? &quot;$(nthreads()) threads&quot; : &quot;1 thread&quot;
+    benchmarks[&quot;thread&quot;][label] = @benchmarkable $solve($prob, $ks; thread = $thread)
+end
+results = run(benchmarks[&quot;thread&quot;]; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="2a8ded69.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../comparison/">« Comparison to CLASS</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 26 November 2025 12:37">Wednesday 26 November 2025</span>. Using Julia version 1.12.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
