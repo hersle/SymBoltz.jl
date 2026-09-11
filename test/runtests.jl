@@ -21,14 +21,14 @@ prob_sparse = prob
 
 # Must come first because warnings are only given once
 @testset "Solve failure warnings" begin
-    Ωc0 = prob.bg.ps[M.c.Ω₀]
-    prob.bg.ps[M.c.Ω₀] = NaN # bad
-    bgsol = @test_warn "Background solution failed" solvebg(prob.bg)
-    prob.bg.ps[M.c.Ω₀] = Ωc0 # restore good
-    bgsol = @test_nowarn solvebg(prob.bg)
+    Ωc0 = prob.th.ps[M.c.Ω₀]
+    prob.th.ps[M.c.Ω₀] = NaN # bad
+    thsol = @test_warn "Background/thermodynamics solution failed" solveth(prob.th)
+    prob.th.ps[M.c.Ω₀] = Ωc0 # restore good
+    thsol = @test_nowarn solveth(prob.th)
 
-    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, bgsol, [NaN]; thread = false)
-    @test_nowarn ptsol = solvept(prob.pt, bgsol, [1.0]; thread = false)
+    @test_warn "Perturbation (mode k = NaN) solution failed" ptsol = solvept(prob.pt, thsol, [NaN]; thread = false)
+    @test_nowarn ptsol = solvept(prob.pt, thsol, [1.0]; thread = false)
 end
 
 @testset "Solution accessing" begin
@@ -66,7 +66,7 @@ end
 
 @testset "Parameter callbacks" begin
     sol = solve(prob)
-    @test sol[M.τ0] == sol.bg.t[end]
+    @test sol[M.τ0] == sol.th.t[end]
     @test sol[M.b.κ0] == sol[M.b._κ][end]
     @test sol[M.b.κ][end] == 0.0
 end
@@ -85,7 +85,7 @@ end
     ks = 10 .^ range(-2, 4, length=100)
     sol = solve(prob, ks)
     ks = range(extrema(ks)..., length=500)
-    τs = range(extrema(sol.bg.t)..., length=500)
+    τs = range(extrema(sol.th.t)..., length=500)
     is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
     @test sol(is, τs, ks; smart = true) == sol(is, τs, ks; smart = false)
 end
@@ -208,7 +208,7 @@ end
 end
 
 @testset "Initial conditions" begin
-    τini = prob.bg.tspan[1]
+    τini = prob.th.tspan[1]
     ks = [1e2, 1e3]
     sol = solve(prob, ks)
 
@@ -240,19 +240,19 @@ end
 
     # Start perturbations at same τ as background
     sol = solve(prob, [1e0, 1e1])
-    @test all([ptsol.t[begin] == sol.bg.t[begin] && ptsol.t[end] == sol.bg.t[end] for ptsol in sol.pts])
+    @test all([ptsol.t[begin] == sol.th.t[begin] && ptsol.t[end] == sol.th.t[end] for ptsol in sol.pts])
 
     # Start perturbations at fixed τ
     sol = solve(prob, [1e0, 1e1]; ptivini = 1e-3)
-    @test all([ptsol.t[begin] == 1e-3 && ptsol.t[end] == sol.bg.t[end] for ptsol in sol.pts])
+    @test all([ptsol.t[begin] == 1e-3 && ptsol.t[end] == sol.th.t[end] for ptsol in sol.pts])
 
     # Start perturbations at fixed kτ; initial τ should be clamped to background timespan
     kτini = 1e-2
     sol = solve(prob, [1e-4, 1e0, 1e4]; ptivini = k -> kτini/k)
     τspans = [(ptsol.t[begin], ptsol.t[end]) for ptsol in sol.pts]
-    @test τspans[1] == (sol.bg.t[end], sol.bg.t[end]) # very low k; should start (and end) today
-    @test τspans[2] == (1e-2, sol.bg.t[end]) # normal k; should start at τ=1e-2/k
-    @test τspans[3] == (sol.bg.t[begin], sol.bg.t[end]) # very high k; should start at same time as background
+    @test τspans[1] == (sol.th.t[end], sol.th.t[end]) # very low k; should start (and end) today
+    @test τspans[2] == (1e-2, sol.th.t[end]) # normal k; should start at τ=1e-2/k
+    @test τspans[3] == (sol.th.t[begin], sol.th.t[end]) # very high k; should start at same time as background
 end
 
 @testset "Automatic background/thermodynamics splining" begin
@@ -296,7 +296,7 @@ end
 
     ks = 1.0:100.0
     sol = solve(prob, ks)
-    P1 = sol(M.I.P, sol.bg.t[begin], ks)
+    P1 = sol(M.I.P, sol.th.t[begin], ks)
     P2 = spectrum_primordial(ks, sol)
     @test all(isapprox.(P1, P2))
 end
@@ -323,8 +323,8 @@ end
         M.Λ.Ω₀,
         M.I.As, M.I.kpivot, M.I.ns
     ]
-    @test allequal([extrema(sol.bg.t); map(pt -> extrema(pt.t), sol.pts)]) # background and perturbation should have equal timespans
-    @test all(allequal([sol.bg.ps[par]; map(pt -> pt.ps[par], sol.pts)]) for par in pars)
+    @test allequal([extrema(sol.th.t); map(pt -> extrema(pt.t), sol.pts)]) # background and perturbation should have equal timespans
+    @test all(allequal([sol.th.ps[par]; map(pt -> pt.ps[par], sol.pts)]) for par in pars)
 end
 
 @testset "Success checking" begin
@@ -412,8 +412,8 @@ end
     probgen = parameter_updater(prob, [M.c.Ω₀])
 
     newprob = probgen([0.3])
-    @test newprob.bg.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
-    @test newprob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] ≈ 1.0
+    @test newprob.th.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
+    @test newprob.th.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] ≈ 1.0
 
     ks = 10 .^ range(0, 3, length=10)
     sol = solve(newprob, ks)
@@ -431,20 +431,20 @@ end
 end
 
 @testset "Dedicated background/perturbation solvers" begin
-    bgsol = solvebg(prob.bg) # TODO: @inferred
-    @test bgsol isa SymBoltz.ODESolution
+    thsol = solveth(prob.th) # TODO: @inferred
+    @test thsol isa SymBoltz.ODESolution
 
     ks = 1.0:1.0:10.0
-    ptsol = solvept(prob.pt, bgsol, ks) # TODO: @inferred
+    ptsol = solvept(prob.pt, thsol, ks) # TODO: @inferred
     @test ptsol isa Vector{<:SymBoltz.ODESolution}
 
     # custom output_func for e.g. source function
     getS = SymBoltz.getsym(prob.pt, M.ST)
-    τi = bgsol.t[begin]
-    τ0 = bgsol.t[end]
+    τi = thsol.t[begin]
+    τ0 = thsol.t[end]
     τs = range(τi, τ0, length = 768)
     ks = range(1.0, 1000.0, length = 1000)
-    Ss = solvept(prob.pt, bgsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
+    Ss = solvept(prob.pt, thsol, ks; saveat = τs, output_func = (ptsol, _) -> getS(ptsol))
     Ss = stack(Ss)
     @test size(Ss) == (length(τs), length(ks))
 end
@@ -562,21 +562,21 @@ end
 
 @testset "Sparse Jacobian" begin
     # sparse background should work for ΛCDM, but since it is a small system the dense version should be a bit faster
-    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgopts = (jac = true, sparse = true))
-    @test SymBoltz.issparse(prob_sparse_bg.bg)
+    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, thopts = (jac = true, sparse = true))
+    @test SymBoltz.issparse(prob_sparse_bg.th)
     @test issuccess(solve(prob_sparse_bg))
 
     # with ΛCDM model
     k = [1e0, 1e1, 1e2, 1e3]
-    sol = solve(prob_sparse, k; bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),))
+    sol = solve(prob_sparse, k; thopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),))
     @test issuccess(sol)
 
     M2 = RMΛ()
     pars2 = Dict(M2.m.Ω₀ => 0.3, M2.r.Ω₀ => 1e-5, M2.g.h => NaN, M2.r.T₀ => NaN)
-    prob2 = CosmologyProblem(M2, pars2; jac = true, sparse = true, bgopts = (sparse = true,)) # demand sparse background
-    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.PureKLUFactorization()),)
+    prob2 = CosmologyProblem(M2, pars2; jac = true, sparse = true, thopts = (sparse = true,)) # demand sparse background
+    thopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.PureKLUFactorization()),)
     ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),)
-    sol = solve(prob2, k; bgopts, ptopts)
+    sol = solve(prob2, k; thopts, ptopts)
     @test issuccess(sol)
 end
 
@@ -584,42 +584,42 @@ end
     ks = 10 .^ range(0, 3, length=5)
     for iip in (true, false), specialize in (SciMLBase.AutoSpecialize, SciMLBase.FullSpecialize)
         prob = CosmologyProblem(M, pars; iip, specialize)
-        @test isinplace(prob.bg) == iip
+        @test isinplace(prob.th) == iip
         @test isinplace(prob.pt) == iip
-        @test isinplace(prob.bg.f) == iip
+        @test isinplace(prob.th.f) == iip
         @test isinplace(prob.pt.f) == iip
-        @test typeof(prob.bg.f).parameters[2] == specialize
+        @test typeof(prob.th.f).parameters[2] == specialize
         @test typeof(prob.pt.f).parameters[2] == specialize
         @test issuccess(solve(prob, ks))
 
         # iip/specialize should propagate to problems created from an existing one
         probgen = parameter_updater(prob, [M.c.Ω₀])
         prob2 = probgen([0.3])
-        @test isinplace(prob2.bg) == iip
+        @test isinplace(prob2.th) == iip
         @test isinplace(prob2.pt) == iip
-        @test isinplace(prob.bg.f) == iip
+        @test isinplace(prob.th.f) == iip
         @test isinplace(prob.pt.f) == iip
-        @test typeof(prob2.bg.f).parameters[2] == specialize
+        @test typeof(prob2.th.f).parameters[2] == specialize
         @test typeof(prob2.pt.f).parameters[2] == specialize
         @test issuccess(solve(prob2, ks))
     end
 end
 
 @testset "Check compatibility between dense/sparse Jacobian and (non)linear solver" begin
-    @test !issuccess(solve(prob_dense; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
-    @test !issuccess(solve(prob_sparse; bgopts = (alg = SymBoltz.Tsit5(), maxiters = 5)))
+    @test !issuccess(solve(prob_dense; thopts = (alg = SymBoltz.Tsit5(), maxiters = 5))) # alg without linsolve
+    @test !issuccess(solve(prob_sparse; thopts = (alg = SymBoltz.Tsit5(), maxiters = 5)))
     @test issuccess(solve(prob_dense, 1.0)) # should automatically find compatible linsolves
     @test issuccess(solve(prob_sparse, 1.0))
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),)))
-    @test_throws "dense Jacobian must be solved with dense" solve(prob_dense; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.PureKLUFactorization()),)) # has dense background
+    @test issuccess(solve(prob_dense, 1.0; thopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),))) # should automatically find compatible linsolves
+    @test issuccess(solve(prob_sparse, 1.0; thopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),)))
+    @test_throws "dense Jacobian must be solved with dense" solve(prob_dense; thopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.PureKLUFactorization()),)) # has dense background
     @test_throws "sparse Jacobian must be solved with sparse" solve(prob_sparse, 1.0; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()),)) # has sparse perturbations
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 0),)))
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 1),)))
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 2),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 0),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 1),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 2),)))
+    @test issuccess(solve(prob_dense, 1.0; thopts = (alg = SymBoltz.thalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 0),)))
+    @test issuccess(solve(prob_dense, 1.0; thopts = (alg = SymBoltz.thalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 1),)))
+    @test issuccess(solve(prob_dense, 1.0; thopts = (alg = SymBoltz.thalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 2),)))
+    @test issuccess(solve(prob_sparse, 1.0; thopts = (alg = SymBoltz.thalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 0),)))
+    @test issuccess(solve(prob_sparse, 1.0; thopts = (alg = SymBoltz.thalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 1),)))
+    @test issuccess(solve(prob_sparse, 1.0; thopts = (alg = SymBoltz.thalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 2),)))
 end
 
 @testset "Matter power spectrum with different arguments" begin
@@ -639,7 +639,7 @@ end
 
 @testset "Matter power spectrum converged to 0.1%" begin
     k = 10 .^ range(-1, 4, length=100)
-    @time P0 = spectrum_matter(prob, k; bgextraopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
+    @time P0 = spectrum_matter(prob, k; thextraopts = (alg = SymBoltz.thalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
     @time P  = spectrum_matter(prob, k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
@@ -648,7 +648,7 @@ end
 @testset "Zero allocations in ODE functions" begin
     for prob in [prob_dense, prob_sparse]
         sol = solve(prob, 1.0)
-        for (subname, subsol) in [(:bg, sol.bg), (:pt, sol.pts[1])]
+        for (subname, subsol) in [(:th, sol.th), (:pt, sol.pts[1])]
             subprob = subsol.prob
             u0 = subsol.u[begin]
             p = subprob.p
@@ -670,28 +670,50 @@ end
     # Parameters
     @test SymBoltz.isbackground(M.h.Ω₀)
     @test SymBoltz.isperturbation(M.h.Ω₀)
-    @test string(only(SymBoltz.find_inner_variables(M.h.Ω₀))) == "h₊Ω₀"
+    @test string(only(SymBoltz.basevars(M.h.Ω₀))) == "h₊Ω₀"
 
     # Background variables (are also perturbation variables)
-    @test SymBoltz.isbackground(M.h.ρ) && SymBoltz.isperturbation(M.h.ρ) && string(only(SymBoltz.find_inner_variables(M.h.ρ))) == "h₊ρ(τ)"
-    @test SymBoltz.isbackground(D(M.h.ρ)) && SymBoltz.isperturbation(D(M.h.ρ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ρ)))) == "h₊ρ(τ)" # differentiated
-    @test SymBoltz.isbackground(M.h.E) && SymBoltz.isperturbation(M.h.E) && string(only(SymBoltz.find_inner_variables(M.h.E))) == "h₊E(τ)" # indexable
-    @test SymBoltz.isbackground(M.h.E[1]) && SymBoltz.isperturbation(M.h.E[1]) && string(only(SymBoltz.find_inner_variables(M.h.E[1]))) == "h₊E(τ)" # indexed
-    @test SymBoltz.isbackground(D(M.h.E)) && SymBoltz.isperturbation(D(M.h.E)) && string(only(SymBoltz.find_inner_variables(D(M.h.E)))) == "h₊E(τ)" # differentiated+indexable
-    @test SymBoltz.isbackground(D(M.h.E[1])) && SymBoltz.isperturbation(D(M.h.E[1])) && string(only(SymBoltz.find_inner_variables(D(M.h.E[1])))) == "h₊E(τ)" # differentiated+indexed
+    @test SymBoltz.isbackground(M.h.ρ) && SymBoltz.isperturbation(M.h.ρ) && string(only(SymBoltz.basevars(M.h.ρ))) == "h₊ρ(τ)"
+    @test SymBoltz.isbackground(D(M.h.ρ)) && SymBoltz.isperturbation(D(M.h.ρ)) && string(only(SymBoltz.basevars(D(M.h.ρ)))) == "h₊ρ(τ)" # differentiated
+    @test SymBoltz.isbackground(M.h.E) && SymBoltz.isperturbation(M.h.E) && string(only(SymBoltz.basevars(M.h.E))) == "h₊E(τ)" # indexable
+    @test SymBoltz.isbackground(M.h.E[1]) && SymBoltz.isperturbation(M.h.E[1]) && string(only(SymBoltz.basevars(M.h.E[1]))) == "h₊E(τ)" # indexed
+    @test SymBoltz.isbackground(D(M.h.E)) && SymBoltz.isperturbation(D(M.h.E)) && string(only(SymBoltz.basevars(D(M.h.E)))) == "h₊E(τ)" # differentiated+indexable
+    @test SymBoltz.isbackground(D(M.h.E[1])) && SymBoltz.isperturbation(D(M.h.E[1])) && string(only(SymBoltz.basevars(D(M.h.E[1])))) == "h₊E(τ)" # differentiated+indexed
 
     # Perturbation variables (are not background variables)
-    @test !SymBoltz.isbackground(M.h.δ) && SymBoltz.isperturbation(M.h.δ) && string(only(SymBoltz.find_inner_variables(M.h.δ))) == "h₊δ(τ, k)"
-    @test !SymBoltz.isbackground(D(M.h.δ)) && SymBoltz.isperturbation(D(M.h.δ)) && string(only(SymBoltz.find_inner_variables(D(M.h.δ)))) == "h₊δ(τ, k)" # differentiated
-    @test !SymBoltz.isbackground(M.h.ψ) && SymBoltz.isperturbation(M.h.ψ) && string(only(SymBoltz.find_inner_variables(M.h.ψ))) == "h₊ψ(τ, k)" # indexable
-    @test !SymBoltz.isbackground(M.h.ψ[1,1]) && SymBoltz.isperturbation(M.h.ψ[1,1]) && string(only(SymBoltz.find_inner_variables(M.h.ψ[1,1]))) == "h₊ψ(τ, k)" # indexed
-    @test !SymBoltz.isbackground(D(M.h.ψ)) && SymBoltz.isperturbation(D(M.h.ψ)) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ)))) == "h₊ψ(τ, k)" # differentiated+indexable
-    @test !SymBoltz.isbackground(D(M.h.ψ[1,1])) && SymBoltz.isperturbation(D(M.h.ψ[1,1])) && string(only(SymBoltz.find_inner_variables(D(M.h.ψ[1,1])))) == "h₊ψ(τ, k)" # differentiated+indexed
+    @test !SymBoltz.isbackground(M.h.δ) && SymBoltz.isperturbation(M.h.δ) && string(only(SymBoltz.basevars(M.h.δ))) == "h₊δ(τ, k)"
+    @test !SymBoltz.isbackground(D(M.h.δ)) && SymBoltz.isperturbation(D(M.h.δ)) && string(only(SymBoltz.basevars(D(M.h.δ)))) == "h₊δ(τ, k)" # differentiated
+    @test !SymBoltz.isbackground(M.h.ψ) && SymBoltz.isperturbation(M.h.ψ) && string(only(SymBoltz.basevars(M.h.ψ))) == "h₊ψ(τ, k)" # indexable
+    @test !SymBoltz.isbackground(M.h.ψ[1,1]) && SymBoltz.isperturbation(M.h.ψ[1,1]) && string(only(SymBoltz.basevars(M.h.ψ[1,1]))) == "h₊ψ(τ, k)" # indexed
+    @test !SymBoltz.isbackground(D(M.h.ψ)) && SymBoltz.isperturbation(D(M.h.ψ)) && string(only(SymBoltz.basevars(D(M.h.ψ)))) == "h₊ψ(τ, k)" # differentiated+indexable
+    @test !SymBoltz.isbackground(D(M.h.ψ[1,1])) && SymBoltz.isperturbation(D(M.h.ψ[1,1])) && string(only(SymBoltz.basevars(D(M.h.ψ[1,1])))) == "h₊ψ(τ, k)" # differentiated+indexed
 end
 
 @testset "Remove background initial conditions" begin
     @test isempty(SymBoltz.remove_background_initial_conditions!([D(M.g.a) ~ M.g.a/M.τ])) # should remove
     @test !isempty(SymBoltz.remove_background_initial_conditions!([M.g.Ψ ~ 20M.C / (15+4M.fν)])) # should keep
+end
+
+@testset "Split off a closed subsystem" begin
+    @independent_variables t
+    Dt = Differential(t)
+    @variables x(t) y(t) z(t) w(t)
+    @parameters c
+    eqs = [Dt(x) ~ -x, Dt(y) ~ -y + x, z ~ c*y] # y depends on x, and the algebraic z depends on y
+    sys = System(eqs, t, [x, y, z], [c]; initial_conditions = [x => 1.0, y => 1.0], name = :Chain)
+
+    # x is closed on its own, and x and y are closed together
+    @test isequal(unknowns(SymBoltz.split_system(sys, [x])), [x])
+    @test isequal(unknowns(SymBoltz.split_system(sys, [x, y])), [x, y])
+
+    # but y cannot be integrated without x, nor z without both
+    @test_throws "depend on x(t)" SymBoltz.split_system(sys, [y])
+    @test_throws "depend on x(t), y(t)" SymBoltz.split_system(sys, [z])
+    @test_throws "w(t) is not an unknown or parameter" SymBoltz.split_system(sys, [w])
+
+    # the system must be flattened first
+    syssub = System(eqs, t, [x, y, z], [c]; systems = [System([Dt(z) ~ -z], t, [z], []; name = :sub)], name = :Chain)
+    @test_throws "flatten it first" SymBoltz.split_system(syssub, [x])
 end
 
 @testset "Shooting method" begin
@@ -1119,8 +1141,114 @@ end
     ]
     M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
-    prob = CosmologyProblem(M, p; backward = [ρr, ρm], ivspan = (-8.0, 0.0), terminate = nothing)
+    prob = CosmologyProblem(M, p; bg = [ρr, ρm], bgbackwards = true, ivspan = (-8.0, 0.0), terminate = nothing)
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol)
+
+    # τ cannot be integrated backwards on its own, since it depends on the densities
+    @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = [τ], bgbackwards = true, ivspan = (-8.0, 0.0), terminate = nothing)
+
+    # the backward solve hits its boundary condition ρ(a=1) = 3/8π*Ω₀ exactly
+    @test sol(M.ρr, 0.0) == 3/8π * p[M.Ωr0]
+    @test sol(M.ρm, 0.0) == 3/8π * p[M.Ωm0]
+
+    # split-off background variables are evaluated from their spline in the th solution
+    bs = range(-8.0, 0.0, length = 5)
+    @test sol(M.ρr, bs) ≈ sol.bg(bs; idxs = M.ρr).u rtol = 1e-4
+    @test sol([M.ρr, M.τ], bs) == [sol(M.ρr, bs)'; sol(M.τ, bs)']
+
+    # the stages can be solved one by one
+    bgsol = solvebg(prob)
+    thsol = solveth(prob, bgsol)
+    @test_throws "solution from solvebg must be passed" solveth(prob)
+    @test solvept(prob.pt, bgsol, thsol, ks)[end].u[end] ≈ sol.pts[end].u[end]
+
+    # ForwardDiff should differentiate through the whole backward-forward-perturbation chain
+    diffpars = [M.Ωr0, M.Ωm0]
+    probgen = parameter_updater(prob, diffpars)
+    tol = 1e-10
+    function output(θ)
+        solθ = solve(probgen(θ), ks; bgopts = (reltol = tol, abstol = tol), thopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
+        return [solθ(M.τ, 0.0); vec(solθ(M.Φ, 0.0, ks)); vec(solθ(M.δm, 0.0, ks))]
+    end
+    θ0 = [p[par] for par in diffpars]
+    J_ad = ForwardDiff.jacobian(output, θ0)
+    J_fd = FiniteDiff.finite_difference_jacobian(output, θ0, Val{:central}; relstep = 1e-2, absstep = 1e-6) # absstep keeps Ωr0 = 1e-4 positive; smaller steps are dominated by ODE solver noise
+    @test all(isapprox.(J_ad, J_fd; rtol = 1e-3))
+end
+
+@testset "Solving model with background integrated only backwards" begin
+    @independent_variables b
+    D = Differential(b)
+    pars = @parameters Ωr0 Ωm0 ΩΛ0 h As ns k
+    vars = @variables a(b) ρ(b) ρr(b) ρm(b) ρΛ(b) H(b) ℋ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k) Δm(b,k)
+    eqs = [
+        # background equations
+        a ~ exp(b)
+        ρ ~ ρr + ρm + ρΛ
+        H ~ √(8π/3 * ρ)
+        ℋ ~ a * H
+        D(ρr) ~ -4*ρr
+        D(ρm) ~ -3*ρm
+        ρΛ ~ 3/8π * ΩΛ0
+        # perturbation equations
+        δρ ~ ρr*δr + ρm*δm
+        D(Φ) ~ (-4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Φ) / ℋ
+        D(δr) ~ -4/3*θr/ℋ + 4*D(Φ)
+        D(θr) ~ k^2 * (δr/4 + Φ) / ℋ
+        D(δm) ~ -θm/ℋ + 3*D(Φ)
+        D(θm) ~ -θm + k^2*Φ/ℋ
+        Δm ~ δm + 3ℋ*θm/k^2 # gauge-invariant overdensity
+    ]
+    initial_conditions = [
+        ΩΛ0 => 1 - Ωr0 - Ωm0
+        ρr => 3/8π * Ωr0 / a^4
+        ρm => 3/8π * Ωm0 / a^3
+        Φ => 20/15
+        δr => -2*Φ
+        δm => -3/2*Φ
+        θr => 1/2*k^2*a/√(Ωr0)*Φ # τ ≈ a/√(Ωr0) early in radiation domination
+        θm => 1/2*k^2*a/√(Ωr0)*Φ
+    ]
+    M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
+    p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3, M.h => 0.7, M.As => 2e-9, M.ns => 0.96)
+
+    # all background unknowns are integrated backwards in th, so there is nothing to terminate
+    @test_throws "terminate = nothing" CosmologyProblem(M, p; thbackwards = true, ivspan = (-8.0, 0.0))
+    prob = CosmologyProblem(M, p; thbackwards = true, ivspan = (-8.0, 0.0), terminate = nothing)
+    @test isnothing(prob.bg)
+    ks = 10.0 .^ (0:3)
+    sol = solve(prob, ks)
+    @test issuccess(sol) && isnothing(sol.bg)
+
+    # splitting all background unknowns off into bg leaves th with none, but gives the same result
+    probbg = CosmologyProblem(M, p; bg = [ρr, ρm], bgbackwards = true, ivspan = (-8.0, 0.0), terminate = nothing)
+    @test isempty(unknowns(probbg.th.f.sys))
+    @test solve(probbg, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
+
+    # the backward solve hits its boundary conditions today exactly
+    @test sol(M.ρr, 0.0) == 3/8π * p[M.Ωr0]
+    @test sol(M.H, 0.0) ≈ 1.0 # since Ωr0 + Ωm0 + ΩΛ0 = 1
+
+    # the stages can be solved one by one
+    thsol = solveth(prob)
+    @test solvept(prob.pt, thsol, ks)[end].u[end] ≈ sol.pts[end].u[end]
+
+    # the matter power spectrum works without thermodynamics, but CMB spectra need source functions
+    @test spectrum_matter(prob, ks) ≈ spectrum_matter(sol, ks) ≈ spectrum_primordial(ks, sol) .* sol(M.Δm, 0.0, ks) .^ 2
+    @test_throws Exception spectrum_cmb(:TT, prob, SphericalBesselCache(25:25:100))
+
+    # ForwardDiff should differentiate through the backward-perturbation chain
+    diffpars = [M.Ωr0, M.Ωm0]
+    probgen = parameter_updater(prob, diffpars)
+    tol = 1e-10
+    function output(θ)
+        solθ = solve(probgen(θ), ks; thopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
+        return [vec(solθ(M.Φ, 0.0, ks)); vec(solθ(M.δm, 0.0, ks))]
+    end
+    θ0 = [p[par] for par in diffpars]
+    J_ad = ForwardDiff.jacobian(output, θ0)
+    J_fd = FiniteDiff.finite_difference_jacobian(output, θ0, Val{:central}; relstep = 1e-2, absstep = 1e-6) # absstep keeps Ωr0 = 1e-4 positive; smaller steps are dominated by ODE solver noise
+    @test all(isapprox.(J_ad, J_fd; rtol = 1e-3))
 end

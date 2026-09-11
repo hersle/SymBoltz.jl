@@ -30,7 +30,7 @@ function spectrum_primordial(k, M::System, pars::Dict)
 end
 function spectrum_primordial(k, prob::CosmologyProblem)
     M = prob.M
-    return spectrum_primordial(k, prob.bg.ps[M.g.h], prob.bg.ps[M.I.As], prob.bg.ps[M.I.ns])
+    return spectrum_primordial(k, prob.th.ps[M.g.h], prob.th.ps[M.I.As], prob.th.ps[M.I.ns])
 end
 
 function total_symbolic_gauge_invariant_overdensities(M::System, mode::Symbol)
@@ -91,7 +91,7 @@ function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::Abstr
     P = P0 .* sol(S, τ, k) .^ 2
     return P
 end
-spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, sol.bg.t[end]; kwargs...) # fallback without time
+spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, maximum(sol.th.t); kwargs...) # fallback without time (today)
 spectrum_matter(modes::AbstractVector, probsol, k, τ::Number; kwargs...) = spectrum_matter(modes, probsol, k, [τ])[:, 1, :] # fallback with single time
 spectrum_matter(mode::Symbol, probsol, args...; kwargs...) = selectdim(spectrum_matter([mode], probsol, args...; kwargs...), 1, 1) # fallback with single mode specified
 spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with modes unspecified
@@ -193,24 +193,24 @@ function source_eltype(Ss, T)
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss, τs, ks[, bgsol]; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(prob::CosmologyProblem, Ss, τs, ks[, [bgsol, ]thsol]; bgopts = (), thopts = (), ptopts = (), thread = true, verbose = false)
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 Returns a matrix of size `(Nτ, Nk)`, where each element is a vector of length `NS = length(Ss)` holding all source values at that `(τ, k)` point.
 
-The options `bgopts` and `ptopts` are passed to the background and perturbation solves.
+The options `bgopts`/`thopts`/`ptopts` are passed to the `bg`/`th`/`pt` ODE solves.
 """
-function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; ptopts = (), thread = true, verbose = false)
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::Union{Nothing, ODESolution}, thsol::ODESolution; ptopts = (), thread = true, verbose = false)
     getSs = getsym(prob.pt, Ss)
-    T = source_eltype(Ss, eltype(bgsol))
-    minimum(τs) ≥ bgsol.t[begin] && maximum(τs) ≤ bgsol.t[end] || error("input τs and computed background solution have different timespans")
+    T = source_eltype(Ss, eltype(thsol))
+    minimum(τs) ≥ minimum(thsol.t) && maximum(τs) ≤ maximum(thsol.t) || error("input τs and computed background solution have different timespans")
 
     # Save only the requested source values instead of the full ODE solution with all unknowns
     # Save callback similar to https://github.com/SciML/SciMLBase.jl/blob/97f6d4aff88ab5f2dedc90ef503edabe72f00e93/src/solutions/ode_solutions.jl#L369-L373
     save_func(u, t, integrator) = getSs(SciMLBase.ProblemState(; u, p = SciMLBase.parameter_values(integrator), t))
     savedvalues = [SavedValues(eltype(τs), T) for _ in ks] # one save container per k
     callback(ik) = SavingCallback(save_func, savedvalues[ik]; saveat = τs)
-    solvept(prob.pt, bgsol, ks; callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
+    solvept(prob.pt, bgsol, thsol, ks; callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
 
     out = Matrix{T}(undef, length(τs), length(ks))
     @inbounds for ik in eachindex(ks), iτ in eachindex(τs)
@@ -218,9 +218,11 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsol::ODESolution; pt
     end
     return out
 end
-function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose = false, kwargs...)
-    bgsol = solvebg(prob.bg; bgopts..., verbose)
-    return source_grid(prob, Ss, τs, ks, bgsol)
+source_grid(prob::CosmologyProblem, Ss, τs, ks, thsol::ODESolution; kwargs...) = source_grid(prob, Ss, τs, ks, nothing, thsol; kwargs...)
+function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), thopts = (), verbose = false, kwargs...)
+    bgsol = solvebg(prob; verbose, bgopts...)
+    thsol = solveth(prob, bgsol; verbose, thopts...)
+    return source_grid(prob, Ss, τs, ks, bgsol, thsol; verbose, kwargs...)
 end
 
 function source_grid(prob::CosmologyProblem, Ss, τs, ks, kinterp::AbstractInterpolator, args...; thread = true, kwargs...)
@@ -228,7 +230,6 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks, kinterp::AbstractInter
     Ss = source_kinterp(Ss, kinterp, ks; thread) # interpolate to requested fine k-grid
     return Ss
 end
-
 
 function source_kinterp!(out::AbstractVector, Ss_coarse::AbstractVector, kinterp::AbstractInterpolator, ys_fine)
     kinterp(out, Ss_coarse, ys_fine)

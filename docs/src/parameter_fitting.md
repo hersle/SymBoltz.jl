@@ -68,7 +68,7 @@ dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcm
 
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
-bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3)
+thopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3)
 p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
 μs = μ(p0)
 mbs = μs .+ Mb

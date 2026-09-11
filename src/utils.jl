@@ -2,6 +2,7 @@ import DataInterpolations: CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
+import Graphs: neighborhood, nv
 using ModelingToolkit: get_description, get_systems
 
 # Register custom shooting metadata (https://docs.sciml.ai/Symbolics/stable/manual/metadata)
@@ -65,16 +66,27 @@ function debugize(sys::System)
     return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
-function find_inner_variables(expr)
+# the variable an expression is about, without derivatives and array indices: D(x) -> x, y[i] -> y
+function basevar(x)
+    x = unwrap(x)
+    iscall(x) || return x
+    op = operation(x)
+    op isa Differential && return basevar(only(sorted_arguments(x)))
+    op === getindex && return basevar(first(sorted_arguments(x)))
+    return x
+end
+
+# all variables in an expression, without derivatives and array indices, like basevar: D(x) + y[i] -> Set([x, y])
+function basevars(expr)
     vars = Set{Symbolics.SymbolicT}()
     is_atomic = x -> SymbolicUtils.default_is_atomic(x) && !(iscall(x) && (operation(x) isa Differential || operation(x) === getindex))
     SymbolicUtils.search_variables!(vars, expr; is_atomic)
     return vars
 end
 
-issymbolic(x) = !isempty(find_inner_variables(x))
+issymbolic(x) = !isempty(basevars(x))
 
-isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, find_inner_variables(expr)) # functions of at most τ
+isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, basevars(expr)) # functions of at most τ
 isperturbation(expr) = true # functions of at most τ, k (always yes)
 
 function filter_system(f::Function, sys::System)
@@ -115,12 +127,17 @@ function spline(y, ẏ, x)
     return CubicHermiteSpline(ẏ, y, x) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
-function spline(sol::ODESolution)
-    ts = sol.t
-    N, _ = size(sol)
-    T = eltype(eltype(sol.u))
-    us = reduce(hcat, sol(ts, Val{0}).u)
-    dus = reduce(hcat, sol(ts, Val{1}).u)
+# Spline the unknowns of one or more ODE solutions on common time steps, storing them all in one SVector.
+# Solutions are concatenated in the given order, and may be integrated in any direction.
+function spline(sols::ODESolution...)
+    # sample all solutions on the union of their time steps (collect, so one solution's own time steps are not mutated below), ...
+    ts = unique!(sort!(mapreduce(sol -> collect(sol.t), vcat, sols)))
+    tmin, tmax = maximum(sol -> minimum(sol.t), sols), minimum(sol -> maximum(sol.t), sols)
+    filter!(t -> tmin ≤ t ≤ tmax, ts) # ... but only where they all overlap, so none of them are extrapolated
+
+    us = reduce(vcat, (stack(sol(ts, Val{0}).u) for sol in sols))
+    dus = reduce(vcat, (stack(sol(ts, Val{1}).u) for sol in sols))
+    N, T = size(us, 1), eltype(us)
     us = collect(vec(reinterpret(reshape, SVector{N, T}, us))) # convert to Vector of SVectors
     dus = collect(vec(reinterpret(reshape, SVector{N, T}, dus)))
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
@@ -181,11 +198,10 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
-function mtkcompile_spline(sys::System, vars)
+function mtkcompile_spline(sys::System, vars; splname = :bgspline, removeics! = remove_background_initial_conditions!)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
-    splname = :bgspline
     spldummy = dummyspline(length(vars))
     uprototype = spldummy.u[begin]
     spl, = @parameters $splname::Any
@@ -220,11 +236,11 @@ function mtkcompile_spline(sys::System, vars)
 
         # Do not solve for splined variables during initialization, and add dummy defaults for all splines
         ieqs = ModelingToolkit.get_initialization_eqs(sys)
-        ieqs = remove_background_initial_conditions!(ieqs)
+        ieqs = removeics!(ieqs)
         @set! sys.initialization_eqs = ieqs
 
         ics = ModelingToolkit.get_initial_conditions(sys)
-        ics = remove_background_initial_conditions!(ics)
+        ics = removeics!(ics)
         @set! sys.initial_conditions = ics
 
         return sys
@@ -240,9 +256,59 @@ lhs(eq::Equation) = eq.lhs # for equations
 
 function remove_background_initial_conditions!(ics)
     filter!(ics) do ic
-        var = only(find_inner_variables(lhs(ic)))
+        var = only(basevars(lhs(ic)))
         return !iscall(var) || length(arguments(var)) != 1 # keep parameters and functions of (τ,k)
     end
+end
+
+# remove initial conditions of the given variables (e.g. because they are splined from another solution)
+function remove_initial_conditions!(ics, vars)
+    filter!(ic -> isdisjoint(basevars(lhs(ic)), vars), ics)
+end
+
+"""
+    split_system(sys::System, vars)
+
+Split off the part of the flattened system `sys` that is needed to solve for the variables `vars` alone,
+i.e. their equations and initial conditions, and everything these depend on.
+Errors if `vars` depend on other unknowns of `sys`, which makes such a split impossible.
+"""
+function split_system(sys::System, vars)
+    isempty(get_systems(sys)) || error("Can only split the flattened system $(nameof(sys)); flatten it first with ModelingToolkit.flatten")
+    iv = ModelingToolkit.get_iv(sys)
+    eqs = ModelingToolkit.get_eqs(sys)
+    ics = ModelingToolkit.get_initial_conditions(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+
+    # graph of what each unknown and parameter depends on through its equations and initial conditions
+    allvars = unique([ModelingToolkit.get_unknowns(sys); ModelingToolkit.get_ps(sys)]) # asgraph assumes no duplicates
+    defs = [eqs; [var ~ val for (var, val) in ics]]
+    graph = ModelingToolkit.varvar_dependencies(ModelingToolkit.asgraph(sys; variables = allvars, eqs = defs), ModelingToolkit.variable_dependencies(sys; variables = allvars, eqs = defs))
+
+    # collect everything vars depend on
+    vars = Set{Any}(basevar.(vars))
+    idxs = Dict(var => i for (i, var) in enumerate(allvars))
+    for var in vars
+        haskey(idxs, var) || error("$var is not an unknown or parameter of the system $(nameof(sys))")
+    end
+    needed = Set{Any}(allvars[mapreduce(var -> neighborhood(graph, idxs[var], nv(graph); dir = :in), union, vars)])
+    push!(needed, iv)
+
+    # the split is only possible if vars do not depend on other variables that must be integrated
+    diffvars = Set{Any}(basevar(eq.lhs) for eq in eqs if Symbolics.is_derivative(unwrap(eq.lhs)))
+    extra = setdiff(intersect(needed, diffvars), vars)
+    namelist(vs) = join(sort!(string.(collect(vs))), ", ")
+    isempty(extra) || error("Cannot split off $(namelist(vars)) from the system $(nameof(sys)), since they depend on $(namelist(extra)), which would have to be split off, too.")
+
+    keep(x) = basevar(x) in needed
+    eqs = filter(eq -> keep(eq.lhs), eqs) # keeps original order
+    unks = filter(keep, ModelingToolkit.get_unknowns(sys))
+    pars = filter(keep, ModelingToolkit.get_ps(sys))
+    ics = [var => val for (var, val) in ics if keep(var)]
+    ieqs = filter(ieq -> all(keep, union(basevars(ieq.lhs), basevars(ieq.rhs))), ieqs)
+    guesses = [var => val for (var, val) in guesses if keep(var)]
+    return System(eqs, iv, unks, pars; initial_conditions = ics, initialization_eqs = ieqs, guesses, name = nameof(sys), description = get_description(sys))
 end
 
 # https://github.com/JuliaQuantumControl/QuantumControlBase.jl/blob/master/src/conditionalthreads.jl

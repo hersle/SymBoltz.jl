@@ -119,11 +119,12 @@ sol = solve(prob; verbose = true)
 nothing # hide
 ```
 
-## Solve background and perturbations directly
+## Solve stages directly
 
-For lower-level control, you can solve the background and perturbations separately:
+For lower-level control, you can solve the background (`bg`), thermodynamics (`th`) and perturbations (`pt`) stages separately:
 ```@docs
 solvebg
+solveth
 solvept
 ```
 

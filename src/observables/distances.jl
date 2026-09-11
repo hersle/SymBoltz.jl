@@ -1,6 +1,6 @@
 # TODO: add formula
 """
-    distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
+    distance_luminosity(sol::CosmologySolution, ivs = sol.th.t, τ0 = sol[sol.prob.M.τ0])
 
 Compute luminosity distances
 ```math
@@ -8,7 +8,7 @@ d_L = \\frac{r}{a} = \\chi \\, \\mathrm{sinc} (\\sqrt{K} (τ₀-τ)),
 ```
 at the independent variable values `ivs` relative to the (present) time `τ0`.
 """
-function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[sol.prob.M.τ0])
+function distance_luminosity(sol::CosmologySolution, ivs = sol.th.t, τ0 = sol[sol.prob.M.τ0])
     M = sol.prob.M
     χ = sol(M.χ, ivs)
     Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
@@ -19,7 +19,7 @@ function distance_luminosity(sol::CosmologySolution, ivs = sol.bg.t, τ0 = sol[s
 end
 
 # TODO: test @inferred
-function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3))
+function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; thopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3))
     isequal(ModelingToolkit.get_iv(M), M.g.a) || error("Independent variable must be $(M.g.a)")
 
     pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
@@ -34,7 +34,7 @@ function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; b
 
     return p -> begin
         prob = probgen(p)
-        sol = solve(prob; bgopts, saveat = as, save_end = true)
+        sol = solve(prob; thopts, saveat = as, save_end = true)
         a = geta(sol)
         τ = getτ(sol)
         h = geth(sol)
