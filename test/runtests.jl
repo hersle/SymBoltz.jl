@@ -1111,3 +1111,45 @@ end
     @test issuccess(solve(prob3))
     @test issuccess(solve(prob4))
 end
+
+@testset "Solving model with mixed forward-backward direction in background" begin
+    @independent_variables b
+    D = Differential(b)
+    pars = @parameters Ωr0 Ωm0 ΩΛ0 k
+    vars = @variables a(b) ρ(b) ρr(b) ρm(b) ρΛ(b) H(b) ℋ(b) τ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k)
+    eqs = [
+        # background equations
+        a ~ exp(b)
+        ρ ~ ρr + ρm + ρΛ
+        H ~ √(8π/3 * ρ)
+        ℋ ~ a * H
+        D(τ) ~ 1 / ℋ
+        D(ρr) ~ -4*ρr
+        D(ρm) ~ -3*ρm
+        ρΛ ~ 3/8π * ΩΛ0
+        # perturbation equations
+        δρ ~ ρr*δr + ρm*δm
+        D(Φ) ~ (-4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Φ) / ℋ
+        D(δr) ~ -4/3*θr/ℋ + 4*D(Φ)
+        D(θr) ~ k^2 * (δr/4 + Φ) / ℋ
+        D(δm) ~ -θm/ℋ + 3*D(Φ)
+        D(θm) ~ -θm + k^2*Φ/ℋ
+    ]
+    initial_conditions = [
+        ΩΛ0 => 1 - Ωr0 - Ωm0
+        ρr => 3/8π * Ωr0 / a^4
+        ρm => 3/8π * Ωm0 / a^3
+        τ => a / √(Ωr0)
+        Φ => 20/15
+        δr => -2*Φ
+        δm => -3/2*Φ
+        θr => 1/2*k^2*τ*Φ
+        θm => 1/2*k^2*τ*Φ
+    ]
+    M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
+    p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
+    prob = CosmologyProblem(M, p; backward = [ρr, ρm], ivspan = (-8.0, 0.0), terminate = nothing)
+    ks = 10.0 .^ (0:3)
+    sol = solve(prob, ks)
+    @test issuccess(sol)
+end
