@@ -1056,3 +1056,50 @@ end
     @test sol[M.a][end] ≈ 1.0
     @test sol[M.H][end] ≈ 1.0
 end
+
+@testset "Interacting background integrated backwards with b = log(a)" begin
+    function interacting_model(f; name = :QΛCDM)
+        @independent_variables b # = log(a)
+        D = Differential(b)
+        pars = @parameters Ωr0 Ωb0 Ωc0 ΩΛ0 w0 wa α
+        vars = @variables a(b) ρ(b) ρr(b) ρb(b) ρc(b) ρΛ(b) H(b) ℋ(b) Q(b)
+        eqs = [
+            a ~ exp(b)
+            ρr ~ 3/8π * Ωr0/a^4
+            ρb ~ 3/8π * Ωb0/a^3
+            ρ ~ ρr + ρb + ρc + ρΛ
+            H ~ √(8π/3 * ρ)
+            ℋ ~ a * H
+            Q ~ α * f(ρc, ρΛ) # = a*Q/ℋ in the equations above
+            D(ρc) ~ -3ρc + Q
+            D(ρΛ) ~ -3*(1+w0+wa*(1-a))*ρΛ - Q
+        ]
+        initial_conditions = [
+            ρc => 3/8π * Ωc0 # today # TODO: override when solving forward?
+            ρΛ => 3/8π * ΩΛ0 # today # TODO: override when solving forward?
+            ΩΛ0 => 1 - Ωr0 - Ωb0 - Ωc0
+        ]
+        return complete(System(eqs, b, vars, pars; initial_conditions, name))
+    end
+
+    M1 = interacting_model((ρc, ρΛ) -> ρc)
+    M2 = interacting_model((ρc, ρΛ) -> ρΛ)
+    M3 = interacting_model((ρc, ρΛ) -> ρc + ρΛ)
+    M4 = interacting_model((ρc, ρΛ) -> ρc*ρΛ / (ρc+ρΛ))
+    p = Dict(
+        M1.Ωr0 => 1e-5,
+        M1.Ωb0 => 0.05,
+        M1.Ωc0 => 0.30,
+        M1.w0 => -1.1,
+        M1.wa => 0.2,
+        M1.α => 50.0,
+    )
+    prob1 = CosmologyProblem(M1, p; ivspan = (0, -8), terminate = nothing)
+    prob2 = CosmologyProblem(M2, p; ivspan = (0, -8), terminate = nothing)
+    prob3 = CosmologyProblem(M3, p; ivspan = (0, -8), terminate = nothing)
+    prob4 = CosmologyProblem(M4, p; ivspan = (0, -8), terminate = nothing)
+    @test issuccess(solve(prob1))
+    @test issuccess(solve(prob2))
+    @test issuccess(solve(prob3))
+    @test issuccess(solve(prob4))
+end
