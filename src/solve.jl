@@ -142,7 +142,7 @@ function CosmologyProblem(
 )
     shoot_pars_sys = shootvars(M)
     conditions_sys = ModelingToolkit.get_constraints(M)
-    shoot_pars = mergesafe(shoot_pars, shoot_pars_sys) # read from system
+    shoot_pars = mergesafe(shoot_pars_sys, shoot_pars) # read from system, but let passed guesses override them
     shoot_conditions = unionsafe(shoot_conditions, conditions_sys) # read from system
 
     length(shoot_pars) != length(shoot_conditions) && error("Got $(length(shoot_pars)) shooting parameters ($(join(keys(shoot_pars), ", "))), but $(length(shoot_conditions)) conditions ($(join(shoot_conditions, ", ")))")
@@ -467,9 +467,7 @@ function solvebg(bgprob::ODEProblem, vars, conditions; alg = bgalg(bgprob), relt
     conditions = map(eq -> eq.lhs - eq.rhs, conditions)
     varstrs = string.(vars)
     constrs = string.(conditions)
-    if issymbolic(guess)
-        guess = bgprob[guess] # evaluate numerical values
-    end
+    guess = map(g -> issymbolic(g) ? bgprob[g] : g, guess) # evaluate symbolic guesses, keep numerical ones as they are
     if length(vars) == 1 # work with scalars instead of vectors to support interval methods
         guess = only(guess)
         vars = only(vars)

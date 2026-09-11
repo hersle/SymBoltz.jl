@@ -785,6 +785,14 @@ end
     sol = solve(prob)
     @test sol[ℋ][end] ≈ 1 && sol[Ωr0 + Ωm0 + ΩΛ0] ≈ 1
 
+    # a guess passed to CosmologyProblem must override the one declared in the model
+    @test CosmologyProblem(M, pars, Dict(ΩΛ0 => 0.123)).shoot[ΩΛ0] == 0.123
+    # ... and must actually be used: a guess in a bad region makes the shooting fail,
+    # while the model's own guess would have converged
+    @test_throws "Shooting failed to converge" solve(CosmologyProblem(M, pars, Dict(ΩΛ0 => -1e3)))
+    # an interval guess selects a bracketing solver, so it must reach the solver too
+    @test issuccess(solve(CosmologyProblem(M, pars, Dict(ΩΛ0 => (0.5, 1.0)))))
+
     # shooting with numerical continuity equations
     vars = @variables a(τ) ℋ(τ) ρ(τ) ρr(τ) ρm(τ) ρΛ(τ)
     pars = @parameters ρri ρmi ρΛi
