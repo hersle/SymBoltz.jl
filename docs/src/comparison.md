@@ -9,7 +9,6 @@ using SymBoltz
 using CLASS
 using DelimitedFiles
 using DataInterpolations
-using Unitful, UnitfulAstro
 using CairoMakie
 using Printf
 
@@ -34,7 +33,7 @@ function solve_class(pars, k = nothing)
         "background_verbose" => 2,
         "output" => "mPk, tCl, pCl, lCl", # need one to evolve perturbations
 
-        "k_output_values" => isnothing(k) ? "" : NoUnits(k / u"1/Mpc"),
+        "k_output_values" => isnothing(k) ? "" : k, # 1/Mpc
         "ic" => "ad",
         "modes" => "s",
         "gauge" => "newtonian",
@@ -97,9 +96,9 @@ function solve_class(pars, k = nothing)
     return solve(prob)
 end
 
-k = 1e1 / u"Mpc" # 1/Mpc
+k = 1e1 # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k)
+sol2 = solve(prob, k / (SymBoltz.k0 * h)) # convert from 1/Mpc to H₀/c
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -356,7 +355,7 @@ end
 k, P1 = P_class(pars)
 P1 = P1[k .> 9e-5]
 k = k[k .> 9e-5]
-P2 = spectrum_matter(prob, k / u"Mpc") / u"Mpc^3"
+P2 = spectrum_matter(prob, k / (SymBoltz.k0 * h)) / (SymBoltz.k0 * h)^3 # convert from 1/Mpc to H₀/c
 plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 2e1)
 ```
 ```@example class
@@ -367,7 +366,7 @@ p0 = [pars[par] for par in vary]
 probgen = parameter_updater(prob, vary)
 k = 10 .^ range(-3, 0, length=100) # 1/Mpc
 Pk_class(p; kw...) = P_class(k, merge(pars, Dict(vary .=> p)); kw...)
-Pk(p; kw...) = spectrum_matter(probgen(p), k / u"Mpc"; kw...) / u"Mpc^3"
+Pk(p; kw...) = spectrum_matter(probgen(p), k / (SymBoltz.k0 * p[1]); kw...) / (SymBoltz.k0 * p[1])^3
 
 ∂Pk1_∂p = FiniteDiff.finite_difference_jacobian(Pk_class, p0, Val{:central}; relstep = 1e-3) # smaller relstep is noisier
 ∂Pk2_∂p = ForwardDiff.jacobian(Pk, p0)

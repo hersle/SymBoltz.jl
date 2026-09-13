@@ -40,8 +40,7 @@ parameter_updater
 
 The (updated) problem can now be solved for some wavenumbers:
 ```@example sol
-using Unitful, UnitfulAstro
-ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
+ks = 10 .^ range(-2, +4, length=100)
 sol = solve(prob, ks)
 ```
 
@@ -64,7 +63,7 @@ For example:
 ```@example sol
 # TODO: document callable solution when this is fixed: https://github.com/JuliaDocs/Documenter.jl/issues/558 # hide
 τs = sol[M.τ] # get time points used in the background solution
-ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
+ks = [1e0, 1e1, 1e2, 1e3] # wavenumbers
 as = sol(M.g.a, τs) # scale factors
 Ωms = sol((M.b.ρ + M.c.ρ) / M.G.ρ, τs) # matter-to-total density ratios
 κs = sol(M.b.κ, τs) # optical depths

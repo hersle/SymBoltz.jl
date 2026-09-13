@@ -3,20 +3,17 @@ using MatterPower
 using TwoFAST
 
 """
-    spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
+    spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/(k0*h))
 
 Compute the primordial power spectrum
 ```math
 P₀(k) = 2π² Aₛ (k/kₚ)^{nₛ-1} / k³
 ```
 with spectral amplitude `As`, spectral index `ns` and pivot scale wavenumber `kp` at the wavenumber(s) `k`.
+All wavenumbers are in units of ``H₀/c``, and the default pivot scale is 0.05/Mpc.
 """
-function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/u"Mpc")
+function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/(k0*h)) # 0.05/Mpc in units of H₀/c
     P = 2*π^2 * As ./ k.^3
-
-    # ensure both k and kp to dimensionless wavenumbers k/(H₀/c) before taking ratio
-    k = k_dimensionless.(k, h)
-    kp = k_dimensionless(kp, h)
     P .*= (k./kp).^(ns-1)
 
     return P
@@ -66,7 +63,7 @@ for one or more `modes` at wavenumbers `k` and conformal time(s) `τ` from the p
 The problem is solved for the given ``k``, and the matter power spectrum is saved at the given ``τ``.
 
 - `modes` must be `:c` (CDM), `:b` (baryons), `:h` (massive neutrinos), `:m` (matter; equivalent to ``c+b+h``), a vector thereof, or unspecified to use `:m`.
-- `k` must be a vector of wavenumbers.
+- `k` must be a vector of wavenumbers in units of ``H₀/c``.
 - `τ` must be a single or a vector of conformal times, or unspecified to use ``τ = τ₀`` today.
 - `kτini` and `τinimax` specify initial values of ``kτ`` for each perturbation mode, no later than `τinimax` and no earlier than the initial background time.
 - `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
@@ -134,28 +131,21 @@ Compute the nonlinear matter power spectrum from the cosmology solution `sol` at
 """
 function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     P = spectrum_matter(sol, k)
-    lgPspl = spline(log.(ustrip(P)), log.(ustrip(k)))
+    M = sol.prob.M
+    h = sol[M.g.h] # halofit searches for the nonlinear scale in Mpc, so convert to 1/Mpc and Mpc³ with H₀/c = k0*h/Mpc, and back
+    lgPspl = spline(log.(P ./ (k0*h)^3), log.(k .* (k0*h)))
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
-    M = sol.prob.M
     Ωm0 = sol[M.m.Ω₀]
-    Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, ustrip(k))
-    PNL = Pf_halofit.(k)
-
-    # if the input add units, multiply it back into the output
-    Punit = only(unique(unit.(P)))
-    if !isnothing(Punit)
-        PNL *= Punit
-    end
-
-    return PNL
+    Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, k)
+    return Pf_halofit.(k .* (k0*h)) .* (k0*h)^3
 end
 
 # TODO: generalize to arbitrary field?
 """
     variance_matter(sol::CosmologySolution, R)
 
-Compute the variance ``⟨δ²⟩`` of the *linear* matter density field with a top-hat filter with radius `R`.
+Compute the variance ``⟨δ²⟩`` of the *linear* matter density field with a top-hat filter with radius `R` in units of ``c/H₀``.
 Wraps the implementation in MatterPower.jl.
 """
 function variance_matter(sol::CosmologySolution, R)
@@ -164,13 +154,12 @@ function variance_matter(sol::CosmologySolution, R)
     P = spectrum_matter(sol, k)
     lgPspl = spline(log.(P), log.(k))
     Pf(k) = exp(lgPspl(log(k)))
-    R = 1 / k_dimensionless(1 / R, sol.bg) # make dimensionless
     return MatterPower.sigma2(Pf, R)
 end
 """
     stddev_matter(sol::CosmologySolution, R)
 
-Compute the standard deviation ``√(⟨δ²⟩)`` of the *linear* matter density field with a top-hat filter with radius `R`.
+Compute the standard deviation ``√(⟨δ²⟩)`` of the *linear* matter density field with a top-hat filter with radius `R` in units of ``c/H₀``.
 """
 stddev_matter(sol::CosmologySolution, R) = √(variance_matter(sol, R))
 

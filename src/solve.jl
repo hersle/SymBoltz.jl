@@ -380,7 +380,7 @@ end
         thread = true, verbose = false, kwargs...
     )
 
-Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
+Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` in units of ``H₀/c`` (or only to the background level if it is empty).
 The options `bgopts` and `ptopts` are passed to the background and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
 If `threads`, integration over independent perturbation modes are parallellized.
@@ -404,7 +404,6 @@ function solve(
         ks = nothing
         ptsol = nothing
     else
-        ks = k_dimensionless.(ks, Ref(bgsol))
         ptsol = solvept(prob.pt, bgsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
@@ -712,7 +711,6 @@ function getsym(provider::Union{CosmologyProblem, CosmologySolution}, p)
 end
 
 function neighboring_modes_indices(sol::CosmologySolution, k)
-    k = k_dimensionless.(k, Ref(sol.bg))
     if k == sol.ks[begin] # k == kmin
         i1 = i2 = 1
     elseif k == sol.ks[end] # k == kmax
@@ -733,7 +731,6 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     if !issorted(sol.ks)
         throw(error("Solution wavenumbers are not sorted in ascending order"))
     end
-    ks = k_dimensionless.(ks, Ref(sol.bg))
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")

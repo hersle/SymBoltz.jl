@@ -14,9 +14,9 @@ SymBoltz.spectrum_primordial
 using SymBoltz, Unitful, UnitfulAstro, Plots
 M = ΛCDM()
 pars = Dict(M.g.h => 0.7, M.I.As => 2e-9, M.I.ns => 0.95)
-ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
+ks = 10 .^ range(-2, +4, length=100)
 Ps = spectrum_primordial(ks, M, pars)
-plot(log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)")
+plot(log10.(ks), log10.(Ps); xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (c/H₀)³)")
 ```
 
 ## Matter power spectra
@@ -35,23 +35,23 @@ using SymBoltz, Unitful, UnitfulAstro, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-5, +2, length=100) / u"Mpc"
+ks = 10 .^ range(-2, +5, length=100)
 sol = solve(prob, ks)
 
 # Linear power spectrum
 modes = [:m, :cb, :h]
 Ps = spectrum_matter(modes, sol, ks)
 plot(
-    log10.(ks*u"Mpc"), transpose(log10.(Ps/u"Mpc^3"));
-    xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)",
-    label = permutedims("linear (SymBoltz), " .* string.(modes)), ylims = (-4, 5),
+    log10.(ks), transpose(log10.(Ps));
+    xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (c/H₀)³)",
+    label = permutedims("linear (SymBoltz), " .* string.(modes)), ylims = (-15, -6),
     linestyle = [:solid :dash :dot :dashdot :dashdotdot], legend_position = :bottomleft
 )
 
 # Nonlinear power spectrum (from halofit)
 Ps = spectrum_matter_nonlinear(sol, ks)
 plot!(
-    log10.(ks*u"Mpc"), log10.(Ps/u"Mpc^3");
+    log10.(ks), log10.(Ps);
     label = "non-linear (halofit), matter", legend_position = :bottomleft
 )
 ```
@@ -63,8 +63,8 @@ As a function of conformal time and redshift:
 Ps = spectrum_matter(sol, ks, τs)
 zs = sol(M.g.z, τs) # corresponding redshifts
 plot(
-    log10.(ks*u"Mpc"), transpose(log10.(Ps/u"Mpc^3"));
-    xlabel = "log10(k/Mpc⁻¹)", ylabel = "log10(P/Mpc³)",
+    log10.(ks), transpose(log10.(Ps));
+    xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (c/H₀)³)",
     label = permutedims("z=".*string.(round.(zs;digits=1))),
     legend_position = :bottomleft
 )
@@ -105,7 +105,7 @@ using SymBoltz, Unitful, UnitfulAstro, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
+ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 rs, ξs = correlation_function(sol)
 rs = rs / (SymBoltz.k0*sol.bg.ps[:h]) * u"Mpc" # TODO: auto units
@@ -124,17 +124,16 @@ using SymBoltz, Unitful, UnitfulAstro, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-ks = 10 .^ range(-5, +3, length=300) / u"Mpc"
+ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 
-h = sol[M.g.h]
-Rs = 10 .^ range(0, 2, length=100) * u"Mpc"
+Rs = 10 .^ range(-3, -1, length=100)
 σs = stddev_matter.(sol, Rs)
-plot(log10.(Rs/(u"Mpc"/h)), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "lg(σ)", label = nothing)
+plot(log10.(Rs), log10.(σs); xlabel = "lg(R / (c/H₀))", ylabel = "lg(σ)", label = nothing)
 
-R8 = 8 * u"Mpc"/h
+R8 = 8 * SymBoltz.k0 # 8 Mpc/h in units of c/H₀
 σ8 = stddev_matter(sol, R8)
-scatter!((log10(R8/(u"Mpc"/h)), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
+scatter!((log10(R8), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
 ```
 
 ## Distance measures

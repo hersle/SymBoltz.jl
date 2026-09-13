@@ -1,8 +1,6 @@
 using Test
 using SymBoltz
 using ModelingToolkit
-using Unitful
-using UnitfulAstro
 using ForwardDiff
 using FiniteDiff
 using BenchmarkTools
@@ -75,7 +73,7 @@ end
 end
 
 @testset "Accessing derivative variables" begin
-    ks = 1.0 / u"Mpc"
+    ks = 1e3
     sol = solve(prob, ks)
     τ0 = sol[M.τ0]
     @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
@@ -88,7 +86,7 @@ end
 end
 
 @testset "Solution interpolation" begin
-    ks = 10 .^ range(-5, 1, length=100) / u"Mpc"
+    ks = 10 .^ range(-2, 4, length=100)
     sol = solve(prob, ks)
     ks = range(extrema(ks)..., length=500)
     τs = range(extrema(sol.bg.t)..., length=500)
@@ -232,7 +230,7 @@ end
 
 @testset "Initial conditions" begin
     τini = prob.bg.tspan[1]
-    ks = [1e-1, 1e0] / u"Mpc"
+    ks = [1e2, 1e3]
     sol = solve(prob, ks)
 
     # Check that a ≈ √(Ωᵣ₀) * t
@@ -311,22 +309,16 @@ end
     @test_throws "not an unknown" SymBoltz.mtkcompile_spline(M, [M.g.H])
 end
 
-@testset "Wavenumber units and primordial power spectrum pivot scale" begin
+@testset "Primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
-    k = 0.05 / u"Mpc" # ≠ 0.05/(Mpc/h)
+    k = 0.05 / (SymBoltz.k0 * h) # 0.05/Mpc (≠ 0.05/(Mpc/h)) in units of H₀/c
     sol = solve(prob, k)
-    @test sol[M.I.kpivot] ≈ SymBoltz.k_dimensionless(k, sol.bg)
+    @test sol[M.I.kpivot] ≈ k
 
     ks = 1.0:100.0
     sol = solve(prob, ks)
     P1 = sol(M.I.P, sol.bg.t[begin], ks)
     P2 = spectrum_primordial(ks, sol)
-    @test all(isapprox.(P1, P2))
-
-    ks = collect(1.0:100.0) / u"Mpc"
-    sol = solve(prob, ks)
-    P1 = sol(M.I.P, sol.bg.t[begin], ks)
-    P2 = spectrum_primordial(SymBoltz.k_dimensionless.(ks, h), sol)
     @test all(isapprox.(P1, P2))
 end
 
@@ -383,8 +375,8 @@ end
     for i in eachindex(diffpars)
         color = Makie.wong_colors()[i]
         alpha = 0.6
-        lines!(ax, log10.(k*u"Mpc"), ∂logP_∂logθ_ad[:, i]; color, alpha, linestyle = :solid)
-        lines!(ax, log10.(k*u"Mpc"), ∂logP_∂logθ_fd[:, i]; color, alpha, linestyle = :dash)
+        lines!(ax, log10.(k), ∂logP_∂logθ_ad[:, i]; color, alpha, linestyle = :solid)
+        lines!(ax, log10.(k), ∂logP_∂logθ_fd[:, i]; color, alpha, linestyle = :dash)
     end
     fig
     =#
@@ -444,7 +436,7 @@ end
     @test newprob.bg.ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
     @test newprob.bg.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] ≈ 1.0
 
-    ks = 10 .^ range(0, 3, length=10) # faster than with u"Mpc" # TODO: investigate further: Unitful is very slow with autodiff?
+    ks = 10 .^ range(0, 3, length=10)
     sol = solve(newprob, ks)
     @test all(map(SymBoltz.successful_retcode, sol.pts))
 
@@ -653,7 +645,7 @@ end
 
 @testset "Matter power spectrum with different arguments" begin
     modes = [:m, :c, :b, :cb, :cbh, :h]
-    ks = [1e-4, 1e-3, 1e-2, 1e-1] / u"Mpc"
+    ks = [1e-1, 1e0, 1e1, 1e2]
     τs = [1.5, 3.0]
     sol = solve(prob, ks)
     @test size(spectrum_matter(modes, prob, ks, τs)) == (6, 2, 4) # general form
