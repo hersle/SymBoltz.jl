@@ -76,13 +76,10 @@ end
     ks = 1e3
     sol = solve(prob, ks)
     τ0 = sol[M.τ0]
-    @test isapprox(sol(D(M.g.a), τ0), 1.0; atol = 1e-4)
-    @test isapprox(sol(D(M.g.z), τ0), -1.0; atol = 1e-4)
-    @test_throws "not present in the system" sol(D(D(M.g.z)), τ0)
-    sol(D(M.g.Φ), τ0, ks)
-    @test isapprox(sol(D(M.g.Φ), τ0, ks), sol(D(M.g.Ψ), τ0, ks); atol = 2e-5)
-    sol(D(D(M.g.Φ)), τ0, ks)
-    @test_throws "not present in the system" sol(D(D(M.g.Ψ)), τ0, ks)
+
+    # derivatives are not interpolated; add them to the model as equations like dx ~ D(x) instead
+    @test_throws "not present in the system" sol(D(M.g.a), τ0)
+    @test_throws "not present in the system" sol(D(M.g.Φ), τ0, ks)
 end
 
 @testset "Solution interpolation" begin

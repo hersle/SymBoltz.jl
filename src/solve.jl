@@ -637,70 +637,22 @@ Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
 Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1:length(sol.pts), j, k]
 
-"""
-    express_derivatives(expr, prob::CosmologyProblem)
-
-Express derivatives in the symbolic expression `expr` in terms of non-differentiated quantities in the system `sys`.
-"""
-function express_derivatives(expr, prob)
-    # Create a map of as many derivatives-to-expressions that we know
-    bg = prob.bg.f.sys
-    dvarmap_bg = merge(
-        Dict(var => eq.lhs for (var, eq) in map_variables_to_equations(bg) if is_derivative(var)), # observed dummy derivatives
-        Dict(eq.lhs => eq.rhs for eq in equations(bg)) # ODE unknowns
-    )
-    pt = prob.pt.f.sys
-    dvarmap_pt = merge(
-        Dict(var => eq.lhs for (var, eq) in map_variables_to_equations(pt) if is_derivative(var)),
-        Dict(eq.lhs => eq.rhs for eq in equations(pt))
-    )
-    while true
-        expr0 = expr
-        expr = expand_derivatives(expr) # isolate derivatives
-        expr = substitute(expr, dvarmap_bg) # substitute derivatives
-        expr = substitute(expr, dvarmap_pt) # substitute derivatives
-        expr === expr0 && break # stop when expression doesn't change anymore
-    end
-    return expr
-end
-
-"""
-    get_is_deriv(prob::CosmologyProblem, is)
-
-Make any transformation of symbolic indices `is` before querying an `ODESolution` with them and the best derivative order `deriv`.
-"""
-function get_is_deriv(prob::CosmologyProblem, is)
-    arederivs = Symbolics.is_derivative.(unwrap.(is))
-    if all(arederivs) && all(map(i -> Symbolics.contains_var(only(Symbolics.arguments(unwrap(i))), unknowns(prob)), is))
-        is = map(i -> only(Symbolics.arguments(unwrap(i))), is) # peel off derivative operators, ...
-        deriv = Val{1} # ... but request 1st derivative
-    elseif any(arederivs)
-        # expand derivatives in terms of non-differentiated variables
-        is = map(i -> express_derivatives(i, prob), is)
-        deriv = Val{0}
-    else # no derivatives
-        deriv = Val{0} # request 0th derivative; keep indices as-is (usual case)
-    end
-    return is, deriv
-end
-
 # TODO: match variable convention (i.e. δ(τ, k))
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray)
     #tmin, tmax = extrema(sol.bg.t[[begin, end]])
     #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time $(minimum(ts)) is before initial time $tmin")
     #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time $(maximum(ts)) is after final time $tmax")
-    is, deriv = get_is_deriv(sol.prob, is)
-    return sol.bg(ts, deriv; idxs=is)[:, :]
+    return sol.bg(ts; idxs=is)[:, :]
 end
 (sol::CosmologySolution)(i::Num, ts::AbstractArray) = sol([i], ts)[1, :]
 (sol::CosmologySolution)(is::AbstractArray, t::Number) = sol(is, [t])[:, 1]
 (sol::CosmologySolution)(i::Num, t::Number) = sol([i], [t])[1, 1]
 
 # similar to https://github.com/SciML/SciMLBase.jl/blob/c568c0eb554ba78440a83792f058073c286a55d3/src/solutions/ode_solutions.jl#L277
-function getfunc(sol::ODESolution, var; deriv = Val{0}, continuity = :left)
+function getfunc(sol::ODESolution, var; continuity = :left)
     ps = SciMLBase.parameter_values(sol)
     return t -> begin
-        state = SciMLBase.ProblemState(; u = sol.interp(t, nothing, deriv, ps, continuity), p = ps, t)
+        state = SciMLBase.ProblemState(; u = sol.interp(t, nothing, Val{0}, ps, continuity), p = ps, t)
         return getsym(sol, var)(state)
     end
 end
@@ -739,8 +691,6 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     #minimum(ts) >= tmin || throw("Requested time $(minimum(ts)) is below minimum solved time $tmin")
     #maximum(ts) <= tmax || throw("Requested time $(maximum(ts)) is above maximum solved time $tmin")
 
-    is, deriv = get_is_deriv(sol.prob, is)
-
     # Pre-allocate intermediate and output arrays
     v = similar(sol.bg, length(is), length(ts))
     v1 = similar(sol.bg, length(is), length(ts))
@@ -758,11 +708,11 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
             v1 .= v2 # just set to v2 when incrementing i1 by 1
             i1_prev = i2_prev
         elseif i1 != i1_prev || !smart
-            v1 .= sol.pts[i1](ts, deriv; idxs=is) # https://docs.sciml.ai/DiffEqDocs/latest/basics/solution/ # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+            v1 .= sol.pts[i1](ts; idxs=is) # https://docs.sciml.ai/DiffEqDocs/latest/basics/solution/ # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
             i1_prev = i1
         end
         if i2 != i2_prev || !smart
-            v2 .= sol.pts[i2](ts, deriv; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
+            v2 .= sol.pts[i2](ts; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
             i2_prev = i2
         end
         v .= v1
