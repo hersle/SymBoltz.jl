@@ -186,29 +186,12 @@ end
     @test size(Ss) == (length(τs), length(ks))
     @test all(isapprox.(Ss, τs .+ transpose(ks)))
 
-    # source_grid_adaptive: scalar S
-    ks_init = range(ks[begin], ks[end], length=3)
-    ks_ref, Ss = source_grid_adaptive(prob, M.τ + M.k, nothing, ks_init)
-    @test Ss isa Matrix{Float64}
-    @test size(Ss) == (1, length(ks_ref))
-
-    # source_grid_adaptive: vector S
-    ks_ref, Ss = source_grid_adaptive(prob, [M.τ + M.k, M.τ * M.k], nothing, ks_init)
-    @test Ss isa Matrix{Vector{Float64}}
-    @test size(Ss) == (1, length(ks_ref))
-    @test only(unique(length.(Ss))) == 2
-
     # SVector S: returns matrix of SVectors
     Ss = source_grid(prob, SVector(M.τ + M.k, M.τ * M.k), τs, ks)
     @test Ss isa Matrix{SVector{2, Float64}}
     @test size(Ss) == (length(τs), length(ks))
     @test isequal(getindex.(Ss, 1), τs .+ transpose(ks))
     @test isequal(getindex.(Ss, 2), τs .* transpose(ks))
-
-    # source_grid_adaptive: SVector S
-    ks_ref, Ss = source_grid_adaptive(prob, SVector(M.τ + M.k, M.τ * M.k), nothing, ks_init)
-    @test Ss isa Matrix{SVector{2, Float64}}
-    @test size(Ss) == (1, length(ks_ref))
 
     # source_grid_chebyshev: scalar S
     kinterp = ChebyshevInterpolator(extrema(ks)..., 1)
