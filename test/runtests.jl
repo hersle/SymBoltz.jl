@@ -937,7 +937,7 @@ end
     x = rand(4)
     @test_nowarn SymBoltz.error_if_nonfinite(x)
     x[3] = NaN
-    @test_throws "NaN at CartesianIndex(3,)" SymBoltz.error_if_nonfinite(x)
+    @test_throws "NaN at CartesianIndex(3" SymBoltz.error_if_nonfinite(x) # julia<1.13 says CartesianIndex(3,); julia≥1.13 says CartesianIndex(3)
 
     # Matrix input of SVector
     x = rand(SVector{2, Float64}, 4, 5)
