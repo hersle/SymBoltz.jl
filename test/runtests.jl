@@ -67,7 +67,6 @@ end
 @testset "Parameter callbacks" begin
     sol = solve(prob)
     @test sol[M.τ0] == sol.bg.t[end]
-    @test sol[M.τrec] == sol.bg.t[argmax(sol[M.b.v])]
     @test sol[M.b.κ0] == sol[M.b._κ][end]
     @test sol[M.b.κ][end] == 0.0
 end

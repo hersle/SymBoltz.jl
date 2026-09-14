@@ -54,7 +54,6 @@ function ΛCDM(;
     pars = @parameters begin
         C = 1//2, [description = "Initial conditions integration constant"]
         τ0 = NaN, [description = "Conformal time today"]
-        τrec = NaN, [description = "Conformal time of recombination"]
     end
     vars = @variables begin
         χ(τ), [description = "Conformal lookback time from today"]
@@ -65,7 +64,7 @@ function ΛCDM(;
         ST_Doppler(τ, k), [description = "Doppler contribution to ST"]
         ST_polarization(τ, k), [description = "Polarization contribution to ST"]
         SE(τ, k), [description = "E-mode polarization source function"]
-        Sψ(τ, k), [description = "Lensing source function"]
+        Sψ(τ, k), [description = "Lensing source function (without the line-of-sight kernel applied in spectrum_cmb)"]
     end
     guesses = Dict(
         g.a => τ # sensible initial guess because radiation-dominated solution is e.g. a = √(Ωr0)*τ
@@ -102,7 +101,7 @@ function ΛCDM(;
         ST_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
         ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
         SE ~ 3/16 * b.v*γ.Π / (k*χ)^2
-        Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
+        Sψ ~ -(g.Ψ+g.Φ)
     ]
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?

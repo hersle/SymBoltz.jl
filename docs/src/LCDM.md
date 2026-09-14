@@ -244,7 +244,7 @@ eqs = [
     ST_polarization ~ 3/(16k^2) * D(D(v*Πγ)) |> expand_derivatives
     ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
     SE ~ 3/16 * v*Πγ / (k*χ)^2
-    Sψ ~ 0 # ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0) # TODO # hide
+    Sψ ~ -(Ψ + Φ)
 ]
 
 # 5) Equations for initial conditions (modify or add your own)

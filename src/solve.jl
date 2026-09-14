@@ -178,20 +178,12 @@ function CosmologyProblem(
             κ0idx = nothing
             _κidx = nothing
         end
-        τrecidx = Symbol("τrec") in parsymbols ? parameter_index(bg, :τrec) : nothing
-        vfunc = !isnothing(τrecidx) && have(M, :b) && hasproperty(M.b, :v) ? ModelingToolkit.build_explicit_observed_function(bg, M.b.v) : nothing
         function affect!(integrator)
             if !isnothing(τ0idx)
                 integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
             end
             if !isnothing(κ0idx)
                 integrator.ps[κ0idx] = integrator.u[_κidx]
-            end
-            if !isnothing(τrecidx) && !isnothing(vfunc)
-                # set τrec from peak of visibility function # TODO: use more accurate Hermite interpolation?
-                bgsol = integrator.sol
-                vs = [vfunc(bgsol.u[i], integrator.p, bgsol.t[i]) for i in eachindex(bgsol.t)]
-                integrator.ps[τrecidx] = bgsol.t[argmax(vs)]
             end
             terminate!(integrator) # stop integration at the event
         end
