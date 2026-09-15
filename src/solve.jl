@@ -119,11 +119,10 @@ function stageopt(opt, i, n)
 end
 stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
 
-# Default background stages: integrate the conformal lookback time χ and optical depth κ backwards from 0 today after the rest
-# TODO: declare backwards integration with variable metadata instead
+# Default background stages: integrate variables declared with [backwards = true] backwards after the rest
 function default_bg(sys::System)
     vars = diffvars(sys)
-    backvars = filter(var -> Symbol(ModelingToolkit.getname(var)) in (:χ, :κ, :b₊κ), vars)
+    backvars = filter(getbackwards, vars)
     (isempty(backvars) || length(backvars) == length(vars)) && return (vars,), false # only split when both stages have variables
     return (setdiff(vars, backvars), backvars), (false, true)
 end
@@ -143,7 +142,7 @@ Shooting parameters and conditions declared in `M` are included automatically, a
 
 The background is solved in stages given by the Tuple `bg` of variable vectors, each with the previous stages splined in; the last stage has the complete background.
 `bgbackwards` and each option in `bgopts` are a single value for all stages, or a Tuple with one value per stage.
-By default, `χ` and `κ` are integrated backwards from today after the rest of the background.
+By default, variables declared with `[backwards = true]` (like `χ` and `κ`) are integrated backwards from today after the rest of the background.
 
 The first stage is integrated over `ivspan`, and later stages over the span of the previous stage.
 The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `ivspan`.

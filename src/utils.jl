@@ -15,6 +15,11 @@ function shootvars(M::System)
     return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
 end
 
+# Register custom metadata for variables integrated backwards from today
+struct BackwardsMetadata <: Symbolics.AbstractVariableMetadata end
+Symbolics.option_to_metadata_type(::Val{:backwards}) = BackwardsMetadata
+getbackwards(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), BackwardsMetadata, false)
+
 # merge/copy collections that are safe to mutate and are type-stable when one is empty
 function mergesafe(a, b)
     isempty(a) && !isempty(b) && return copy(b)

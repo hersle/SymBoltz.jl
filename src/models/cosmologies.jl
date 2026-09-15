@@ -55,7 +55,7 @@ function ΛCDM(;
         C = 1//2, [description = "Initial conditions integration constant"]
     end
     vars = @variables begin
-        χ(τ) = 0.0, [description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
+        χ(τ) = 0.0, [backwards = true, description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         ST(τ, k), [description = "Temperature source function"]
         ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
@@ -140,7 +140,7 @@ function RMΛ(;
     name = :RMΛ, kwargs...
 )
     vars = @variables begin
-        χ(τ) = 0.0, [description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
+        χ(τ) = 0.0, [backwards = true, description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
     end
     species = filter(have, [r, m, K, Λ])
     eqs = [

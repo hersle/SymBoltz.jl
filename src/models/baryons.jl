@@ -153,7 +153,7 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         fHe = YHe / (mHe/mH*(1-YHe)), [description = "Primordial He/H nucleon ratio n(He)/n(H)"] # fHe = nHe/nH
     end
     vars = @variables begin
-        κ(τ) = 0.0, [description = "Optical depth (0 today, so integrate it backwards)"]
+        κ(τ) = 0.0, [backwards = true, description = "Optical depth (0 today, so integrate it backwards)"]
         κ̇(τ), [description = "Optical depth derivative"]
         I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
