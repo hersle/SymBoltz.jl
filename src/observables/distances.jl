@@ -1,50 +1,16 @@
-# TODO: add formula
-"""
-    distance_luminosity(sol::CosmologySolution, ivs = timeseries(sol))
+@doc raw"""
+    distance_luminosity(χ, a, h, Ωk0 = 0)
 
-Compute luminosity distances
+Compute luminosity distances (in meters)
 ```math
-d_L = \\frac{r}{a} = \\chi \\, \\mathrm{sinc} (\\sqrt{K} (τ₀-τ)),
+d_L = \frac{c}{H_0} \frac{r}{a}, \quad \mathrm{where} \quad r = \chi \, \frac{\sin\left(\sqrt{-Ω_{k0}} \, \chi\right)}{\sqrt{-Ω_{k0}} \, \chi},
 ```
-at the independent variable values `ivs`.
+from conformal lookback times `χ`, scale factors `a`, Hubble parameter `h` and curvature density `Ωk0`.
 """
-function distance_luminosity(sol::CosmologySolution, ivs = timeseries(sol))
-    M = sol.prob.M
-    χ = sol(M.χ, ivs)
-    Ωk0 = have(M, :K) ? sol[M.K.Ω₀] : 0.0
-    r = sinc.(√(-Ωk0+0im)*χ/π) .* χ |> real # Julia's sinc(x) = sin(π*x) / (π*x)
-    H0 = H100 * sol[M.g.h]
-    a = sol(M.g.a, ivs)
+function distance_luminosity(χ, a, h, Ωk0 = 0)
+    H0 = H100 * h
+    r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
     return @. r / a * c / H0 # to meters
-end
-
-# TODO: test @inferred
-function distance_luminosity_function(M::System, pars_fixed, pars_varying, zs; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3))
-    isequal(ModelingToolkit.get_iv(M), M.g.a) || error("Independent variable must be $(M.g.a)")
-
-    pars = merge(pars_fixed, Dict(pars_varying .=> NaN))
-    as = @. 1 / (zs + 1)
-    prob = CosmologyProblem(M, pars; pt = false, ivspan = (minimum(as), 1.0))
-    probgen = parameter_updater(prob, pars_varying; build_initializeprob = Val{false})
-
-    geta = getsym(prob, M.g.a)
-    getτ = getsym(prob, M.τ)
-    geth = getsym(prob, M.g.h)
-    getΩk0 = getsym(prob, M.K.Ω₀)
-
-    return p -> begin
-        prob = probgen(p)
-        sol = solve(prob; bgopts, saveat = as, save_end = true)
-        a = geta(sol)
-        τ = getτ(sol)
-        h = geth(sol)
-        Ωk0 = getΩk0(sol)
-        τ0 = τ[end] # time today
-        χ = τ0 .- τ
-        r = @. real(sinc(√(-Ωk0+0im)*χ/π) * χ) # Julia's sinc(x) = sin(π*x) / (π*x)
-        H0 = H100 * h
-        return @. r / a * c / H0 # luminosity distance in meters
-    end
 end
 
 @doc raw"""

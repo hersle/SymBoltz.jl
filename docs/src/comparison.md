@@ -237,7 +237,7 @@ plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 8e-2)
 ### Luminosity distance
 ```@example class
 dL1 = sol1["background"][:,"lum. dist."]
-dL2 = distance_luminosity(sol2) / SymBoltz.Mpc
+dL2 = distance_luminosity(sol2[M.χ], sol2[M.g.a], sol2[M.g.h]) / SymBoltz.Mpc # w0waCDM is flat, so Ωk0 = 0
 plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 3e6)
 ```
 
