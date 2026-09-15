@@ -57,7 +57,7 @@ function identity(sys::System)
     ics = ModelingToolkit.get_initial_conditions(sys)
     bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
-    pars = ModelingToolkit.get_ps(sys)
+    pars = [ModelingToolkit.get_ps(sys); setdiff(collect(keys(bindings)), ModelingToolkit.parameters(sys))] # re-add bound parameters of this level, which MTK excludes
     guesses = ModelingToolkit.get_guesses(sys)
     return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
@@ -96,7 +96,7 @@ function filter_system(f::Function, sys::System)
     ics = ModelingToolkit.get_initial_conditions(sys)
     bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
-    pars = ModelingToolkit.get_ps(sys)
+    pars = [ModelingToolkit.get_ps(sys); setdiff(collect(keys(bindings)), ModelingToolkit.parameters(sys))] # re-add bound parameters of this level, which MTK excludes
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
