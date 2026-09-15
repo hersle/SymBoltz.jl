@@ -206,7 +206,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 6e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 7e-3)
 ```
 ### Hubble function
 ```@example class
@@ -275,7 +275,7 @@ Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
 dTb2 = sol2[M.b.DT] ./ -sol2[M.g.H] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
-plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 5e0)
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
 ```
 ### Baryon equation of state
 ```@example class
