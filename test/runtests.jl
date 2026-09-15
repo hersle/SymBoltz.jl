@@ -1106,11 +1106,27 @@ end
     @test issuccess(solve(prob4))
 end
 
+@testset "Automatic background stages" begin
+    @independent_variables t
+    D = Differential(t)
+    @variables x(t) y(t) [backwards = true] z(t) w(t)
+
+    # starting backwards gives 2 stages ([y], [x, z, w]), while starting forwards would give 3 ([x, w], [y], [z])
+    sys = System([D(x) ~ -x, D(y) ~ -y, D(z) ~ y - z, D(w) ~ x], t; name = :sys)
+    @test isequal(SymBoltz.split_stages(sys), (([y], [x, z, w]), (true, false)))
+
+    # mutually dependent variables are integrated together
+    sys = System([D(x) ~ z, D(y) ~ -y, D(z) ~ x], t; name = :sys)
+    @test isequal(SymBoltz.split_stages(sys), (([x, z], [y]), (false, true)))
+    sys = System([D(x) ~ y, D(y) ~ x], t; name = :sys)
+    @test_throws "must be integrated in the same direction" SymBoltz.split_stages(sys)
+end
+
 @testset "Solving model with mixed forward-backward direction in background" begin
     @independent_variables b
     D = Differential(b)
     pars = @parameters Ωr0 Ωm0 ΩΛ0 k
-    vars = @variables a(b) ρ(b) ρr(b) ρm(b) ρΛ(b) H(b) ℋ(b) τ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k)
+    vars = @variables a(b) ρ(b) ρr(b) [backwards = true] ρm(b) [backwards = true] ρΛ(b) H(b) ℋ(b) τ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k)
     eqs = [
         # background equations
         a ~ exp(b)
@@ -1146,6 +1162,12 @@ end
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol)
+
+    # the same stages are detected automatically from the dependencies and backwards metadata
+    probauto = CosmologyProblem(M, p; ivspan = (-8.0, 0.0), terminate = nothing)
+    @test SymBoltz.isbackwards.(probauto.bg) == (true, false)
+    @test issetequal(unknowns(probauto.bg[1].f.sys), [ρr, ρm])
+    @test solve(probauto, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
     # τ cannot be integrated backwards on its own, since it depends on the densities
     @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), bgbackwards = (true, false), ivspan = (-8.0, 0.0), terminate = nothing)

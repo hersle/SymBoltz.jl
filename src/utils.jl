@@ -2,7 +2,7 @@ import DataInterpolations: CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
-import Graphs: neighborhood, nv
+import Graphs: neighborhood, nv, SimpleDiGraph, add_edge!, strongly_connected_components, condensation, indegree, outneighbors
 using ModelingToolkit: get_description, get_systems
 
 # Register custom shooting metadata (https://docs.sciml.ai/Symbolics/stable/manual/metadata)
@@ -271,6 +271,71 @@ end
 # differentiated variables of the flattened system sys, i.e. those that must be integrated
 diffvars(sys::System) = unique(basevar(eq.lhs) for eq in ModelingToolkit.get_eqs(sys) if Symbolics.is_derivative(unwrap(eq.lhs)))
 
+# Graph of what each unknown and parameter depends on through its equations, initial conditions and bindings
+function dependency_graph(sys::System)
+    allvars = unique([ModelingToolkit.get_unknowns(sys); ModelingToolkit.get_ps(sys)]) # asgraph assumes no duplicates
+    defs = [ModelingToolkit.get_eqs(sys); [var ~ val for (var, val) in ModelingToolkit.get_initial_conditions(sys)]; [var ~ val for (var, val) in ModelingToolkit.get_bindings(sys)]]
+    graph = ModelingToolkit.varvar_dependencies(ModelingToolkit.asgraph(sys; variables = allvars, eqs = defs), ModelingToolkit.variable_dependencies(sys; variables = allvars, eqs = defs))
+    return graph, allvars
+end
+
+"""
+    split_stages(sys::System)
+
+Split the differential variables of the flattened system `sys` into the fewest stages that can be integrated sequentially, each depending only on the previous ones.
+Mutually dependent variables are integrated together, backwards if they are declared with `[backwards = true]`, and forwards otherwise.
+Return a Tuple of variable vectors and a Tuple of whether each stage is integrated backwards.
+"""
+function split_stages(sys::System)
+    vars = diffvars(sys)
+    isempty(vars) && return (vars,), (false,)
+    graph, allvars = dependency_graph(sys)
+    idxs = Dict(var => i for (i, var) in enumerate(allvars))
+    varidxs = Dict(var => i for (i, var) in enumerate(vars))
+
+    # graph between differential variables, with an edge i → j if variable j depends on variable i (possibly through other variables)
+    vargraph = SimpleDiGraph(length(vars))
+    for (j, var) in enumerate(vars), dep in allvars[neighborhood(graph, idxs[var], nv(graph); dir = :in)]
+        i = get(varidxs, dep, j)
+        i == j || add_edge!(vargraph, i, j)
+    end
+
+    # blocks of mutually dependent variables, which must be integrated together in one direction
+    blocks = strongly_connected_components(vargraph)
+    backwards = map(blocks) do block
+        dirs = unique(getbackwards.(vars[block]))
+        length(dirs) == 1 || error("$(join(vars[block], ", ")) depend on each other, so they must be integrated in the same direction, but only some are declared with [backwards = true]")
+        return only(dirs)
+    end
+    blockgraph = condensation(vargraph, blocks)
+
+    # visit blocks in dependency order, taking all available blocks in the current direction before switching direction
+    function group(backward)
+        indeg = indegree(blockgraph)
+        available = findall(iszero, indeg)
+        groups, groupbackwards = Vector{Int}[], Bool[]
+        while !isempty(available)
+            stage = Int[]
+            while (i = findfirst(b -> backwards[b] == backward, available)) !== nothing
+                b = popat!(available, i)
+                append!(stage, blocks[b])
+                for c in outneighbors(blockgraph, b)
+                    indeg[c] -= 1
+                    indeg[c] == 0 && push!(available, c)
+                end
+            end
+            if !isempty(stage)
+                push!(groups, sort!(stage)) # keep original variable order
+                push!(groupbackwards, backward)
+            end
+            backward = !backward
+        end
+        return groups, groupbackwards
+    end
+    groups, groupbackwards = argmin(length ∘ first, [group(false), group(true)]) # start in the direction that gives the fewest groups, preferring forwards
+    return Tuple(vars[stage] for stage in groups), Tuple(groupbackwards)
+end
+
 """
     split_system(sys::System, vars)
 
@@ -286,11 +351,7 @@ function split_system(sys::System, vars)
     binds = ModelingToolkit.get_bindings(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     guesses = ModelingToolkit.get_guesses(sys)
-
-    # graph of what each unknown and parameter depends on through its equations, initial conditions and bindings
-    allvars = unique([ModelingToolkit.get_unknowns(sys); ModelingToolkit.get_ps(sys)]) # asgraph assumes no duplicates
-    defs = [eqs; [var ~ val for (var, val) in ics]; [var ~ val for (var, val) in binds]]
-    graph = ModelingToolkit.varvar_dependencies(ModelingToolkit.asgraph(sys; variables = allvars, eqs = defs), ModelingToolkit.variable_dependencies(sys; variables = allvars, eqs = defs))
+    graph, allvars = dependency_graph(sys)
 
     # collect everything vars depend on
     vars = Set{Any}(basevar.(vars))

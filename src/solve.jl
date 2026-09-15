@@ -119,14 +119,6 @@ function stageopt(opt, i, n)
 end
 stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
 
-# Default background stages: integrate variables declared with [backwards = true] backwards after the rest
-function default_bg(sys::System)
-    vars = diffvars(sys)
-    backvars = filter(getbackwards, vars)
-    (isempty(backvars) || length(backvars) == length(vars)) && return (vars,), false # only split when both stages have variables
-    return (setdiff(vars, backvars), backvars), (false, true)
-end
-
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
@@ -142,7 +134,8 @@ Shooting parameters and conditions declared in `M` are included automatically, a
 
 The background is solved in stages given by the Tuple `bg` of variable vectors, each with the previous stages splined in; the last stage has the complete background.
 `bgbackwards` and each option in `bgopts` are a single value for all stages, or a Tuple with one value per stage.
-By default, variables declared with `[backwards = true]` (like `χ` and `κ`) are integrated backwards from today after the rest of the background.
+By default, the stages are detected from the dependencies between background variables with `SymBoltz.split_stages`.
+Variables declared with `[backwards = true]` (like `χ` and `κ`) are integrated backwards from today.
 
 The first stage is integrated over `ivspan`, and later stages over the span of the previous stage.
 The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `ivspan`.
@@ -189,7 +182,7 @@ function CosmologyProblem(
     sys = ModelingToolkit.flatten(background(M)) # flatten once, so it can be split and compiled below
 
     if isnothing(bg)
-        bg, bgbackwards0 = default_bg(sys)
+        bg, bgbackwards0 = split_stages(sys)
         bgbackwards = something(bgbackwards, bgbackwards0)
     end
     bgbackwards = something(bgbackwards, false)
@@ -199,7 +192,7 @@ function CosmologyProblem(
     iterminate = findfirst(!, backwards) # first forwards stage
     isnothing(terminate) || !isnothing(iterminate) || error("All background stages are integrated backwards, so none can terminate at the event $terminate; pass terminate = nothing.")
 
-    stages = ODEProblem[]
+    bgprobs = ODEProblem[]
     splitvars = [] # variables of this and all previous stages
     splvars = Symbolics.SymbolicT[] # unknowns of all previous stages, which are splined into the next ones
     for i in 1:nbg
@@ -243,10 +236,10 @@ function CosmologyProblem(
             @set! stage.f = remake(stage.f; sys = newsys)
         end
 
-        push!(stages, stage)
+        push!(bgprobs, stage)
         append!(splvars, unknowns(stage.f.sys))
     end
-    bg = Tuple(stages)
+    bg = Tuple(bgprobs)
 
     if pt
         pt = perturbations(M)
