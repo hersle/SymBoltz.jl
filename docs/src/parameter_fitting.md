@@ -20,7 +20,7 @@ else # choose full dataset with 1048 supernovae
 end
 
 # Read data table
-data = CSV.read(data, DataFrame, delim = " ", silencewarnings = true)
+data = CSV.read(data, DataFrame, delim = " ", on_error = :collect) # silence warning about trailing header delimiter
 
 # Read covariance matrix of apparent magnitudes (mb)
 Csyst = CSV.read(Csyst, DataFrame, header = false) # long vector
