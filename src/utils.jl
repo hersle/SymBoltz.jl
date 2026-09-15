@@ -130,11 +130,8 @@ end
 # Spline the unknowns of one or more ODE solutions on common time steps, storing them all in one SVector.
 # Solutions are concatenated in the given order, and may be integrated in any direction.
 function spline(sols::ODESolution...)
-    # sample all solutions on the union of their time steps (collect, so one solution's own time steps are not mutated below), ...
-    ts = unique!(sort!(mapreduce(sol -> collect(sol.t), vcat, sols)))
-    tmin, tmax = maximum(sol -> minimum(sol.t), sols), minimum(sol -> maximum(sol.t), sols)
-    filter!(t -> tmin ≤ t ≤ tmax, ts) # ... but only where they all overlap, so none of them are extrapolated
-
+    ts = timeseries(sols) # so none of the solutions are extrapolated
+    sols = filter(sol -> !isempty(sol.u[begin]), sols) # solutions without unknowns have nothing to spline
     us = reduce(vcat, (stack(sol(ts, Val{0}).u) for sol in sols))
     dus = reduce(vcat, (stack(sol(ts, Val{1}).u) for sol in sols))
     N, T = size(us, 1), eltype(us)
@@ -198,7 +195,7 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
-function mtkcompile_spline(sys::System, vars; splname = :bgspline, removeics! = remove_background_initial_conditions!)
+function mtkcompile_spline(sys::System, vars; splname = :spline, removeics! = remove_background_initial_conditions!)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
@@ -266,6 +263,9 @@ function remove_initial_conditions!(ics, vars)
     filter!(ic -> isdisjoint(basevars(lhs(ic)), vars), ics)
 end
 
+# differentiated variables of the flattened system sys, i.e. those that must be integrated
+diffvars(sys::System) = unique(basevar(eq.lhs) for eq in ModelingToolkit.get_eqs(sys) if Symbolics.is_derivative(unwrap(eq.lhs)))
+
 """
     split_system(sys::System, vars)
 
@@ -278,12 +278,13 @@ function split_system(sys::System, vars)
     iv = ModelingToolkit.get_iv(sys)
     eqs = ModelingToolkit.get_eqs(sys)
     ics = ModelingToolkit.get_initial_conditions(sys)
+    binds = ModelingToolkit.get_bindings(sys)
     ieqs = ModelingToolkit.get_initialization_eqs(sys)
     guesses = ModelingToolkit.get_guesses(sys)
 
-    # graph of what each unknown and parameter depends on through its equations and initial conditions
+    # graph of what each unknown and parameter depends on through its equations, initial conditions and bindings
     allvars = unique([ModelingToolkit.get_unknowns(sys); ModelingToolkit.get_ps(sys)]) # asgraph assumes no duplicates
-    defs = [eqs; [var ~ val for (var, val) in ics]]
+    defs = [eqs; [var ~ val for (var, val) in ics]; [var ~ val for (var, val) in binds]]
     graph = ModelingToolkit.varvar_dependencies(ModelingToolkit.asgraph(sys; variables = allvars, eqs = defs), ModelingToolkit.variable_dependencies(sys; variables = allvars, eqs = defs))
 
     # collect everything vars depend on
@@ -296,8 +297,7 @@ function split_system(sys::System, vars)
     push!(needed, iv)
 
     # the split is only possible if vars do not depend on other variables that must be integrated
-    diffvars = Set{Any}(basevar(eq.lhs) for eq in eqs if Symbolics.is_derivative(unwrap(eq.lhs)))
-    extra = setdiff(intersect(needed, diffvars), vars)
+    extra = setdiff(intersect(needed, Set{Any}(diffvars(sys))), vars)
     namelist(vs) = join(sort!(string.(collect(vs))), ", ")
     isempty(extra) || error("Cannot split off $(namelist(vars)) from the system $(nameof(sys)), since they depend on $(namelist(extra)), which would have to be split off, too.")
 
@@ -306,9 +306,10 @@ function split_system(sys::System, vars)
     unks = filter(keep, ModelingToolkit.get_unknowns(sys))
     pars = filter(keep, ModelingToolkit.get_ps(sys))
     ics = [var => val for (var, val) in ics if keep(var)]
+    binds = [var => val for (var, val) in binds if keep(var)]
     ieqs = filter(ieq -> all(keep, union(basevars(ieq.lhs), basevars(ieq.rhs))), ieqs)
     guesses = [var => val for (var, val) in guesses if keep(var)]
-    return System(eqs, iv, unks, pars; initial_conditions = ics, initialization_eqs = ieqs, guesses, name = nameof(sys), description = get_description(sys))
+    return System(eqs, iv, unks, pars; initial_conditions = ics, bindings = binds, initialization_eqs = ieqs, guesses, name = nameof(sys), description = get_description(sys))
 end
 
 # https://github.com/JuliaQuantumControl/QuantumControlBase.jl/blob/master/src/conditionalthreads.jl

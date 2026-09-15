@@ -46,10 +46,10 @@ D = Differential(τ) # derivative operator
 
 # 2) Parameters (add your own)
 pars = @parameters begin
-    k, τ0, # wavenumber and conformal time today
+    k, # wavenumber
     h, H0SI, # Hubble parameter in SI units (most equations have units where H0=1 and do not need these)
     Ωc0, # cold dark matter
-    Ωb0, YHe, fHe, κ0, # baryons and recombination
+    Ωb0, YHe, fHe, # baryons and recombination
     Tγ0, Ωγ0, # photons
     Ων0, Tν0, Neff, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
@@ -65,7 +65,7 @@ vars = @variables begin
     a(τ), z(τ), ℋ(τ), H(τ), Ψ(τ,k), Φ(τ,k), χ(τ), # metric
     ρ(τ), P(τ), δρ(τ,k), Π(τ,k), # gravity
     ρb(τ), Tb(τ), δb(τ,k), Δb(τ,k), θb(τ,k), # baryons
-    κ(τ), _κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), HSI(τ), # recombination
+    κ(τ), v(τ), csb2(τ), β(τ), ΔT(τ), DTb(τ), μc²(τ), Xe(τ), nH(τ), nHe(τ), ne(τ), Xe(τ), ne(τ), λe(τ), HSI(τ), # recombination
     XH⁺(τ), nH(τ), αH(τ), βH(τ), KH(τ), KHfitfactor(τ), CH(τ), # Hydrogen recombination
     nHe(τ), XHe⁺(τ), XHe⁺⁺(τ), αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ), γ2ps(τ), αHet(τ), βHet(τ), τHet(τ), pHet(τ), CHet(τ), CHetnum(τ), γ2pt(τ), # Helium recombination
     Xre1(τ), Xre2(τ), # reionization
@@ -86,7 +86,7 @@ eqs = [
     z ~ 1/a - 1
     ℋ ~ D(a) / a
     H ~ ℋ / a
-    χ ~ τ0 - τ
+    D(χ) ~ -1
 
     # gravity equations
     D(a) ~ √(8π/3 * ρ) * a^2 # 1st Friedmann equation
@@ -101,8 +101,7 @@ eqs = [
     β ~ 1 / (kB*Tb)
     λe ~ 2π*ħ / √(2π*me/β)
     HSI ~ H0SI * H
-    D(_κ) ~ -a/H0SI * ne * σT * c
-    κ ~ _κ - κ0
+    D(κ) ~ -a/H0SI * ne * σT * c
     v ~ expand_derivatives(D(exp(-κ)))
     csb2 ~ kB/μc² * (Tb - D(Tb)/3ℋ)
     μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
@@ -297,12 +296,11 @@ guesses = [
 # 7) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
     H0SI => H100*h
-    τ0 => NaN
     C => 1/2
     XHe⁺ => 1.0
     XH⁺ => 1.0
-    _κ => 0.0
-    κ0 => NaN
+    κ => 0.0
+    χ => 0.0
     ΔT => 0.0
     zre1 => 7.6711
     Δzre1 => 0.5

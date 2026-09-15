@@ -121,10 +121,10 @@ nothing # hide
 
 ## Solve stages directly
 
-For lower-level control, you can solve the background (`bg`), thermodynamics (`th`) and perturbations (`pt`) stages separately:
+For lower-level control, you can solve the background (`bg`) and perturbations (`pt`) stages separately:
 ```@docs
 solvebg
-solveth
+SymBoltz.setupbg
 solvept
 ```
 

@@ -151,11 +151,9 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
     pars = @parameters begin
         YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
         fHe = YHe / (mHe/mH*(1-YHe)), [description = "Primordial He/H nucleon ratio n(He)/n(H)"] # fHe = nHe/nH
-        κ0 = NaN, [description = "Optical depth today (set retrospectively)"] # to make the real κ = 0 today
     end
     vars = @variables begin
-        κ(τ), [description = "Optical depth normalized to 0 today"]
-        _κ(τ) = 0.0, [description = "Optical depth normalized to 0 initially"]
+        κ(τ) = 0.0, [description = "Optical depth (0 today, so integrate it backwards)"]
         κ̇(τ), [description = "Optical depth derivative"]
         I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
@@ -175,9 +173,8 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
 
     comps = []
     eqs = [
-        D(_κ) ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
-        κ̇ ~ D(_κ) # optical depth derivative
-        κ ~ _κ - κ0 # optical depth offset such that κ = 0 today (non-NaN only after integration)
+        κ̇ ~ -g.a/(H100*g.h) * ne * σT * c # optical depth derivative
+        D(κ) ~ κ̇
         I ~ exp(-κ)
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)

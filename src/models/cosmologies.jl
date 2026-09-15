@@ -53,10 +53,9 @@ function ΛCDM(;
     @named r = effective_species(g, radiation_species; effective_name = "Early-time radiation")
     pars = @parameters begin
         C = 1//2, [description = "Initial conditions integration constant"]
-        τ0 = NaN, [description = "Conformal time today"]
     end
     vars = @variables begin
-        χ(τ), [description = "Conformal lookback time from today"]
+        χ(τ) = 0.0, [description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         ST(τ, k), [description = "Temperature source function"]
         ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
@@ -86,7 +85,7 @@ function ΛCDM(;
         G.P ~ sum(s.P for s in species)
         b.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
-        χ ~ τ0 - τ
+        D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
@@ -141,16 +140,13 @@ function RMΛ(;
     name = :RMΛ, kwargs...
 )
     vars = @variables begin
-        χ(τ), [description = "Conformal lookback time from today"]
-    end
-    pars = @parameters begin
-        τ0 = NaN, [description = "Conformal time today"]
+        χ(τ) = 0.0, [description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
     end
     species = filter(have, [r, m, K, Λ])
     eqs = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
-        χ ~ τ0 - τ
+        D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
@@ -163,7 +159,7 @@ function RMΛ(;
         g.a => √(r.Ω₀) * τ # default initial scale factor
     ]
     bindings = Ω₀_eqs(G, species) # parameter equations
-    connections = System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, initial_conditions = ics, bindings, name)
+    connections = System(eqs, τ, vars, [k]; initialization_eqs = ieqs, initial_conditions = ics, bindings, name)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)

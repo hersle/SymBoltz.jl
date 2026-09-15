@@ -31,7 +31,7 @@ equations(M.G)
 ## 2. Solve the problem
 
 Next, we create a *numerical* representation of the cosmological problem we want to solve.
-This splits the full symbolic model into computational stages (like the background, thermodynamics and perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
+This splits the full symbolic model into computational stages (one or more background stages and the perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
 ```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = Dict(

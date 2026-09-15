@@ -67,11 +67,11 @@ end
 
 linsolve = RFLUFactorization()
 refalg = Rodas5P(; linsolve)
-thsol = solve(prob.th, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+bgsol = solve(prob.bg[1], refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
 tols = 1 ./ 10 .^ (7:11)
-thalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
-wp = workprec(prob.th, thalgs, tols, thsol)
+bgalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
+wp = workprec(prob.bg[1], bgalgs, tols, bgsol)
 plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
 ```
 
@@ -108,7 +108,7 @@ The points on each curve correspond to a sequence of tolerances.
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
 linsolve = PureKLUFactorization()
 ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
-ptprobgen = SymBoltz.setuppt(prob.pt, thsol)
+ptprobgen = SymBoltz.setuppt(prob.pt, solvebg(prob))
 refalg = Rodas5P(; linsolve)
 tols = 1 ./ 10 .^ (5:9)
 
@@ -184,17 +184,17 @@ ks = 10 .^ range(-2, 4, length = 50)
 prob_jac = prob # CosmologyProblem(M, pars; jac = true, sparse = true)
 prob_nojac = CosmologyProblem(M, pars; jac = false, sparse = true)
 
-thopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
 ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(),), save_everystep = false) # generate function for J symbolically
-bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; thopts = $thopts, ptopts = $ptopts) samples=5 seconds=30
+bench["symbolic"] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
-thopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),)
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),)
 ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()), save_everystep = false) # compute J with forward-mode AD
-bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; thopts = $thopts, ptopts = $ptopts) samples=5 seconds=30
+bench["forward diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
-thopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),) # fails with finite diff background J
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),) # fails with finite diff background J
 ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoFiniteDiff()), save_everystep = false) # compute J with finite differences
-bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; thopts = $thopts, ptopts = $ptopts) samples=5 seconds=30
+bench["finite diff"] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
 
 results = run(bench; verbose = true)
 plot(results; size = (800, 400))
@@ -278,7 +278,7 @@ Except for models with a very small perturbation system, it is a good idea to ge
 ```@setup
 # TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
 # TODO: KenCarp47(linsolve, precs = incompletelu) # hide
-#ptsol = @btime solvept(prob.pt, thsol, ks; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
+#ptsol = @btime solvept(prob.pt, solvebg(prob), ks; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
 # TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
 # TODO: why is it solvept() slower than solvept(; output_func = (sol, i) -> (sol, false) ???
 nothing # hide

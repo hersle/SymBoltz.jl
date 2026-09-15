@@ -59,7 +59,7 @@ plot!(
 As a function of conformal time and redshift:
 
 ```@example matter
-τs = range(sol.th.t[end], 0.5, length=10)
+τs = range(sol[M.τ][end], 0.5, length=10)
 Ps = spectrum_matter(sol, ks, τs)
 zs = sol(M.g.z, τs) # corresponding redshifts
 plot(
@@ -108,7 +108,7 @@ prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 rs, ξs = correlation_function(sol)
-rs = rs / (SymBoltz.k0*sol.th.ps[:h]) * u"Mpc" # TODO: auto units
+rs = rs / (SymBoltz.k0*sol.bg[end].ps[:h]) * u"Mpc" # TODO: auto units
 plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
 ```
 

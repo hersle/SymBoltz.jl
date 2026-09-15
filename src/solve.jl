@@ -17,11 +17,10 @@ import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
-struct CosmologyProblem{Tbg <: Union{ODEProblem, Nothing}, Tth <: ODEProblem, Tpt <: Union{ODEProblem, Nothing}}
+struct CosmologyProblem{Tbg <: Tuple{Vararg{ODEProblem}}, Tpt <: Union{ODEProblem, Nothing}}
     M::System
 
-    bg::Tbg # background variables forming a closed system, split off and solved first in either direction (or nothing)
-    th::Tth # complete background and thermodynamics, solved in either direction with bg splined in
+    bg::Tbg # background stages solved in order, each with the unknowns of the previous stages splined in (the last has all background variables)
     pt::Tpt
 
     pars::Vector{Symbolics.SymbolicT}
@@ -29,39 +28,34 @@ struct CosmologyProblem{Tbg <: Union{ODEProblem, Nothing}, Tth <: ODEProblem, Tp
     conditions::Vector{Equation}
 end
 
-struct CosmologySolution{Tbg <: Union{ODESolution, Nothing}, Tth <: ODESolution, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
+struct CosmologySolution{Tbg <: Tuple{Vararg{ODESolution}}, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
     prob::CosmologyProblem # problem which is solved
-    bg::Tbg # split-off background solution (or nothing)
-    th::Tth # background and thermodynamics solution
+    bg::Tbg # background stage solutions
     ks::Tks # perturbation wavenumbers
     pts::Tpts # perturbation solutions
 end
 
 algname(alg) = string(nameof(typeof(alg)))
 
+isbackwards(prob::ODEProblem) = prob.tspan[end] < prob.tspan[begin] # TODO: assumes iv is e.g. τ or log(a), but not e.g. z
+isbackwards(sol::ODESolution) = sol.t[end] < sol.t[begin]
+nsplines(prob::ODEProblem) = SymbolicIndexingInterface.is_parameter(prob, :spline) ? length(first(prob.ps[:spline].u)) : 0 # n variables splined in a problem
+
 function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
     print(io, "Cosmology problem for model ")
     printstyled(io, nameof(prob.M), '\n'; bold = true)
 
     printstyled(io, "Stages:"; bold = true)
-    if !isnothing(prob.bg)
-        backwards = prob.bg.tspan[end] < prob.bg.tspan[begin]
-        print(io, '\n', indent, "Background (", backwards ? "backwards" : "forwards", ")")
-        print(io, ": ", length(unknowns(prob.bg.f.sys)), " unknowns")
-        print(io, ", ", 0, " splines")
-        print(io, ", ", issparse(prob.bg) ? "$(round(sparsity_fraction(prob.bg)*100; digits=1)) % sparse" : "dense", " Jacobian")
-    end
-    if !isnothing(prob.th)
-        backwards = prob.th.tspan[end] < prob.th.tspan[begin]
-        print(io, '\n', indent, "Background/thermodynamics (", backwards ? "backwards" : "forwards", ")")
-        print(io, ": ", length(unknowns(prob.th.f.sys)), " unknowns")
-        print(io, ", ", isnothing(prob.bg) ? 0 : length(unknowns(prob.bg.f.sys)), " splines")
-        print(io, ", ", issparse(prob.th) ? "$(round(sparsity_fraction(prob.th)*100; digits=1)) % sparse" : "dense", " Jacobian")
+    for (i, stage) in enumerate(prob.bg)
+        print(io, '\n', indent, "Background $i (", isbackwards(stage) ? "backwards" : "forwards", ")")
+        print(io, ": ", length(unknowns(stage.f.sys)), " unknowns")
+        print(io, ", ", nsplines(stage), " splines")
+        print(io, ", ", issparse(stage) ? "$(round(sparsity_fraction(stage)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
         print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
-        print(io, ", ", isempty(prob.pt.p.nonnumeric) ? 0 : sum(stage -> isnothing(stage) ? 0 : length(unknowns(stage.f.sys)), (prob.bg, prob.th)), " splines")
+        print(io, ", ", nsplines(prob.pt), " splines")
         print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
@@ -88,19 +82,11 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
 
     retcode_color(retcode) = successful_retcode(retcode) ? :green : :red
     printstyled(io, "Stages:"; bold = true)
-    if !isnothing(sol.bg)
-        retcode = sol.bg.retcode
-        backwards = sol.bg.t[end] < sol.bg.t[begin]
-        print(io, '\n', indent, "Background (", backwards ? "backwards" : "forwards", "): return code ")
+    for (i, bgsol) in enumerate(sol.bg)
+        retcode = bgsol.retcode
+        print(io, '\n', indent, "Background $i (", isbackwards(bgsol) ? "backwards" : "forwards", "): return code ")
         printstyled(io, retcode; color = retcode_color(retcode))
-        print(io, "; solved with $(algname(sol.bg.alg)); $(length(sol.bg.u)) points")
-    end
-    if !isnothing(sol.th)
-        retcode = sol.th.retcode
-        backwards = sol.th.t[end] < sol.th.t[begin]
-        print(io, '\n', indent, "Background/thermodynamics (", backwards ? "backwards" : "forwards", "): return code ")
-        printstyled(io, retcode; color = retcode_color(retcode))
-        print(io, "; solved with $(algname(sol.th.alg)); $(length(sol.th.u)) points")
+        print(io, "; solved with $(algname(bgsol.alg)); $(length(bgsol.u)) points")
     end
     if !isnothing(sol.pts)
         kmin, kmax = extrema(sol.ks)
@@ -125,12 +111,29 @@ function split_vars_pars(M::System, x::Dict)
     return vars, pars
 end
 
+# Select the value of an option for background stage i of n, which is either shared by all stages or given per stage in a Tuple
+function stageopt(opt, i, n)
+    opt isa Tuple && !isempty(opt) || return opt
+    length(opt) == n || error("Got $(length(opt)) values $opt for $n background stages")
+    return opt[i]
+end
+stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
+
+# Default background stages: integrate the conformal lookback time χ and optical depth κ backwards from 0 today after the rest
+# TODO: declare backwards integration with variable metadata instead
+function default_bg(sys::System)
+    vars = diffvars(sys)
+    backvars = filter(var -> Symbol(ModelingToolkit.getname(var)) in (:χ, :κ, :b₊κ), vars)
+    (isempty(backvars) || length(backvars) == length(vars)) && return (vars,), false # only split when both stages have variables
+    return (setdiff(vars, backvars), backvars), (false, true)
+end
+
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
-        bg = false, bgbackwards = false, thbackwards = false, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-        bgopts = (), thopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+        bg = nothing, bgbackwards = nothing, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
+        bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
         kwargs...
     )
 
@@ -138,32 +141,22 @@ Create a numerical cosmological problem from the model `M` with parameters `pars
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
 Shooting parameters and conditions declared in `M` are included automatically, and guesses in `shoot_pars` override those in `M`.
 
-The problem has up to three stages that are solved in order:
-1. `bg`: an optional closed part of the background that is split off and solved separately,
-2. `th`: the complete background and thermodynamics, with `bg` splined in (if any),
-3. `pt`: the perturbations (if any), with `bg` and `th` splined in.
+The background is solved in stages given by the Tuple `bg` of variable vectors, each with the previous stages splined in; the last stage has the complete background.
+`bgbackwards` and each option in `bgopts` are a single value for all stages, or a Tuple with one value per stage.
+By default, `χ` and `κ` are integrated backwards from today after the rest of the background.
 
-The background is integrated over `ivspan` of the independent variable, until `th` hits the event given by the symbolic equation `terminate`.
-Pass `terminate = nothing` to always integrate to the final value of the independent variable.
-Default termination happens today when the scale factor ``a = 1``, but any equation can be specified.
-If `thbackwards`, `th` is integrated backwards over the reversed `ivspan`, and `terminate` must be `nothing`.
-
-If `bg` is a vector of symbolic variables, they are split off into the separate problem `bg`.
-It is solved first and splined into `th`, which integrates the remaining background and thermodynamics.
-This requires that the split-off variables can be solved for on their own, i.e. that they do not depend on other background unknowns.
-If none of them remain unknowns after compilation (e.g. because they are algebraic), no `bg` problem is created.
-If `bgbackwards`, `bg` is integrated backwards over the reversed `ivspan`, as suits variables whose values are known today instead of initially.
-If `bg = false`, no separate background problem is created.
+The first stage is integrated over `ivspan`, and later stages over the span of the previous stage.
+The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `ivspan`.
 
 If `pt = false`, or if `M` has no wavenumber parameter `k`, the perturbations are not created.
-The options `bgopts`, `thopts` and `ptopts` are passed to the `ODEProblem` constructor of the respective stage, and `kwargs` are passed to all of them.
+The options `bgopts` and `ptopts` are passed to the `ODEProblem` constructors of the background stages and perturbations, and `kwargs` are passed to all of them.
 
 If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 
 If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
 If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
-The smaller background stages always use dense matrices, unless they are requested sparse with e.g. `thopts = (sparse = true,)`.
+The smaller background stages always use dense matrices, unless they are requested sparse with e.g. `bgopts = (sparse = true,)`.
 
 If `fully_determined`, the initialization system of every stage must have as many equations as unknowns.
 If `debug`, the system of every stage is wrapped with `ModelingToolkit.debug_system` to help locate errors in the equations.
@@ -173,8 +166,8 @@ The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interface
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
-    bg = false, bgbackwards = false, thbackwards = false, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-    bgopts = (), thopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+    bg = nothing, bgbackwards = nothing, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
+    bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
     kwargs...
 )
     p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
@@ -194,96 +187,75 @@ function CosmologyProblem(
         parsk[k] = NaN
     end
 
-    thivspan = thbackwards ? reverse(ivspan) : ivspan
-    isnothing(terminate) || thivspan[end] > thivspan[begin] || error("th is integrated backwards, so it cannot terminate at the event $terminate; pass terminate = nothing.")
-
     sys = ModelingToolkit.flatten(background(M)) # flatten once, so it can be split and compiled below
 
-    # Split off the background variables that form a closed system into their own problem.
-    # It is solved first, and splined into the background and thermodynamics problem with the remaining variables.
-    if bg === false
-        bg = nothing
-    else
-        bgsys = split_system(sys, bg)
-        bgsys = mtkcompile(bgsys)
-        if debug
-            bgsys = debug_system(bgsys)
-        end
-        bgvars = unknowns(bgsys) # can be empty if all of `bg` turn out to be algebraic
-
-        shootbg = intersect(Set(unwrap.(keys(shoot_pars))), Set(unwrap.(parameters(bgsys))))
-        isempty(shootbg) || error("Shooting parameters $(join(shootbg, ", ")) are part of the split-off background problem, which is solved before (and independently of) the shooting method.")
-
-        bgivspan = bgbackwards ? reverse(ivspan) : ivspan
-        bg = isempty(bgvars) ? nothing : ODEProblem{iip, specialize}(bgsys, restrict(parsk, bgsys), bgivspan; fully_determined, jac, bgopts..., kwargs...)
-    end
-
     if isnothing(bg)
-        th = mtkcompile(sys)
-        thparsk = parsk
-    else
-        bgvarset = Set(basevar.(bgvars))
-        th, bgsplpar = mtkcompile_spline(sys, bgvars; splname = :bgspline, removeics! = ics -> remove_initial_conditions!(ics, bgvarset))
-        thparsk = merge(parsk, Dict(bgsplpar => dummyspline(length(bgvars)))) # set dummy spline parameter (only known to th, so keep parsk clean for the perturbations)
-        remove_initial_conditions!(thparsk, bgvarset) # splined variables are initialized by the bg problem instead
+        bg, bgbackwards0 = default_bg(sys)
+        bgbackwards = something(bgbackwards, bgbackwards0)
     end
-    if debug
-        th = debug_system(th)
-    end
+    bgbackwards = something(bgbackwards, false)
+    bg isa Tuple && !isempty(bg) || error("bg must be a non-empty Tuple of background stages, but got $bg")
+    nbg = length(bg)
+    backwards = [stageopt(bgbackwards, i, nbg) for i in 1:nbg]
+    iterminate = findfirst(!, backwards) # first forwards stage
+    isnothing(terminate) || !isnothing(iterminate) || error("All background stages are integrated backwards, so none can terminate at the event $terminate; pass terminate = nothing.")
 
-    # Set up callback for the event given by the symbolic `terminate` event (default is today: a ~ 1)
-    iv = ModelingToolkit.get_iv(M)
-    parsymbols = Symbol.(parameters(th))
-    τ0idx = Symbol(iv) == :τ && Symbol("τ0") in parsymbols ? parameter_index(th, :τ0) : nothing
-    # TODO: specify callbacks symbolically
-    if have(M, :b)
-        _κidx = variable_index(th, M.b._κ)
-        κ0idx = parameter_index(th, M.b.κ0)
-    elseif hasproperty(M, :κ)
-        _κidx = variable_index(th, M._κ)
-        κ0idx = parameter_index(th, :κ0)
-    else
-        κ0idx = nothing
-        _κidx = nothing
-    end
-    function affect!(integrator)
-        if !isnothing(τ0idx)
-            integrator.ps[τ0idx] = integrator.t # set time today to time when a == 1 # TODO: what if τ is not iv
+    stages = ODEProblem[]
+    splitvars = [] # variables of this and all previous stages
+    splvars = Symbolics.SymbolicT[] # unknowns of all previous stages, which are splined into the next ones
+    for i in 1:nbg
+        append!(splitvars, bg[i])
+        stagesys = i == nbg ? sys : split_system(sys, splitvars) # the last stage has the complete background
+        if isempty(splvars)
+            stagesys = mtkcompile(stagesys)
+            stageparsk = parsk
+        else
+            splvarset = Set(basevar.(splvars))
+            stagesys, splpar = mtkcompile_spline(stagesys, splvars; removeics! =ics -> remove_initial_conditions!(ics, splvarset))
+            stageparsk = merge(parsk, Dict(splpar => dummyspline(length(splvars)))) # set dummy spline parameter (only known to this stage, so keep parsk clean for the perturbations)
+            remove_initial_conditions!(stageparsk, splvarset) # splined variables are initialized by the previous stages instead
         end
-        if !isnothing(κ0idx)
-            integrator.ps[κ0idx] = integrator.u[_κidx]
+        if debug
+            stagesys = debug_system(stagesys)
         end
-        terminate!(integrator) # stop integration at the event
-    end
-    callback = if isnothing(terminate)
-        nothing # no event; integrate the whole ivspan
-    else
-        eventfunc = ModelingToolkit.build_explicit_observed_function(th, terminate.lhs - terminate.rhs) # works whether the event's variables are independent, unknown or observed
-        ContinuousCallback(
-            (u, t, integrator) -> eventfunc(u, integrator.p, t), affect!;
-            save_positions = (true, false), # don't duplicate final point
-            rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
-        )
-    end
 
-    ts = ModelingToolkit.get_tearing_state(th)
-    if !isnothing(bg)
-        @set! th.tearing_state = nothing # splining reorders variables and gives an incorrect Jacobian; see comment in the perturbations stage below
+        # Stop the first forwards stage at the event given by the symbolic `terminate` event (default is today: a ~ 1)
+        callback = if isnothing(terminate) || i != iterminate
+            nothing # no event; integrate the whole span
+        else
+            eventfunc = ModelingToolkit.build_explicit_observed_function(stagesys, terminate.lhs - terminate.rhs) # works whether the event's variables are independent, unknown or observed
+            ContinuousCallback(
+                (u, t, integrator) -> eventfunc(u, integrator.p, t), terminate!;
+                save_positions = (true, false), # don't duplicate final point
+                rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
+            )
+        end
+
+        ts = ModelingToolkit.get_tearing_state(stagesys)
+        if !isempty(splvars)
+            @set! stagesys.tearing_state = nothing # splining reorders variables and gives an incorrect Jacobian; see comment in the perturbations stage below
+        end
+        stageivspan = backwards[i] ? reverse(ivspan) : ivspan # later stages get their span from the previous stages when solved
+        stageparsk = i == nbg ? stageparsk : restrict(stageparsk, stagesys) # the split-off stage only knows about some variables
+        stage = ODEProblem{iip, specialize}(stagesys, stageparsk, stageivspan; fully_determined, callback, jac, p_constructor, stageopts(bgopts, i, nbg)..., kwargs...) # never sparse because small
+        if !isempty(splvars)
+            newsys = stage.f.sys
+            @set! newsys.tearing_state = ts
+            @set! stage.f = remake(stage.f; sys = newsys)
+        end
+
+        push!(stages, stage)
+        append!(splvars, unknowns(stage.f.sys))
     end
-    th = ODEProblem{iip, specialize}(th, thparsk, thivspan; fully_determined, callback, jac, p_constructor, thopts..., kwargs...) # never sparse because small # TODO: hangs with jac = true, sparse = true; try without tearing state as in pt?
-    if !isnothing(bg)
-        newsys = th.f.sys
-        @set! newsys.tearing_state = ts
-        @set! th.f = remake(th.f; sys = newsys)
-    end
+    bg = Tuple(stages)
 
     if pt
         pt = perturbations(M)
         if spline == true
-            spline = reduce(vcat, (unknowns(stage.f.sys) for stage in (bg, th) if !isnothing(stage)); init = Symbolics.SymbolicT[]) # all splined variables from bg/th
+            spline = splvars # all background unknowns
         end
         if spline isa AbstractVector && !isempty(spline)
-            pt, splpar = mtkcompile_spline(pt, spline; splname = :bgthspline)
+            pt, splpar = mtkcompile_spline(pt, spline)
             parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
             remove_background_initial_conditions!(parsk) # remove ICs of all background to avoid overdetermined initialization system
         else
@@ -307,7 +279,7 @@ function CosmologyProblem(
 
     pars = [unwrap(par) for (par, val) in pars]
     shoot_conditions = convert(Vector{Equation}, shoot_conditions)
-    return CosmologyProblem(M, bg, th, pt, pars, shoot_pars, shoot_conditions)
+    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions)
 end
 
 """
@@ -320,63 +292,53 @@ function remake(prob::CosmologyProblem, pars::Dict; kwargs...)
     vars, pars = split_vars_pars(prob.M, pars)
     vars = isempty(vars) ? missing : vars
     pars = isempty(pars) ? missing : pars
-    bgprob = isnothing(prob.bg) ? nothing : remake(prob.bg; u0 = restrict(vars, prob.bg), p = restrict(pars, prob.bg), build_initializeprob = Val{!isnothing(prob.bg.f.initialization_data)}, kwargs...)
-    thprob = isnothing(prob.th) ? nothing : remake(prob.th; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.th.f.initialization_data)}, kwargs...)
+    bgprobs = map(stage -> remake(stage; u0 = restrict(vars, stage), p = restrict(pars, stage), build_initializeprob = Val{!isnothing(stage.f.initialization_data)}, kwargs...), prob.bg)
     if !ismissing(vars)
         remove_background_initial_conditions!(vars) # must filter ICs in remake, too
     end
     ptprob = isnothing(prob.pt) ? nothing : remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...)
-    return CosmologyProblem(prob.M, bgprob, thprob, ptprob, prob.pars, prob.shoot, prob.conditions)
+    return CosmologyProblem(prob.M, bgprobs, ptprob, prob.pars, prob.shoot, prob.conditions)
 end
 
 # restrict a variable/parameter map (or list) to those that are part of the problem, which can be a reduced subsystem
 problem_symbols(sys::System) = Set(unwrap.([unknowns(sys); parameters(sys)]))
 problem_symbols(prob::ODEProblem) = problem_symbols(prob.f.sys)
 restrict(x::Missing, _) = x
-restrict(x::Dict, target) = (syms = problem_symbols(target); filter(kv -> unwrap(first(kv)) in syms, x))
+restrict(x::Dict, target) = (syms = problem_symbols(target); filter(kv -> basevars(first(kv)) ⊆ syms, x)) # basevars also keeps e.g. derivative initial conditions
+
+# Create a function that returns the background stages bg with the parameters pars set to new values in all stages that have them
+function bgsetter(bg::Tuple, pars; kwargs...)
+    stageis = map(stage -> [i for (i, par) in enumerate(pars) if unwrap(par) in problem_symbols(stage)], bg) # each stage only knows about the parameters it needs
+    setters = map((stage, is) -> isempty(is) ? nothing : setsym_oop(stage, pars[is]), bg, stageis)
+    return vals -> map(bg, stageis, setters) do stage, is, setter
+        isempty(is) && return stage
+        u0, p = setter(stage, vals[is])
+        return remake(stage; u0, p, kwargs...) # create updated problem (don't overwrite old)
+    end
+end
 
 """
     parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
 
-Create and return a function that updates the symbolic parameters `idxs` of the cosmological problem `prob`.
+Create and return a function that updates the vector of symbolic parameters `idxs` of the cosmological problem `prob`.
 The returned function is called with numerical values (in the same order as `idxs`) and returns a new problem with the updated parameters.
 """
 function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
     # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
     # TODO: remove M, etc. for efficiency?
 
-    @unpack bg, th, pt = prob
+    @unpack bg, pt = prob
+    idxs = collect(idxs)
 
-    if !isnothing(th)
-        thsetsym = SymbolicIndexingInterface.setsym_oop(th, idxs) # TODO: define setsym(::CosmologyProblem)?
-    end
-
-    bgis = isnothing(bg) ? Int[] : [i for (i, idx) in enumerate(idxs) if unwrap(idx) in problem_symbols(bg)] # the split-off problem only knows about the parameters it needs
-    if !isempty(bgis)
-        bgsetsym = setsym_oop(bg, collect(idxs)[bgis])
-    end
+    bgsetsym = bgsetter(bg, idxs; kwargs...)
 
     if !isnothing(pt)
         ptsetsym = setsym_oop(pt, idxs)
-        ptdiffcache = DiffCache(copy(canonicalize(Tunable(), parameter_values(pt))[1]))
     end
 
     function updater(p)
-        # Update split-off background problem
-        if isempty(bgis)
-            bg_new = bg
-        else
-            newu0, newp = bgsetsym(bg, p[bgis])
-            bg_new = remake(bg; u0 = newu0, p = newp, kwargs...)
-        end
-
-        # Update background and thermodynamics problem
-        if isnothing(th)
-            th_new = th
-        else
-            newu0, newp = thsetsym(th, p) # set new parameters
-            th_new = remake(th; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
-        end
+        # Update background stages
+        bg_new = bgsetsym(p)
 
         # Update perturbation problem
         if isnothing(pt)
@@ -386,7 +348,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(prob.M, bg_new, th_new, pt_new, prob.pars, prob.shoot, prob.conditions)
+        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions)
     end
     function updater(p::Dict)
         p = [p[var] for var in idxs]
@@ -412,10 +374,7 @@ function bgalg(prob::ODEProblem; stiff = true)
         return Tsit5(; linsolve)
     end
 end
-bgalg(prob::Nothing; kwargs...) = nothing
-bgalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.bg; kwargs...)
-thalg(prob::ODEProblem; kwargs...) = bgalg(prob; kwargs...)
-thalg(prob::CosmologyProblem; kwargs...) = bgalg(prob.th; kwargs...)
+bgalg(prob::CosmologyProblem; kwargs...) = map(stage -> bgalg(stage; kwargs...), prob.bg) # one per stage
 
 function ptalg(prob::ODEProblem; accuracy = 2)
     if issparse(prob)
@@ -458,38 +417,36 @@ end
     solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
         bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-        thopts = (alg = thalg(prob), reltol = 1e-7, abstol = 1e-7), thextraopts = (),
         ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptivini = -Inf, ptextraopts = (),
         shootopts = (alg = shootalg(prob), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` in units of ``H₀/c`` (or only to the background level if it is empty).
-The options `bgopts`, `thopts` and `ptopts` are passed to the `bg`, `th` and perturbations ODE `solve()` calls,
+The options `bgopts` and `ptopts` are passed to the background stages and perturbations ODE `solve()` calls,
 and `shootopts` to the shooting method nonlinear `solve()`.
+Each option in `bgopts` can be a single value for all background stages, or a Tuple with one value per stage.
 If `threads`, integration over independent perturbation modes are parallellized.
 
-See also [`solvebg`](@ref), [`solveth`](@ref) and [`solvept`](@ref).
+See also [`solvebg`](@ref) and [`solvept`](@ref).
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
     bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-    thopts = (alg = thalg(prob), reltol = 1e-7, abstol = 1e-7), thextraopts = (),
     ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptivini = -Inf, ptextraopts = (),
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
-    bgsol = solvebg(prob; verbose, kwargs..., bgopts..., bgextraopts...)
-    thsol = solveth(prob, bgsol; shootopts, verbose, kwargs..., thopts..., thextraopts...)
+    bgsols = solvebg(prob; shootopts, verbose, kwargs..., bgopts..., bgextraopts...)
 
-    if isnothing(ks) || isempty(ks)
+    if isnothing(ks) || isempty(ks) || !all(successful_retcode, bgsols) # no perturbations requested, or they cannot be set up on a failed background
         ks = nothing
         ptsol = nothing
     else
-        ptsol = solvept(prob.pt, bgsol, thsol, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsols, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
-    return CosmologySolution(prob, bgsol, thsol, ks, ptsol)
+    return CosmologySolution(prob, bgsols, ks, ptsol)
 end
 function solve(prob::CosmologyProblem, k::Number; kwargs...)
     return solve(prob, [k]; kwargs...)
@@ -509,10 +466,15 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
     return msg
 end
 
-# Solve the ODE problem of one stage, and warn if it fails
-function solvestage(prob::ODEProblem, name; alg, reltol, abstol, verbose = false, kwargs...)
-    check_solve_args(prob, alg)
-    sol = solve(prob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
+"""
+    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
+
+Solve the background stage `bgprob` and return its solution.
+Its splines from previous stages must already be set, for example with [`setupbg`](@ref).
+"""
+function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
+    check_solve_args(bgprob, alg)
+    sol = solve(bgprob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
     if !successful_retcode(sol)
         @warn warning_failed_solution(sol, name; verbose)
     end
@@ -520,48 +482,45 @@ function solvestage(prob::ODEProblem, name; alg, reltol, abstol, verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
-    solvebg(prob::CosmologyProblem; kwargs...)
+    solvebg(bg::Tuple; verbose = false, kwargs...)
 
-Solve the split-off background problem `bgprob`, or that of the cosmological problem `prob`, and return its solution.
-For `prob`, return `nothing` if there is no split-off background, and otherwise save the whole solution densely, since it is splined into the `th` problem.
+Solve the background stages `bg` in order, each set up with the solutions of the previous stages (see [`setupbg`](@ref)), and return a Tuple with their solutions.
+If a stage fails, the later stages are not solved.
+Each option in `kwargs` can be a single value for all stages, or a Tuple with one value per stage.
 """
-function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
-    return solvestage(bgprob, "Background"; alg, reltol, abstol, verbose, kwargs...)
-end
-function solvebg(prob::CosmologyProblem; kwargs...)
-    isnothing(prob.bg) && return nothing
-    return solvebg(prob.bg; kwargs..., save_everystep = true, save_start = true, save_end = true, dense = true)
-end
-
-"""
-    solveth(thprob::ODEProblem[, vars, conditions]; alg = thalg(thprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
-    solveth(prob::CosmologyProblem, bgsol = nothing; shootopts = (alg = shootalg(prob), abstol = 1e-5), kwargs...)
-
-Solve the background/thermodynamics problem `thprob`, or that of the cosmological problem `prob` on top of its split-off background solution `bgsol` (see [`solvebg`](@ref)), and return its solution.
-If `thprob` requires shooting, `vars` is a dictionary with variables to shoot for and their initial guesses, and `conditions` is an array of equations that should hold at the final integration time (usually today).
-For `prob`, these are taken from the problem.
-"""
-function solveth(thprob::ODEProblem; alg = thalg(thprob), reltol = 1e-7, abstol = 1e-7, verbose = false, kwargs...)
-    return solvestage(thprob, "Background/thermodynamics"; alg, reltol, abstol, verbose, kwargs...)
+function solvebg(bg::Tuple; verbose = false, kwargs...)
+    n = length(bg)
+    bgsols = ()
+    for i in 1:n
+        bgprob = setupbg(bg[i], bgsols)
+        opts = stageopts(kwargs, i, n)
+        if i < n
+            opts = (; opts..., save_everystep = true, save_start = true, save_end = true, dense = true) # spline the whole solution into later stages
+        end
+        bgsol = solvebg(bgprob; verbose, name = "Background stage $i", opts...)
+        bgsols = (bgsols..., bgsol)
+        successful_retcode(bgsol) || break # cannot set up later stages
+    end
+    return bgsols
 end
 
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function _solveth_shoot_f(u, p)
-    thprob, alg, reltol, abstol, extra_kwargs, setvars, getfuns, verbose, varstrs, constrs = p # unpack
-    newu0, newp = setvars(thprob, u)
-    newthprob = remake(thprob; u0 = newu0, p = newp)
-    thsol = solveth(newthprob; alg, reltol, abstol, extra_kwargs..., save_everystep = false, save_start = false, save_end = true, verbose)
-    if !successful_retcode(thsol)
+function _solvebg_shoot_f(u, p)
+    n, setvars, getconds, kwargs, verbose, varstrs, constrs = p # unpack
+    bgsols = solvebg(setvars(u isa Number ? [u] : u); kwargs..., save_everystep = false, save_start = true, save_end = true, verbose)
+    if length(bgsols) < n || !successful_retcode(bgsols[end])
         verbose && eltype(u) <: AbstractFloat && println("Shooting: ODE failed with ", varvalstr(varstrs, u), " (returning NaN)")
         return u .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
     end
-    result = only(getfuns(thsol))
+    bgsol = bgsols[end] # the complete background
+    result = getconds(bgsol, argmax(bgsol.t)) # today is the last or first saved step, depending on direction
+    result = u isa Number ? only(result) : result
     verbose && eltype(u) <: AbstractFloat && println("Shooting: ", varvalstr(varstrs, u), " -> ", varvalstr(constrs, result))
     return result
 end
 
-function solveth(thprob::ODEProblem, vars, conditions; alg = thalg(thprob), reltol = 1e-7, abstol = 1e-7, shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
+# Solve the background stages with the shooting method for the parameters `vars` (mapped to initial guesses), so that the equations `conditions` hold at the final time
+function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -569,14 +528,12 @@ function solveth(thprob::ODEProblem, vars, conditions; alg = thalg(thprob), relt
     conditions = map(eq -> eq.lhs - eq.rhs, conditions)
     varstrs = string.(vars)
     constrs = string.(conditions)
-    guess = map(g -> issymbolic(g) ? thprob[g] : g, guess) # evaluate symbolic guesses, keep numerical ones as they are
+    guess = map(g -> issymbolic(g) ? bg[end][g] : g, guess) # evaluate symbolic guesses, keep numerical ones as they are
     if length(vars) == 1 # work with scalars instead of vectors to support interval methods
         guess = only(guess)
-        vars = only(vars)
-        conditions = only(conditions)
     end
-    setvars = SymbolicIndexingInterface.setsym_oop(thprob, vars) # efficient setter
-    getfuns = getsym(thprob, conditions) # efficient getter
+    setvars = bgsetter(bg, vars) # efficient setter
+    getconds = getsym(bg[end], conditions) # efficient getter in the complete background
 
     if guess isa Tuple
         if shootopts.alg isa AbstractBracketingAlgorithm
@@ -591,16 +548,14 @@ function solveth(thprob::ODEProblem, vars, conditions; alg = thalg(thprob), relt
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(_solveth_shoot_f, guess, (thprob, alg, reltol, abstol, kwargs, setvars, getfuns, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess, (length(bg), setvars, getconds, kwargs, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
 
     if !successful_retcode(sol)
         error("Shooting failed to converge. Last result was $(varvalstr(varstrs, sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
-    u0, p = setvars(thprob, sol.u)
-    thprob = remake(thprob; u0, p)
-    return solveth(thprob; alg, reltol, abstol, kwargs...)
+    return solvebg(setvars(sol.u isa Number ? [sol.u] : sol.u); verbose, kwargs...)
 end
 
 # Set the nonnumeric background spline parameter of a problem (and optionally copy tunable parameters into it)
@@ -631,51 +586,63 @@ function setspline(prob::ODEProblem, bgspline, bgtunables = nothing)
     return prob, newp
 end
 
-# Spline the split-off background solution (if any) into the background/thermodynamics problem
-setupth(thprob::ODEProblem, bgsol::ODESolution) = first(setspline(thprob, spline(bgsol)))
-setupth(thprob::ODEProblem, bgsol::Nothing) = thprob
+"""
+    setupbg(bgprob::ODEProblem, bgsols::Tuple)
 
-function solveth(prob::CosmologyProblem, bgsol::Union{Nothing, ODESolution} = nothing; shootopts = (alg = shootalg(prob), abstol = 1e-5), kwargs...)
-    isnothing(bgsol) && !isnothing(prob.bg) && error("The problem has a split-off background, so its solution from solvebg must be passed")
-    !isnothing(bgsol) && isnothing(prob.bg) && error("The problem has no split-off background, but got a solution for it")
-    thprob = setupth(prob.th, bgsol)
-    if isempty(prob.shoot)
-        return solveth(thprob; kwargs...)
-    else
-        return solveth(thprob, prob.shoot, prob.conditions; shootopts, kwargs...)
+Prepare the background stage `bgprob` to be solved on top of the solutions `bgsols` of all previous stages:
+spline their unknowns into it, and integrate over the span of the last previous stage.
+"""
+function setupbg(bgprob::ODEProblem, bgsols::Tuple)
+    isempty(bgsols) && return bgprob
+    tspan = extrema(bgsols[end].t)
+    tspan = isbackwards(bgprob) ? reverse(tspan) : tspan
+    p = bgprob.p
+    if !isempty(p.nonnumeric)
+        bgprob, p = setspline(bgprob, spline(bgsols...))
     end
+    return remake(bgprob; u0 = bgprob.u0, p, tspan)
 end
 
-function setuppt(ptprob::ODEProblem, bgsol::Union{Nothing, ODESolution}, thsol::ODESolution, ptivini::Function)
-    sols = filter(!isnothing, (bgsol, thsol)) # in the same order as their variables are splined in CosmologyProblem
-    ivspanbgth = (maximum(sol -> minimum(sol.t), sols), minimum(sol -> maximum(sol.t), sols)) # where all solutions overlap (e.g. until th terminates)
-    thtunables = canonicalize(Tunable(), parameter_values(thsol))[1] # tunable parameters from th solution (e.g. τ0 and κ0 set by callbacks)
+"""
+    solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
 
-    # copy parameters from th solution to perturbations problem (e.g. τ0, κ0), and spline all bg and th unknowns into it
-    ptprob, newp = setspline(ptprob, spline(sols...), thtunables)
+Solve all background stages of the cosmological problem `prob` in order, and return a Tuple with their solutions.
+If the problem requires shooting, all stages are solved repeatedly until the shooting conditions hold at the final time (today) of the last stage.
+Each option in `kwargs` can be a single value for all stages, or a Tuple with one value per stage.
+"""
+function solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
+    isempty(prob.shoot) && return solvebg(prob.bg; verbose, kwargs...)
+    return solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
+end
+
+function setuppt(ptprob::ODEProblem, bgsols::Tuple, ptivini::Function)
+    ivspanbg = extrema(bgsols[end].t) # e.g. until the background terminates
+    bgtunables = canonicalize(Tunable(), parameter_values(bgsols[end]))[1] # tunable parameters from the complete background (e.g. set by shooting)
+
+    # copy parameters from background solution to perturbations problem, and spline all background unknowns into it
+    ptprob, newp = setspline(ptprob, spline(bgsols...), bgtunables)
 
     kset! = ModelingToolkit.setp(ptprob, k)
     return k -> begin
         p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
         kset!(p, k)
-        ivi = clamp(ptivini(k), ivspanbgth[begin], ivspanbgth[end]) # clamp to background timespan
-        ivspan = (ivi, ivspanbgth[end])
+        ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
+        ivspan = (ivi, ivspanbg[end])
         newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan)
         return newptprob
     end
 end
-setuppt(ptprob::ODEProblem, bgsol::Union{Nothing, ODESolution}, thsol::ODESolution, ptivini::Number = -Inf) = setuppt(ptprob, bgsol, thsol, k -> ptivini)
-setuppt(ptprob::ODEProblem, thsol::ODESolution, ptivini::Union{Number, Function} = -Inf) = setuppt(ptprob, nothing, thsol, ptivini)
+setuppt(ptprob::ODEProblem, bgsols::Tuple, ptivini::Number = -Inf) = setuppt(ptprob, bgsols, k -> ptivini)
 
 """
-    solvept(ptprob::ODEProblem, [bgsol, ]thsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
-Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the split-off background solution `bgsol` (if any; see [`solvebg`](@ref)) and the background/thermodynamics solution `thsol` (see [`solveth`](@ref)).
+Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the solutions `bgsols` of all background stages (see [`solvebg`](@ref)).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 `ptivini` is a number or a function of ``k`` that sets the initial time of integration for each perturbation mode, but is always clamped to the background timespan.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsol::Union{Nothing, ODESolution}, thsol::ODESolution, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
 
     if thread && Threads.nthreads() == 1
@@ -687,7 +654,7 @@ function solvept(ptprob::ODEProblem, bgsol::Union{Nothing, ODESolution}, thsol::
     end
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprobgen = setuppt(ptprob, bgsol, thsol, ptivini)
+    ptprobgen = setuppt(ptprob, bgsols, ptivini)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
@@ -702,7 +669,6 @@ function solvept(ptprob::ODEProblem, bgsol::Union{Nothing, ODESolution}, thsol::
     verbose && println()
     return ptsols
 end
-solvept(ptprob::ODEProblem, thsol::ODESolution, ks::AbstractArray, ptivini::Union{Number, Function} = -Inf; kwargs...) = solvept(ptprob, nothing, thsol, ks, ptivini; kwargs...)
 """
     solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
 
@@ -714,9 +680,8 @@ Its wavenumber and background spline must already be initialized, for example wi
 ```julia
 # ...
 prob = CosmologyProblem(M, pars)
-bgsol = solvebg(prob) # nothing, unless the problem has a split-off background
-thsol = solveth(prob, bgsol)
-ptprobgen = SymBoltz.setuppt(prob.pt, bgsol, thsol)
+bgsols = solvebg(prob)
+ptprobgen = SymBoltz.setuppt(prob.pt, bgsols)
 k = 1.0
 ptprob = ptprobgen(k)
 ptsol = solvept(ptprob)
@@ -727,9 +692,7 @@ function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol 
 end
 
 function time_today(prob::CosmologyProblem)
-    getτ0 = SymBoltz.getsym(prob.th, :τ0)
-    thsol = solveth(prob, solvebg(prob); save_everystep = false, save_start = false, save_end = true)
-    return getτ0(thsol)
+    return maximum(solvebg(prob)[end].t)
 end
 
 """
@@ -738,10 +701,9 @@ end
 Returns whether the solution of a cosmological problem was successful (i.e. not failing due to instability or too many time steps).
 """
 function issuccess(sol::CosmologySolution)
-    bgok = isnothing(sol.bg) || successful_retcode(sol.bg)
-    thok = successful_retcode(sol.th)
+    bgok = all(successful_retcode, sol.bg)
     ptok = isnothing(sol.pts) || all(successful_retcode, sol.pts)
-    return bgok && thok && ptok
+    return bgok && ptok
 end
 
 function integrate(xs, ys; integrator = Trapezoidal())
@@ -752,15 +714,17 @@ integrate_cumulative(sol::CosmologySolution, y) = integrate_cumulative(sol, sol.
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}
+
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex)
-    if ModelingToolkit.isparameter(i) && !isequal(i, ModelingToolkit.get_iv(sol.prob.M)) # don't catch independent variable as parameter
-        return sol.th.ps[i] # assume all parameters are in background # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
+    iv = ModelingToolkit.get_iv(sol.prob.M)
+    if all(var -> ModelingToolkit.isparameter(var) && !isequal(var, iv), basevars(i)) # expression of only parameters (but don't catch independent variable as parameter)
+        return sol.bg[end].ps[i] # assume all parameters are in background # TODO: index sol directly when this is fixed? https://github.com/SciML/ModelingToolkit.jl/issues/3267
     else
-        return sol.th[i]
+        return sol.bg[end](timeseries(sol); idxs = i).u # the last stage has all background variables
     end
 end
 function Base.getindex(sol::CosmologySolution, i::SymbolicIndex, j)
-    return stack(sol.th[i, j])
+    return stack(sol[i][j])
 end
 Base.getindex(sol::CosmologySolution, i::Int, j::SymbolicIndex, k = :) = sol.pts[i][j, k]
 Base.getindex(sol::CosmologySolution, i, j::SymbolicIndex, k = :) = [stack(sol[_i, j, k]) for _i in i]
@@ -768,10 +732,7 @@ Base.getindex(sol::CosmologySolution, i::Colon, j::SymbolicIndex, k = :) = sol[1
 
 # TODO: match variable convention (i.e. δ(τ, k))
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray)
-    #tmin, tmax = extrema(sol.th.t[[begin, end]])
-    #minimum(ts) >= tmin || minimum(ts) ≈ tmin || throw("Requested time $(minimum(ts)) is before initial time $tmin")
-    #maximum(ts) <= tmax || maximum(ts) ≈ tmax || throw("Requested time $(maximum(ts)) is after final time $tmax")
-    return sol.th(ts; idxs=is)[:, :]
+    return sol.bg[end](ts; idxs = is)[:, :]
 end
 (sol::CosmologySolution)(i::Num, ts::AbstractArray) = sol([i], ts)[1, :]
 (sol::CosmologySolution)(is::AbstractArray, t::Number) = sol(is, [t])[:, 1]
@@ -786,9 +747,13 @@ function getfunc(sol::ODESolution, var; continuity = :left)
     end
 end
 
-function getsym(provider::Union{CosmologyProblem, CosmologySolution}, p)
-    getsym_th = SymbolicIndexingInterface.getsym(provider.th, p)
-    return provider -> getsym_th(provider.th)
+function getsym(provider::CosmologyProblem, p)
+    getsym_bg = SymbolicIndexingInterface.getsym(provider.bg[end], p)
+    return provider -> getsym_bg(provider.bg[end])
+end
+function getsym(provider::CosmologySolution, p)
+    getsym_bg = SymbolicIndexingInterface.getsym(provider.bg[end], p)
+    return provider -> getsym_bg(provider.bg[end])
 end
 
 function neighboring_modes_indices(sol::CosmologySolution, k)
@@ -803,7 +768,7 @@ function neighboring_modes_indices(sol::CosmologySolution, k)
     return i1, i2
 end
 
-Base.eltype(sol::CosmologySolution) = eltype(sol.th)
+Base.eltype(sol::CosmologySolution) = eltype(sol.bg[end])
 
 function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
     if isnothing(sol.ks) || isempty(sol.ks)
@@ -815,15 +780,11 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
-    # disabled; sensitive to exact endpoint values
-    #tmin, tmax = extrema(sol.th.t)
-    #minimum(ts) >= tmin || throw("Requested time $(minimum(ts)) is below minimum solved time $tmin")
-    #maximum(ts) <= tmax || throw("Requested time $(maximum(ts)) is above maximum solved time $tmin")
 
     # Pre-allocate intermediate and output arrays
-    v = similar(sol.th, length(is), length(ts))
-    v1 = similar(sol.th, length(is), length(ts))
-    v2 = similar(sol.th, length(is), length(ts))
+    v = similar(sol.bg[end], length(is), length(ts))
+    v1 = similar(sol.bg[end], length(is), length(ts))
+    v2 = similar(sol.bg[end], length(is), length(ts))
 
     i1_prev, i2_prev = -1, -1 # cache previous looked up solution and reuse it, if possible
     for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
@@ -860,7 +821,7 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     return out
 end
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
-    out = similar(sol.th, length(is), length(ts), length(ks))
+    out = similar(sol.bg[end], length(is), length(ts), length(ks))
     return sol(out, is, ts, ks; kwargs...)
 end
 (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, k::Number; kwargs...) = sol(is, ts, [k]; kwargs...)[:, :, 1]
@@ -883,10 +844,19 @@ function (sol::CosmologySolution)(is, tmap::Pair, ks)
     return sol(is, ts, ks)
 end
 
-function timeseries(sol::CosmologySolution; kwargs...)
-    ts = sol.th.t
+"""
+    timeseries(bgsols::Tuple; kwargs...)
+    timeseries(sol::CosmologySolution; kwargs...)
+
+Return the time steps of all background stage solutions within the span of the last stage, in ascending order.
+"""
+function timeseries(bgsols::Tuple{Vararg{ODESolution}}; kwargs...)
+    ts = sort!(mapreduce(sol -> collect(sol.t), vcat, bgsols)) # collect, so no solution's own time steps are mutated
+    tmin, tmax = extrema(bgsols[end].t) # each stage integrates within the span of the previous one
+    ts = [t for (i, t) in enumerate(ts) if tmin ≤ t ≤ tmax && (i == 1 || t != ts[i-1])] # remove duplicates with ==, which (unlike unique) ignores ForwardDiff partials
     return timeseries(ts; kwargs...)
 end
+timeseries(sol::CosmologySolution; kwargs...) = timeseries(sol.bg; kwargs...)
 function timeseries(sol::CosmologySolution, k; kwargs...)
     i1, i2 = neighboring_modes_indices(sol, k)
     t1s = sol.pts[i1].t
@@ -907,9 +877,9 @@ Find the times when some variable `var` equals some values `vals` with a spline.
 """
 function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
-    varfunc = getfunc(sol.th, var)
+    varfunc = getfunc(sol.bg[end], var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
-    ivspan = extrema(sol.th.t)
+    ivspan = extrema(sol.bg[end].t)
     prob = IntervalNonlinearProblem(f, ivspan, vals[1]; kwargs...)
     return map(val -> solve(remake(prob; p = val); alg).u, vals)
 end
@@ -921,9 +891,9 @@ Find the times when some variable `var` equals some values `vals` with a Hermite
 function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwargs...)
     ts = timeseries(sol; kwargs...)
     xs = sol(var, ts)
-    ẋs = sol(dvar, ts) # dx/dt
-    ṫs = 1 ./ ẋs # dt/dx
-    spl = spline(ts, ṫs, xs)
+    ẋs = sol(dvar, ts) # dx/dt
+    ṫs = 1 ./ ẋs # dt/dx
+    spl = spline(ts, ṫs, xs)
     ts = spl(vals)
     return ts
 end
@@ -931,12 +901,11 @@ end
 """
     unknowns(prob::CosmologyProblem)
 
-Get all unknown variables from the background and perturbations of the cosmological problem `prob`.
+Get all unknown variables from the background stages and perturbations of the cosmological problem `prob`.
 """
 function unknowns(prob::CosmologyProblem)
-    bg = isnothing(prob.bg) ? [] : unknowns(prob.bg.f.sys)
-    th = unknowns(prob.th.f.sys)
-    return [bg; th; unknowns(prob.pt.f.sys)]
+    bg = reduce(vcat, (unknowns(stage.f.sys) for stage in prob.bg))
+    return [bg; unknowns(prob.pt.f.sys)]
 end
 
 """
@@ -945,9 +914,8 @@ end
 Get all parameter values of the cosmological problem `prob`.
 """
 function parameters(prob::CosmologyProblem; nonnumeric = false)
-    bgpars = isnothing(prob.bg) ? Dict() : parameters(prob.bg)
     ptpars = isnothing(prob.pt) ? Dict() : parameters(prob.pt)
-    pars = merge(bgpars, parameters(prob.th), ptpars)
+    pars = merge(map(parameters, prob.bg)..., ptpars)
     !nonnumeric && filter!(par_val -> par_val[2] isa Number, pars)
     return pars
 end
@@ -963,14 +931,9 @@ end
 Base.broadcastable(sys::System) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)
 
-# Statistics for solution of the split-off background stage (nothing if there is none)
+# Statistics for solutions of the background stages
 function statsbg(sol::CosmologySolution)
-    return isnothing(sol.bg) ? nothing : sol.bg.stats
-end
-
-# Statistics for solution of background and thermodynamics
-function statsth(sol::CosmologySolution)
-    return sol.th.stats
+    return map(bgsol -> bgsol.stats, sol.bg)
 end
 
 # Summarized statistics for solution of all perturbation modes

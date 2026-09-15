@@ -13,10 +13,10 @@ The plot updates live as sliders are dragged: `prob` is remade into `prob′` wi
 function plot_interactive(f::Function, prob::CosmologyProblem, pars::AbstractVector{<:Pair}; xlabel = "", ylabel = "", kwargs...)
     fig = Figure(size = (800, 800), fontsize = 18)
     ax = Axis(fig[1, 1]; xlabel, ylabel)
-    sg = SliderGrid(fig[2, 1], [(label = displayname(par), range = range, startvalue = prob.th.ps[par]) for (par, range) in pars]...)
+    sg = SliderGrid(fig[2, 1], [(label = displayname(par), range = range, startvalue = prob.bg[end].ps[par]) for (par, range) in pars]...)
 
     probgen = parameter_updater(prob, first.(pars))
-    θ = Observable([prob.th.ps[par] for (par, _) in pars])
+    θ = Observable([prob.bg[end].ps[par] for (par, _) in pars])
     for (i, slider) in enumerate(sg.sliders)
         on(slider.value) do val
             θ[][i] = val
