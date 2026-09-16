@@ -75,7 +75,7 @@ function ΛCDM(;
     ]
     have(ν) && have(γ) && push!(bindings,
         ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
-        ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
+        ν.Ω₀ => ν.N * 7/8 * (4/11)^(4/3) * γ.Ω₀,
     )
     have(h) && have(γ) && push!(bindings,
         h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)

@@ -51,7 +51,7 @@ pars = @parameters begin
     Ωc0, # cold dark matter
     Ωb0, YHe, fHe, # baryons and recombination
     Tγ0, Ωγ0, # photons
-    Ων0, Tν0, Neff, # massless neutrinos
+    Ων0, Tν0, Nν, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
     ΩΛ0, w0, wa, cΛs2, # dark energy (cosmological constant or w0wa)
     zre1, Δzre1, nre1, # 1st reionization
@@ -309,7 +309,7 @@ initial_conditions = [
     Δzre2 => 0.5
     nre2 => 1
     Tν0 => (4/11)^(1/3) * Tγ0
-    Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
+    Ων0 => Nν * 7/8 * (4/11)^(4/3) * Ωγ0
     Nh => 3
     Th0 => (4/11)^(1/3) * Tγ0
     ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0
@@ -336,7 +336,7 @@ p = Dict(
     M.Ωb0 => 0.05,
     M.YHe => 0.25,
     M.Tγ0 => 2.7,
-    M.Neff => 3.046,
+    M.Nν => 3.046,
     M.mh_eV => 0.02,
     M.As => 2e-9,
     M.ns => 1.0,
