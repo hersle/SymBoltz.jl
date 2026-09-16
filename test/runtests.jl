@@ -329,7 +329,7 @@ end
         M.c.Ω₀,
         M.b.Ω₀, M.b.YHe, M.b.fHe,
         M.γ.Ω₀, M.γ.T₀,
-        M.ν.Ω₀, M.ν.T₀, M.ν.Neff,
+        M.ν.Ω₀, M.ν.T₀, M.ν.N,
         M.h.Ω₀, M.h.T₀, M.h.m, M.h.y₀, M.h.Iρ₀,
         M.Λ.Ω₀,
         M.I.As, M.I.kpivot, M.I.ns
@@ -460,7 +460,7 @@ end
 end
 
 @testset "Background differentiation test" begin
-    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.Neff, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
+    diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.N, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
     probgen = parameter_updater(prob, diffpars)
     τ0(θ) = solve(probgen(θ))[M.τ][end]
     θ0 = [pars[par] for par in diffpars]
@@ -898,7 +898,7 @@ end
             "recfast_Heswitch" => 6,
             "reio_parametrization" => "reio_camb",
             "Omega_cdm" => pars[M.c.Ω₀],
-            "N_ur" => pars[M.ν.Neff],
+            "N_ur" => pars[M.ν.N],
             "N_ncdm" => 1,
             "deg_ncdm" => pars[M.h.N],
             "m_ncdm" => pars[M.h.m_eV],

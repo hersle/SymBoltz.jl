@@ -59,7 +59,7 @@ obspars = [
     M.γ.T₀ => 2.50:0.01:3.00,
     M.h.m_eV => 0.01:0.01:0.15,
     M.b.YHe => 0.20:0.01:0.30,
-    M.ν.Neff => 2.90:0.01:3.10
+    M.ν.N => 2.90:0.01:3.10
 ]
 fig = plot_interactive(prob, obspars; xlabel = "lg(a)", ylabel = "Xₑ") do prob′
     sol = solve(prob′)

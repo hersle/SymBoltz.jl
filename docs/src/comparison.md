@@ -58,7 +58,7 @@ function solve_class(pars, k = nothing)
         "Omega_cdm" => pars[M.c.Ω₀],
 
         # neutrinos
-        "N_ur" => SymBoltz.have(M, :ν) ? pars[M.ν.Neff] : 0.0,
+        "N_ur" => SymBoltz.have(M, :ν) ? pars[M.ν.N] : 0.0,
         "N_ncdm" => SymBoltz.have(M, :h) ? 1 : 0,
         "deg_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.N] : 0,
         "m_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.m_eV] : 0.0, # in eV/c^2
