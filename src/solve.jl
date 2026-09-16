@@ -25,7 +25,8 @@ struct CosmologyProblem{Tbg <: Tuple{Vararg{ODEProblem}}, Tpt <: Union{ODEProble
 
     pars::Vector{Symbolics.SymbolicT}
     shoot::Dict
-    conditions::Vector{Equation}
+    conditions::Vector{Equation} # shooting conditions in the form lhs - rhs ~ 0
+    terminate::Union{Nothing, Equation} # event that stops the first forwards integration stage
 end
 
 struct CosmologySolution{Tbg <: Tuple{Vararg{ODESolution}}, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
@@ -41,50 +42,72 @@ isbackwards(prob::ODEProblem) = prob.tspan[end] < prob.tspan[begin] # TODO: assu
 isbackwards(sol::ODESolution) = sol.t[end] < sol.t[begin]
 nsplines(prob::ODEProblem) = SymbolicIndexingInterface.is_parameter(prob, :spline) ? length(first(prob.ps[:spline].u)) : 0 # n variables splined in a problem
 
-function Base.show(io::IO, prob::CosmologyProblem; indent = "  ")
-    print(io, "Cosmology problem for model ")
-    printstyled(io, nameof(prob.M), '\n'; bold = true)
+# Print the unknowns of a stage with n shortest names (usually the most fundamental variables)
+function show_unknowns(io::IO, prob::ODEProblem; n = 3)
+    vars = sort(string.(unknowns(prob.f.sys)); by = length)
+    print(io, " (", join(first(vars, n), ", ")) # restrict to n variables
+    length(vars) > n && print(io, ", …")
+    print(io, ")")
+end
 
-    printstyled(io, "Stages:"; bold = true)
+# Print the pairs of a mapping on separate lines like a Dict (with aligned keys)
+function show_mapping(io::IO, mapping; color = false)
+    isempty(mapping) && return
+    context = IOContext(io, :limit => true, :displaysize => (typemax(Int), displaysize(io)[2]), :color => color) # limit makes "=>" align; typemax(Int) shows all rows
+    str = sprint(show, "text/plain", Dict(mapping); context) # print Dict mapping to a string
+    print(io, str[findfirst('\n', str):end]) # remove first line with "Dict{...} with N entries:"
+end
+
+function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true, bold = true, color = false)
+    io = IOContext(io, :compact => compact, :color => color) # print numbers compactly, like in arrays
+    print(io, "Cosmology problem for model ")
+    printstyled(io, nameof(prob.M), '\n'; bold)
+
+    iv = ModelingToolkit.get_iv(prob.M)
+    tmin, tmax = extrema(prob.bg[1].tspan) # ivspan, in either direction
+    printstyled(io, "Timespan:"; bold)
+    print(io, " from ", iv, " = ", tmin, " till ", iv, " = ", tmax)
+    !isnothing(prob.terminate) && print(io, " or ", prob.terminate)
+
+    printstyled(io, "\nStages:"; bold)
     for (i, stage) in enumerate(prob.bg)
-        print(io, '\n', indent, "Background $i (", isbackwards(stage) ? "backwards" : "forwards", ")")
-        print(io, ": ", length(unknowns(stage.f.sys)), " unknowns")
+        print(io, '\n', indent, "Background $i: ", isbackwards(stage) ? "backwards" : "forwards")
+        nvars = length(unknowns(stage.f.sys))
+        print(io, ", ", nvars, " unknowns")
+        nvars > 0 && show_unknowns(io, stage)
         print(io, ", ", nsplines(stage), " splines")
         print(io, ", ", issparse(stage) ? "$(round(sparsity_fraction(stage)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
     if !isnothing(prob.pt)
         print(io, '\n', indent, "Perturbations")
-        print(io, ": ", length(unknowns(prob.pt.f.sys)), " unknowns")
+        nvars = length(unknowns(prob.pt.f.sys))
+        print(io, ": ", nvars, " unknowns")
+        nvars > 0 && show_unknowns(io, prob.pt)
         print(io, ", ", nsplines(prob.pt), " splines")
         print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
-    printstyled(io, "\nParameters & initial conditions:"; bold = true)
-    for par in prob.pars
-        par in keys(prob.shoot) && continue # skip; print these below
-        print(io, '\n', indent, par, " = ", getsym(prob, par)(prob))
-    end
+    printstyled(io, "\nParameters:"; bold = true)
+    show_mapping(io, Dict(par => getsym(prob, par)(prob) for par in prob.pars if !(par in keys(prob.shoot)))) # shooting parameters are printed below
 
-    !isempty(prob.shoot) && printstyled(io, "\nShooting initial guesses:"; bold = true)
-    for (par, val) in prob.shoot
-        print(io, '\n', indent, par, " = ", val)
-    end
+    !isempty(prob.shoot) && printstyled(io, "\nShooting guesses:"; bold)
+    show_mapping(io, prob.shoot)
 
-    !isempty(prob.conditions) && printstyled(io, "\nShooting final conditions:"; bold = true)
+    !isempty(prob.conditions) && printstyled(io, "\nShooting conditions:"; bold)
     for condition in prob.conditions
         print(io, '\n', indent, condition)
     end
 end
 
-function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
+function Base.show(io::IO, sol::CosmologySolution; indent = "  ", bold = true)
     print(io, "Cosmology solution for model ")
-    printstyled(io, nameof(sol.prob.M), '\n'; bold = true)
+    printstyled(io, nameof(sol.prob.M), '\n'; bold)
 
     retcode_color(retcode) = successful_retcode(retcode) ? :green : :red
-    printstyled(io, "Stages:"; bold = true)
+    printstyled(io, "Stages:"; bold)
     for (i, bgsol) in enumerate(sol.bg)
         retcode = bgsol.retcode
-        print(io, '\n', indent, "Background $i (", isbackwards(bgsol) ? "backwards" : "forwards", "): return code ")
+        print(io, '\n', indent, "Background $i: return code ")
         printstyled(io, retcode; color = retcode_color(retcode))
         print(io, "; solved with $(algname(bgsol.alg)); $(length(bgsol.u)) points")
     end
@@ -266,8 +289,8 @@ function CosmologyProblem(
     end
 
     pars = [unwrap(par) for (par, val) in pars]
-    shoot_conditions = convert(Vector{Equation}, shoot_conditions)
-    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions)
+    shoot_conditions = Equation[eq.lhs - eq.rhs ~ 0 for eq in shoot_conditions]
+    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions, terminate)
 end
 
 """
@@ -332,7 +355,7 @@ function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
             pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
         end
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions)
+        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.terminate)
     end
     function updater(p::Dict)
         p = [p[var] for var in idxs]

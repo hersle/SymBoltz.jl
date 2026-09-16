@@ -32,6 +32,12 @@ prob_sparse = prob
     @test_nowarn ptsol = solvept(prob.pt, bgsols, [1.0]; thread = false)
 end
 
+@testset "Base.show" begin
+    @test_nowarn Base.show(prob)
+    @test_nowarn Base.show(prob_dense)
+    @test_nowarn Base.show(prob_sparse)
+end
+
 @testset "Solution accessing" begin
     is = [M.g.a, M.g.a, M.g.a, M.g.a]
     τs = [1.0, 2.0, 3.0]
@@ -279,6 +285,8 @@ end
 @testset "Solve background+perturbations together (without splining background)" begin
     prob_nospline_dense = CosmologyProblem(M, pars; spline = false, jac = true, sparse = false)
     prob_nospline_sparse = CosmologyProblem(M, pars; spline = false, jac = true, sparse = true)
+    @test_nowarn Base.show(prob_nospline_dense)
+    @test_nowarn Base.show(prob_nospline_sparse)
     ks = [1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3]
     @test issuccess(solve(prob_nospline_dense, ks))
     @test issuccess(solve(prob_nospline_sparse, ks))
@@ -765,6 +773,16 @@ end
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
     @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
+
+    # test that Base.show works for different shooting guess/condition combinations
+    @test_nowarn Base.show(prob1)
+    @test_nowarn Base.show(sol1)
+    @test_nowarn Base.show(prob1_bracket)
+    @test_nowarn Base.show(sol1_bracket)
+    @test_nowarn Base.show(prob2)
+    @test_nowarn Base.show(prob2)
+    @test_nowarn Base.show(prob_bad)
+    @test_nowarn Base.show(sol_bad)
 
     # shooting in model
     vars = @variables a(τ) ℋ(τ)
