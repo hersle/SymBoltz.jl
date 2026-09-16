@@ -40,7 +40,6 @@ algname(alg) = string(nameof(typeof(alg)))
 
 isbackwards(prob::ODEProblem) = prob.tspan[end] < prob.tspan[begin] # TODO: assumes iv is e.g. τ or log(a), but not e.g. z
 isbackwards(sol::ODESolution) = sol.t[end] < sol.t[begin]
-nsplines(prob::ODEProblem) = SymbolicIndexingInterface.is_parameter(prob, :spline) ? length(first(prob.ps[:spline].u)) : 0 # n variables splined in a problem
 
 # Print the unknowns of a stage with n shortest names (usually the most fundamental variables)
 function show_unknowns(io::IO, prob::ODEProblem; n = 3)
@@ -75,7 +74,6 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true
         nvars = length(unknowns(stage.f.sys))
         print(io, ", ", nvars, " unknowns")
         nvars > 0 && show_unknowns(io, stage)
-        print(io, ", ", nsplines(stage), " splines")
         print(io, ", ", issparse(stage) ? "$(round(sparsity_fraction(stage)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
     if !isnothing(prob.pt)
@@ -83,11 +81,10 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true
         nvars = length(unknowns(prob.pt.f.sys))
         print(io, ": ", nvars, " unknowns")
         nvars > 0 && show_unknowns(io, prob.pt)
-        print(io, ", ", nsplines(prob.pt), " splines")
         print(io, ", ", issparse(prob.pt) ? "$(round(sparsity_fraction(prob.pt)*100; digits=1)) % sparse" : "dense", " Jacobian")
     end
 
-    printstyled(io, "\nParameters:"; bold = true)
+    printstyled(io, "\nIndependent parameters:"; bold = true)
     show_mapping(io, Dict(par => getsym(prob, par)(prob) for par in prob.pars if !(par in keys(prob.shoot)))) # shooting parameters are printed below
 
     !isempty(prob.shoot) && printstyled(io, "\nShooting guesses:"; bold)
