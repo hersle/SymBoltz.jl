@@ -650,6 +650,7 @@ The return value is a vector with one `ODESolution` per wavenumber, or its mappi
 function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
 
+    #= # do not show threading warnings; these are Julia runtime options that the user is reponsible for setting
     if thread && Threads.nthreads() == 1
         thread = false
         @warn "Multi-threading over perturbation modes was requested, but disabled, since Julia is running with only 1 thread. Restart Julia with more threads (e.g. `julia --threads=auto`) to enable multi-threading, or pass thread = false to explicitly disable it." maxlog=1
@@ -657,6 +658,7 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini =
     if thread && BLAS.get_num_threads() > 1
         @warn "Multi-threading over perturbation modes was requested, but BLAS is running with $(BLAS.get_num_threads()) threads.\nIt is recommended to restrict BLAS to one thread with `using LinearAlgebra: BLAS; BLAS.set_num_threads(1)`.\nFor more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra." maxlog=1
     end
+    =#
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
     ptprobgen = setuppt(ptprob, bgsols, ptivini)
