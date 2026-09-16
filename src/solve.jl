@@ -102,13 +102,10 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ")
     end
 end
 
-# Split parameters into DifferentialEquations' u0 and p convention
-function split_vars_pars(M::System, x::Dict)
-    pars = intersect(keys(x), parameters(M)) .|> ModelingToolkit.wrap # separate parameters from initial conditions # TODO: remove wrap
-    vars = setdiff(keys(x), pars) # assume the rest are variables (do it without intersection to capture derivatives initial conditions)
-    pars = Dict(par => x[par] for par in pars) # like p
-    vars = Dict(var => x[var] for var in vars) # like u0
-    return vars, pars
+# Require that only parameters are specified (initial conditions must be set through parameters declared in the model)
+function check_parameters(pars::Dict)
+    nonpars = filter(!ModelingToolkit.isparameter, collect(keys(pars)))
+    isempty(nonpars) || error("Only parameters can be specified, but got $(join(nonpars, ", ")). To specify an initial condition, declare a parameter for it in the model with initial_conditions = [x => xini].")
 end
 
 # Select the value of an option for background stage i of n, which is either shared by all stages or given per stage in a Tuple
@@ -163,6 +160,7 @@ function CosmologyProblem(
     kwargs...
 )
     p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
+    check_parameters(pars)
     shoot_pars_sys = shootvars(M)
     conditions_sys = ModelingToolkit.get_constraints(M)
     shoot_pars = mergesafe(shoot_pars_sys, shoot_pars) # read from system, but let passed guesses override them
@@ -205,7 +203,6 @@ function CosmologyProblem(
             splvarset = Set(basevar.(splvars))
             stagesys, splpar = mtkcompile_spline(stagesys, splvars; removeics! =ics -> remove_initial_conditions!(ics, splvarset))
             stageparsk = merge(parsk, Dict(splpar => dummyspline(length(splvars)))) # set dummy spline parameter (only known to this stage, so keep parsk clean for the perturbations)
-            remove_initial_conditions!(stageparsk, splvarset) # splined variables are initialized by the previous stages instead
         end
         if debug
             stagesys = debug_system(stagesys)
@@ -249,7 +246,6 @@ function CosmologyProblem(
         if spline isa AbstractVector && !isempty(spline)
             pt, splpar = mtkcompile_spline(pt, spline)
             parsk = merge(parsk, Dict(splpar => dummyspline(length(spline)))) # set dummy spline parameter
-            remove_background_initial_conditions!(parsk) # remove ICs of all background to avoid overdetermined initialization system
         else
             pt = mtkcompile(pt)
         end
@@ -281,22 +277,18 @@ Return an updated `CosmologyProblem` where parameters in `prob` are updated to v
 Parameters that are not specified in `pars` keep their values from `prob`.
 """
 function remake(prob::CosmologyProblem, pars::Dict; kwargs...)
-    vars, pars = split_vars_pars(prob.M, pars)
-    vars = isempty(vars) ? missing : vars
+    check_parameters(pars)
     pars = isempty(pars) ? missing : pars
-    bgprobs = map(stage -> remake(stage; u0 = restrict(vars, stage), p = restrict(pars, stage), build_initializeprob = Val{!isnothing(stage.f.initialization_data)}, kwargs...), prob.bg)
-    if !ismissing(vars)
-        remove_background_initial_conditions!(vars) # must filter ICs in remake, too
-    end
-    ptprob = isnothing(prob.pt) ? nothing : remake(prob.pt; u0 = vars, p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...)
-    return CosmologyProblem(prob.M, bgprobs, ptprob, prob.pars, prob.shoot, prob.conditions)
+    bgprobs = map(stage -> remake(stage; p = restrict(pars, stage), build_initializeprob = Val{!isnothing(stage.f.initialization_data)}, kwargs...), prob.bg)
+    ptprob = isnothing(prob.pt) ? nothing : remake(prob.pt; p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...)
+    return CosmologyProblem(prob.M, bgprobs, ptprob, prob.pars, prob.shoot, prob.conditions, prob.terminate)
 end
 
 # restrict a variable/parameter map (or list) to those that are part of the problem, which can be a reduced subsystem
 problem_symbols(sys::System) = Set(unwrap.([unknowns(sys); parameters(sys)]))
 problem_symbols(prob::ODEProblem) = problem_symbols(prob.f.sys)
 restrict(x::Missing, _) = x
-restrict(x::Dict, target) = (syms = problem_symbols(target); filter(kv -> basevars(first(kv)) ⊆ syms, x)) # basevars also keeps e.g. derivative initial conditions
+restrict(x::Dict, target) = (syms = problem_symbols(target); filter(kv -> basevars(first(kv)) ⊆ syms, x))
 
 # Create a function that returns the background stages bg with the parameters pars set to new values in all stages that have them
 function bgsetter(bg::Tuple, pars; kwargs...)

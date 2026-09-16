@@ -72,7 +72,11 @@ end
 Create a species with a quintessence scalar field in the potential `v` in the spacetime with metric `g`.
 """
 function quintessence(g; name = :Q, kwargs...)
-    @variables begin
+    pars = @parameters begin
+        ϕini, [description = "Initial scalar field"]
+        ϕ′ini, [description = "Initial scalar field conformal time derivative"]
+    end
+    vars = @variables begin
         ϕ(τ), [description = "Background scalar field"]
         ρ(τ), [description = "Effective background density"]
         P(τ), [description = "Effective background pressure"]
@@ -102,8 +106,10 @@ function quintessence(g; name = :Q, kwargs...)
         σ ~ 0
         cₛ² ~ 0
     ]
+    ics = [ϕ => ϕini]
+    ieqs = [D(ϕ) ~ ϕ′ini] # overdetermined initialization if in ics
     description = "Quintessence dark energy"
-    return System(eqs, τ; name, description, kwargs...)
+    return System(eqs, τ, vars, pars; initial_conditions = ics, initialization_eqs = ieqs, name, description, kwargs...)
 end
 function quintessence(g, v; name = :Q, kwargs...)
     @variables begin

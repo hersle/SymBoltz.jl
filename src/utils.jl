@@ -359,8 +359,14 @@ function split_system(sys::System, vars)
     for var in vars
         haskey(idxs, var) || error("$var is not an unknown or parameter of the system $(nameof(sys))")
     end
-    needed = Set{Any}(allvars[mapreduce(var -> neighborhood(graph, idxs[var], nv(graph); dir = :in), union, vars)])
+    dependencies(vars) = Set{Any}(allvars[mapreduce(var -> neighborhood(graph, idxs[var], nv(graph); dir = :in), union, vars; init = Int[])])
+    needed = dependencies(vars)
     push!(needed, iv)
+
+    # also collect parameters that appear only in initialization equations of the needed variables (e.g. D(x) ~ ẋini)
+    ieqvars(ieq) = union(basevars(ieq.lhs), basevars(ieq.rhs))
+    ieqpars = [var for ieq in ieqs if all(var -> var in needed || ModelingToolkit.isparameter(var), ieqvars(ieq)) for var in ieqvars(ieq) if !(var in needed)]
+    union!(needed, dependencies(ieqpars))
 
     # the split is only possible if vars do not depend on other variables that must be integrated
     extra = setdiff(intersect(needed, Set{Any}(diffvars(sys))), vars)

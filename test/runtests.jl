@@ -721,7 +721,7 @@ end
     M = BDΛCDM()
 
     # 1) unspecified ΩΛ0, constrained ℋ = 1 today
-    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, M.G.ϕini => 0.95, D(M.G.ϕ) => 0.0))
+    pars1 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, M.G.ϕini => 0.95, M.G.ϕ̇ini => 0.0))
     prob1 = CosmologyProblem(M, pars1, Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     sol1 = solve(prob1)
     @test issuccess(sol1)
@@ -735,7 +735,7 @@ end
     @test sol1_bracket[M.Λ.Ω₀] ≈ sol1[M.Λ.Ω₀] atol=1e-4
 
     # 2) unspecified ΩΛ0 and ϕini
-    pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, D(M.G.ϕ) => 0.0))
+    pars2 = merge(parameters_Planck18(M), Dict(M.G.ω => 100.0, M.G.ϕ̇ini => 0.0))
     prob2 = CosmologyProblem(M, pars2, Dict(M.G.ϕini => 1-1/(1+M.G.ω/5), M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1]) # ω-dependent ϕini ≈ 0.95
     sol2 = solve(prob2)
     @test issuccess(sol2)
@@ -758,6 +758,8 @@ end
     @test_throws "Shooting failed to converge" solve(prob_stupid)
 
     # illegal input
+    @test_throws "Only parameters can be specified" CosmologyProblem(M, merge(pars1, Dict(D(M.G.ϕ) => 0.0)), Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
+    @test_throws "Only parameters can be specified" remake(prob1, Dict(M.G.ϕ => 0.9))
     @test_throws "Got 2 shooting parameters" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     @test_throws "Shooting with multiple parameters requires scalar guesses, but got interval guesses" CosmologyProblem(M, pars2, Dict(M.G.ϕ => (0.5, 1.5), M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1, M.G.G ~ 1])
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
