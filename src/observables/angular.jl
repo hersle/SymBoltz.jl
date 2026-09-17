@@ -229,7 +229,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 
 # Precision parameters
 
-- `xs`: Grid of ``(τ-τᵢ)/(τ₀-τᵢ)`` specifying the ``τ``-points that will be sampled in line-of-sight integration.
+- `xs`: Grid of ``(τ-τᵢ)/(τ₀-τᵢ)`` specifying the ``τ``-points that will be sampled in line-of-sight integration (also if the independent variable is not ``τ``), or an integer number of points interpolated from the background time steps.
 - `τcut`: Remove all earlier times from the line-of-sight integral sampling time points.
 - `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to a finer grid set by `Δkτ0`.
 - `Δkτ0`: Grid spacing to use when integrating over ``k`` to project to ``ℓ``-space.
@@ -268,30 +268,33 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     ls = collect(jl.l)
     sol = solve(prob; bgalg, bgreltol, bgabstol, bgopts, verbose)
-    τs = timeseries(sol) # by default, use background time points for line of sight integration
-    τ0 = τs[end]
+    tbg = timeseries(sol)
+    τbg = sol[prob.M.τ] # conformal times at background time points (also if τ is not the independent variable)
+    τ0 = τbg[end]
     ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
 
-    τs = τs[τs .≥ τcut]
+    icut = findfirst(≥(τcut), τbg)
+    ts = tbg[icut:end] # by default, use background time points for line of sight integration
     if xs isa AbstractArray
-        # explicit fractional grid x = (τ-τi)/(τ0-τi) ∈ [0,1]
+        # explicit fractional grid x = (τ-τᵢ)/(τ₀-τᵢ) ∈ [0,1], mapped to the independent variable (e.g. τ or ln(a))
         xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
         xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        τi, τf = τs[begin], τs[end]
-        τs = τi .+ (τf - τi) .* xs
-        τs[begin], τs[end] = τi, τf # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
+        τi = τbg[icut]
+        ts = LinearInterpolation(ts, τbg[icut:end]).(τi .+ (τ0 - τi) .* xs)
     elseif xs isa Int
         # interpolate xs points from background time grid, preserving its density structure
-        τs = LinearInterpolation(τs, 1.0:length(τs)).(range(1.0, length(τs), length = xs))
+        ts = LinearInterpolation(ts, 1.0:length(ts)).(range(1.0, length(ts), length = xs))
     end
+    ts[begin], ts[end] = tbg[icut], tbg[end] # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
+    τs = sol(prob.M.τ, ts) # conformal times at the sampled points for line-of-sight integration
 
     # Integrate perturbations to calculate source function on coarse k-grid
     Ss = [S for (S, i) in [(prob.M.k*prob.M.ST, iT), (prob.M.k^2*prob.M.SE, iE), (prob.M.Sψ, iψ)] if i > 0]
     Ss = SVector{length(Ss), eltype(Ss)}(Ss) # turn into SVector
-    Ss = source_grid(prob, Ss, τs, ks_fine, kinterp, sol.bg; ptalg, ptreltol, ptabstol, ptopts, verbose, thread)
+    Ss = source_grid(prob, Ss, ts, ks_fine, kinterp, sol.bg; ptalg, ptreltol, ptabstol, ptopts, verbose, thread)
     if iψ > 0
         # apply lensing kernel for a thin last scattering surface at the peak of the visibility function # TODO: use more accurate Hermite interpolation?
-        τrec = timeseries(sol)[argmax(sol[prob.M.b.v])]
+        τrec = τbg[argmax(sol[prob.M.b.v])]
         Ws = [τ ≥ τrec ? (τ-τrec)/(τ0-τrec)/(τ0-τ) : zero(τ) for τ in τs]
         for iτ in eachindex(τs), ik in eachindex(ks_fine)
             Ss[iτ, ik] = Base.setindex(Ss[iτ, ik], Ss[iτ, ik][iψ] * Ws[iτ], iψ)
