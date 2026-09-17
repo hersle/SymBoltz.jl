@@ -1217,7 +1217,7 @@ end
     ]
     M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
-    prob = CosmologyProblem(M, p; bg = ([ρr, ρm], [τ]), bgbackwards = (true, false), ivspan = (-8.0, 0.0), terminate = nothing)
+    prob = CosmologyProblem(M, p; bg = ([ρr, ρm], [τ]), ivspan = (-8.0, 0.0), terminate = nothing)
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol)
@@ -1228,8 +1228,11 @@ end
     @test issetequal(unknowns(probauto.bg[1].f.sys), [ρr, ρm])
     @test solve(probauto, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
-    # τ cannot be integrated backwards on its own, since it depends on the densities
-    @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), bgbackwards = (true, false), ivspan = (-8.0, 0.0), terminate = nothing)
+    # τ cannot be split off before the densities it depends on
+    @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), ivspan = (-8.0, 0.0), terminate = nothing)
+
+    # the variables of one stage must be declared with the same direction
+    @test_throws "are in the same stage" CosmologyProblem(M, p; bg = ([ρr, ρm, τ],), ivspan = (-8.0, 0.0), terminate = nothing)
 
     # the backward solve hits its boundary condition ρ(a=1) = 3/8π*Ω₀ exactly
     @test sol(M.ρr, 0.0) == 3/8π * p[M.Ωr0]
@@ -1263,7 +1266,7 @@ end
     @independent_variables b
     D = Differential(b)
     pars = @parameters Ωr0 Ωm0 ΩΛ0 h As ns k
-    vars = @variables a(b) ρ(b) ρr(b) ρm(b) ρΛ(b) H(b) ℋ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k) Δm(b,k)
+    vars = @variables a(b) ρ(b) ρr(b) [backwards = true] ρm(b) [backwards = true] ρΛ(b) H(b) ℋ(b) Φ(b,k) δρ(b,k) δr(b,k) θr(b,k) δm(b,k) θm(b,k) Δm(b,k)
     eqs = [
         # background equations
         a ~ exp(b)
@@ -1296,15 +1299,15 @@ end
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3, M.h => 0.7, M.As => 2e-9, M.ns => 0.96)
 
     # all background unknowns are integrated backwards in one stage, so there is nothing to terminate
-    @test_throws "terminate = nothing" CosmologyProblem(M, p; bgbackwards = true, ivspan = (-8.0, 0.0))
-    prob = CosmologyProblem(M, p; bgbackwards = true, ivspan = (-8.0, 0.0), terminate = nothing)
+    @test_throws "terminate = nothing" CosmologyProblem(M, p; ivspan = (-8.0, 0.0))
+    prob = CosmologyProblem(M, p; ivspan = (-8.0, 0.0), terminate = nothing)
     @test length(prob.bg) == 1
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol) && length(sol.bg) == 1
 
     # splitting all background unknowns off into a first stage leaves the last with none, but gives the same result
-    probbg = CosmologyProblem(M, p; bg = ([ρr, ρm], []), bgbackwards = (true, false), ivspan = (-8.0, 0.0), terminate = nothing)
+    probbg = CosmologyProblem(M, p; bg = ([ρr, ρm], []), ivspan = (-8.0, 0.0), terminate = nothing)
     @test isempty(unknowns(probbg.bg[end].f.sys))
     @test solve(probbg, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
