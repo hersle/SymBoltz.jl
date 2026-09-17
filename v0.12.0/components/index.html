@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Components (submodels) · SymBoltz</title><meta name="title" content="Components (submodels) · SymBoltz"/><meta property="og:title" content="Components (submodels) · SymBoltz"/><meta property="twitter:title" content="Components (submodels) · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li class="is-active"><a class="tocitem" href>Components (submodels)</a><ul class="internal"><li><a class="tocitem" href="#Spacetimes"><span>Spacetimes</span></a></li><li><a class="tocitem" href="#Gravitational-theories"><span>Gravitational theories</span></a></li><li><a class="tocitem" href="#Species"><span>Species</span></a></li></ul></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Building models</a></li><li class="is-active"><a href>Components (submodels)</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Components (submodels)</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/components.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Components-(submodels)"><a class="docs-heading-anchor" href="#Components-(submodels)">Components (submodels)</a><a id="Components-(submodels)-1"></a><a class="docs-heading-anchor-permalink" href="#Components-(submodels)" title="Permalink"></a></h1><h2 id="Spacetimes"><a class="docs-heading-anchor" href="#Spacetimes">Spacetimes</a><a id="Spacetimes-1"></a><a class="docs-heading-anchor-permalink" href="#Spacetimes" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.metric"><a class="docstring-binding" href="#SymBoltz.metric"><code>SymBoltz.metric</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">metric(; name = :g, kwargs...)</code></pre><p>Create a symbolic component for the perturbed FLRW spacetime metric in the conformal Newtonian gauge with sign signature diag(-1, +1, +1, +1).</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/metric.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">g = SymBoltz.metric()</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(g)</code></pre><p class="math-container">\[ \begin{align*}
+z\left( \tau \right) &amp;= -1 + \frac{1}{a\left( \tau \right)} \\
+\dot{z}\left( \tau \right) &amp;= \frac{\mathrm{d} z\left( \tau \right)}{\mathrm{d}\tau} \\
+\mathscr{H}\left( \tau \right) &amp;= \frac{\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau}}{a\left( \tau \right)} \\
+H\left( \tau \right) &amp;= \frac{\mathscr{H}\left( \tau \right)}{a\left( \tau \right)}
+\end{align*}
+ \]</p></details><h2 id="Gravitational-theories"><a class="docs-heading-anchor" href="#Gravitational-theories">Gravitational theories</a><a id="Gravitational-theories-1"></a><a class="docs-heading-anchor-permalink" href="#Gravitational-theories" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.general_relativity"><a class="docstring-binding" href="#SymBoltz.general_relativity"><code>SymBoltz.general_relativity</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">general_relativity(g; name = :G, kwargs...)</code></pre><p>Create a symbolic component for the general relativistic (GR) theory of gravity in the spacetime with the metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/gravity.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">G = SymBoltz.general_relativity(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(G)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} &amp;= \left( a\left( \tau \right) \right)^{2} \sqrt{\frac{8}{3} \rho\left( \tau \right) \pi} \\
+\mathtt{F_1}\left( \tau \right) &amp;= 0 \\
+\mathtt{F_2}\left( \tau \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} + \frac{ - \left( \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} \right)^{2} \left( 1 + \frac{ - 3 P\left( \tau \right)}{\rho\left( \tau \right)} \right)}{2 a\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \left( a\left( \tau \right) \right)^{2} \mathtt{\delta\rho}\left( \tau, k \right) \pi}{\mathscr{H}\left( \tau \right)} + \frac{ - k^{2} \Phi\left( \tau, k \right)}{3 \mathscr{H}\left( \tau \right)} - \mathscr{H}\left( \tau \right) \Psi\left( \tau, k \right) \\
+k^{2} \left( \Phi\left( \tau, k \right) - \Psi\left( \tau, k \right) \right) &amp;= 12 \left( a\left( \tau \right) \right)^{2} \Pi\left( \tau, k \right) \pi \\
+\mathtt{\dot{\Psi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Psi\left( \tau, k \right) \\
+\mathtt{\dot{\Phi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(G)</code></pre><p class="math-container">\[ \begin{align*}
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.brans_dicke"><a class="docstring-binding" href="#SymBoltz.brans_dicke"><code>SymBoltz.brans_dicke</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">brans_dicke(g; name = :G, kwargs...)</code></pre><p>Create a symbolic component for the Brans-Dicke (BD) theory of gravity in the spacetime with the metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/gravity.jl#L49-L53">source</a></div></details></article><pre><code class="language-julia hljs">G = SymBoltz.brans_dicke(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(G)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{8 \left( a\left( \tau \right) \right)^{2} \left(  - 3 P\left( \tau \right) + \rho\left( \tau \right) \right) \pi}{3 + 2 \omega} + \frac{ - 2 \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{a\left( \tau \right)} \\
+G\left( \tau \right) &amp;= \frac{4 + 2 \omega}{\phi\left( \tau \right) \left( 3 + 2 \omega \right)} \\
+\frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{ - \frac{1}{2} a\left( \tau \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} + \sqrt{\frac{\frac{8}{3} \left( a\left( \tau \right) \right)^{4} \rho\left( \tau \right) \pi}{\phi\left( \tau \right)} + \left( \frac{\frac{1}{2} a\left( \tau \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} \right)^{2} + \frac{1}{6} \left( \frac{a\left( \tau \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} \right)^{2} \omega} \\
+\mathtt{F_1}\left( \tau \right) &amp;= 0 \\
+\mathtt{F_2}\left( \tau \right) &amp;= \frac{ - \left( \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} \right)^{2}}{2 a\left( \tau \right)} + \frac{4 \left( a\left( \tau \right) \right)^{3} P\left( \tau \right) \pi}{\phi\left( \tau \right)} + \frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} + \frac{\frac{1}{2} a\left( \tau \right) \frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} + \frac{\frac{1}{2} \frac{\mathrm{d} a\left( \tau \right)}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} + \frac{1}{4} \left( \frac{\frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} \right)^{2} a\left( \tau \right) \omega \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) &amp;= \frac{3 \mathscr{H}\left( \tau \right) \frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{\delta\phi}\left( \tau, k \right) + \left( k^{2} + 3 \left( \mathscr{H}\left( \tau \right) \right)^{2} \right) \mathtt{\delta\phi}\left( \tau, k \right) - 2 k^{2} \Phi\left( \tau, k \right) \phi\left( \tau \right) + \frac{1}{2} \left(  - 2 \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} \frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{\delta\phi}\left( \tau, k \right) + \left( \frac{\frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{\phi\left( \tau \right)} \right)^{2} \mathtt{\delta\phi}\left( \tau, k \right) \right) \omega - 8 \left( a\left( \tau \right) \right)^{2} \left( \mathtt{\delta\rho}\left( \tau, k \right) + 2 \Psi\left( \tau, k \right) \rho\left( \tau \right) \right) \pi}{3 \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} + 6 \mathscr{H}\left( \tau \right) \phi\left( \tau \right)} \\
+\Psi\left( \tau, k \right) &amp;= \frac{ - \mathtt{\delta\phi}\left( \tau, k \right)}{\phi\left( \tau \right)} + \Phi\left( \tau, k \right) + \frac{ - 12 \left( a\left( \tau \right) \right)^{2} \Pi\left( \tau, k \right) \pi}{k^{2} \phi\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{\delta\phi}\left( \tau, k \right) &amp;= \frac{ - 8 \left( a\left( \tau \right) \right)^{2} \left(  - \mathtt{\delta\rho}\left( \tau, k \right) + 3 \mathtt{{\delta}P}\left( \tau, k \right) \right) \pi}{3 + 2 \omega} - 2 \mathscr{H}\left( \tau \right) \frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{\delta\phi}\left( \tau, k \right) + 2 \frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} \Psi\left( \tau, k \right) + \left( \frac{\mathrm{d}}{\mathrm{d}\tau} \Psi\left( \tau, k \right) + 3 \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} - k^{2} \mathtt{\delta\phi}\left( \tau, k \right) + 4 \mathscr{H}\left( \tau \right) \Psi\left( \tau, k \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} \\
+\mathtt{\dot{\Psi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Psi\left( \tau, k \right) \\
+\mathtt{\dot{\Phi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(G)</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{\delta\phi}\left( \tau, k \right) &amp;= 0 \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{\delta\phi}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details><h2 id="Species"><a class="docs-heading-anchor" href="#Species">Species</a><a id="Species-1"></a><a class="docs-heading-anchor-permalink" href="#Species" title="Permalink"></a></h2><h3 id="Generic"><a class="docs-heading-anchor" href="#Generic">Generic</a><a id="Generic-1"></a><a class="docs-heading-anchor-permalink" href="#Generic" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.species_constant_eos"><a class="docstring-binding" href="#SymBoltz.species_constant_eos"><code>SymBoltz.species_constant_eos</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)</code></pre><p>Create a symbolic component for a particle species with equation of state <code>w ~ P/ρ</code> in the spacetime with the metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/generic_species.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">using SymBoltz: τ
+@variables w(τ)
+s = SymBoltz.species_constant_eos(g, w)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(s)</code></pre><p class="math-container">\[ \begin{align*}
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{3 \left( 1 + w\left( \tau \right) \right)}} \\
+\rho\left( \tau \right) &amp;= \frac{3 \Omega\left( \tau \right)}{8 \pi} \\
+w\left( \tau \right) &amp;= w\left( \tau \right) \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \mathscr{H}\left( \tau \right) \left(  - w\left( \tau \right) + \mathtt{c_s^2}\left( \tau \right) \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \delta\left( \tau, k \right) \mathtt{c_s^2}\left( \tau \right)}{1 + w\left( \tau \right)} + \mathtt{{\theta}interaction}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\mathtt{\dot{u}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{{\theta}interaction}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(s)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><h3 id="Relativistic"><a class="docs-heading-anchor" href="#Relativistic">Relativistic</a><a id="Relativistic-1"></a><a class="docs-heading-anchor-permalink" href="#Relativistic" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.radiation"><a class="docstring-binding" href="#SymBoltz.radiation"><code>SymBoltz.radiation</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">radiation(g; name = :r, kwargs...)</code></pre><p>Create a particle species for radiation (with equation of state <code>w ~ 1/3</code>) in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/generic_species.jl#L70-L74">source</a></div></details></article><pre><code class="language-julia hljs">r = SymBoltz.radiation(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(r)</code></pre><p class="math-container">\[ \begin{align*}
+T\left( \tau \right) &amp;= \frac{\mathtt{T{_0}}}{a\left( \tau \right)} \\
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{4}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= \frac{1}{3} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \mathscr{H}\left( \tau \right) \left(  - w\left( \tau \right) + \mathtt{c_s^2}\left( \tau \right) \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \delta\left( \tau, k \right) \mathtt{c_s^2}\left( \tau \right)}{1 + w\left( \tau \right)} + \mathtt{{\theta}interaction}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\mathtt{\dot{u}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{{\theta}interaction}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(r)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.photons"><a class="docstring-binding" href="#SymBoltz.photons"><code>SymBoltz.photons</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">photons(g; polarization = true, lmax = 6, name = :γ, kwargs...)</code></pre><p>Create a particle species for photons in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/photons.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">γ = SymBoltz.photons(g; lmax = 6)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(γ)</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{\Omega{_0}} &amp;= \frac{1.4121 \cdot 10^{-41} \mathtt{T{_0}}^{4}}{3.1508 \cdot 10^{-35} h^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F0}\left( \tau, k \right) &amp;= 4 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) - F\_{1}\left( \tau, k \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{1}\left( \tau, k \right) &amp;= \frac{ - \frac{4}{3} \mathtt{\dot{\kappa}}\left( \tau \right) \left( \mathtt{{\theta}b}\left( \tau, k \right) - \theta\left( \tau, k \right) \right)}{k} + \frac{1}{3} \left(  - 2 F\_{2}\left( \tau, k \right) + 4 \Psi\left( \tau, k \right) + \mathtt{F0}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 F\_{1}\left( \tau, k \right) - 3 F\_{3}\left( \tau, k \right) \right) k + \left( F\_{2}\left( \tau, k \right) - \frac{1}{10} \Pi\left( \tau, k \right) \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 F\_{2}\left( \tau, k \right) - 4 F\_{4}\left( \tau, k \right) \right) k + F\_{3}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 F\_{3}\left( \tau, k \right) - 5 F\_{5}\left( \tau, k \right) \right) k + F\_{4}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 F\_{4}\left( \tau, k \right) - 6 F\_{6}\left( \tau, k \right) \right) k + F\_{5}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 F\_{6}\left( \tau, k \right)}{\tau} + F\_{5}\left( \tau, k \right) k + F\_{6}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\delta\left( \tau, k \right) &amp;= \mathtt{F0}\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{3}{4} F\_{1}\left( \tau, k \right) k \\
+\sigma\left( \tau, k \right) &amp;= \frac{1}{2} F\_{2}\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\Pi\left( \tau, k \right) &amp;= F\_{2}\left( \tau, k \right) + G\_{2}\left( \tau, k \right) + \mathtt{G0}\left( \tau, k \right) \\
+\mathtt{\dot{\Pi}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} \Pi\left( \tau, k \right) \\
+\mathtt{{\Theta}0}\left( \tau, k \right) &amp;= \frac{1}{4} \mathtt{F0}\left( \tau, k \right) \\
+\Theta\_{1}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{1}\left( \tau, k \right) \\
+\Theta\_{2}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{2}\left( \tau, k \right) \\
+\Theta\_{3}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{3}\left( \tau, k \right) \\
+\Theta\_{4}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{4}\left( \tau, k \right) \\
+\Theta\_{5}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{5}\left( \tau, k \right) \\
+\Theta\_{6}\left( \tau, k \right) &amp;= \frac{1}{4} F\_{6}\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{G0}\left( \tau, k \right) &amp;=  - G\_{1}\left( \tau, k \right) k + \mathtt{\dot{\kappa}}\left( \tau \right) \left( \mathtt{G0}\left( \tau, k \right) - \frac{1}{2} \Pi\left( \tau, k \right) \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{1}\left( \tau, k \right) &amp;= G\_{1}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) + \frac{1}{3} \left(  - 2 G\_{2}\left( \tau, k \right) + \mathtt{G0}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 G\_{1}\left( \tau, k \right) - 3 G\_{3}\left( \tau, k \right) \right) k + \left( G\_{2}\left( \tau, k \right) - \frac{1}{10} \Pi\left( \tau, k \right) \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 G\_{2}\left( \tau, k \right) - 4 G\_{4}\left( \tau, k \right) \right) k + G\_{3}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 G\_{3}\left( \tau, k \right) - 5 G\_{5}\left( \tau, k \right) \right) k + G\_{4}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 G\_{4}\left( \tau, k \right) - 6 G\_{6}\left( \tau, k \right) \right) k + G\_{5}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} G\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 G\_{6}\left( \tau, k \right)}{\tau} + G\_{5}\left( \tau, k \right) k + G\_{6}\left( \tau, k \right) \mathtt{\dot{\kappa}}\left( \tau \right) \\
+T\left( \tau \right) &amp;= \frac{\mathtt{T{_0}}}{a\left( \tau \right)} \\
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{4}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= \frac{1}{3} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(γ)</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{F0}\left( \tau, k \right) &amp;=  - 2 \Psi\left( \tau, k \right) \\
+F\_{1}\left( \tau, k \right) &amp;= \frac{2}{3} k \Psi\left( \tau, k \right) \tau \\
+F\_{2}\left( \tau, k \right) &amp;= \frac{ - \frac{8}{15} F\_{1}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+F\_{3}\left( \tau, k \right) &amp;= \frac{ - \frac{3}{7} F\_{2}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+F\_{4}\left( \tau, k \right) &amp;= \frac{ - \frac{4}{9} F\_{3}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+F\_{5}\left( \tau, k \right) &amp;= \frac{ - \frac{5}{11} F\_{4}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+F\_{6}\left( \tau, k \right) &amp;= \frac{ - \frac{6}{13} F\_{5}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+\mathtt{G0}\left( \tau, k \right) &amp;= \frac{5}{16} F\_{2}\left( \tau, k \right) \\
+G\_{1}\left( \tau, k \right) &amp;= \frac{ - \frac{1}{16} F\_{2}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+G\_{2}\left( \tau, k \right) &amp;= \frac{1}{16} F\_{2}\left( \tau, k \right) \\
+G\_{3}\left( \tau, k \right) &amp;= \frac{ - \frac{3}{7} G\_{2}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+G\_{4}\left( \tau, k \right) &amp;= \frac{ - \frac{4}{9} G\_{3}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+G\_{5}\left( \tau, k \right) &amp;= \frac{ - \frac{5}{11} G\_{4}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)} \\
+G\_{6}\left( \tau, k \right) &amp;= \frac{ - \frac{6}{13} G\_{5}\left( \tau, k \right) k}{\mathtt{\dot{\kappa}}\left( \tau \right)}
+\end{align*}
+ \]</p></details><h3 id="Non-relativistic"><a class="docs-heading-anchor" href="#Non-relativistic">Non-relativistic</a><a id="Non-relativistic-1"></a><a class="docs-heading-anchor-permalink" href="#Non-relativistic" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.matter"><a class="docstring-binding" href="#SymBoltz.matter"><code>SymBoltz.matter</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">matter(g; name = :m, kwargs...)</code></pre><p>Create a particle species for matter (with equation of state <code>w ~ 0</code>) in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/generic_species.jl#L60-L64">source</a></div></details></article><pre><code class="language-julia hljs">m = SymBoltz.matter(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(m)</code></pre><p class="math-container">\[ \begin{align*}
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{3}} \\
+\rho\left( \tau \right) &amp;= \frac{3 \Omega\left( \tau \right)}{8 \pi} \\
+w\left( \tau \right) &amp;= 0 \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \mathscr{H}\left( \tau \right) \left(  - w\left( \tau \right) + \mathtt{c_s^2}\left( \tau \right) \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \delta\left( \tau, k \right) \mathtt{c_s^2}\left( \tau \right)}{1 + w\left( \tau \right)} + \mathtt{{\theta}interaction}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\mathtt{\dot{u}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right) \\
+\mathtt{{\theta}interaction}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(m)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.cold_dark_matter"><a class="docstring-binding" href="#SymBoltz.cold_dark_matter"><code>SymBoltz.cold_dark_matter</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">cold_dark_matter(g; name = :c, kwargs...)</code></pre><p>Create a particle species for cold dark matter in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/dark_matter.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">c = SymBoltz.cold_dark_matter(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(c)</code></pre><p class="math-container">\[ \begin{align*}
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{3}} \\
+\rho\left( \tau \right) &amp;= \frac{3 \Omega\left( \tau \right)}{8 \pi} \\
+w\left( \tau \right) &amp;= 0 \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \mathscr{H}\left( \tau \right) \left(  - w\left( \tau \right) + \mathtt{c_s^2}\left( \tau \right) \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \delta\left( \tau, k \right) \mathtt{c_s^2}\left( \tau \right)}{1 + w\left( \tau \right)} + \mathtt{{\theta}interaction}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\mathtt{\dot{u}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right) \\
+\mathtt{{\theta}interaction}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(c)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.baryons"><a class="docstring-binding" href="#SymBoltz.baryons"><code>SymBoltz.baryons</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)</code></pre><p>Create a particle species for baryons in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/baryons.jl#L144-L148">source</a></div></details></article><pre><code class="language-julia hljs">b = SymBoltz.baryons(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(b)</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{fHe} &amp;= \frac{\mathtt{YHe}}{3.9708 \left( 1 - \mathtt{YHe} \right)} \\
+\frac{\mathrm{d} \mathtt{\_\kappa}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{ - 1.9944 \cdot 10^{-20} a\left( \tau \right) \mathtt{ne}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{\dot{\kappa}}\left( \tau \right) &amp;= \frac{\mathrm{d} \mathtt{\_\kappa}\left( \tau \right)}{\mathrm{d}\tau} \\
+\kappa\left( \tau \right) &amp;= \mathtt{\_\kappa}\left( \tau \right) - \mathtt{{\kappa}0} \\
+I\left( \tau \right) &amp;= e^{ - \kappa\left( \tau \right)} \\
+v\left( \tau \right) &amp;=  - \frac{\mathrm{d} \kappa\left( \tau \right)}{\mathrm{d}\tau} e^{ - \kappa\left( \tau \right)} \\
+\mathtt{\dot{v}}\left( \tau \right) &amp;= \frac{\mathrm{d} v\left( \tau \right)}{\mathrm{d}\tau} \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= \frac{1.3806 \cdot 10^{-23} \left( T\left( \tau \right) + \frac{ - \frac{\mathrm{d} T\left( \tau \right)}{\mathrm{d}\tau}}{3 \mathscr{H}\left( \tau \right)} \right)}{\mathtt{{\mu}c^2}\left( \tau \right)} \\
+\mathtt{{\mu}c^2}\left( \tau \right) &amp;= \frac{1.5044 \cdot 10^{-10}}{1 - 0.74816 \mathtt{YHe} + \left( 1 - \mathtt{YHe} \right) \mathtt{Xe}\left( \tau \right)} \\
+\mathtt{DT}\left( \tau \right) &amp;= \frac{ - 0.00015165 \left( \mathtt{T\gamma}\left( \tau \right) \right)^{4} a\left( \tau \right) \mathtt{{\Delta}T}\left( \tau \right) \mathtt{Xe}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{Xe}\left( \tau \right) \right) h} - 2 \mathscr{H}\left( \tau \right) T\left( \tau \right) \\
+\mathtt{DT\gamma}\left( \tau \right) &amp;= \frac{\mathrm{d} \mathtt{T\gamma}\left( \tau \right)}{\mathrm{d}\tau} \\
+\frac{\mathrm{d} \mathtt{{\Delta}T}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \mathtt{DT}\left( \tau \right) - \mathtt{DT\gamma}\left( \tau \right) \\
+T\left( \tau \right) &amp;= \mathtt{{\Delta}T}\left( \tau \right) + \mathtt{T\gamma}\left( \tau \right) \\
+\mathtt{nH}\left( \tau \right) &amp;= 94.012 h^{2} \left( 1 - \mathtt{YHe} \right) \rho\left( \tau \right) \\
+\mathtt{nHe}\left( \tau \right) &amp;= \mathtt{fHe} \mathtt{nH}\left( \tau \right) \\
+\mathtt{ne}\left( \tau \right) &amp;= \mathtt{nH}\left( \tau \right) \mathtt{Xe}\left( \tau \right) \\
+\mathtt{rec.nH}\left( \tau \right) &amp;= \mathtt{nH}\left( \tau \right) \\
+\mathtt{rec.nHe}\left( \tau \right) &amp;= \mathtt{nHe}\left( \tau \right) \\
+\mathtt{rec.ne}\left( \tau \right) &amp;= \mathtt{ne}\left( \tau \right) \\
+\mathtt{rec.T}\left( \tau \right) &amp;= T\left( \tau \right) \\
+\mathtt{Xe}\left( \tau \right) &amp;= \mathtt{rei2.Xe}\left( \tau \right) + \mathtt{rec.Xe}\left( \tau \right) + \mathtt{rei1.Xe}\left( \tau \right) \\
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{3}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= 0 \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \mathscr{H}\left( \tau \right) \left(  - w\left( \tau \right) + \mathtt{c_s^2}\left( \tau \right) \right) \delta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \delta\left( \tau, k \right) \mathtt{c_s^2}\left( \tau \right)}{1 + w\left( \tau \right)} + \mathtt{{\theta}interaction}\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) - \mathscr{H}\left( \tau \right) \left( 1 - 3 w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+\mathtt{\dot{u}}\left( \tau, k \right) &amp;= \frac{\mathrm{d}}{\mathrm{d}\tau} u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{rec.\beta}\left( \tau \right) &amp;= \frac{1}{1.3806 \cdot 10^{-23} \mathtt{rec.T}\left( \tau \right)} \\
+\mathtt{rec.{\lambda}e}\left( \tau \right) &amp;= \frac{6.6261 \cdot 10^{-34}}{\sqrt{\frac{5.7236 \cdot 10^{-30}}{\mathtt{rec.\beta}\left( \tau \right)}}} \\
+\mathtt{rec.H}\left( \tau \right) &amp;= 3.2408 \cdot 10^{-18} h H\left( \tau \right) \\
+\mathtt{rec.{\alpha}H}\left( \tau \right) &amp;= \frac{4.309 \cdot 10^{-19} \mathtt{rec.FH}}{0.0034166 \left( \mathtt{rec.T}\left( \tau \right) \right)^{0.6166} \left( 1 + 0.0050847 \left( \mathtt{rec.T}\left( \tau \right) \right)^{0.53} \right)} \\
+\mathtt{rec.{\beta}H}\left( \tau \right) &amp;= \frac{\mathtt{rec.{\alpha}H}\left( \tau \right) e^{ - 5.4468 \cdot 10^{-19} \mathtt{rec.\beta}\left( \tau \right)}}{\left( \mathtt{rec.{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{rec.KH}\left( \tau \right) &amp;= \frac{7.1484 \cdot 10^{-23} \mathtt{rec.KHfitfactor}\left( \tau \right)}{\mathtt{rec.H}\left( \tau \right)} \\
+\mathtt{rec.CH}\left( \tau \right) &amp;= 0.5 \left( 1 + \frac{1 + 8.2246 \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \mathtt{rec.KH}\left( \tau \right) \mathtt{rec.nH}\left( \tau \right)}{1 + \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \mathtt{rec.KH}\left( \tau \right) \left( 8.2246 + \mathtt{rec.{\beta}H}\left( \tau \right) \right) \mathtt{rec.nH}\left( \tau \right)} + \tanh\left( 1000 \left(  - \mathtt{rec.XlimC} + \mathtt{rec.XH^+}\left( \tau \right) \right) \right) \left( 1 + \frac{-1 - 8.2246 \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \mathtt{rec.KH}\left( \tau \right) \mathtt{rec.nH}\left( \tau \right)}{1 + \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \mathtt{rec.KH}\left( \tau \right) \left( 8.2246 + \mathtt{rec.{\beta}H}\left( \tau \right) \right) \mathtt{rec.nH}\left( \tau \right)} \right) \right) \\
+\frac{\mathrm{d} \mathtt{rec.XH^+}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \frac{ - a\left( \tau \right) \left( \mathtt{rec.XH^+}\left( \tau \right) \mathtt{rec.{\alpha}H}\left( \tau \right) \mathtt{rec.ne}\left( \tau \right) - \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) e^{ - 1.634 \cdot 10^{-18} \mathtt{rec.\beta}\left( \tau \right)} \mathtt{rec.{\beta}H}\left( \tau \right) \right) \mathtt{rec.CH}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{rec.{\alpha}He}\left( \tau \right) &amp;= \frac{1.803 \cdot 10^{-17}}{\left( 1 + \sqrt{0.33333 \mathtt{rec.T}\left( \tau \right)} \right)^{0.289} \left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{rec.T}\left( \tau \right)} \right)^{1.711} \sqrt{0.33333 \mathtt{rec.T}\left( \tau \right)}} \\
+\mathtt{rec.{\beta}He}\left( \tau \right) &amp;= \frac{4 e^{ - 6.3633 \cdot 10^{-19} \mathtt{rec.\beta}\left( \tau \right)} \mathtt{rec.{\alpha}He}\left( \tau \right)}{\left( \mathtt{rec.{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{rec.KHe}\left( \tau \right) &amp;= \frac{1}{\mathtt{rec.invKHe0}\left( \tau \right) + \mathtt{rec.invKHe2}\left( \tau \right) + \mathtt{rec.invKHe1}\left( \tau \right)} \\
+\mathtt{rec.invKHe0}\left( \tau \right) &amp;= 1.2597 \cdot 10^{23} \mathtt{rec.H}\left( \tau \right) \\
+\mathtt{rec.CHe}\left( \tau \right) &amp;= 0.5 \left( 1 + \frac{e^{ - 9.6491 \cdot 10^{-20} \mathtt{rec.\beta}\left( \tau \right)} + 51.3 \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right) \mathtt{rec.KHe}\left( \tau \right)}{e^{ - 9.6491 \cdot 10^{-20} \mathtt{rec.\beta}\left( \tau \right)} + \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \left( 51.3 + \mathtt{rec.{\beta}He}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right) \mathtt{rec.KHe}\left( \tau \right)} + \left( 1 + \frac{ - e^{ - 9.6491 \cdot 10^{-20} \mathtt{rec.\beta}\left( \tau \right)} - 51.3 \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right) \mathtt{rec.KHe}\left( \tau \right)}{e^{ - 9.6491 \cdot 10^{-20} \mathtt{rec.\beta}\left( \tau \right)} + \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \left( 51.3 + \mathtt{rec.{\beta}He}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right) \mathtt{rec.KHe}\left( \tau \right)} \right) \tanh\left( 1000 \left(  - \mathtt{rec.XlimC} + \mathtt{rec.XHe^+}\left( \tau \right) \right) \right) \right) \\
+\mathtt{rec.DXHe^+}\left( \tau \right) &amp;= \frac{ - a\left( \tau \right) \left(  - \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.{\beta}He}\left( \tau \right) e^{ - 3.303 \cdot 10^{-18} \mathtt{rec.\beta}\left( \tau \right)} + \mathtt{rec.XHe^+}\left( \tau \right) \mathtt{rec.{\alpha}He}\left( \tau \right) \mathtt{rec.ne}\left( \tau \right) \right) \mathtt{rec.CHe}\left( \tau \right)}{3.2408 \cdot 10^{-18} h} \\
+\frac{\mathrm{d} \mathtt{rec.XHe^+}\left( \tau \right)}{\mathrm{d}\tau} &amp;= \mathtt{rec.DXHet^+}\left( \tau \right) + \mathtt{rec.DXHe^+}\left( \tau \right) \\
+\mathtt{rec.RHe^+}\left( \tau \right) &amp;= \frac{e^{ - 8.7187 \cdot 10^{-18} \mathtt{rec.\beta}\left( \tau \right)}}{\left( \mathtt{rec.{\lambda}e}\left( \tau \right) \right)^{3} \mathtt{rec.nH}\left( \tau \right)} \\
+\mathtt{rec.XHe^{+ +}}\left( \tau \right) &amp;= \frac{2 \mathtt{fHe} \mathtt{rec.RHe^+}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{rec.RHe^+}\left( \tau \right) \right) \left( 1 + \sqrt{1 + \frac{4 \mathtt{fHe} \mathtt{rec.RHe^+}\left( \tau \right)}{\left( 1 + \mathtt{fHe} + \mathtt{rec.RHe^+}\left( \tau \right) \right)^{2}}} \right)} \\
+\mathtt{rec.Xe}\left( \tau \right) &amp;= \mathtt{rec.XH^+}\left( \tau \right) + \mathtt{rec.XHe^{+ +}}\left( \tau \right) + \mathtt{fHe} \mathtt{rec.XHe^+}\left( \tau \right) \\
+\mathtt{rec.KHfitfactor}\left( \tau \right) &amp;= 1 + 0.079 e^{ - 9.1827 \left( 6.73 + \log\left( a\left( \tau \right) \right) \right)^{2}} - 0.14 e^{ - 30.864 \left( 7.28 + \log\left( a\left( \tau \right) \right) \right)^{2}} \\
+\mathtt{rec.{\tau}He}\left( \tau \right) &amp;= \frac{5.3949 \cdot 10^{9} \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right)}{\mathtt{rec.invKHe0}\left( \tau \right)} \\
+\mathtt{rec.invKHe1}\left( \tau \right) &amp;=  - \mathtt{rec.invKHe0}\left( \tau \right) e^{ - \mathtt{rec.{\tau}He}\left( \tau \right)} \\
+\mathtt{rec.{\gamma}2ps}\left( \tau \right) &amp;= \frac{4.8487 \cdot 10^{26} \mathtt{fHe} \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right)}{4.8748 \cdot 10^{26} \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \mathtt{rec.\beta}\left( \tau \right)}}} \\
+\mathtt{rec.invKHe2}\left( \tau \right) &amp;= \frac{5.3949 \cdot 10^{9} \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right)}{1 + 0.36 \left( \mathtt{rec.{\gamma}2ps}\left( \tau \right) \right)^{0.86}} \\
+\mathtt{rec.{\alpha}Het}\left( \tau \right) &amp;= \frac{4.9431 \cdot 10^{-17}}{\left( 1 + \sqrt{0.33333 \mathtt{rec.T}\left( \tau \right)} \right)^{0.239} \left( 1 + \sqrt{7.6913 \cdot 10^{-6} \mathtt{rec.T}\left( \tau \right)} \right)^{1.761} \sqrt{0.33333 \mathtt{rec.T}\left( \tau \right)}} \\
+\mathtt{rec.{\beta}Het}\left( \tau \right) &amp;= \frac{1.3333 \mathtt{rec.{\alpha}Het}\left( \tau \right) e^{ - 7.6388 \cdot 10^{-19} \mathtt{rec.\beta}\left( \tau \right)}}{\left( \mathtt{rec.{\lambda}e}\left( \tau \right) \right)^{3}} \\
+\mathtt{rec.{\tau}Het}\left( \tau \right) &amp;= \frac{1.102 \cdot 10^{-19} \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.nHe}\left( \tau \right)}{25.133 \mathtt{rec.H}\left( \tau \right)} \\
+\mathtt{rec.pHet}\left( \tau \right) &amp;= \frac{1 - e^{ - \mathtt{rec.{\tau}Het}\left( \tau \right)}}{\mathtt{rec.{\tau}Het}\left( \tau \right)} \\
+\mathtt{rec.{\gamma}2pt}\left( \tau \right) &amp;= \frac{4.788 \cdot 10^{19} \mathtt{fHe} \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right)}{4.861 \cdot 10^{26} \left( 1 - \mathtt{rec.XH^+}\left( \tau \right) \right) \sqrt{\frac{6.2832}{5.9736 \cdot 10^{-10} \mathtt{rec.\beta}\left( \tau \right)}}} \\
+\mathtt{rec.CHetnum}\left( \tau \right) &amp;= 177.58 e^{ - 1.8337 \cdot 10^{-19} \mathtt{rec.\beta}\left( \tau \right)} \left( \frac{\frac{1}{3}}{1 + 0.66 \left( \mathtt{rec.{\gamma}2pt}\left( \tau \right) \right)^{0.9}} + \mathtt{rec.pHet}\left( \tau \right) \right) \\
+\mathtt{rec.CHet}\left( \tau \right) &amp;= \frac{1 \cdot 10^{-9} + \mathtt{rec.CHetnum}\left( \tau \right)}{1 \cdot 10^{-9} + \mathtt{rec.{\beta}Het}\left( \tau \right) + \mathtt{rec.CHetnum}\left( \tau \right)} \\
+\mathtt{rec.DXHet^+}\left( \tau \right) &amp;= \frac{ - \mathtt{rec.CHet}\left( \tau \right) a\left( \tau \right) \left( \mathtt{rec.XHe^+}\left( \tau \right) \mathtt{rec.{\alpha}Het}\left( \tau \right) \mathtt{rec.ne}\left( \tau \right) - 3 \left( 1 - \mathtt{rec.XHe^+}\left( \tau \right) \right) \mathtt{rec.{\beta}Het}\left( \tau \right) e^{ - 3.1755 \cdot 10^{-18} \mathtt{rec.\beta}\left( \tau \right)} \right)}{3.2408 \cdot 10^{-18} h} \\
+\mathtt{rei1.Xe}\left( \tau \right) &amp;= 0.5 \left( 1 + \mathtt{fHe} + \left( 1 + \mathtt{fHe} \right) \tanh\left( 0.4528 \left( 25.534 + \left( -1 - z\left( \tau \right) \right) \sqrt{1 + z\left( \tau \right)} \right) \right) \right) \\
+\mathtt{rei2.Xe}\left( \tau \right) &amp;= 0.5 \left( \mathtt{fHe} + \mathtt{fHe} \tanh\left( 2 \left( 3.5 - z\left( \tau \right) \right) \right) \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(b)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><h3 id="Neutrinos"><a class="docs-heading-anchor" href="#Neutrinos">Neutrinos</a><a id="Neutrinos-1"></a><a class="docs-heading-anchor-permalink" href="#Neutrinos" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.massless_neutrinos"><a class="docstring-binding" href="#SymBoltz.massless_neutrinos"><code>SymBoltz.massless_neutrinos</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">massless_neutrinos(g; lmax = 6, name = :ν, kwargs...)</code></pre><p>Create a particle species for massless neutrinos in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/neutrinos.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">ν = SymBoltz.massless_neutrinos(g; lmax = 6)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(ν)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{F0}\left( \tau, k \right) &amp;= 4 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) - F\_{1}\left( \tau, k \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{1}\left( \tau, k \right) &amp;= \frac{1}{3} \left(  - 2 F\_{2}\left( \tau, k \right) + 4 \Psi\left( \tau, k \right) + \mathtt{F0}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{2}\left( \tau, k \right) &amp;= \frac{1}{5} \left( 2 F\_{1}\left( \tau, k \right) - 3 F\_{3}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{3}\left( \tau, k \right) &amp;= \frac{1}{7} \left( 3 F\_{2}\left( \tau, k \right) - 4 F\_{4}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{4}\left( \tau, k \right) &amp;= \frac{1}{9} \left( 4 F\_{3}\left( \tau, k \right) - 5 F\_{5}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{5}\left( \tau, k \right) &amp;= \frac{1}{11} \left( 5 F\_{4}\left( \tau, k \right) - 6 F\_{6}\left( \tau, k \right) \right) k \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} F\_{6}\left( \tau, k \right) &amp;= \frac{ - 7 F\_{6}\left( \tau, k \right)}{\tau} + F\_{5}\left( \tau, k \right) k \\
+\delta\left( \tau, k \right) &amp;= \mathtt{F0}\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{3}{4} F\_{1}\left( \tau, k \right) k \\
+\sigma\left( \tau, k \right) &amp;= \frac{1}{2} F\_{2}\left( \tau, k \right) \\
+u\left( \tau, k \right) &amp;= \frac{\theta\left( \tau, k \right)}{k} \\
+T\left( \tau \right) &amp;= \frac{\mathtt{T{_0}}}{a\left( \tau \right)} \\
+\Omega\left( \tau \right) &amp;= \frac{\mathtt{\Omega{_0}}}{\left( a\left( \tau \right) \right)^{4}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= \frac{1}{3} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(ν)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - 2 \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau \\
+\sigma\left( \tau, k \right) &amp;= \frac{1}{15} \tau^{2} k^{2} \Psi\left( \tau, k \right) \\
+F\_{3}\left( \tau, k \right) &amp;= \frac{3}{7} F\_{2}\left( \tau, k \right) k \tau \\
+F\_{4}\left( \tau, k \right) &amp;= \frac{4}{9} F\_{3}\left( \tau, k \right) k \tau \\
+F\_{5}\left( \tau, k \right) &amp;= \frac{5}{11} F\_{4}\left( \tau, k \right) k \tau \\
+F\_{6}\left( \tau, k \right) &amp;= \frac{6}{13} F\_{5}\left( \tau, k \right) k \tau
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.momentum_quadrature"><a class="docstring-binding" href="#SymBoltz.momentum_quadrature"><code>SymBoltz.momentum_quadrature</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">momentum_quadrature(f, N; u = x -&gt; 1/(1+x/100), x = u -&gt; 100*(1-u)/u, dx_du = u -&gt; -100/u^2, x1 = 0.0, x2 = Inf)</code></pre><p>Compute <span>$N$</span> dimensionless momentum bins <span>$xᵢ$</span> and integral weights <span>$Wᵢ$</span> for integrating <span>$∫dx x²f(x)g(x)$</span> from <span>$0$</span> to <span>$∞$</span> against arbitrary weight functions <span>$g(x)$</span> with <span>$N$</span>-point Gaussian quadrature using QuadGK.jl. The returned weights <code>Ws</code> approximates the integral for arbitrary functions <code>g(x)</code> with the sum <span>$sum(Ws .* g.(xs))$</span>.</p><p>The keyword arguments specifies an integral substitution <span>$x(u)$</span> with derivative <span>$\mathrm{d}x/\mathrm{d}u$</span> and inverse <span>$u(x)$</span> to apply. The default transformation first maps <span>$x$</span> on the infinite domain <span>$(0, ∞)$</span> to <span>$x/L$</span> with <span>$L = 100$</span>, which is an approximate decay length of the massive neutrino distribution function. It then performs a rational transformation of <span>$x/L$</span> into <span>$u$</span> on the finite domain <span>$(0, 1)$</span> to make the numerical integral well-defined.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/neutrinos.jl#L41-L51">source</a></div></details></article><article><details class="docstring" open="true"><summary id="SymBoltz.massive_neutrinos"><a class="docstring-binding" href="#SymBoltz.massive_neutrinos"><code>SymBoltz.massive_neutrinos</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">massive_neutrinos(g; nx = 4, lmax = 4, name = :h, kwargs...)</code></pre><p>Create a particle species for massive neutrinos in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/neutrinos.jl#L60-L64">source</a></div></details></article><pre><code class="language-julia hljs">h = SymBoltz.massive_neutrinos(g; nx=4, lmax = 5)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(h)</code></pre><p class="math-container">\[ \begin{align*}
+m &amp;= 1.7827 \cdot 10^{-36} \mathtt{m\_eV} \\
+\mathtt{y{_0}} &amp;= \frac{8.9876 \cdot 10^{16} m}{1.3806 \cdot 10^{-23} \mathtt{T{_0}}} \\
+\mathtt{I\rho{_0}} &amp;= 0.99943 \sqrt{10.95 + \mathtt{y{_0}}^{2}} + 0.0070934 \sqrt{139.32 + \mathtt{y{_0}}^{2}} + 0.24384 \sqrt{43.235 + \mathtt{y{_0}}^{2}} + 0.55272 \sqrt{1.549 + \mathtt{y{_0}}^{2}} \\
+\mathtt{\Omega{_0}} &amp;= \frac{9.1988 \cdot 10^{-15} \mathtt{T_0}^{4} \mathtt{I\rho_0} N}{4.2428 \cdot 10^{-8} h^{2} \pi} \\
+T\left( \tau \right) &amp;= \frac{\mathtt{T{_0}}}{a\left( \tau \right)} \\
+y\left( \tau \right) &amp;= \mathtt{y{_0}} a\left( \tau \right) \\
+\mathtt{In}\left( \tau \right) &amp;= 1.8031 \\
+\mathtt{I\rho}\left( \tau \right) &amp;= 0.55272 E\_{1}\left( \tau \right) + 0.99943 E\_{2}\left( \tau \right) + 0.24384 E\_{3}\left( \tau \right) + 0.0070934 E\_{4}\left( \tau \right) \\
+\mathtt{IP}\left( \tau \right) &amp;= \frac{0.85619}{E\_{1}\left( \tau \right)} + \frac{10.944}{E\_{2}\left( \tau \right)} + \frac{10.543}{E\_{3}\left( \tau \right)} + \frac{0.98827}{E\_{4}\left( \tau \right)} \\
+\rho\left( \tau \right) &amp;= \frac{1.165 \cdot 10^{-16} \left( T\left( \tau \right) \right)^{4} N \mathtt{I\rho}\left( \tau \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+P\left( \tau \right) &amp;= \frac{3.8835 \cdot 10^{-17} \left( T\left( \tau \right) \right)^{4} N \mathtt{IP}\left( \tau \right)}{1.4143 \cdot 10^{-8} h^{2}} \\
+w\left( \tau \right) &amp;= \frac{P\left( \tau \right)}{\rho\left( \tau \right)} \\
+\Omega\left( \tau \right) &amp;= \frac{8}{3} \rho\left( \tau \right) \pi \\
+\mathtt{I\delta\rho}\left( \tau, k \right) &amp;= 0.55272 E\_{1}\left( \tau \right) \mathtt{{\psi}0}\_{1}\left( \tau, k \right) + 0.99943 E\_{2}\left( \tau \right) \mathtt{{\psi}0}\_{2}\left( \tau, k \right) + 0.24384 E\_{3}\left( \tau \right) \mathtt{{\psi}0}\_{3}\left( \tau, k \right) + 0.0070934 E\_{4}\left( \tau \right) \mathtt{{\psi}0}\_{4}\left( \tau, k \right) \\
+\delta\left( \tau, k \right) &amp;= \frac{\mathtt{I\delta\rho}\left( \tau, k \right)}{\mathtt{I\rho}\left( \tau \right)} \\
+u\left( \tau, k \right) &amp;= \frac{0.68792 \psi\_{1,1}\left( \tau, k \right) + 3.3072 \psi\_{2,1}\left( \tau, k \right) + 1.6033 \psi\_{3,1}\left( \tau, k \right) + 0.083727 \psi\_{4,1}\left( \tau, k \right)}{\mathtt{I\rho}\left( \tau \right) + \frac{1}{3} \mathtt{IP}\left( \tau \right)} \\
+\theta\left( \tau, k \right) &amp;= k u\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= \frac{\frac{2}{3} \left( \frac{10.543 \psi\_{3,2}\left( \tau, k \right)}{E\_{3}\left( \tau \right)} + \frac{0.85619 \psi\_{1,2}\left( \tau, k \right)}{E\_{1}\left( \tau \right)} + \frac{0.98827 \psi\_{4,2}\left( \tau, k \right)}{E\_{4}\left( \tau \right)} + \frac{10.944 \psi\_{2,2}\left( \tau, k \right)}{E\_{2}\left( \tau \right)} \right)}{\mathtt{I\rho}\left( \tau \right) + \frac{1}{3} \mathtt{IP}\left( \tau \right)} \\
+\mathtt{c_s^2}\left( \tau, k \right) &amp;= \frac{\frac{10.543 \mathtt{{\psi}0}\_{3}\left( \tau, k \right)}{E\_{3}\left( \tau \right)} + \frac{10.944 \mathtt{{\psi}0}\_{2}\left( \tau, k \right)}{E\_{2}\left( \tau \right)} + \frac{0.85619 \mathtt{{\psi}0}\_{1}\left( \tau, k \right)}{E\_{1}\left( \tau \right)} + \frac{0.98827 \mathtt{{\psi}0}\_{4}\left( \tau, k \right)}{E\_{4}\left( \tau \right)}}{\mathtt{I\delta\rho}\left( \tau, k \right)} \\
+E\_{1}\left( \tau \right) &amp;= \sqrt{1.549 + \left( y\left( \tau \right) \right)^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}0}\_{1}\left( \tau, k \right) &amp;= 0.96627 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) + \frac{ - 1.2446 k \psi\_{1,1}\left( \tau, k \right)}{E\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{1,1}\left( \tau, k \right) &amp;= \frac{0.41487 k \left(  - 2 \psi\_{1,2}\left( \tau, k \right) + \mathtt{{\psi}0}\_{1}\left( \tau, k \right) \right)}{E\_{1}\left( \tau \right)} + 0.25879 E\_{1}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{1,2}\left( \tau, k \right) &amp;= \frac{0.24892 k \left( 2 \psi\_{1,1}\left( \tau, k \right) - 3 \psi\_{1,3}\left( \tau, k \right) \right)}{E\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{1,3}\left( \tau, k \right) &amp;= \frac{0.1778 k \left( 3 \psi\_{1,2}\left( \tau, k \right) - 4 \psi\_{1,4}\left( \tau, k \right) \right)}{E\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{1,4}\left( \tau, k \right) &amp;= \frac{0.13829 k \left( 4 \psi\_{1,3}\left( \tau, k \right) - 5 \psi\_{1,5}\left( \tau, k \right) \right)}{E\_{1}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{1,5}\left( \tau, k \right) &amp;= \frac{0.11315 k \left(  - 6 \left( \frac{8.8381 E\_{1}\left( \tau \right) \psi\_{1,5}\left( \tau, k \right)}{k \tau} - \psi\_{1,4}\left( \tau, k \right) \right) + 5 \psi\_{1,4}\left( \tau, k \right) \right)}{E\_{1}\left( \tau \right)} \\
+E\_{2}\left( \tau \right) &amp;= \sqrt{10.95 + \left( y\left( \tau \right) \right)^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}0}\_{2}\left( \tau, k \right) &amp;= \frac{ - 3.3091 k \psi\_{2,1}\left( \tau, k \right)}{E\_{2}\left( \tau \right)} + 3.1924 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{2,1}\left( \tau, k \right) &amp;= \frac{1.103 k \left(  - 2 \psi\_{2,2}\left( \tau, k \right) + \mathtt{{\psi}0}\_{2}\left( \tau, k \right) \right)}{E\_{2}\left( \tau \right)} + 0.32158 E\_{2}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{2,2}\left( \tau, k \right) &amp;= \frac{0.66182 k \left( 2 \psi\_{2,1}\left( \tau, k \right) - 3 \psi\_{2,3}\left( \tau, k \right) \right)}{E\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{2,3}\left( \tau, k \right) &amp;= \frac{0.47273 k \left( 3 \psi\_{2,2}\left( \tau, k \right) - 4 \psi\_{2,4}\left( \tau, k \right) \right)}{E\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{2,4}\left( \tau, k \right) &amp;= \frac{0.36768 k \left( 4 \psi\_{2,3}\left( \tau, k \right) - 5 \psi\_{2,5}\left( \tau, k \right) \right)}{E\_{2}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{2,5}\left( \tau, k \right) &amp;= \frac{0.30083 k \left(  - 6 \left( \frac{3.3242 E\_{2}\left( \tau \right) \psi\_{2,5}\left( \tau, k \right)}{k \tau} - \psi\_{2,4}\left( \tau, k \right) \right) + 5 \psi\_{2,4}\left( \tau, k \right) \right)}{E\_{2}\left( \tau \right)} \\
+E\_{3}\left( \tau \right) &amp;= \sqrt{43.235 + \left( y\left( \tau \right) \right)^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}0}\_{3}\left( \tau, k \right) &amp;= \frac{ - 6.5754 k \psi\_{3,1}\left( \tau, k \right)}{E\_{3}\left( \tau \right)} + 6.5662 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{3,1}\left( \tau, k \right) &amp;= \frac{2.1918 k \left(  - 2 \psi\_{3,2}\left( \tau, k \right) + \mathtt{{\psi}0}\_{3}\left( \tau, k \right) \right)}{E\_{3}\left( \tau \right)} + 0.33287 E\_{3}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{3,2}\left( \tau, k \right) &amp;= \frac{1.3151 k \left( 2 \psi\_{3,1}\left( \tau, k \right) - 3 \psi\_{3,3}\left( \tau, k \right) \right)}{E\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{3,3}\left( \tau, k \right) &amp;= \frac{0.93934 k \left( 3 \psi\_{3,2}\left( \tau, k \right) - 4 \psi\_{3,4}\left( \tau, k \right) \right)}{E\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{3,4}\left( \tau, k \right) &amp;= \frac{0.7306 k \left( 4 \psi\_{3,3}\left( \tau, k \right) - 5 \psi\_{3,5}\left( \tau, k \right) \right)}{E\_{3}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{3,5}\left( \tau, k \right) &amp;= \frac{0.59776 k \left(  - 6 \left( \frac{1.6729 E\_{3}\left( \tau \right) \psi\_{3,5}\left( \tau, k \right)}{k \tau} - \psi\_{3,4}\left( \tau, k \right) \right) + 5 \psi\_{3,4}\left( \tau, k \right) \right)}{E\_{3}\left( \tau \right)} \\
+E\_{4}\left( \tau \right) &amp;= \sqrt{139.32 + \left( y\left( \tau \right) \right)^{2}} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \mathtt{{\psi}0}\_{4}\left( \tau, k \right) &amp;= \frac{ - 11.804 k \psi\_{4,1}\left( \tau, k \right)}{E\_{4}\left( \tau \right)} + 11.803 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{4,1}\left( \tau, k \right) &amp;= \frac{3.9345 k \left(  - 2 \psi\_{4,2}\left( \tau, k \right) + \mathtt{{\psi}0}\_{4}\left( \tau, k \right) \right)}{E\_{4}\left( \tau \right)} + 0.33333 E\_{4}\left( \tau \right) k \Psi\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{4,2}\left( \tau, k \right) &amp;= \frac{2.3607 k \left( 2 \psi\_{4,1}\left( \tau, k \right) - 3 \psi\_{4,3}\left( \tau, k \right) \right)}{E\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{4,3}\left( \tau, k \right) &amp;= \frac{1.6862 k \left( 3 \psi\_{4,2}\left( \tau, k \right) - 4 \psi\_{4,4}\left( \tau, k \right) \right)}{E\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{4,4}\left( \tau, k \right) &amp;= \frac{1.3115 k \left( 4 \psi\_{4,3}\left( \tau, k \right) - 5 \psi\_{4,5}\left( \tau, k \right) \right)}{E\_{4}\left( \tau \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \psi\_{4,5}\left( \tau, k \right) &amp;= \frac{1.073 k \left(  - 6 \left( \frac{0.93193 E\_{4}\left( \tau \right) \psi\_{4,5}\left( \tau, k \right)}{k \tau} - \psi\_{4,4}\left( \tau, k \right) \right) + 5 \psi\_{4,4}\left( \tau, k \right) \right)}{E\_{4}\left( \tau \right)}
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(h)</code></pre><p class="math-container">\[ \begin{align*}
+\mathtt{{\psi}0}\_{1}\left( \tau, k \right) &amp;=  - 0.48313 \Psi\left( \tau, k \right) \\
+\psi\_{1,1}\left( \tau, k \right) &amp;= 0.12939 E\_{1}\left( \tau \right) k \Psi\left( \tau, k \right) \tau \\
+\psi\_{1,2}\left( \tau, k \right) &amp;= 0.032209 \tau^{2} k^{2} \Psi\left( \tau, k \right) \\
+\psi\_{1,3}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{1,4}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{1,5}\left( \tau, k \right) &amp;= 0 \\
+\mathtt{{\psi}0}\_{2}\left( \tau, k \right) &amp;=  - 1.5962 \Psi\left( \tau, k \right) \\
+\psi\_{2,1}\left( \tau, k \right) &amp;= 0.16079 E\_{2}\left( \tau \right) k \Psi\left( \tau, k \right) \tau \\
+\psi\_{2,2}\left( \tau, k \right) &amp;= 0.10641 \tau^{2} k^{2} \Psi\left( \tau, k \right) \\
+\psi\_{2,3}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{2,4}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{2,5}\left( \tau, k \right) &amp;= 0 \\
+\mathtt{{\psi}0}\_{3}\left( \tau, k \right) &amp;=  - 3.2831 \Psi\left( \tau, k \right) \\
+\psi\_{3,1}\left( \tau, k \right) &amp;= 0.16643 E\_{3}\left( \tau \right) k \Psi\left( \tau, k \right) \tau \\
+\psi\_{3,2}\left( \tau, k \right) &amp;= 0.21887 \tau^{2} k^{2} \Psi\left( \tau, k \right) \\
+\psi\_{3,3}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{3,4}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{3,5}\left( \tau, k \right) &amp;= 0 \\
+\mathtt{{\psi}0}\_{4}\left( \tau, k \right) &amp;=  - 5.9017 \Psi\left( \tau, k \right) \\
+\psi\_{4,1}\left( \tau, k \right) &amp;= 0.16667 E\_{4}\left( \tau \right) k \Psi\left( \tau, k \right) \tau \\
+\psi\_{4,2}\left( \tau, k \right) &amp;= 0.39345 \tau^{2} k^{2} \Psi\left( \tau, k \right) \\
+\psi\_{4,3}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{4,4}\left( \tau, k \right) &amp;= 0 \\
+\psi\_{4,5}\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details><h3 id="Dark-energy"><a class="docs-heading-anchor" href="#Dark-energy">Dark energy</a><a id="Dark-energy-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.cosmological_constant"><a class="docstring-binding" href="#SymBoltz.cosmological_constant"><code>SymBoltz.cosmological_constant</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">cosmological_constant(g; name = :Λ, kwargs...)</code></pre><p>Create a particle species for the cosmological constant (with equation of state <code>w ~ -1</code>) in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/dark_energy.jl#L1-L5">source</a></div></details></article><pre><code class="language-julia hljs">Λ = SymBoltz.cosmological_constant(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(Λ)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;= 0 \\
+\theta\left( \tau, k \right) &amp;= 0 \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\Omega\left( \tau \right) &amp;= \mathtt{\Omega{_0}} \\
+\rho\left( \tau \right) &amp;= 0.11937 \Omega\left( \tau \right) \\
+w\left( \tau \right) &amp;= -1 \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= w\left( \tau \right)
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(Λ)</code></pre><p class="math-container">\[ \begin{align*}
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.w0wa"><a class="docstring-binding" href="#SymBoltz.w0wa"><code>SymBoltz.w0wa</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">w0wa(g; kwargs...)</code></pre><p>Create a particle species for the w₀-wₐ dark energy (CPL) parametrization in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/dark_energy.jl#L19-L23">source</a></div></details></article><pre><code class="language-julia hljs">X = SymBoltz.w0wa(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(X)</code></pre><p class="math-container">\[ \begin{align*}
+w\left( \tau \right) &amp;= \mathtt{w0} + \mathtt{wa} \left( 1 - a\left( \tau \right) \right) \\
+\dot{w}\left( \tau \right) &amp;= \frac{\mathrm{d} w\left( \tau \right)}{\mathrm{d}\tau} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\frac{\mathrm{d} \rho\left( \tau \right)}{\mathrm{d}\tau} &amp;=  - 3 \mathscr{H}\left( \tau \right) \left( 1 + w\left( \tau \right) \right) \rho\left( \tau \right) \\
+\mathtt{c_a^2}\left( \tau \right) &amp;= w\left( \tau \right) + \frac{ - \dot{w}\left( \tau \right)}{3 \mathscr{H}\left( \tau \right) \left( 1 + w\left( \tau \right) \right)} \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \delta\left( \tau, k \right) &amp;= \left( -1 - w\left( \tau \right) \right) \left( \theta\left( \tau, k \right) - 3 \frac{\mathrm{d}}{\mathrm{d}\tau} \Phi\left( \tau, k \right) \right) - 3 \left( \mathtt{c_s^2} - w\left( \tau \right) \right) \mathscr{H}\left( \tau \right) \delta\left( \tau, k \right) - 9 \left( \frac{\mathscr{H}\left( \tau \right)}{k} \right)^{2} \left( \mathtt{c_s^2} - \mathtt{c_a^2}\left( \tau \right) \right) \left( 1 + w\left( \tau \right) \right) \theta\left( \tau, k \right) \\
+\frac{\mathrm{d}}{\mathrm{d}\tau} \theta\left( \tau, k \right) &amp;= \frac{k^{2} \mathtt{c_s^2} \delta\left( \tau, k \right)}{1 + w\left( \tau \right)} - \left( 1 - 3 \mathtt{c_s^2} \right) \mathscr{H}\left( \tau \right) \theta\left( \tau, k \right) + k^{2} \Psi\left( \tau, k \right) - k^{2} \sigma\left( \tau, k \right) \\
+\sigma\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(X)</code></pre><p class="math-container">\[ \begin{align*}
+\delta\left( \tau, k \right) &amp;=  - \frac{3}{2} \left( 1 + w\left( \tau \right) \right) \Psi\left( \tau, k \right) \\
+\theta\left( \tau, k \right) &amp;= \frac{1}{2} k^{2} \Psi\left( \tau, k \right) \tau
+\end{align*}
+ \]</p></details><article><details class="docstring" open="true"><summary id="SymBoltz.quintessence"><a class="docstring-binding" href="#SymBoltz.quintessence"><code>SymBoltz.quintessence</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">quintessence(g, v; name = :ϕ, kwargs...)</code></pre><p>Create a species for a quintessence scalar field with potential <code>v</code> in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/dark_energy.jl#L67-L71">source</a></div></details></article><pre><code class="language-julia hljs">@variables ϕ(τ) V(ϕ) V′(ϕ) V′′(ϕ)
+Q = SymBoltz.quintessence(g, V, V′, V′′)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(Q)</code></pre><p class="math-container">\[ \begin{align*}
+\frac{\mathrm{d}}{\mathrm{d}\tau} \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} &amp;=  - 2 \mathscr{H}\left( \tau \right) \frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau} - \left( a\left( \tau \right) \right)^{2} \mathtt{V\prime}\left( \tau \right) \\
+V\left( \tau \right) &amp;= V\left( \phi\left( \tau \right) \right) \\
+\mathtt{V\prime}\left( \tau \right) &amp;= \mathtt{V\prime}\left( \phi\left( \tau \right) \right) \\
+\mathtt{V\prime\prime}\left( \tau \right) &amp;= \mathtt{V\prime\prime}\left( \phi\left( \tau \right) \right) \\
+K\left( \tau \right) &amp;= \frac{1}{2} \left( \frac{\frac{\mathrm{d} \phi\left( \tau \right)}{\mathrm{d}\tau}}{a\left( \tau \right)} \right)^{2} \\
+\rho\left( \tau \right) &amp;= V\left( \tau \right) + K\left( \tau \right) \\
+P\left( \tau \right) &amp;=  - V\left( \tau \right) + K\left( \tau \right) \\
+w\left( \tau \right) &amp;= \frac{P\left( \tau \right)}{\rho\left( \tau \right)} \\
+\mathtt{m^2}\left( \tau \right) &amp;= \mathtt{V\prime\prime}\left( \tau \right) \\
+\mathtt{{\epsilon}s}\left( \tau \right) &amp;= \frac{\left( \frac{\mathtt{V\prime}\left( \tau \right)}{V\left( \tau \right)} \right)^{2}}{16 \pi} \\
+\mathtt{{\eta}s}\left( \tau \right) &amp;= \frac{\mathtt{V\prime\prime}\left( \tau \right)}{8 V\left( \tau \right) \pi} \\
+\delta\left( \tau, k \right) &amp;= 0 \\
+\sigma\left( \tau, k \right) &amp;= 0 \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(Q)</code></pre><p class="math-container">\[ \begin{align*}
+\end{align*}
+ \]</p></details><h3 id="Curvature-(effective)"><a class="docs-heading-anchor" href="#Curvature-(effective)">Curvature (effective)</a><a id="Curvature-(effective)-1"></a><a class="docs-heading-anchor-permalink" href="#Curvature-(effective)" title="Permalink"></a></h3><article><details class="docstring" open="true"><summary id="SymBoltz.curvature"><a class="docstring-binding" href="#SymBoltz.curvature"><code>SymBoltz.curvature</code></a> — <span class="docstring-category">Function</span></summary><div><pre><code class="language-julia hljs">curvature(g; name = :K, kwargs...)</code></pre><p>Create a species that effectively accounts for curvature in the spacetime with metric <code>g</code>.</p><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/aba7f375998ab8d092e191940800d5cf5c6f8525/src/models/curvature.jl#L2-L6">source</a></div></details></article><pre><code class="language-julia hljs">K = SymBoltz.curvature(g)</code></pre><details>
+<summary><h4 style="display: inline-block">Equations</h4></summary><pre><code class="language-julia hljs">equations(K)</code></pre><p class="math-container">\[ \begin{align*}
+w\left( \tau \right) &amp;= \frac{-1}{3} \\
+\rho\left( \tau \right) &amp;= \frac{3 \mathtt{\Omega_0}}{8 \left( a\left( \tau \right) \right)^{2} \pi} \\
+P\left( \tau \right) &amp;= w\left( \tau \right) \rho\left( \tau \right) \\
+\delta\left( \tau, k \right) &amp;= 0 \\
+\theta\left( \tau, k \right) &amp;= 0 \\
+\mathtt{c_s^2}\left( \tau \right) &amp;= 0 \\
+\sigma\left( \tau, k \right) &amp;= 0
+\end{align*}
+ \]</p></details>
+<details>
+<summary><h4 style="display: inline-block">Initialization equations</h4></summary><pre><code class="language-julia hljs">initialization_equations(K)</code></pre><p class="math-container">\[ \begin{align*}
+\end{align*}
+ \]</p></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../forecasting/">« Fisher forecasting</a><a class="docs-footer-nextpage" href="../models/">Cosmologies (full models) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.0 on <span class="colophon-date" title="Sunday 16 November 2025 23:00">Sunday 16 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
