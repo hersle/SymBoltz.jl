@@ -18,8 +18,8 @@ M = ΛCDM(K = nothing)
 pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.N, M.g.h, M.b.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
-probgen = parameter_updater(prob0, pars)
-P(k, θ) = spectrum_matter(probgen(θ), k)
+probf = remake_function(prob0, pars)
+P(k, θ) = spectrum_matter(probf(θ), k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad

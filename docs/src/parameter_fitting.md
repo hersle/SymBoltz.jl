@@ -70,15 +70,15 @@ M = complete(M)
 ```
 We turn it into a `CosmologyProblem` integrated from today up to the largest observed redshift.
 Then we create a function that solves the problem and computes the luminosity distance for a vector of parameter values,
-using the `parameter_updater` to quickly update the parameters in the problem:
+using [`remake_function`](@ref) to quickly update the parameters in the problem:
 ```@example fit
 pars = Dict(M.Ωm0 => 0.3, M.Ωk0 => 0.0, M.h => 0.7, M.w0 => -1.0, M.wa => 0.0)
 prob = CosmologyProblem(M, pars; ivspan = (0.0, maximum(data.zcmb)), terminate = nothing)
-probgen = parameter_updater(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializeprob = Val{false})
+probf = remake_function(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializeprob = Val{false})
 
 function dL(p)
     Ωm0, Ωk0, h, w0, wa = p
-    prob = probgen(p)
+    prob = probf(p)
     sol = solve(prob; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3, saveat = data.zcmb)) # avoids interpolation: cheaper
     issuccess(sol) || return Float64[]
     return distance_luminosity(sol[M.χ], sol[M.a], h, Ωk0)

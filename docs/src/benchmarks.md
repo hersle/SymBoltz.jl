@@ -108,12 +108,12 @@ The points on each curve correspond to a sequence of tolerances.
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
 linsolve = PureKLUFactorization()
 ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
-ptprobgen = SymBoltz.setuppt(prob.pt, solvebg(prob))
+ptprobf = SymBoltz.setuppt(prob.pt, solvebg(prob))
 refalg = Rodas5P(; linsolve)
 tols = 1 ./ 10 .^ (5:9)
 
 function plot_workprec_pert(k; kwargs...)
-    ptprob = ptprobgen(k)
+    ptprob = ptprobf(k)
     refsol = solve(ptprob, refalg; abstol = 1e-10, reltol = 1e-10)
     wp = workprec(ptprob, ptalgs, tols, refsol)
     return plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", size = (800, 400), margin = 5*Plots.mm, kwargs...)
@@ -136,7 +136,7 @@ pk4 = plot_workprec_pert(1e4)
 This plot shows the time spent solving individual perturbation $k$-modes using different ODE solvers with fixed tolerance.
 
 ```@example bench
-solvemode(k, ptalg) = solve(ptprobgen(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+solvemode(k, ptalg) = solve(ptprobf(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
 
 ks = 10 .^ range(-2, 4, length = 50)
 times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
@@ -156,7 +156,7 @@ ks = [1e0, 1e1, 1e2, 1e3]
 p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
 for (i, k) in enumerate(ks)
     for ptalg in ptalgs
-        ptprob = ptprobgen(k)
+        ptprob = ptprobf(k)
         ptsol = solvept(ptprob; alg = ptalg, reltol = 1e-5, abstol = 1e-5)
         τs = ptsol.t
         Δτs = diff(τs)

@@ -25,15 +25,22 @@ CosmologyProblem
 
 Constructing a `CosmologyProblem` is an **expensive** operation that compiles all the symbolics down to numerics.
 It is not necessary to repeat this just to update parameter values.
-To do so, use the function `parameter_updater` that returns a function that quickly creates new problems with updated parameter values:
+To do so, use `remake` to create a new problem with updated parameter values:
 
 ```@example sol
-probmaker = parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
-prob = probmaker([0.70, 0.27]) # create updated problem
+prob = remake(prob, [M.g.h => 0.70, M.c.Ω₀ => 0.27]) # create updated problem
+```
+
+To update the same parameters many times (e.g. in a loop), `remake_function` returns a function that does this more efficiently:
+
+```@example sol
+probf = remake_function(prob, [M.g.h, M.c.Ω₀]) # fast factory function
+prob = probf([0.70, 0.27]) # create updated problem
 ```
 
 ```@docs
-parameter_updater
+remake(::CosmologyProblem, ::Any)
+remake_function
 ```
 
 ## Solving the problem
