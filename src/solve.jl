@@ -510,8 +510,9 @@ function solvebg(bg::Tuple; verbose = false, kwargs...)
 end
 
 # TODO: more generic shooting method that can do anything (e.g. S8)
-function _solvebg_shoot_f(u, p)
-    n, setvars, getconds, kwargs, verbose, varstrs, constrs = p # unpack
+function _solvebg_shoot_f(x, p)
+    n, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
+    u = x .* scale
     bgsols = solvebg(setvars(u isa Number ? [u] : u); kwargs..., save_everystep = false, save_start = true, save_end = true, verbose)
     if length(bgsols) < n || !successful_retcode(bgsols[end])
         verbose && eltype(u) <: AbstractFloat && println("Shooting: ODE failed with ", varvalstr(varstrs, u), " (returning NaN)")
@@ -537,6 +538,7 @@ function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = shootalg(), rel
     if length(vars) == 1 # work with scalars instead of vectors to support interval methods
         guess = only(guess)
     end
+    scale = guess isa Tuple ? 1 : map(g -> max(abs(g), one(g)), guess) # solve for large parameters relative to their guesses, so they are of order unity
     setvars = bgsetter(bg, vars) # efficient setter
     getconds = getsym(bg[end], conditions) # efficient getter in the complete background
 
@@ -553,14 +555,15 @@ function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = shootalg(), rel
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(_solvebg_shoot_f, guess, (length(bg), setvars, getconds, kwargs, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
+    u = sol.u .* scale
 
     if !successful_retcode(sol)
-        error("Shooting failed to converge. Last result was $(varvalstr(varstrs, sol.u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
+        error("Shooting failed to converge. Last result was $(varvalstr(varstrs, u)). Run with `verbose = true` for more output. Change the initial shooting guesses.")
     end
 
-    return solvebg(setvars(sol.u isa Number ? [sol.u] : sol.u); verbose, kwargs...)
+    return solvebg(setvars(u isa Number ? [u] : u); verbose, kwargs...)
 end
 
 # Set the nonnumeric background spline parameter of a problem (and optionally copy tunable parameters into it)
