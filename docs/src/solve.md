@@ -25,23 +25,29 @@ CosmologyProblem
 
 Constructing a `CosmologyProblem` is an **expensive** operation that compiles all the symbolics down to numerics.
 It is not necessary to repeat this just to update parameter values.
-To do so, use the function `parameter_updater` that returns a function that quickly creates new problems with updated parameter values:
+To do so, use `remake` to create a new problem with updated parameter values:
 
 ```@example sol
-probmaker = parameter_updater(prob, [M.g.h, M.c.Ω₀]) # fast factory function
-prob = probmaker([0.70, 0.27]) # create updated problem
+prob = remake(prob, [M.g.h => 0.70, M.c.Ω₀ => 0.27]) # create updated problem
+```
+
+To update the same parameters many times (e.g. in a loop), `remake_function` returns a function that does this more efficiently:
+
+```@example sol
+probf = remake_function(prob, [M.g.h, M.c.Ω₀]) # fast factory function
+prob = probf([0.70, 0.27]) # create updated problem
 ```
 
 ```@docs
-parameter_updater
+remake(::CosmologyProblem, ::Any)
+remake_function
 ```
 
 ## Solving the problem
 
 The (updated) problem can now be solved for some wavenumbers:
 ```@example sol
-using Unitful, UnitfulAstro
-ks = 10 .^ range(-5, +1, length=100) / u"Mpc"
+ks = 10 .^ range(-2, +4, length=100)
 sol = solve(prob, ks)
 ```
 
@@ -64,7 +70,7 @@ For example:
 ```@example sol
 # TODO: document callable solution when this is fixed: https://github.com/JuliaDocs/Documenter.jl/issues/558 # hide
 τs = sol[M.τ] # get time points used in the background solution
-ks = [1e-3, 1e-2, 1e-1, 1e0] / u"Mpc" # wavenumbers
+ks = [1e0, 1e1, 1e2, 1e3] # wavenumbers
 as = sol(M.g.a, τs) # scale factors
 Ωms = sol((M.b.ρ + M.c.ρ) / M.G.ρ, τs) # matter-to-total density ratios
 κs = sol(M.b.κ, τs) # optical depths
@@ -120,11 +126,12 @@ sol = solve(prob; verbose = true)
 nothing # hide
 ```
 
-## Solve background and perturbations directly
+## Solve stages directly
 
-For lower-level control, you can solve the background and perturbations separately:
+For lower-level control, you can solve the background (`bg`) and perturbations (`pt`) stages separately:
 ```@docs
 solvebg
+SymBoltz.setupbg
 solvept
 ```
 
@@ -134,9 +141,9 @@ In principle, models can be solved with any [OrdinaryDiffEq.jl ODE solver](https
 But most cosmological models have very stiff Einstein-Boltzmann equations that can only be solved by implicit solvers, while explicit solvers usually fail.
 For the stiff [standard ΛCDM model](@ref "Standard ΛCDM"), we find success with these solvers (from best to worst):
 
-1. **[Rosenbrock methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/semiimplicit/Rosenbrock/):** `Rodas5P`, `Rodas4P`, `Rodas6P`, `Rodas5`, `Rodas4`.
-2. **[ESDIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/SDIRK/):** `KenCarp4`, `KenCarp47`, `KenCarp5`, `Kvaerno5`, `TRBDF2`.
-3. **[BDF methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/BDF/):** `FBDF`, `QNDF`.
-4. **[FIRK methods](https://docs.sciml.ai/DiffEqDocs/latest/api/ordinarydiffeq/implicit/FIRK/):** `AdaptiveRadau`, `RadauIIA5` ([currently only with dense Jacobians](https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892)).
+1. **[Rosenbrock methods](https://docs.sciml.ai/OrdinaryDiffEq/stable/semiimplicit/Rosenbrock/):** `Rodas5P`, `Rodas4P`, `Rodas6P`, `Rodas5`, `Rodas4`.
+2. **[ESDIRK methods](https://docs.sciml.ai/OrdinaryDiffEq/stable/implicit/SDIRK/):** `KenCarp4`, `KenCarp47`, `KenCarp5`, `Kvaerno5`, `TRBDF2`.
+3. **[BDF methods](https://docs.sciml.ai/OrdinaryDiffEq/stable/implicit/BDF/):** `FBDF`, `QNDF`.
+4. **[FIRK methods](https://docs.sciml.ai/OrdinaryDiffEq/stable/implicit/FIRK/):** `AdaptiveRadau`, `RadauIIA5`.
 
 See the [solver benchmarks](@ref "Performance and benchmarks") for comparisons between them.

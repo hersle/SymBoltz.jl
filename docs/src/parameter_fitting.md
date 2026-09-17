@@ -20,7 +20,7 @@ else # choose full dataset with 1048 supernovae
 end
 
 # Read data table
-data = CSV.read(data, DataFrame, delim = " ", silencewarnings = true)
+data = CSV.read(data, DataFrame, delim = " ", on_error = :collect) # silence warning about trailing header delimiter
 
 # Read covariance matrix of apparent magnitudes (mb)
 Csyst = CSV.read(Csyst, DataFrame, header = false) # long vector
@@ -28,8 +28,8 @@ Csyst = collect(reshape(Csyst[2:end, 1], (Int(Csyst[1, 1]), Int(Csyst[1, 1])))) 
 Cstat = Diagonal(data.dmb)^2 # TODO: should this be squared?
 C = Csyst + Cstat
 
-# Sort data and covariance matrix with decreasing redshift
-is = sortperm(data, :zcmb, rev = true)
+# Sort data and covariance matrix with increasing redshift
+is = sortperm(data, :zcmb)
 C = C[is, is]
 C = PDMat(Symmetric(C)) # efficient sym-pos-def matrix with Cholesky factorization
 data = data[is, :]
@@ -42,7 +42,7 @@ fig = Figure(size = (600, 800))
 ax1 = Axis(fig[1, 1:2], xlabel = "z", ylabel = "m", title = "Apparent brightness vs. redshift")
 scatter!(ax1, data.zcmb, data.mb; markersize = 5, label = "data (Pantheon)")
 errorbars!(ax1, data.zcmb, data.mb, data.dmb; linewidth = 1, whiskerwidth = 5)
-ax2 = Axis(fig[2, 1]; xlabel = "z", ylabel = "z", title = "Covariance matrix", yreversed = true, aspect = 1)
+ax2 = Axis(fig[2, 1]; xlabel = "z", ylabel = "z", title = "Covariance matrix", aspect = 1)
 hm = heatmap!(ax2, extrema(data.zcmb), extrema(data.zcmb), C; colormap = :balance, colorrange = (-0.001, +0.001))
 Colorbar(fig[2, 2], hm)
 fig
@@ -50,26 +50,44 @@ fig
 
 ## Predicting distances
 
-To predict [luminosity distances](@ref "Distance measures") theoretically, we solve the w0waCDM model:
+To predict [luminosity distances](@ref "Distance measures") theoretically,
+we define a minimal $w_0 w_a$CDM background model with the redshift $z$ as independent variable.
 ```@example fit
 using SymBoltz, OrdinaryDiffEqTsit5
-g = SymBoltz.metric()
-K = SymBoltz.curvature(g)
-X = SymBoltz.w0wa(g; analytical = true)
-M = RMΛ(K = K, Λ = X)
-M = complete(SymBoltz.background(M); flatten = false)
-M = change_independent_variable(M, M.g.a; add_old_diff = true)
-# TODO: avoid complete and fix change_independent_variable to handle multivariate variables # hide
-pars_fixed = Dict(M.τ => 0.0, M.r.T₀ => NaN, M.X.cₛ² => NaN)
-pars_varying = [M.r.Ω₀, M.m.Ω₀, M.K.Ω₀, M.g.h, M.X.w0, M.X.wa]
+@independent_variables z
+D = Differential(z)
+vars = @variables χ(z) a(z) H(z)
+pars = @parameters Ωm0 Ωk0 ΩΛ0 h w0 wa
+eqs = [
+    a ~ 1/(1+z)
+    H ~ √(Ωm0*a^(-3) + Ωk0*a^(-2) + ΩΛ0*a^(-3*(1+w0+wa)) * exp(-3*wa*(1-a)))
+    D(χ) ~ 1/H
+]
+initial_conditions = [χ => 0.0]
+bindings = [ΩΛ0 => 1 - Ωm0 - Ωk0] # recomputed whenever the other parameters change
+@named M = System(eqs, z, vars, pars; initial_conditions, bindings)
+M = complete(M)
+```
+We turn it into a `CosmologyProblem` integrated from today up to the largest observed redshift.
+Then we create a function that solves the problem and computes the luminosity distance for a vector of parameter values,
+using [`remake_function`](@ref) to quickly update the parameters in the problem:
+```@example fit
+pars = Dict(M.Ωm0 => 0.3, M.Ωk0 => 0.0, M.h => 0.7, M.w0 => -1.0, M.wa => 0.0)
+prob = CosmologyProblem(M, pars; ivspan = (0.0, maximum(data.zcmb)), terminate = nothing)
+probf = remake_function(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializeprob = Val{false})
 
-dL = SymBoltz.distance_luminosity_function(M, pars_fixed, pars_varying, data.zcmb)
-μ(p) = 5 * log10.(dL(p)[begin:end-1] / (10*SymBoltz.pc)) # distance modulus
+function dL(p)
+    Ωm0, Ωk0, h, w0, wa = p
+    prob = probf(p)
+    sol = solve(prob; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3, saveat = data.zcmb)) # avoids interpolation: cheaper
+    issuccess(sol) || return Float64[]
+    return distance_luminosity(sol[M.χ], sol[M.a], h, Ωk0)
+end
+μ(p) = 5 * log10.(dL(p) / (10*SymBoltz.pc)) # distance modulus
 
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)
-bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3)
-p0 = [9.3e-5, 0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters
+p0 = [0.3, 0.0, 0.7, -1.0, 0.0] # fiducial parameters: (Ωm0, Ωk0, h, w0, wa)
 μs = μ(p0)
 mbs = μs .+ Mb
 lines!(ax1, data.zcmb, mbs; color = :black, label = "theory (ΛCDM)")
@@ -83,7 +101,7 @@ To perform bayesian inference, we define a probabilistic model in [Turing.jl](ht
 ```@example fit
 using Turing
 
-@model function supernova(μ_pred, mbs, C; Mb = Mb, Ωr0 = 9.3e-5)
+@model function supernova(μ_pred, mbs, C; Mb = Mb)
     # Parameter priors
     h ~ Uniform(0.1, 1.0)
     Ωm0 ~ Uniform(0.0, 1.0)
@@ -91,7 +109,7 @@ using Turing
     w0 ~ Uniform(-2.0, 0.0)
     wa ~ Uniform(-1.0, +1.0)
 
-    p = [Ωr0, Ωm0, Ωk0, h, w0, wa]
+    p = [Ωm0, Ωk0, h, w0, wa]
     mbs_pred = μ_pred(p)
     if isempty(mbs_pred)
         Turing.@addlogprob! -Inf
@@ -138,7 +156,7 @@ layout = (
     PairPlots.MarginQuantileText(color = :black, font = :regular),
     PairPlots.MarginQuantileLines(),
 )
-pp = pairplot(chain => layout)
+pp = pairplot(Turing.FlexiChains.subset_parameters(chain) => layout)
 ```
 We can easily repeat this for another model:
 ```@example fit
@@ -146,7 +164,7 @@ sn_w0CDM_flat = sn_w0waCDM | (Ωk0 = 0.0, wa = 0.0)
 # TODO: describe Turing model more, e.g. loglikelihood(sn_fc, (h = 0.70, Ωm0 = 0.26, Ωk0 = 0.10, w0 = -1.01, wa = -0.07)) # hide
 chain = sample(sn_w0CDM_flat, NUTS(), 1000; initial_params = InitFromParams((h = 0.5, Ωm0 = 0.5, w0 = -1.0)))
 @assert all(std(Array(chain); dims = 1) .> 0) # hide
-pp = pairplot(chain => layout)
+pp = pairplot(Turing.FlexiChains.subset_parameters(chain) => layout)
 ```
 
 ## Forecasting
@@ -169,9 +187,9 @@ chain_fc = sample(sn_fc_w0CDM_flat, NUTS(), 1000)
 Plots.plot(chain_fc)
 ```
 ```@example fit
-pars0 = Dict(pars_varying .=> p0)
-truth = PairPlots.Truth((h = pars0[M.g.h], Ωm0 = pars0[M.m.Ω₀], w0 = pars0[M.X.w0]))
-pp_fc = pairplot(chain_fc => layout, truth)
+pars0 = Dict([M.Ωm0, M.Ωk0, M.h, M.w0, M.wa] .=> p0)
+truth = PairPlots.Truth((h = pars0[M.h], Ωm0 = pars0[M.Ωm0], w0 = pars0[M.w0]))
+pp_fc = pairplot(Turing.FlexiChains.subset_parameters(chain_fc) => layout, truth)
 ```
 
 ### Fisher forecasting
@@ -187,9 +205,9 @@ Under certain assumptions, the Fisher matrix is the inverse of the covariance ma
 First, we ask Turing to [estimate the maximum likelihood mode](https://turinglang.org/docs/usage/mode-estimation/) of the probabilistic model:
 ```@example fit
 maxl_fc = maximum_likelihood(sn_fc_w0CDM_flat; initial_params = InitFromParams((h = 0.5, Ωm0 = 0.5, w0 = -1.0))) # TODO: or MAP?
-@assert isapprox(maxl_fc.params.data.h, pars0[M.g.h]; atol = 1e-4) # hide
-@assert isapprox(maxl_fc.params.data.Ωm0, pars0[M.m.Ω₀]; atol = 1e-4) # hide
-@assert isapprox(maxl_fc.params.data.w0, pars0[M.X.w0]; atol = 1e-4) # hide
+@assert isapprox(maxl_fc.params.data.h, pars0[M.h]; atol = 1e-4) # hide
+@assert isapprox(maxl_fc.params.data.Ωm0, pars0[M.Ωm0]; atol = 1e-4) # hide
+@assert isapprox(maxl_fc.params.data.w0, pars0[M.w0]; atol = 1e-4) # hide
 maxl_fc # hide
 ```
 As expected, the maximum likelihood corresponds to our chosen fiducial parameters.

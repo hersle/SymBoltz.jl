@@ -31,14 +31,14 @@ equations(M.G)
 ## 2. Solve the problem
 
 Next, we create a *numerical* representation of the cosmological problem we want to solve.
-This splits the full symbolic model into computational stages (like the background, thermodynamics and perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
+This splits the full symbolic model into computational stages (one or more background stages and the perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
 ```@example getting_started
 using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = Dict(
     M.γ.T₀ => 2.7,
     M.c.Ω₀ => 0.27,
     M.b.Ω₀ => 0.05,
-    M.ν.Neff => 3.0,
+    M.ν.N => 3.0,
     M.g.h => 0.7,
     M.b.YHe => 0.25,
     M.h.m_eV => 0.02,
@@ -50,7 +50,7 @@ prob = CosmologyProblem(M, pars)
 Finally, we can simply solve the problem:
 
 ```@example getting_started
-ks = 10 .^ range(-5, 1, length=500) / u"Mpc"
+ks = 10 .^ range(-2, 4, length=500)
 sol = solve(prob, ks) # or just solve(prob) to solve only the background
 ```
 
@@ -83,13 +83,13 @@ Similarly, to get $\Phi(k,τ)$ for the 500 wavenumbers we solved for at the same
 You could plot this with `using Plots; plot(log10.(as), transpose(Φs))`, but this is more convenient with the included plot recipe:
 ```@example getting_started
 using Plots
-plot(sol, log10(M.g.a), M.g.Φ, [1e-3, 1e-2, 1e-1, 1e-0] / u"Mpc") # lg(a) vs. Φ for 4 wavenumbers
+plot(sol, log10(M.g.a), M.g.Φ, [1e0, 1e1, 1e2, 1e3]) # lg(a) vs. Φ for 4 wavenumbers
 ```
 
 We can also calculate the matter power spectrum:
 ```@example getting_started
 Ps = spectrum_matter(sol, ks)
-plot(log10.(ks/u"1/Mpc"), log10.(Ps/u"Mpc^3"); xlabel = "lg(k/Mpc⁻¹)", ylabel = "lg(P/Mpc³)", label = nothing)
+plot(log10.(ks), log10.(Ps); xlabel = "lg(k / (H₀/c))", ylabel = "lg(P / (c/H₀)³)", label = nothing)
 ```
 Similarly, we can calculate the angular CMB (TT) power spectrum:
 ```@example getting_started
@@ -108,7 +108,7 @@ plot!(p[3], sol, log10(M.g.a), log10(M.g.H))
 plot!(p[4], sol, log10(M.g.a), [M.b.rec.XHe⁺⁺, M.b.rec.XHe⁺, M.b.rec.XH⁺, M.b.Xe])
 plot!(p[5], sol, log10(M.g.a), log10.([M.γ.T, M.b.T] ./ M.γ.T₀))
 plot!(p[6], sol, log10(M.g.a), log10(abs(M.b.κ)))
-plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], 1e-1 / u"Mpc")
-plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), 1e-1 / u"Mpc"; klabel = false)
-plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), 1e-1 / u"Mpc"; klabel = false)
+plot!(p[7], sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], 1e2)
+plot!(p[8], sol, log10(M.g.a), log10.(abs.([M.b.δ, M.c.δ, M.γ.δ, M.ν.δ, M.h.δ])), 1e2; klabel = false)
+plot!(p[9], sol, log10(M.g.a), log10.(abs.([M.b.θ, M.c.θ, M.γ.θ, M.ν.θ, M.h.θ])), 1e2; klabel = false)
 ```

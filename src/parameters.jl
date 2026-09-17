@@ -14,7 +14,7 @@ function parameters_Planck18(M::System)
         M.h.m_eV => 0.06 / Nh, # mass per neutrino
         M.h.N => Nh,
     ))
-    have(M, :ν) && push!(params, M.ν.Neff => Neff - (have(M, :h) ? Nh : 0)) # each massive neutrino contributes 1 to Neff (since Tν = (4/11)^(1/3)*Tγ) # TODO: rename M.ν.Neff to M.ν.N, similar to CLASS' Nur name
+    have(M, :ν) && push!(params, M.ν.N => Neff - (have(M, :h) ? Nh : 0)) # each massive neutrino contributes 1 to Neff (since Tν = (4/11)^(1/3)*Tγ)
     have(M, :I) && merge!(params, Dict(
         M.I.ln_As1e10 => log(2.099e-9*1e10),
         M.I.ns => 0.965

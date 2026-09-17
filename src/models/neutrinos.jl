@@ -17,7 +17,7 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         σ(τ, k), [description = "Shear stress"]
     end
     pars = @parameters begin
-        Neff, [description = "Effective number of neutrino species"] # TODO: massless vs. massive?
+        N, [description = "Number of massless neutrino species"]
     end
     eqs = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)

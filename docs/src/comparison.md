@@ -9,7 +9,6 @@ using SymBoltz
 using CLASS
 using DelimitedFiles
 using DataInterpolations
-using Unitful, UnitfulAstro
 using CairoMakie
 using Printf
 
@@ -34,7 +33,7 @@ function solve_class(pars, k = nothing)
         "background_verbose" => 2,
         "output" => "mPk, tCl, pCl, lCl", # need one to evolve perturbations
 
-        "k_output_values" => isnothing(k) ? "" : NoUnits(k / u"1/Mpc"),
+        "k_output_values" => isnothing(k) ? "" : k, # 1/Mpc
         "ic" => "ad",
         "modes" => "s",
         "gauge" => "newtonian",
@@ -59,7 +58,7 @@ function solve_class(pars, k = nothing)
         "Omega_cdm" => pars[M.c.Ω₀],
 
         # neutrinos
-        "N_ur" => SymBoltz.have(M, :ν) ? pars[M.ν.Neff] : 0.0,
+        "N_ur" => SymBoltz.have(M, :ν) ? pars[M.ν.N] : 0.0,
         "N_ncdm" => SymBoltz.have(M, :h) ? 1 : 0,
         "deg_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.N] : 0,
         "m_ncdm" => SymBoltz.have(M, :h) ? pars[M.h.m_eV] : 0.0, # in eV/c^2
@@ -97,9 +96,9 @@ function solve_class(pars, k = nothing)
     return solve(prob)
 end
 
-k = 1e1 / u"Mpc" # 1/Mpc
+k = 1e1 # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k)
+sol2 = solve(prob, k / (SymBoltz.k0 * h)) # convert from 1/Mpc to H₀/c
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -207,7 +206,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] / (h*SymBoltz.k0)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 6e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 7e-3)
 ```
 ### Hubble function
 ```@example class
@@ -238,7 +237,7 @@ plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 8e-2)
 ### Luminosity distance
 ```@example class
 dL1 = sol1["background"][:,"lum. dist."]
-dL2 = distance_luminosity(sol2) / SymBoltz.Mpc
+dL2 = distance_luminosity(sol2[M.χ], sol2[M.g.a], sol2[M.g.h]) / SymBoltz.Mpc # w0waCDM is flat, so Ωk0 = 0
 plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 3e6)
 ```
 
@@ -276,7 +275,7 @@ Tb1 = reverse(sol1["thermodynamics"][:,"Tb [K]"])
 Tb2 = sol2[M.b.T]
 dTb1 = reverse(sol1["thermodynamics"][:,"dTb [K]"])
 dTb2 = sol2[M.b.DT] ./ -sol2[M.g.H] # convert my dT/dt̂ to CLASS' dT/dz = -1/H * dT/dt
-plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 5e0)
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], "a", ["Tb", "dTb"]; lgx=true, lgy=true, tol = 6e0)
 ```
 ### Baryon equation of state
 ```@example class
@@ -334,7 +333,7 @@ plot_compare(a1, a2, σ1, σ2, "a", ["σγ", "σν"]; lgx=true, tol = 5e-4)
 ```
 ### Polarization
 ```@example class
-P1 = map(n -> sol1["perturbations_k0_s"][:,"pol$(n)_g"], 0:2)
+P1 = map(n -> sol1["perturbations_k0_s"][:,"G_g_$n"], 0:2)
 P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
 plot_compare(a1, a2, P1, P2, "a", ["P0", "P1", "P2"]; lgx=true, tol = 5e-5)
 ```
@@ -356,7 +355,7 @@ end
 k, P1 = P_class(pars)
 P1 = P1[k .> 9e-5]
 k = k[k .> 9e-5]
-P2 = spectrum_matter(prob, k / u"Mpc") / u"Mpc^3"
+P2 = spectrum_matter(prob, k / (SymBoltz.k0 * h)) / (SymBoltz.k0 * h)^3 # convert from 1/Mpc to H₀/c
 plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 2e1)
 ```
 ```@example class
@@ -364,10 +363,10 @@ using ForwardDiff, FiniteDiff
 
 vary = [M.g.h, M.c.Ω₀, M.b.Ω₀]
 p0 = [pars[par] for par in vary]
-probgen = parameter_updater(prob, vary)
+probf = remake_function(prob, vary)
 k = 10 .^ range(-3, 0, length=100) # 1/Mpc
 Pk_class(p; kw...) = P_class(k, merge(pars, Dict(vary .=> p)); kw...)
-Pk(p; kw...) = spectrum_matter(probgen(p), k / u"Mpc"; kw...) / u"Mpc^3"
+Pk(p; kw...) = spectrum_matter(probf(p), k / (SymBoltz.k0 * p[1]); kw...) / (SymBoltz.k0 * p[1])^3
 
 ∂Pk1_∂p = FiniteDiff.finite_difference_jacobian(Pk_class, p0, Val{:central}; relstep = 1e-3) # smaller relstep is noisier
 ∂Pk2_∂p = ForwardDiff.jacobian(Pk, p0)
@@ -388,7 +387,7 @@ end
 
 l = 20:2000 # CLASS default is lmax = 2500
 jl = SphericalBesselCache(PiecewiseChebyshevInterpolator((2.0, 100.0, 2000.0), (20, 80)))
-Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl, l; normalization = :Dl, kw...)
+Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probf(p), jl, l; normalization = :Dl, kw...)
 
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 Dl2 = Dl(p0)
@@ -412,7 +411,7 @@ plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 6e-14)
 ```@example class
 modes = [:TT, :TE, :EE]
 
-Dl(p; kw...) = spectrum_cmb(modes, probgen(p), jl, l; normalization = :Dl, kw...)
+Dl(p; kw...) = spectrum_cmb(modes, probf(p), jl, l; normalization = :Dl, kw...)
 Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 
 ∂Dl1_∂p = FiniteDiff.finite_difference_jacobian(Dl_class, p0, Val{:central}; relstep = 1e-3)

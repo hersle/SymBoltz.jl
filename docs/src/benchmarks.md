@@ -67,11 +67,11 @@ end
 
 linsolve = RFLUFactorization()
 refalg = Rodas5P(; linsolve)
-bgsol = solve(prob.bg, refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+bgsol = solve(prob.bg[1], refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
 tols = 1 ./ 10 .^ (7:11)
 bgalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
-wp = workprec(prob.bg, bgalgs, tols, bgsol)
+wp = workprec(prob.bg[1], bgalgs, tols, bgsol)
 plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
 ```
 
@@ -108,12 +108,12 @@ The points on each curve correspond to a sequence of tolerances.
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
 linsolve = PureKLUFactorization()
 ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
-ptprobgen = SymBoltz.setuppt(prob.pt, bgsol)
+ptprobf = SymBoltz.setuppt(prob.pt, solvebg(prob))
 refalg = Rodas5P(; linsolve)
 tols = 1 ./ 10 .^ (5:9)
 
 function plot_workprec_pert(k; kwargs...)
-    ptprob = ptprobgen(k)
+    ptprob = ptprobf(k)
     refsol = solve(ptprob, refalg; abstol = 1e-10, reltol = 1e-10)
     wp = workprec(ptprob, ptalgs, tols, refsol)
     return plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", size = (800, 400), margin = 5*Plots.mm, kwargs...)
@@ -136,7 +136,7 @@ pk4 = plot_workprec_pert(1e4)
 This plot shows the time spent solving individual perturbation $k$-modes using different ODE solvers with fixed tolerance.
 
 ```@example bench
-solvemode(k, ptalg) = solve(ptprobgen(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+solvemode(k, ptalg) = solve(ptprobf(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
 
 ks = 10 .^ range(-2, 4, length = 50)
 times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
@@ -156,7 +156,7 @@ ks = [1e0, 1e1, 1e2, 1e3]
 p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
 for (i, k) in enumerate(ks)
     for ptalg in ptalgs
-        ptprob = ptprobgen(k)
+        ptprob = ptprobf(k)
         ptsol = solvept(ptprob; alg = ptalg, reltol = 1e-5, abstol = 1e-5)
         τs = ptsol.t
         Δτs = diff(τs)
@@ -278,7 +278,7 @@ Except for models with a very small perturbation system, it is a good idea to ge
 ```@setup
 # TODO: tune Krylov with verbose = 1, ILU, ..., atol, rtol # hide
 # TODO: KenCarp47(linsolve, precs = incompletelu) # hide
-#ptsol = @btime solvept(prob.pt, bgsol, ks; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
+#ptsol = @btime solvept(prob.pt, solvebg(prob), ks; alg = KenCarp47(linsolve = KrylovJL_GMRES(rtol = 1e-3, atol = 1e-3)), reltol = 1e-8) # hide
 # TODO: optimize prob.pt.f.f.f_iip !!! lots of unnecessary stuff?? try cse = false and cse = true
 # TODO: why is it solvept() slower than solvept(; output_func = (sol, i) -> (sol, false) ???
 nothing # hide

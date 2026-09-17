@@ -43,8 +43,3 @@ const λHet2s1s = 62.5563e-9; const fHet2s1s = c/λHet2s1s; const EHet2s1s = h*f
 const EHet2p2s = EHet2p1s - EHet2s1s
 
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
-
-k_dimensionless(k::Number, h) = k
-k_dimensionless(k::Quantity, h) = NoUnits(k / (h*H100 / c / u"m"))
-k_dimensionless(k::Number, bgsol::ODESolution) = k
-k_dimensionless(k::Quantity, bgsol::ODESolution) = k_dimensionless(k, getsym(bgsol, :h)(bgsol))
