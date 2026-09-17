@@ -347,10 +347,10 @@ end
 @testset "Consistent AD and FD derivatives of matter power spectrum" begin
     k = 10 .^ range(0, 3; length = 20)
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
-    probgen = parameter_updater(prob, diffpars)
+    probf = remake_function(prob, diffpars)
     function logP(logθ)
         θ = exp.(logθ)
-        prob′ = probgen(θ)
+        prob′ = probf(θ)
         P = spectrum_matter(prob′, k)
         return log.(P)
     end
@@ -377,10 +377,10 @@ end
     l = 25:25:1000
     jl = SphericalBesselCache(l)
     diffpars = [M.c.Ω₀, M.b.Ω₀] # TODO: h, ...
-    probgen = parameter_updater(prob, diffpars)
+    probf = remake_function(prob, diffpars)
     function logDlTT(logθ)
         θ = exp.(logθ)
-        prob′ = probgen(θ)
+        prob′ = probf(θ)
         DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
         return log.(DlTT)
     end
@@ -411,8 +411,8 @@ end
     getter = SymBoltz.getsym(prob0, [M.γ.T₀, M.γ.Ω₀, Ω0total]) # TODO: define Ω0total in model?
     @test all(isnan.(getter(prob0)))
 
-    probgen = parameter_updater(prob0, [M.γ.T₀])
-    prob1 = probgen([2.73])
+    probf = remake_function(prob0, [M.γ.T₀])
+    prob1 = probf([2.73])
     vals = getter(prob1)
     @test vals[1] == 2.73
     @test isfinite(vals[2])
@@ -421,18 +421,56 @@ end
 end
 
 @testset "Parameter updater and remake" begin
-    probgen = parameter_updater(prob, [M.c.Ω₀])
-
-    newprob = probgen([0.3])
-    @test newprob.bg[end].ps[M.c.Ω₀] == newprob.pt.ps[M.c.Ω₀] == 0.3
-    @test newprob.bg[end].ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] == newprob.pt.ps[M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀] ≈ 1.0
-
+    stages(prob) = [prob.bg..., prob.pt]
+    sameprob(prob1, prob2) = all(isequal(s1.u0, s2.u0) && isequal(s1.p.tunable, s2.p.tunable) for (s1, s2) in zip(stages(prob1), stages(prob2))) # u0 and p contain NaN
+    Ω0total = M.γ.Ω₀ + M.ν.Ω₀ + M.h.Ω₀ + M.b.Ω₀ + M.c.Ω₀ + M.Λ.Ω₀
     ks = 10 .^ range(0, 3, length=10)
-    sol = solve(newprob, ks)
-    @test all(map(SymBoltz.successful_retcode, sol.pts))
+    prob_copy = deepcopy(prob)
 
+    # update one parameter in all possible ways
+    prob1 = CosmologyProblem(M, merge(pars, Dict(M.c.Ω₀ => 0.3)))
+    newprobs1 = [
+        remake_function(prob, M.c.Ω₀)(0.3),
+        remake_function(prob, [M.c.Ω₀])([0.3]),
+        remake_function(prob, (M.c.Ω₀,))((0.3,)),
+        remake(prob, M.c.Ω₀ => 0.3),
+        remake(prob, [M.c.Ω₀ => 0.3]),
+        remake(prob, Dict(M.c.Ω₀ => 0.3)),
+    ]
+
+    # update several parameters in all possible ways
+    prob2 = CosmologyProblem(M, merge(pars, Dict(M.c.Ω₀ => 0.3, M.g.h => 0.7, M.I.ns => 0.95)))
+    newprobs2 = [
+        remake_function(prob, [M.c.Ω₀, M.g.h, M.I.ns])([0.3, 0.7, 0.95]),
+        remake_function(prob, [M.I.ns, M.g.h, M.c.Ω₀])([0.95, 0.7, 0.3]),
+        remake_function(prob, (M.c.Ω₀, M.g.h, M.I.ns))((0.3, 0.7, 0.95)),
+        remake(prob, [M.c.Ω₀ => 0.3, M.g.h => 0.7, M.I.ns => 0.95]),
+        remake(prob, Dict(M.c.Ω₀ => 0.3, M.g.h => 0.7, M.I.ns => 0.95)),
+        remake(remake(remake(prob, M.c.Ω₀ => 0.3), M.g.h => 0.7), M.I.ns => 0.95),
+        remake_function(prob1, [M.g.h, M.I.ns])([0.7, 0.95]),
+    ]
+
+    for (freshprob, newprobs) in [(prob1, newprobs1), (prob2, newprobs2)]
+        for newprob in newprobs
+            @test sameprob(newprob, freshprob) # numerical values equal those of a problem created from scratch
+            @test newprob.pt.ps[M.c.Ω₀] == 0.3
+            @test all(stage.ps[M.c.Ω₀] == 0.3 for stage in newprob.bg if M.c.Ω₀ in SymBoltz.problem_symbols(stage))
+            @test newprob.bg[end].ps[M.Λ.Ω₀] == newprob.pt.ps[M.Λ.Ω₀] == freshprob.pt.ps[M.Λ.Ω₀] != prob.pt.ps[M.Λ.Ω₀] # dependent parameter is updated
+            @test newprob.bg[end].ps[Ω0total] ≈ newprob.pt.ps[Ω0total] ≈ 1.0
+        end
+    end
+    @test sameprob(prob, prob_copy) # original problem is unchanged
+    @test !sameprob(prob, prob1) && !sameprob(prob, prob2) && !sameprob(prob1, prob2)
+
+    # only parameters given to the problem can be updated
+    @test_throws "Cannot update" remake(prob, M.Λ.Ω₀ => 0.7) # dependent parameter
+    @test_throws "Cannot update" remake_function(prob, [M.c.Ω₀, M.Λ.Ω₀])
+    @test_throws "Cannot update" remake(prob, M.g.a => 1.0) # variable
+    @test_throws "Cannot update" remake(prob, SymBoltz.k => 1.0) # wavenumber
+
+    # differentiation
     function Pk(Ωc0)
-        newprob = probgen([Ωc0])
+        newprob = remake_function(prob, M.c.Ω₀)(Ωc0)
         return spectrum_matter(newprob, ks)
     end
     isnonzero(x) = isfinite(x) && !iszero(x)
@@ -462,8 +500,8 @@ end
 
 @testset "Background differentiation test" begin
     diffpars = [M.g.h, M.c.Ω₀, M.b.Ω₀, M.γ.T₀, M.ν.N, M.h.m_eV, M.b.YHe, M.I.ln_As1e10, M.I.ns]
-    probgen = parameter_updater(prob, diffpars)
-    τ0(θ) = solve(probgen(θ))[M.τ][end]
+    probf = remake_function(prob, diffpars)
+    τ0(θ) = solve(probf(θ))[M.τ][end]
     θ0 = [pars[par] for par in diffpars]
     dτ0_ad = ForwardDiff.gradient(τ0, θ0)
     dτ0_fd = FiniteDiff.finite_difference_gradient(τ0, θ0)
@@ -490,7 +528,7 @@ using QuasiMonteCarlo
 function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error = false, kwargs...)
     prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
     pars = collect(keys(vary))
-    probgen = parameter_updater(prob0, pars)
+    probf = remake_function(prob0, pars)
     lo = [bound[1] for bound in values(vary)] # lower corner of parameter space
     hi = [bound[2] for bound in values(vary)] # uppper corner of parameter space
     samples = QuasiMonteCarlo.sample(nsamples, lo, hi, LatinHypercubeSample())
@@ -500,7 +538,7 @@ function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error =
         println("Solving for wavenumbers ", ks)
     end
     for sample in eachcol(samples)
-        prob = probgen(sample)
+        prob = probf(sample)
         sol = solve(prob, ks; kwargs...)
         if issuccess(sol)
             nsuccess += 1
@@ -603,8 +641,8 @@ end
         @test issuccess(solve(prob, ks))
 
         # iip/specialize should propagate to problems created from an existing one
-        probgen = parameter_updater(prob, [M.c.Ω₀])
-        prob2 = probgen([0.3])
+        probf = remake_function(prob, [M.c.Ω₀])
+        prob2 = probf([0.3])
         @test all(isinplace(stage) == iip for stage in prob2.bg)
         @test isinplace(prob2.pt) == iip
         @test all(isinplace(stage.f) == iip for stage in prob.bg)
@@ -768,7 +806,7 @@ end
 
     # illegal input
     @test_throws "Only parameters can be specified" CosmologyProblem(M, merge(pars1, Dict(D(M.G.ϕ) => 0.0)), Dict(M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
-    @test_throws "Only parameters can be specified" remake(prob1, Dict(M.G.ϕ => 0.9))
+    @test_throws "Cannot update" remake(prob1, Dict(M.G.ϕ => 0.9))
     @test_throws "Got 2 shooting parameters" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     @test_throws "Shooting with multiple parameters requires scalar guesses, but got interval guesses" CosmologyProblem(M, pars2, Dict(M.G.ϕ => (0.5, 1.5), M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1, M.G.G ~ 1])
     @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
@@ -1209,10 +1247,10 @@ end
 
     # ForwardDiff should differentiate through the whole backward-forward-perturbation chain
     diffpars = [M.Ωr0, M.Ωm0]
-    probgen = parameter_updater(prob, diffpars)
+    probf = remake_function(prob, diffpars)
     tol = 1e-10
     function output(θ)
-        solθ = solve(probgen(θ), ks; bgopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
+        solθ = solve(probf(θ), ks; bgopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
         return [solθ(M.τ, 0.0); vec(solθ(M.Φ, 0.0, ks)); vec(solθ(M.δm, 0.0, ks))]
     end
     θ0 = [p[par] for par in diffpars]
@@ -1284,10 +1322,10 @@ end
 
     # ForwardDiff should differentiate through the backward-perturbation chain
     diffpars = [M.Ωr0, M.Ωm0]
-    probgen = parameter_updater(prob, diffpars)
+    probf = remake_function(prob, diffpars)
     tol = 1e-10
     function output(θ)
-        solθ = solve(probgen(θ), ks; bgopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
+        solθ = solve(probf(θ), ks; bgopts = (reltol = tol, abstol = tol), ptopts = (reltol = tol, abstol = tol)) # not sol, which would overwrite the outer one
         return [vec(solθ(M.Φ, 0.0, ks)); vec(solθ(M.δm, 0.0, ks))]
     end
     θ0 = [p[par] for par in diffpars]

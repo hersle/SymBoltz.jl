@@ -2,7 +2,7 @@ module SymBoltzMakieExt
 
 using Makie
 import SymBoltz: plot_interactive # import (not using) so the method below extends this, rather than shadowing it locally
-using SymBoltz: CosmologyProblem, displayname, parameter_updater
+using SymBoltz: CosmologyProblem, displayname, remake_function
 
 """
     plot_interactive(f::Function, prob::CosmologyProblem, pars::AbstractVector{<:Pair}; xlabel = "", ylabel = "", kwargs...)
@@ -15,7 +15,7 @@ function plot_interactive(f::Function, prob::CosmologyProblem, pars::AbstractVec
     ax = Axis(fig[1, 1]; xlabel, ylabel)
     sg = SliderGrid(fig[2, 1], [(label = displayname(par), range = range, startvalue = prob.bg[end].ps[par]) for (par, range) in pars]...)
 
-    probgen = parameter_updater(prob, first.(pars))
+    probgen = remake_function(prob, first.(pars))
     θ = Observable([prob.bg[end].ps[par] for (par, _) in pars])
     for (i, slider) in enumerate(sg.sliders)
         on(slider.value) do val

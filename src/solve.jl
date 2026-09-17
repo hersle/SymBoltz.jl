@@ -291,20 +291,6 @@ function CosmologyProblem(
     return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions, terminate)
 end
 
-"""
-    remake(prob::CosmologyProblem, pars::Dict; kwargs...)
-
-Return an updated `CosmologyProblem` where parameters in `prob` are updated to values specified in `pars`.
-Parameters that are not specified in `pars` keep their values from `prob`.
-"""
-function remake(prob::CosmologyProblem, pars::Dict; kwargs...)
-    check_parameters(pars)
-    pars = isempty(pars) ? missing : pars
-    bgprobs = map(stage -> remake(stage; p = restrict(pars, stage), build_initializeprob = Val{!isnothing(stage.f.initialization_data)}, kwargs...), prob.bg)
-    ptprob = isnothing(prob.pt) ? nothing : remake(prob.pt; p = pars, build_initializeprob = Val{!isnothing(prob.pt.f.initialization_data)}, kwargs...)
-    return CosmologyProblem(prob.M, bgprobs, ptprob, prob.pars, prob.shoot, prob.conditions, prob.terminate)
-end
-
 # restrict a variable/parameter map (or list) to those that are part of the problem, which can be a reduced subsystem
 problem_symbols(sys::System) = Set(unwrap.([unknowns(sys); parameters(sys)]))
 problem_symbols(prob::ODEProblem) = problem_symbols(prob.f.sys)
@@ -323,44 +309,58 @@ function bgsetter(bg::Tuple, pars; kwargs...)
 end
 
 """
-    parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
+    remake_function(prob::CosmologyProblem, pars; kwargs...)
 
-Create and return a function that updates the vector of symbolic parameters `idxs` of the cosmological problem `prob`.
-The returned function is called with numerical values (in the same order as `idxs`) and returns a new problem with the updated parameters.
+Create an efficient function `f` for updating the values of the independent parameters `pars` in `prob`.
+It is called like `newprob = f(vals)`, where `vals` are the new numerical values in the same order as in `pars`.
+The symbolic parameters `pars` can be a single parameter or a vector or tuple of parameters.
+
+# Examples
+```julia
+probf = remake_function(prob, M.c.Ω₀)
+newprob = probf(0.3)
+
+probf = remake_function(prob, [M.c.Ω₀, M.g.h])
+newprob = probf([0.3, 0.7])
+```
 """
-function parameter_updater(prob::CosmologyProblem, idxs; kwargs...)
-    # define a closure based on https://docs.sciml.ai/ModelingToolkit/dev/examples/remake/#replace-and-remake
-    # TODO: remove M, etc. for efficiency?
-
+function remake_function(prob::CosmologyProblem, pars; kwargs...)
     @unpack bg, pt = prob
-    idxs = collect(idxs)
+    scalar = !(pars isa Union{AbstractArray, Tuple})
+    parsvec = scalar ? [pars] : collect(pars)
 
-    bgsetsym = bgsetter(bg, idxs; kwargs...)
+    updatable = Set(prob.pars)
+    nonupdatable = filter(par -> !(unwrap(par) in updatable), parsvec)
+    isempty(nonupdatable) || error("Cannot update $(join(nonupdatable, ", ")) because they are not among the independent parameters $(join(updatable, ", ")).")
 
-    if !isnothing(pt)
-        ptsetsym = setsym_oop(pt, idxs)
+    bgset = bgsetter(bg, parsvec; kwargs...)
+    ptset = isnothing(pt) ? nothing : setsym_oop(pt, parsvec)
+    return vals -> begin
+        vals = scalar ? [vals] : vals
+        bgnew = bgset(vals)
+        ptnew = isnothing(pt) ? nothing : remake(pt; zip((:u0, :p), ptset(pt, vals))..., kwargs...)
+        return CosmologyProblem(prob.M, bgnew, ptnew, prob.pars, prob.shoot, prob.conditions, prob.terminate)
     end
+end
 
-    function updater(p)
-        # Update background stages
-        bg_new = bgsetsym(p)
+"""
+    remake(prob::CosmologyProblem, pars; kwargs...)
 
-        # Update perturbation problem
-        if isnothing(pt)
-            pt_new = pt
-        else
-            newu0, newp = ptsetsym(pt, p)
-            pt_new = remake(pt; u0 = newu0, p = newp, kwargs...) # create updated problem (don't overwrite old)
-        end
+Return a new problem with updated independent parameter values `pars` (a `Dict`, pair or vector of pairs in the form `par => val`).
+Unspecified parameters keep their values in `prob`.
 
-        return CosmologyProblem(prob.M, bg_new, pt_new, prob.pars, prob.shoot, prob.conditions, prob.terminate)
-    end
-    function updater(p::Dict)
-        p = [p[var] for var in idxs]
-        return updater(p)
-    end
+For repeated updates, prefer [`remake_function`](@ref) instead.
 
-    return updater
+# Examples
+```julia
+newprob = remake(prob, M.c.Ω₀ => 0.3)
+newprob = remake(prob, [M.c.Ω₀ => 0.3, M.g.h => 0.7])
+newprob = remake(prob, Dict(M.c.Ω₀ => 0.3, M.g.h => 0.7))
+```
+"""
+function remake(prob::CosmologyProblem, pars; kwargs...)
+    pars = pars isa Pair ? [pars] : collect(pars)
+    return remake_function(prob, first.(pars); kwargs...)(last.(pars))
 end
 
 issparse(M::Nothing) = false
@@ -661,7 +661,7 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini =
     =#
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprobgen = setuppt(ptprob, bgsols, ptivini)
+    ptprobf = setuppt(ptprob, bgsols, ptivini)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
@@ -672,7 +672,7 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini =
         return output_func(sol, i)
     end
 
-    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobgen(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, callback = callback(i), kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
+    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobf(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, callback = callback(i), kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
     verbose && println()
     return ptsols
 end
@@ -688,9 +688,9 @@ Its wavenumber and background spline must already be initialized, for example wi
 # ...
 prob = CosmologyProblem(M, pars)
 bgsols = solvebg(prob)
-ptprobgen = SymBoltz.setuppt(prob.pt, bgsols)
+ptprobf = SymBoltz.setuppt(prob.pt, bgsols)
 k = 1.0
-ptprob = ptprobgen(k)
+ptprob = ptprobf(k)
 ptsol = solvept(ptprob)
 ```
 """

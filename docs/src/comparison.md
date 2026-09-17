@@ -363,10 +363,10 @@ using ForwardDiff, FiniteDiff
 
 vary = [M.g.h, M.c.Ω₀, M.b.Ω₀]
 p0 = [pars[par] for par in vary]
-probgen = parameter_updater(prob, vary)
+probf = remake_function(prob, vary)
 k = 10 .^ range(-3, 0, length=100) # 1/Mpc
 Pk_class(p; kw...) = P_class(k, merge(pars, Dict(vary .=> p)); kw...)
-Pk(p; kw...) = spectrum_matter(probgen(p), k / (SymBoltz.k0 * p[1]); kw...) / (SymBoltz.k0 * p[1])^3
+Pk(p; kw...) = spectrum_matter(probf(p), k / (SymBoltz.k0 * p[1]); kw...) / (SymBoltz.k0 * p[1])^3
 
 ∂Pk1_∂p = FiniteDiff.finite_difference_jacobian(Pk_class, p0, Val{:central}; relstep = 1e-3) # smaller relstep is noisier
 ∂Pk2_∂p = ForwardDiff.jacobian(Pk, p0)
@@ -387,7 +387,7 @@ end
 
 l = 20:2000 # CLASS default is lmax = 2500
 jl = SphericalBesselCache(PiecewiseChebyshevInterpolator((2.0, 100.0, 2000.0), (20, 80)))
-Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probgen(p), jl, l; normalization = :Dl, kw...)
+Dl(p; kw...) = spectrum_cmb([:TT, :TE, :EE, :ψψ, :ψT, :ψE], probf(p), jl, l; normalization = :Dl, kw...)
 
 Dl1 = Dl_class([:TT, :TE, :EE, :phiphi, :TPhi, :Ephi], l, pars)
 Dl2 = Dl(p0)
@@ -411,7 +411,7 @@ plot_compare(l, l, Dl1[:, 6], Dl2[:, 6], "l", "Dₗ(ψE)"; tol = 6e-14)
 ```@example class
 modes = [:TT, :TE, :EE]
 
-Dl(p; kw...) = spectrum_cmb(modes, probgen(p), jl, l; normalization = :Dl, kw...)
+Dl(p; kw...) = spectrum_cmb(modes, probf(p), jl, l; normalization = :Dl, kw...)
 Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 
 ∂Dl1_∂p = FiniteDiff.finite_difference_jacobian(Dl_class, p0, Val{:central}; relstep = 1e-3)
