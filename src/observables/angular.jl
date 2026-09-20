@@ -220,11 +220,11 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
-If `unit` is `nothing` the spectra are of dimensionless temperature fluctuations relative to the present photon temperature; while if `unit` is a temperature unit the spectra are of dimensionful temperature fluctuations.
+The spectra are of dimensionless temperature fluctuations relative to the present photon temperature ``T_{γ0}``; multiply by ``T_{γ0}^2`` to get dimensionful spectra.
 Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π`` if `normalization` is `:Dl`.
 
 # Precision parameters
@@ -239,7 +239,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 # Examples
 
 ```julia
-using SymBoltz, Unitful
+using SymBoltz
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
@@ -247,10 +247,10 @@ prob = CosmologyProblem(M, pars)
 ls = 10:10:1000
 jl = SphericalBesselCache(ls)
 modes = [:TT, :TE, :ψψ, :ψT]
-Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl, unit = u"μK")
+Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, unit = nothing, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -313,14 +313,6 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
 
-    if isnothing(unit)
-        factor = 1.0 # keep dimensionless
-    elseif dimension(unit) == dimension(u"K")
-        factor = uconvert(unit, sol[sol.prob.M.γ.T₀] * u"K") # convert to a temperature unit
-    else
-        error("Requested unit $unit is not a temperature unit")
-    end
-
     function geti(mode)
         mode == :T && return iT
         mode == :E && return iE
@@ -328,16 +320,14 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         error("Unknown CMB power spectrum mode $mode")
     end
 
-    spectra = zeros(eltype(first(first(Ss)) * P0s[1] * factor^2), length(ls), length(modes)) # Cls or Dls
+    spectra = zeros(eltype(first(first(Ss)) * P0s[1]), length(ls), length(modes)) # Cls or Dls
     for (i, mode) in enumerate(modes)
         mode = String(mode)
         iA = geti(Symbol(mode[firstindex(mode)]))
         iB = geti(Symbol(mode[lastindex(mode)]))
         ΘlAs = @view(Θls[iA, :, :])
         ΘlBs = @view(Θls[iB, :, :])
-        spectrum = spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; normalization, thread)
-        spectrum *= factor^2 # possibly make dimensionful
-        spectra[:, i] .= spectrum
+        spectra[:, i] .= spectrum_cmb(ΘlAs, ΘlBs, P0s, ls, ks_fine; normalization, thread)
     end
 
     return spectra

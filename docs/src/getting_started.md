@@ -33,7 +33,6 @@ equations(M.G)
 Next, we create a *numerical* representation of the cosmological problem we want to solve.
 This splits the full symbolic model into computational stages (one or more background stages and the perturbations), assigns input values to parameters and defines any parameters that are solved for with the shooting method by matching conditions at the final time.
 ```@example getting_started
-using Unitful, UnitfulAstro # for interfacing without internal code units
 pars = Dict(
     M.γ.T₀ => 2.7,
     M.c.Ω₀ => 0.27,
@@ -95,7 +94,7 @@ Similarly, we can calculate the angular CMB (TT) power spectrum:
 ```@example getting_started
 ls = 10:10:1000
 jl = SphericalBesselCache(ls)
-Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl, unit = u"μK")
+Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
 plot(ls, Dls; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π", label = nothing)
 ```
 

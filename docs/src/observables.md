@@ -11,7 +11,7 @@ SymBoltz.spectrum_primordial
 #### Example
 
 ```@example
-using SymBoltz, Unitful, UnitfulAstro, Plots
+using SymBoltz, Plots
 M = ΛCDM()
 pars = Dict(M.g.h => 0.7, M.I.As => 2e-9, M.I.ns => 0.95)
 ks = 10 .^ range(-2, +4, length=100)
@@ -31,7 +31,7 @@ SymBoltz.spectrum_matter_nonlinear
 With explicitly chosen wavenumbers:
 
 ```@example matter
-using SymBoltz, Unitful, UnitfulAstro, Plots
+using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
@@ -101,15 +101,15 @@ SymBoltz.correlation_function
 #### Example
 
 ```@example
-using SymBoltz, Unitful, UnitfulAstro, Plots
+using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 rs, ξs = correlation_function(sol)
-rs = rs / (SymBoltz.k0*sol.bg[end].ps[:h]) * u"Mpc" # TODO: auto units
-plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r", ylabel = "r² ξ")
+rmax = 200 * SymBoltz.k0 * sol[M.g.h] # 200 Mpc in units of c/H₀
+plot(rs, @. ξs * rs^2; xlims = (0, rmax), xlabel = "r / (c/H₀)", ylabel = "r² ξ")
 ```
 
 ## Matter density fluctuations
@@ -120,7 +120,7 @@ SymBoltz.stddev_matter
 ```
 
 ```@example
-using SymBoltz, Unitful, UnitfulAstro, Plots
+using SymBoltz, Plots
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)

@@ -23,7 +23,6 @@ P(k, θ) = spectrum_matter(probf(θ), k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad
-using Unitful, UnitfulAstro
 θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.02, 3.0, 0.95]
 ks = 10 .^ range(0.5, 3.5, length=100)
 Ps = P(ks, θ)
