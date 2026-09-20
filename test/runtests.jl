@@ -302,7 +302,7 @@ end
 
 @testset "Primordial power spectrum pivot scale" begin
     h = pars[M.g.h]
-    k = 0.05 / (SymBoltz.k0 * h) # 0.05/Mpc (≠ 0.05/(Mpc/h)) in units of H₀/c
+    k = 0.05 * (L100/h) # 0.05/Mpc (≠ 0.05/(Mpc/h)) in units of H₀/c
     sol = solve(prob, k)
     @test sol[M.I.kpivot] ≈ k
 
@@ -960,8 +960,8 @@ end
             "ncdm_fluid_approximation" => 3, # turn off
         )
         sol_class = solve(prob_class)
-        ks_class = sol_class[:pk][!, "k (h/Mpc)"] / SymBoltz.k0
-        Pks_class = sol_class[:pk][!, "P (Mpc/h)^3"] * SymBoltz.k0^3
+        ks_class = sol_class[:pk][!, "k (h/Mpc)"] * L100
+        Pks_class = sol_class[:pk][!, "P (Mpc/h)^3"] / L100^3
         ls_class = sol_class[:cl][!, "l"]
         DlTTs_class = sol_class[:cl][!, "TT"]
         DlEEs_class = sol_class[:cl][!, "EE"]

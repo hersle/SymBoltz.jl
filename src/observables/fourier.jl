@@ -3,7 +3,7 @@ using MatterPower
 using TwoFAST
 
 """
-    spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/(k0*h))
+    spectrum_primordial(k, h, As, ns=1.0; kp = 0.05*(L100/h))
 
 Compute the primordial power spectrum
 ```math
@@ -12,7 +12,7 @@ P₀(k) = 2π² Aₛ (k/kₚ)^{nₛ-1} / k³
 with spectral amplitude `As`, spectral index `ns` and pivot scale wavenumber `kp` at the wavenumber(s) `k`.
 All wavenumbers are in units of ``H₀/c``, and the default pivot scale is 0.05/Mpc.
 """
-function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05/(k0*h)) # 0.05/Mpc in units of H₀/c
+function spectrum_primordial(k, h, As, ns=1.0; kp = 0.05*(L100/h)) # 0.05/Mpc in units of H₀/c
     P = 2*π^2 * As ./ k.^3
     P .*= (k./kp).^(ns-1)
 
@@ -104,13 +104,13 @@ Compute the nonlinear matter power spectrum from the cosmology solution `sol` at
 function spectrum_matter_nonlinear(sol::CosmologySolution, k)
     P = spectrum_matter(sol, k)
     M = sol.prob.M
-    h = sol[M.g.h] # halofit searches for the nonlinear scale in Mpc, so convert to 1/Mpc and Mpc³ with H₀/c = k0*h/Mpc, and back
-    lgPspl = spline(log.(P ./ (k0*h)^3), log.(k .* (k0*h)))
+    L0 = L100 / sol[M.g.h] # Hubble length c/H₀ in Mpc; halofit searches for the nonlinear scale in Mpc, so convert to Mpc units and back
+    lgPspl = spline(log.(P .* L0^3), log.(k ./ L0))
     Pf(k) = exp(lgPspl(log(k)))
     halofit_params = setup_halofit(Pf)
     Ωm0 = sol[M.m.Ω₀]
     Pf_halofit(k) = MatterPower.halofit(Pf, halofit_params, Ωm0, k)
-    return Pf_halofit.(k .* (k0*h)) .* (k0*h)^3
+    return Pf_halofit.(k ./ L0) ./ L0^3
 end
 
 # TODO: generalize to arbitrary field?

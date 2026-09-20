@@ -54,6 +54,7 @@ export CosmologyProblem, CosmologySolution
 export background, perturbations, expandeq
 export solve, solvebg, solvept, remake, remake_function, issuccess
 export parameters_Planck18
+export H100, k100, L100
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default

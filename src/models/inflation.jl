@@ -3,7 +3,7 @@ function harrison_zeldovich(g; kwargs...)
         ln_As1e10 = NaN, [description = "ln(10¹⁰ As)"] # keep uninitialized if not needed
         As = exp(ln_As1e10) / 1e10, [description = "Spectral amplitude"]
         ns = NaN, [description = "Spectral index"]
-        kpivot = 0.05 / Mpc / (H100/c) / g.h, [description = "Pivot scale wavenumber"] # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
+        kpivot = 0.05 * (L100/g.h), [description = "Pivot scale wavenumber"] # k = 0.05/Mpc ≠ 0.05/(Mpc/h)
     end
     vars = @variables P(τ, k)
     eqs = [

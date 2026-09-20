@@ -98,7 +98,7 @@ end
 
 k = 1e1 # 1/Mpc
 sol1 = solve_class(pars, k)
-sol2 = solve(prob, k / (SymBoltz.k0 * h)) # convert from 1/Mpc to H₀/c
+sol2 = solve(prob, k * (L100/h)) # convert from 1/Mpc to H₀/c
 
 function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
     if !(ylabels isa AbstractArray)
@@ -205,7 +205,7 @@ nothing # hide
 a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
-τ2 = sol2[M.τ] / (h*SymBoltz.k0)
+τ2 = sol2[M.τ] * (L100/h)
 plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 7e-3)
 ```
 ### Hubble function
@@ -217,7 +217,7 @@ plot_compare(a1, a2, E1, E2, "a", "E"; lgx=true, lgy=true, tol = 4e8)
 ### Energy densities
 ```@example class
 ρ1 = map(s -> sol1["background"][:,"(.)rho_$s"], ["g", "ur", "cdm", "b", "fld", "ncdm[0]"])
-ρ2 = map(s -> sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
+ρ2 = map(s -> sol2[s.ρ] * 8π/3/(L100/h)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
 plot_compare(a1, a2, ρ1, ρ2, "a", ["ργ", "ρb", "ρc", "ρX", "ρν", "ρh"]; lgx=true, lgy=true, tol = 4e15)
 ```
 ### Equations of state
@@ -231,7 +231,7 @@ plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 
 ### Photon-baryon sound horizon
 ```@example class
 rs1 = sol1["background"][:,"comov.snd.hrz."]
-rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
+rs2 = sound_horizon(sol2) .* (L100/h)
 plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 8e-2)
 ```
 ### Luminosity distance
@@ -248,7 +248,7 @@ plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 3e6)
 a1 = reverse(sol1["thermodynamics"][:,"scale factor a"])
 a2 = sol2[M.g.a]
 dκ1 = reverse(sol1["thermodynamics"][:,"kappa' [Mpc^-1]"])
-dκ2 = -sol2[M.b.κ̇] * (h*SymBoltz.k0)
+dκ2 = -sol2[M.b.κ̇] / (L100/h)
 plot_compare(a1, a2, dκ1, dκ2, "a", "κ̇"; lgx=true, lgy=true, tol = 2e3)
 ```
 ### Optical depth exponential
@@ -260,7 +260,7 @@ plot_compare(a1, a2, expmκ1, expmκ2, "a", "exp(-κ)"; lgx=true, tol = 3e-5)
 ### Visibility function
 ```@example class
 v1 = reverse(sol1["thermodynamics"][:,"g [Mpc^-1]"])
-v2 = sol2[M.b.v] * (h*SymBoltz.k0)
+v2 = sol2[M.b.v] / (L100/h)
 plot_compare(a1, a2, v1, v2, "a", "v"; lgx=true, lgy=false, tol = 2e-6)
 ```
 ### Free electron fraction
@@ -310,19 +310,19 @@ plot_compare(a1, a2, δ1, δ2, "a", ["δb", "δc", "δγ", "δν", "δh"]; lgx=t
 ### Momenta
 ```@example class
 θ1 = map(s -> sol1["perturbations_k0_s"][:,"theta_$s"], ["b", "cdm", "g", "ur", "ncdm[0]"])
-θ2 = map(s -> sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
+θ2 = map(s -> sol2[1, s.θ] / (L100/h), [M.b, M.c, M.γ, M.ν, M.h])
 plot_compare(a1, a2, θ1, θ2, "a", ["θb", "θc", "θγ", "θν", "θh"]; lgx=true, lgy=true, tol = 5e-2)
 ```
 ### Dark energy overdensity
 ```@example class
 δρX1 = sol1["perturbations_k0_s"][:,"delta_rho_fld"]
-δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
+δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3/(L100/h)^2
 plot_compare(a1, a2, δρX1, δρX2, "a", "δρX"; lgx=true, lgy=true, tol = 2e-7)
 ```
 ### Dark energy momentum
 ```@example class
 pX1 = sol1["perturbations_k0_s"][:,"rho_plus_p_theta_fld"]
-pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
+pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3/(L100/h)^3]
 plot_compare(a1, a2, pX1, pX2, "a", "pX"; lgx=true, lgy=true, tol = 8e-8)
 ```
 ### Shear stresses
@@ -355,7 +355,7 @@ end
 k, P1 = P_class(pars)
 P1 = P1[k .> 9e-5]
 k = k[k .> 9e-5]
-P2 = spectrum_matter(prob, k / (SymBoltz.k0 * h)) / (SymBoltz.k0 * h)^3 # convert from 1/Mpc to H₀/c
+P2 = spectrum_matter(prob, k * (L100/h)) * (L100/h)^3 # convert from 1/Mpc to H₀/c
 plot_compare(k, k, P1, P2, "k/Mpc⁻¹", "P/Mpc³"; lgx = true, lgy = true, tol = 2e1)
 ```
 ```@example class
@@ -366,7 +366,7 @@ p0 = [pars[par] for par in vary]
 probf = remake_function(prob, vary)
 k = 10 .^ range(-3, 0, length=100) # 1/Mpc
 Pk_class(p; kw...) = P_class(k, merge(pars, Dict(vary .=> p)); kw...)
-Pk(p; kw...) = spectrum_matter(probf(p), k / (SymBoltz.k0 * p[1]); kw...) / (SymBoltz.k0 * p[1])^3
+Pk(p; kw...) = spectrum_matter(probf(p), k * (L100/p[1]); kw...) * (L100/p[1])^3
 
 ∂Pk1_∂p = FiniteDiff.finite_difference_jacobian(Pk_class, p0, Val{:central}; relstep = 1e-3) # smaller relstep is noisier
 ∂Pk2_∂p = ForwardDiff.jacobian(Pk, p0)

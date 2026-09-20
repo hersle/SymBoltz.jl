@@ -108,8 +108,8 @@ prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 rs, ξs = correlation_function(sol)
-rmax = 200 * SymBoltz.k0 * sol[M.g.h] # 200 Mpc in units of c/H₀
-plot(rs, @. ξs * rs^2; xlims = (0, rmax), xlabel = "r / (c/H₀)", ylabel = "r² ξ")
+rs = rs * L100 # convert from c/H₀ to Mpc/h
+plot(rs, @. ξs * rs^2; xlims = (0, 200), xlabel = "r / (Mpc/h)", ylabel = "r² ξ / (Mpc/h)²")
 ```
 
 ## Matter density fluctuations
@@ -127,13 +127,12 @@ prob = CosmologyProblem(M, pars)
 ks = 10 .^ range(-2, +6, length=300)
 sol = solve(prob, ks)
 
-Rs = 10 .^ range(-3, -1, length=100)
-σs = stddev_matter.(sol, Rs)
-plot(log10.(Rs), log10.(σs); xlabel = "lg(R / (c/H₀))", ylabel = "lg(σ)", label = nothing)
+Rs = 10 .^ range(0.5, 2.5, length=100) # Mpc/h
+σs = stddev_matter.(sol, Rs / L100) # Mpc/h to c/H₀
+plot(log10.(Rs), log10.(σs); xlabel = "lg(R / (Mpc/h))", ylabel = "lg(σ)", label = nothing)
 
-R8 = 8 * SymBoltz.k0 # 8 Mpc/h in units of c/H₀
-σ8 = stddev_matter(sol, R8)
-scatter!((log10(R8), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
+σ8 = stddev_matter(sol, 8 / L100) # 8 Mpc/h to c/H₀
+scatter!((log10(8), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8; digits=3))", :left), label = nothing)
 ```
 
 ## Distance measures

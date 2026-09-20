@@ -15,8 +15,12 @@ const pc = 1u"pc/m" |> NoUnits
 const kpc = 1u"kpc/m" |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
 const Gpc = 1u"Gpc/m" |> NoUnits
+"100 km/Mpc, or equivalently H₀ / (h/s)"
 const H100 = 100 * km/Mpc
-const k0 = H100 * Mpc / c # h/Mpc
+"c / (100 km/s), or equivalently (c/H₀) / (Mpc/h)"
+const L100 = c / H100 / Mpc
+"(100 km/s) / c, or equivalently (H₀/c) / (h/Mpc)"
+const k100 = 1 / L100
 const eV = 1u"eV/J" |> NoUnits
 
 const me = PhysicalConstants.CODATA2018.m_e / u"kg"

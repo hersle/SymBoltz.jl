@@ -262,7 +262,7 @@ using SymBoltz, OrdinaryDiffEqTsit5, Turing
 
 function dL_fast(z, Ωm0, Ωk0, h; Ωr0 = 9.3e-5, aini = 1e-8, reltol = 1e-8, alg = Tsit5(), maxiters = 1e3)
     ΩΛ0 = 1 - Ωr0 - Ωm0 - Ωk0
-    H0 = SymBoltz.H100 * h
+    H0 = H100 * h
     aH(a) = a * H0 * √(Ωr0/a^4 + Ωm0/a^3 + Ωk0/a^2 + ΩΛ0)
     function f(_, _, b)
         a = exp(b) # b = ln(a)
