@@ -422,7 +422,7 @@ end
     solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
         bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-        ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptivini = -Inf, ptextraopts = (),
+        ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
         shootopts = (alg = shootalg(prob), abstol = 1e-5),
         thread = true, verbose = false, kwargs...
     )
@@ -438,7 +438,7 @@ See also [`solvebg`](@ref) and [`solvept`](@ref).
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
     bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-    ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptivini = -Inf, ptextraopts = (),
+    ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
     shootopts = (alg = shootalg(prob), abstol = 1e-5),
     thread = true, verbose = false, kwargs...
 )
@@ -448,7 +448,7 @@ function solve(
         ks = nothing
         ptsol = nothing
     else
-        ptsol = solvept(prob.pt, bgsols, ks, ptivini; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsols, ks; thread, verbose, ptopts..., ptextraopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsols, ks, ptsol)
@@ -623,7 +623,7 @@ function solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abst
     return solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
 end
 
-function setuppt(ptprob::ODEProblem, bgsols::Tuple, ptivini::Function)
+function setuppt(ptprob::ODEProblem, bgsols::Tuple)
     ivspanbg = extrema(bgsols[end].t) # e.g. until the background terminates
     bgtunables = canonicalize(Tunable(), parameter_values(bgsols[end]))[1] # tunable parameters from the complete background (e.g. set by shooting)
 
@@ -634,23 +634,19 @@ function setuppt(ptprob::ODEProblem, bgsols::Tuple, ptivini::Function)
     return k -> begin
         p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
         kset!(p, k)
-        ivi = clamp(ptivini(k), ivspanbg[begin], ivspanbg[end]) # clamp to background timespan
-        ivspan = (ivi, ivspanbg[end])
-        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspan)
+        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspanbg)
         return newptprob
     end
 end
-setuppt(ptprob::ODEProblem, bgsols::Tuple, ptivini::Number = -Inf) = setuppt(ptprob, bgsols, k -> ptivini)
 
 """
-    solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the solutions `bgsols` of all background stages (see [`solvebg`](@ref)).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
-`ptivini` is a number or a function of ``k`` that sets the initial time of integration for each perturbation mode, but is always clamped to the background timespan.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini = -Inf; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
 
     #= # do not show threading warnings; these are Julia runtime options that the user is reponsible for setting
@@ -664,7 +660,7 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray, ptivini =
     =#
 
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
-    ptprobf = setuppt(ptprob, bgsols, ptivini)
+    ptprobf = setuppt(ptprob, bgsols)
 
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
