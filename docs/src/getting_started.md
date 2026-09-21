@@ -74,7 +74,7 @@ For example, to get the time points used by the solver and corresponding values 
 τs = sol[M.τ]
 as = sol(M.g.a, τs)
 ```
-Similarly, to get $\Phi(k,τ)$ for the 500 wavenumbers we solved for at the same times:
+Similarly, to get $\Phi(τ,k)$ for the 500 wavenumbers we solved for at the same times:
 ```@example getting_started
 Φs = sol(M.g.Φ, τs, ks)
 ```

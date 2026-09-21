@@ -23,7 +23,7 @@ p2 = Plots.plot(sol, log10(M.g.a), [M.g.Φ, M.g.Ψ], ks)
 Plots.plot(p1, p2; layout = (2, 1), size = (600, 600))
 ```
 
-Plot the evolution of $Φ(k,τ)$ over conformal time $τ$:
+Plot the evolution of $Φ(τ,k)$ over conformal time $τ$:
 ```@example plot
 ks = 10 .^ range(0, 3, length=100)
 sol = solve(prob, ks)
@@ -34,7 +34,7 @@ labels = permutedims(map(τ -> "τ/H₀⁻¹ = $τ", τs))
 Plots.plot(log10.(ks), permutedims(sol(M.g.Φ, τs, ks)); xlabel = "lg(k / (H₀/c))", ylabel = "Φ(τ,k)", color, labels)
 ```
 
-Visualize the CMB source function $S₀(k,τ)$ in a 3D plot:
+Visualize the CMB source function $S₀(τ,k)$ in a 3D plot:
 ```@example plot
 ks = range(0.0, 300.0, length=100)[2:end]
 sol = solve(prob, ks)
