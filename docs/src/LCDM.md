@@ -341,7 +341,7 @@ p = Dict(
     M.As => 2e-9,
     M.ns => 1.0,
 )
-prob = CosmologyProblem(M, p; jac = true, sparse = true) # analytical+sparse Jacobian
+prob = CosmologyProblem(M, p)
 ```
 
 Now solve it for some wavenumbers:

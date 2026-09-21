@@ -79,7 +79,7 @@ probf = remake_function(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializ
 function dL(p)
     Ωm0, Ωk0, h, w0, wa = p
     prob = probf(p)
-    sol = solve(prob; bgopts = (alg = Tsit5(), reltol = 1e-5, maxiters = 1e3, saveat = data.zcmb)) # avoids interpolation: cheaper
+    sol = solve(prob; bgalg = Tsit5(), bgreltol = 1e-5, bgopts = (maxiters = 1e3, saveat = data.zcmb)) # avoids interpolation: cheaper
     issuccess(sol) || return Float64[]
     return distance_luminosity(sol[M.χ], sol[M.a], h, Ωk0)
 end

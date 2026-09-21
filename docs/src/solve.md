@@ -13,9 +13,10 @@ Once the symbolic [cosmological model](@ref "Cosmologies (full models)") `M` has
 For example:
 ```@example sol
 pars = parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; jac = true, sparse = true)
+prob = CosmologyProblem(M, pars; bgjac = true, ptjac = true, bgsparse = false, ptsparse = true)
 ```
-The keyword arguments generate a analytical and sparse Jacobian matrix, so solving large perturbation systems is efficient.
+By default, analytical Jacobians are generated for both the background and perturbations.
+The perturbations are usually large and use sparse Jacobians for efficiency, while the background is smaller and thus faster with dense Jacobians.
 
 ```@docs
 CosmologyProblem

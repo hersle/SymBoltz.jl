@@ -84,7 +84,7 @@ obspars = [
 fig = plot_interactive(prob, obspars; xlabel = "lg(k / (H₀/c))", ylabel = "lg(P / (c/H₀)³)") do prob′
     lgks = unique([-1:0.5:0; 0:0.2:1; 1:0.05:3]) # as few points as possible
     ks = 10 .^ lgks
-    Ps = spectrum_matter(prob′, ks; ptopts = (alg = SymBoltz.TRBDF2(), reltol = 1e-4, abstol = 1e-4))
+    Ps = spectrum_matter(prob′, ks; ptalg = SymBoltz.TRBDF2(), ptreltol = 1e-4, ptabstol = 1e-4)
     lgPs = log10.(Ps)
 
     # smoothen with spline and sample more densely

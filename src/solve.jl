@@ -141,8 +141,10 @@ stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         tspan = (1e-6, 100.0), terminate = M.a ~ 1,
-        bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-        bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+        bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+        bgjac = true, bgsparse = false, bgopts = (),
+        ptjac = true, ptsparse = true, ptopts = (),
+        iip = true, specialize = SciMLBase.AutoSpecialize,
         kwargs...
     )
 
@@ -160,14 +162,15 @@ The first stage is integrated over `tspan`, and later stages over the span of th
 The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `tspan`.
 
 If `pt = false`, or if `M` has no wavenumber parameter `k`, the perturbations are not created.
-The options `bgopts` and `ptopts` are passed to the `ODEProblem` constructors of the background stages and perturbations, and `kwargs` are passed to all of them.
+The extra options `bgopts` and `ptopts` are passed to the `ODEProblem` constructors of the background stages and perturbations, and override the prefixed options above.
+The unprefixed options in `kwargs` (like `jac` or `sparse`) are passed to all of them last, and override all of them.
 
 If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
 If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
 
-If `jac`, analytic functions are generated for the ODE Jacobians; otherwise it is computed with forward-mode automatic differentiation by default.
-If `sparse`, the perturbations ODE uses a sparse Jacobian matrix that is usually more efficient; otherwise a dense matrix is used.
-The smaller background stages always use dense matrices, unless they are requested sparse with e.g. `bgopts = (sparse = true,)`.
+If `bgjac`/`ptjac`, analytic functions are generated for the background/perturbation ODE Jacobians; otherwise they are computed with forward-mode automatic differentiation by default.
+If `bgsparse`/`ptsparse`, the background/perturbation ODEs use sparse Jacobian matrices that are usually more efficient for large systems; otherwise dense matrices are used.
+By default the perturbations are sparse, while the smaller background stages are dense.
 
 If `fully_determined`, the initialization system of every stage must have as many equations as unknowns.
 If `debug`, the system of every stage is wrapped with `ModelingToolkit.debug_system` to help locate errors in the equations.
@@ -177,8 +180,10 @@ The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interface
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     tspan = (1e-6, 100.0), terminate = M.a ~ 1,
-    bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
-    bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
+    bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+    bgjac = true, bgsparse = false, bgopts = (),
+    ptjac = true, ptsparse = true, ptopts = (),
+    iip = true, specialize = SciMLBase.AutoSpecialize,
     kwargs...
 )
     p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
@@ -211,6 +216,7 @@ function CosmologyProblem(
     iterminate = findfirst(!, backwards) # first forwards stage
     isnothing(terminate) || !isnothing(iterminate) || error("All background stages are integrated backwards, so none can terminate at the event $terminate; pass terminate = nothing.")
 
+    bgopts = (jac = bgjac, sparse = bgsparse, bgopts...) # extra options take precedence
     bgprobs = ODEProblem[]
     splitvars = [] # variables of this and all previous stages
     splvars = Symbolics.SymbolicT[] # unknowns of all previous stages, which are splined into the next ones
@@ -247,7 +253,7 @@ function CosmologyProblem(
         end
         stagetspan = backwards[i] ? reverse(tspan) : tspan # later stages get their span from the previous stages when solved
         stageparsk = i == nbg ? stageparsk : restrict(stageparsk, stagesys) # the split-off stage only knows about some variables
-        stage = ODEProblem{iip, specialize}(stagesys, stageparsk, stagetspan; fully_determined, callback, jac, p_constructor, stageopts(bgopts, i, nbg)..., kwargs...) # never sparse because small
+        stage = ODEProblem{iip, specialize}(stagesys, stageparsk, stagetspan; fully_determined, callback, p_constructor, stageopts(bgopts, i, nbg)..., kwargs...)
         if !isempty(splvars)
             newsys = stage.f.sys
             @set! newsys.tearing_state = ts
@@ -275,7 +281,7 @@ function CosmologyProblem(
         end
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
-        pt = ODEProblem{iip, specialize}(pt, parsk, tspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
+        pt = ODEProblem{iip, specialize}(pt, parsk, tspan; fully_determined, jac = ptjac, sparse = ptsparse, p_constructor, ptopts..., kwargs...)
         # restore tearing state via remake (not @set!) on pt.f while preserving the specialize level
         # (@set!-ing into a nested AbstractSciMLFunction field reconstructs it through ConstructionBase,
         # whose constructorof for SciML function types hardcodes SciMLBase.DEFAULT_SPECIALIZATION (i.e. AutoSpecialize))
@@ -367,7 +373,7 @@ issparse(M::Nothing) = false
 issparse(x) = SparseArrays.issparse(x)
 issparse(prob::ODEProblem) = issparse(prob.f.jac_prototype)
 
-function bgalg(prob::ODEProblem; stiff = true)
+function default_bgalg(prob::ODEProblem; stiff = true)
     if issparse(prob)
         linsolve = PureKLUFactorization()
     else
@@ -379,9 +385,9 @@ function bgalg(prob::ODEProblem; stiff = true)
         return Tsit5(; linsolve)
     end
 end
-bgalg(prob::CosmologyProblem; kwargs...) = map(stage -> bgalg(stage; kwargs...), prob.bg) # one per stage
+default_bgalg(prob::CosmologyProblem; kwargs...) = map(stage -> default_bgalg(stage; kwargs...), prob.bg) # one per stage
 
-function ptalg(prob::ODEProblem; accuracy = 2)
+function default_ptalg(prob::ODEProblem; accuracy = 2)
     if issparse(prob)
         linsolve = PureKLUFactorization()
     else
@@ -396,10 +402,10 @@ function ptalg(prob::ODEProblem; accuracy = 2)
         return Rodas5P(; linsolve) # does not do nonlinear solve
     end
 end
-ptalg(prob::CosmologyProblem; kwargs...) = ptalg(prob.pt; kwargs...)
-ptalg(prob::Nothing) = nothing
+default_ptalg(prob::CosmologyProblem; kwargs...) = default_ptalg(prob.pt; kwargs...)
+default_ptalg(prob::Nothing) = nothing
 
-function shootalg(prob::CosmologyProblem; accuracy = 2)
+function default_shootalg(prob::CosmologyProblem; accuracy = 2)
     if length(prob.shoot) == 1 && only(values(prob.shoot)) isa Tuple
         return ITP() # bracketing solver for interval guesses, regardless of accuracy
     elseif accuracy == 0
@@ -408,7 +414,7 @@ function shootalg(prob::CosmologyProblem; accuracy = 2)
         return TrustRegion()
     end
 end
-shootalg() = nothing
+default_shootalg() = nothing
 
 function check_solve_args(prob::ODEProblem, alg)
     if hasproperty(alg, :linsolve) && !isnothing(alg.linsolve) # if nothing, OrdinaryDiffEq automatically finds a compatible linear solver
@@ -421,34 +427,40 @@ end
 """
     solve(
         prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-        bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-        ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
-        shootopts = (alg = shootalg(prob), abstol = 1e-5),
+        bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (),
+        ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (),
+        shootalg = default_shootalg(prob), shootabstol = 1e-5, shootopts = (),
         thread = true, verbose = false, kwargs...
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
-The options `bgopts` and `ptopts` are passed to the background stages and perturbations ODE `solve()` calls,
-and `shootopts` to the shooting method nonlinear `solve()`.
-Each option in `bgopts` can be a single value for all background stages, or a Tuple with one value per stage.
+The background stages, perturbations and shooting method are solved with the algorithms `bgalg`, `ptalg` and `shootalg`
+and the tolerances `bgreltol`/`bgabstol`, `ptreltol`/`ptabstol` and `shootabstol`.
+The extra options `bgopts`, `ptopts` and `shootopts` are passed to the same `solve()` calls, and override the prefixed options above.
+The unprefixed options in `kwargs` (like `reltol` or `maxiters`) are applied to both the background and perturbations last, and override all of them.
+Each background option can be a single value for all stages, or a Tuple with one value per stage.
 If `threads`, integration over independent perturbation modes are parallellized.
 
 See also [`solvebg`](@ref) and [`solvept`](@ref).
 """
 function solve(
     prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing;
-    bgopts = (alg = bgalg(prob), reltol = 1e-7, abstol = 1e-7), bgextraopts = (),
-    ptopts = (alg = ptalg(prob), reltol = 1e-5, abstol = 1e-5), ptextraopts = (),
-    shootopts = (alg = shootalg(prob), abstol = 1e-5),
+    bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (),
+    ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (),
+    shootalg = default_shootalg(prob), shootabstol = 1e-5, shootopts = (),
     thread = true, verbose = false, kwargs...
 )
-    bgsols = solvebg(prob; shootopts, verbose, kwargs..., bgopts..., bgextraopts...)
+    bgopts = (alg = bgalg, reltol = bgreltol, abstol = bgabstol, bgopts...)
+    ptopts = (alg = ptalg, reltol = ptreltol, abstol = ptabstol, ptopts...)
+    shootopts = (alg = shootalg, abstol = shootabstol, shootopts...)
+
+    bgsols = solvebg(prob; shootopts, verbose, bgopts..., kwargs...)
 
     if isnothing(ks) || isempty(ks) || !all(successful_retcode, bgsols) # no perturbations requested, or they cannot be set up on a failed background
         ks = nothing
         ptsol = nothing
     else
-        ptsol = solvept(prob.pt, bgsols, ks; thread, verbose, ptopts..., ptextraopts..., kwargs...)
+        ptsol = solvept(prob.pt, bgsols, ks; thread, verbose, ptopts..., kwargs...)
     end
 
     return CosmologySolution(prob, bgsols, ks, ptsol)
@@ -472,12 +484,12 @@ function warning_failed_solution(sol::ODESolution, name = "ODE"; verbose = false
 end
 
 """
-    solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
+    solvebg(bgprob::ODEProblem; alg = default_bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
 
 Solve the background stage `bgprob` and return its solution.
 Its splines from previous stages must already be set, for example with [`setupbg`](@ref).
 """
-function solvebg(bgprob::ODEProblem; alg = bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
+function solvebg(bgprob::ODEProblem; alg = default_bgalg(bgprob), reltol = 1e-7, abstol = 1e-7, verbose = false, name = "Background", kwargs...)
     check_solve_args(bgprob, alg)
     sol = solve(bgprob, alg; verbose = verbosity(verbose), reltol, abstol, kwargs...)
     if !successful_retcode(sol)
@@ -526,7 +538,7 @@ function _solvebg_shoot_f(x, p)
 end
 
 # Solve the background stages with the shooting method for the parameters `vars` (mapped to initial guesses), so that the equations `conditions` hold at the final time
-function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = shootalg(), reltol = 1e-3), verbose = false, kwargs...)
+function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootalg(), abstol = 1e-5), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -612,13 +624,13 @@ function setupbg(bgprob::ODEProblem, bgsols::Tuple)
 end
 
 """
-    solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
+    solvebg(prob::CosmologyProblem; shootopts = (alg = default_shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
 
 Solve all background stages of the cosmological problem `prob` in order, and return a Tuple with their solutions.
 If the problem requires shooting, all stages are solved repeatedly until the shooting conditions hold at the final time (today) of the last stage.
 Each option in `kwargs` can be a single value for all stages, or a Tuple with one value per stage.
 """
-function solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
+function solvebg(prob::CosmologyProblem; shootopts = (alg = default_shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
     isempty(prob.shoot) && return solvebg(prob.bg; verbose, kwargs...)
     return solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
 end
@@ -640,13 +652,13 @@ function setuppt(ptprob::ODEProblem, bgsols::Tuple)
 end
 
 """
-    solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
+    solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, thread = true, verbose = false, kwargs...)
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the solutions `bgsols` of all background stages (see [`solvebg`](@ref)).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
-function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
+function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
     check_solve_args(ptprob, alg)
 
     #= # do not show threading warnings; these are Julia runtime options that the user is reponsible for setting
@@ -676,7 +688,7 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = pta
     return ptsols
 end
 """
-    solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
+    solvept(ptprob::ODEProblem; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
 
 Solve the perturbation problem `ptprob` and return the solution.
 Its wavenumber and background spline must already be initialized, for example with `setuppt`.
@@ -693,7 +705,7 @@ ptprob = ptprobf(k)
 ptsol = solvept(ptprob)
 ```
 """
-function solvept(ptprob::ODEProblem; alg = ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
+function solvept(ptprob::ODEProblem; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
     return solve(ptprob, alg; reltol, abstol, kwargs...)
 end
 

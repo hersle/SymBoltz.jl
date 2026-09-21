@@ -67,14 +67,14 @@ The problem is solved for the given ``k``, and the matter power spectrum is save
 - `τ` must be a single or a vector of conformal times, or unspecified to use ``τ = τ₀`` today.
 - `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
 """
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; kwargs...)
-    ptextraopts = (saveat = τ,)
-    sol = solve(prob, k; ptextraopts, kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; ptopts = (), kwargs...)
+    ptopts = (saveat = τ, ptopts...) # merge, so a caller-supplied ptopts does not drop the saving options
+    sol = solve(prob, k; ptopts, kwargs...)
     return spectrum_matter(modes, sol, k, τ)
 end
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; kwargs...)
-    ptextraopts = (save_everystep = false, save_start = false, save_end = true)
-    sol = solve(prob, k; ptextraopts, kwargs...)
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; ptopts = (), kwargs...)
+    ptopts = (save_everystep = false, save_start = false, save_end = true, ptopts...) # merge, so a caller-supplied ptopts does not drop the saving options
+    sol = solve(prob, k; ptopts, kwargs...)
     return spectrum_matter(modes, sol, k)
 end
 
@@ -193,14 +193,20 @@ function source_eltype(Ss, T)
 end
 
 """
-    source_grid(prob::CosmologyProblem, Ss, τs, ks[, bgsols]; bgopts = (), ptopts = (), thread = true, verbose = false)
+    source_grid(
+        prob::CosmologyProblem, Ss, τs, ks[, bgsols];
+        bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (),
+        ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (),
+        thread = true, verbose = false
+    )
 
 Compute and evaluate source functions ``S(τ,k)`` with symbolic expressions `Ss` on a grid with conformal times `τs` and wavenumbers `ks` from the problem `prob`.
 Returns a matrix of size `(Nτ, Nk)`, where each element is a vector of length `NS = length(Ss)` holding all source values at that `(τ, k)` point.
 
-The options `bgopts`/`ptopts` are passed to the background/perturbation ODE solves.
+The algorithms `bgalg`/`ptalg`, tolerances `bgreltol`/`ptreltol` and `bgabstol`/`ptabstol` and extra options `bgopts`/`ptopts` are passed to the background/perturbation ODE solves.
+If the background solutions `bgsols` are passed, they are used directly and the background options are not accepted.
 """
-function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsols::Tuple; ptopts = (), thread = true, verbose = false)
+function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsols::Tuple; ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false)
     getSs = getsym(prob.pt, Ss)
     T = source_eltype(Ss, eltype(bgsols[end]))
     τmin, τmax = extrema(bgsols[end].t)
@@ -211,7 +217,7 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsols::Tuple; ptopts 
     save_func(u, t, integrator) = getSs(SciMLBase.ProblemState(; u, p = SciMLBase.parameter_values(integrator), t))
     savedvalues = [SavedValues(eltype(τs), T) for _ in ks] # one save container per k
     callback(ik) = SavingCallback(save_func, savedvalues[ik]; saveat = τs)
-    solvept(prob.pt, bgsols, ks; callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
+    solvept(prob.pt, bgsols, ks; alg = ptalg, reltol = ptreltol, abstol = ptabstol, callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
 
     out = Matrix{T}(undef, length(τs), length(ks))
     @inbounds for ik in eachindex(ks), iτ in eachindex(τs)
@@ -219,8 +225,8 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsols::Tuple; ptopts 
     end
     return out
 end
-function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgopts = (), verbose = false, kwargs...)
-    bgsols = solvebg(prob; verbose, bgopts...)
+function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), verbose = false, kwargs...)
+    bgsols = solvebg(prob; verbose, alg = bgalg, reltol = bgreltol, abstol = bgabstol, bgopts...)
     return source_grid(prob, Ss, τs, ks, bgsols; verbose, kwargs...)
 end
 

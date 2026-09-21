@@ -14,7 +14,7 @@ lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-prob_dense = CosmologyProblem(M, pars; jac = true, sparse = false)
+prob_dense = CosmologyProblem(M, pars; bgsparse = false, ptsparse = false)
 prob_sparse = prob
 
 τ, k, D = SymBoltz.τ, SymBoltz.k, SymBoltz.D
@@ -272,8 +272,8 @@ end
 end
 
 @testset "Solve background+perturbations together (without splining background)" begin
-    prob_nospline_dense = CosmologyProblem(M, pars; spline = false, jac = true, sparse = false)
-    prob_nospline_sparse = CosmologyProblem(M, pars; spline = false, jac = true, sparse = true)
+    prob_nospline_dense = CosmologyProblem(M, pars; spline = false, ptsparse = false)
+    prob_nospline_sparse = CosmologyProblem(M, pars; spline = false, ptsparse = true)
     @test_nowarn sprint(show, prob_nospline_dense)
     @test_nowarn sprint(show, prob_nospline_sparse)
     ks = [1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3]
@@ -598,19 +598,20 @@ end
 
 @testset "Sparse Jacobian" begin
     # sparse background should work for ΛCDM, but since it is a small system the dense version should be a bit faster
-    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgopts = (jac = true, sparse = true))
+    prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgjac = true, bgsparse = true)
     @test all(SymBoltz.issparse, prob_sparse_bg.bg)
     @test issuccess(solve(prob_sparse_bg))
 
     # with ΛCDM model
     k = [1e0, 1e1, 1e2, 1e3]
-    sol = solve(prob_sparse, k; bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()),), ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),))
+    sol = solve(prob_sparse, k; bgalg = SymBoltz.Rodas4P(linsolve = SymBoltz.LUFactorization()), ptalg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()))
     @test issuccess(sol)
 
     M2 = RMΛ()
     pars2 = Dict(M2.m.Ω₀ => 0.3, M2.r.Ω₀ => 1e-5, M2.g.h => NaN, M2.r.T₀ => NaN)
-    prob2 = CosmologyProblem(M2, pars2; jac = true, sparse = true, bgopts = (sparse = true,)) # demand sparse background
-    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.PureKLUFactorization()),)
+    prob2 = CosmologyProblem(M2, pars2; bgsparse = true, ptsparse = true) # sparse background and perturbations
+    @test all(SymBoltz.issparse, prob2.bg) && SymBoltz.issparse(prob2.pt)
+    bgopts = (alg = SymBoltz.Rodas4P(linsolve = SymBoltz.PureKLUFactorization()),) # extra options still override the named ones
     ptopts = (alg = SymBoltz.KenCarp4(linsolve = SymBoltz.PureKLUFactorization()),)
     sol = solve(prob2, k; bgopts, ptopts)
     @test issuccess(sol)
@@ -650,12 +651,12 @@ end
     @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.Rodas5P(),), ptopts = (alg = SymBoltz.Rodas5P(),)))
     @test_throws "dense Jacobian must be solved with dense" solve(prob_dense; bgopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.PureKLUFactorization()),)) # has dense background
     @test_throws "sparse Jacobian must be solved with sparse" solve(prob_sparse, 1.0; ptopts = (alg = SymBoltz.Rodas5P(linsolve = SymBoltz.RFLUFactorization()),)) # has sparse perturbations
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 0),)))
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 1),)))
-    @test issuccess(solve(prob_dense, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_dense),), ptopts = (alg = SymBoltz.ptalg(prob_dense; accuracy = 2),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 0),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 1),)))
-    @test issuccess(solve(prob_sparse, 1.0; bgopts = (alg = SymBoltz.bgalg(prob_sparse),), ptopts = (alg = SymBoltz.ptalg(prob_sparse; accuracy = 2),)))
+    @test issuccess(solve(prob_dense, 1.0; bgalg = SymBoltz.default_bgalg(prob_dense), ptalg = SymBoltz.default_ptalg(prob_dense; accuracy = 0)))
+    @test issuccess(solve(prob_dense, 1.0; bgalg = SymBoltz.default_bgalg(prob_dense), ptalg = SymBoltz.default_ptalg(prob_dense; accuracy = 1)))
+    @test issuccess(solve(prob_dense, 1.0; bgalg = SymBoltz.default_bgalg(prob_dense), ptalg = SymBoltz.default_ptalg(prob_dense; accuracy = 2)))
+    @test issuccess(solve(prob_sparse, 1.0; bgalg = SymBoltz.default_bgalg(prob_sparse), ptalg = SymBoltz.default_ptalg(prob_sparse; accuracy = 0)))
+    @test issuccess(solve(prob_sparse, 1.0; bgalg = SymBoltz.default_bgalg(prob_sparse), ptalg = SymBoltz.default_ptalg(prob_sparse; accuracy = 1)))
+    @test issuccess(solve(prob_sparse, 1.0; bgalg = SymBoltz.default_bgalg(prob_sparse), ptalg = SymBoltz.default_ptalg(prob_sparse; accuracy = 2)))
 end
 
 @testset "Matter power spectrum with different arguments" begin
@@ -675,7 +676,7 @@ end
 
 @testset "Matter power spectrum converged to 0.1%" begin
     k = 10 .^ range(-1, 4, length=100)
-    @time P0 = spectrum_matter(prob, k; bgextraopts = (alg = SymBoltz.bgalg(prob; stiff=true), abstol = 1e-10, reltol = 1e-10), ptextraopts = (alg = SymBoltz.ptalg(prob; accuracy=2), abstol = 1e-10, reltol = 1e-10))
+    @time P0 = spectrum_matter(prob, k; bgalg = SymBoltz.default_bgalg(prob; stiff=true), bgabstol = 1e-10, bgreltol = 1e-10, ptalg = SymBoltz.default_ptalg(prob; accuracy=2), ptabstol = 1e-10, ptreltol = 1e-10)
     @time P  = spectrum_matter(prob, k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
@@ -797,9 +798,9 @@ end
     @test_throws "Cannot update" remake(prob1, Dict(M.G.ϕ => 0.9))
     @test_throws "Got 2 shooting parameters" CosmologyProblem(M, pars2, Dict(M.G.ϕ => 0.95, M.Λ.Ω₀ => 0.5), [M.g.ℋ ~ 1])
     @test_throws "Shooting with multiple parameters requires scalar guesses, but got interval guesses" CosmologyProblem(M, pars2, Dict(M.G.ϕ => (0.5, 1.5), M.Λ.Ω₀ => (0.5, 1.0)), [M.g.ℋ ~ 1, M.G.G ~ 1])
-    @test_throws "requires nonbracketing" solve(prob1; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
-    @test_throws "requires nonbracketing" solve(prob2; shootopts = (alg = SymBoltz.shootalg(prob1_bracket),))
-    @test_throws "requires bracketing" solve(prob1_bracket; shootopts = (alg = SymBoltz.shootalg(prob1),))
+    @test_throws "requires nonbracketing" solve(prob1; shootalg = SymBoltz.default_shootalg(prob1_bracket))
+    @test_throws "requires nonbracketing" solve(prob2; shootalg = SymBoltz.default_shootalg(prob1_bracket))
+    @test_throws "requires bracketing" solve(prob1_bracket; shootalg = SymBoltz.default_shootalg(prob1))
 
     # test that Base.show works for different shooting guess/condition combinations
     @test_nowarn sprint(show, prob1)

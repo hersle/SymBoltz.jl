@@ -9,7 +9,7 @@ using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF
 using Base.Threads, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
 M = ΛCDM()
 pars = parameters_Planck18(M)
-prob = CosmologyProblem(M, pars; jac = true, sparse = true)
+prob = CosmologyProblem(M, pars)
 
 using Dates, InteractiveUtils, LinearAlgebra
 LinearAlgebra.BLAS.set_num_threads(1)
@@ -181,8 +181,8 @@ In all cases, the Jacobian is made sparse from the analytical sparsity pattern.
 ```@example bench
 bench = BenchmarkGroup()
 ks = 10 .^ range(-2, 4, length = 50)
-prob_jac = prob # CosmologyProblem(M, pars; jac = true, sparse = true)
-prob_nojac = CosmologyProblem(M, pars; jac = false, sparse = true)
+prob_jac = prob # CosmologyProblem(M, pars)
+prob_nojac = CosmologyProblem(M, pars; bgjac = false, ptjac = false)
 
 bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
 ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(),), save_everystep = false) # generate function for J symbolically
@@ -219,8 +219,8 @@ Here is an example for a model with many perturbation equations.
 lmaxs = [4, 8, 16, 32]
 Ms = [ΛCDM(; lmax) for lmax in lmaxs]
 
-probs_dense = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = false)) for M in Ms]
-probs_sparse = [CosmologyProblem(M, pars; ptopts = (jac = true, sparse = true)) for M in Ms]
+probs_dense = [CosmologyProblem(M, pars; ptjac = true, ptsparse = false) for M in Ms]
+probs_sparse = [CosmologyProblem(M, pars; ptjac = true, ptsparse = true) for M in Ms]
 
 # example of sparse Jacobian
 J = copy(probs_sparse[end].pt.f.jac_prototype)
