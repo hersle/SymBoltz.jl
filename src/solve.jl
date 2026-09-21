@@ -518,7 +518,7 @@ end
 
 # TODO: more generic shooting method that can do anything (e.g. S8)
 function _solvebg_shoot_f(x, p)
-    n, tspan, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
+    n, isbackwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
     u = x .* scale
     bgsols = solvebg(setvars(u isa Number ? [u] : u); kwargs..., save_everystep = false, save_start = true, save_end = true, verbose)
     if length(bgsols) < n || !successful_retcode(bgsols[end])
@@ -526,7 +526,6 @@ function _solvebg_shoot_f(x, p)
         return u .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
     end
     bgsol = bgsols[end] # the complete background
-    isbackwards = bgsol.t[begin] != tspan[begin] # every stage starts at the beginning of the forwards time span, unless it is integrated backwards from today
     itoday = isbackwards ? firstindex(bgsol.t) : lastindex(bgsol.t) # today is at the forwards end of the background
     result = getconds(bgsol, itoday)
     result = u isa Number ? only(result) : result
@@ -535,7 +534,7 @@ function _solvebg_shoot_f(x, p)
 end
 
 # Solve the background stages with the shooting method for the parameters `vars` (mapped to initial guesses), so that the equations `conditions` hold at the final time
-function solvebg(bg::Tuple, tspan, vars, conditions; shootopts = (alg = default_shootalg(), abstol = 1e-5), verbose = false, kwargs...)
+function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootalg(), abstol = 1e-5), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -550,6 +549,7 @@ function solvebg(bg::Tuple, tspan, vars, conditions; shootopts = (alg = default_
     scale = guess isa Tuple ? 1 : map(g -> max(abs(g), one(g)), guess) # solve for large parameters relative to their guesses, so they are of order unity
     setvars = bgsetter(bg, vars) # efficient setter
     getconds = getsym(bg[end], conditions) # efficient getter in the complete background
+    isbackwards = stagebackwards(unknowns(bg[end].f.sys)) # whether today is at the start (backwards) or end (forwards) of the complete background
 
     if guess isa Tuple
         if shootopts.alg isa AbstractBracketingAlgorithm
@@ -564,7 +564,7 @@ function solvebg(bg::Tuple, tspan, vars, conditions; shootopts = (alg = default_
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), tspan, setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), isbackwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
     u = sol.u .* scale
 
@@ -629,7 +629,7 @@ Each option in `kwargs` can be a single value for all stages, or a Tuple with on
 """
 function solvebg(prob::CosmologyProblem; shootopts = (alg = default_shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
     isempty(prob.shoot) && return solvebg(prob.bg; verbose, kwargs...)
-    return solvebg(prob.bg, prob.tspan, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
+    return solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
 end
 
 function setuppt(ptprob::ODEProblem, bgsols::Tuple)
