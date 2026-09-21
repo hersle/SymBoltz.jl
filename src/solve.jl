@@ -139,49 +139,45 @@ stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
         tspan = (1e-6, 100.0), terminate = M.a ~ 1,
-        bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+        bg = true, pt = true, spline = true, fully_determined = true,
         bgjac = true, bgsparse = false, bgopts = (),
         ptjac = true, ptsparse = true, ptopts = (),
-        iip = true, specialize = SciMLBase.AutoSpecialize,
+        debug = false, iip = true, specialize = SciMLBase.AutoSpecialize,
         kwargs...
     )
 
-Create a numerical cosmological problem from the model `M` with parameters `pars`.
-
+Compile a numerical cosmological problem from the symbolic model `M` with parameters `pars` (mapped to numerical values).
 Optionally, the shooting method determines the parameters `shoot_pars` (mapped to initial guesses) such that the equations `shoot_conditions` are satisfied at the final time.
-Shooting parameters and conditions declared in `M` are included automatically, and guesses in `shoot_pars` override those in `M`.
 
-The background is solved in stages given by the Tuple `bg` of variable vectors, each interpolating previous stages with splines.
-If `bg = true`, the stages are detected from the dependencies between background variables with `SymBoltz.split_stages`.
-Stages with variables declared with `[backwards = true]` (like `χ` and `κ`) are integrated backwards from today, and other stages forwards.
-Each option in `bgopts` is a single value for all stages, or a Tuple with one value per stage.
+# Keyword arguments
 
-The first stage is integrated over `tspan`, and later stages over the span of the previous stage.
-The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `tspan`.
-
-If `pt = false`, or if `M` has no wavenumber parameter `k`, the perturbations are not created.
-The extra options `bgopts` and `ptopts` are passed to the `ODEProblem` constructors of the background stages and perturbations, and override the prefixed options above.
-The unprefixed options in `kwargs` (like `jac` or `sparse`) are passed to all of them last, and override all of them.
-
-If `spline` is a `Bool`, it decides whether all background unknowns in the perturbations system are replaced by splines.
-If `spline` is a `Vector`, it rather decides which (unknown and observed) variables are splined.
-
-If `bgjac`/`ptjac`, analytic functions are generated for the background/perturbation ODE Jacobians; otherwise they are computed with forward-mode automatic differentiation by default.
-If `bgsparse`/`ptsparse`, the background/perturbation ODEs use sparse Jacobian matrices that are usually more efficient for large systems; otherwise dense matrices are used.
-By default the perturbations are sparse, while the smaller background stages are dense.
-
-If `fully_determined`, the initialization system of every stage must have as many equations as unknowns.
-If `debug`, the system of every stage is wrapped with `ModelingToolkit.debug_system` to help locate errors in the equations.
-
-The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/) `iip` and `specialize` are forwarded to internal `ODEProblem{iip, specialize}(...)` constructors.
+- `tspan`: Time span over which to integrate the independent variable in `M`.
+- `terminate`: Terminate the first integration stage when this equation is satisfied.
+  Shrinks the time span of later stages to the time of the termination.
+  Pass `nothing` to unconditionally integrate over the entire `tspan`.
+- `bg`: Tuple of vectors of variables that should be integrated in each background stage.
+  Or `true` to detect stages automatically from the dependency graph between variables.
+  Variables declared with `[backwards = true]` are integrated backwards in time, while other variables are integrated in forward stages.
+- `pt`: Whether to compile the perturbations subproblem, if the model has ``k``-dependent variables.
+- `spline`: Whether background unknowns in the perturbations are replaced by splines or integrated from scratch.
+  Or a vector of variables that decides which (unknown/observed) variables are splined.
+- `fully_determined`: Whether the initialization system of every stage must have as many equations as unknowns.
+- `bgjac`/`ptjac`: Whether to generate analytical ODE Jacobians for the background/perturbation stages.
+  Otherwise they are computed with forward-mode automatic differentiation.
+- `bgsparse`/`ptsparse`: Whether to use sparse or dense matrices for the ODE Jacobians in the background/perturbation stages.
+  Larger perturbations systems with many zeros in the Jacobian are more efficient with sparse Jacobians, and smaller background systems are usually faster with dense Jacobians.
+- `bgopts`/`ptopts`: Extra keyword arguments passed to each `ODEProblem` constructor for the background/perturbation stages, overriding the options above.
+- `debug`: Whether the system of every stage is wrapped in `ModelingToolkit.debug_system` to help locate errors in the equations.
+- `iip`/`specialize`: [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/) forwarded to internal `ODEProblem{iip, specialize}(...)` constructors.
+- `kwargs...`: Extra keyword arguments passed to all `ODEProblem` constructors for both background/perturbation stages, overriding all options above.
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
     tspan = (1e-6, 100.0), terminate = M.a ~ 1,
-    bg = true, pt = true, spline = true, debug = false, fully_determined = true,
+    bg = true, pt = true, spline = true, fully_determined = true,
     bgjac = true, bgsparse = false, bgopts = (),
     ptjac = true, ptsparse = true, ptopts = (),
-    iip = true, specialize = SciMLBase.AutoSpecialize,
+    debug = false, iip = true, specialize = SciMLBase.AutoSpecialize,
     kwargs...
 )
     p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
@@ -429,13 +425,16 @@ end
         thread = true, verbose = false, kwargs...
     )
 
-Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks` (or only to the background level if it is empty).
-The background stages, perturbations and shooting method are solved with the algorithms `bgalg`, `ptalg` and `shootalg`
-and the tolerances `bgreltol`/`bgabstol`, `ptreltol`/`ptabstol` and `shootabstol`.
-The extra options `bgopts`, `ptopts` and `shootopts` are passed to the same `solve()` calls, and override the prefixed options above.
-The unprefixed options in `kwargs` (like `reltol` or `maxiters`) are applied to both the background and perturbations last, and override all of them.
-Each background option can be a single value for all stages, or a Tuple with one value per stage.
-If `threads`, integration over independent perturbation modes are parallellized.
+Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks`, or only to the background level if `ks` is empty or `nothing`.
+
+# Keyword arguments
+
+- `bgalg`/`ptalg`/`shootalg`: OrdinaryDiffEq and NonlinearSolve algorithms passed to the `solve()` of the background/perturbation/shooting problems.
+- `bgreltol`/`bgabstol`/`ptreltol`/`ptabstol`/`shootabstol`: Absolute/relative tolerances passed to the `solve()` of the background/perturbation/shooting problems.
+- `bgopts`/`ptopts`/`shootopts`: Extra keyword arguments passed to the `solve()` of the background/perturbation/shooting problems, overriding the options above.
+- `thread`: Whether multithreading is used to parallelize integration over independent perturbation ``k``-modes.
+- `verbose`: Whether to print progress information while solving.
+- `kwargs...`: Extra keyword arguments passed to both background/perturbation stages, overriding all options above.
 
 See also [`solvebg`](@ref) and [`solvept`](@ref).
 """
