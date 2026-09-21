@@ -73,7 +73,7 @@ Then we create a function that solves the problem and computes the luminosity di
 using [`remake_function`](@ref) to quickly update the parameters in the problem:
 ```@example fit
 pars = Dict(M.Ωm0 => 0.3, M.Ωk0 => 0.0, M.h => 0.7, M.w0 => -1.0, M.wa => 0.0)
-prob = CosmologyProblem(M, pars; ivspan = (0.0, maximum(data.zcmb)), terminate = nothing)
+prob = CosmologyProblem(M, pars; tspan = (0.0, maximum(data.zcmb)), terminate = nothing)
 probf = remake_function(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializeprob = Val{false})
 
 function dL(p)

@@ -64,7 +64,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true
     printstyled(io, nameof(prob.M), '\n'; bold)
 
     iv = ModelingToolkit.get_iv(prob.M)
-    tmin, tmax = extrema(prob.bg[1].tspan) # ivspan, in either direction
+    tmin, tmax = extrema(prob.bg[1].tspan) # in either direction
     printstyled(io, "Timespan:"; bold)
     print(io, " from ", iv, " = ", tmin, " till ", iv, " = ", tmax)
     !isnothing(prob.terminate) && print(symio, " or ", prob.terminate)
@@ -140,7 +140,7 @@ stageopts(opts, i, n) = map(opt -> stageopt(opt, i, n), NamedTuple(opts))
 """
     CosmologyProblem(
         M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-        ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
+        tspan = (1e-6, 100.0), terminate = M.a ~ 1,
         bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
         bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
         kwargs...
@@ -156,8 +156,8 @@ If `bg = true`, the stages are detected from the dependencies between background
 Stages with variables declared with `[backwards = true]` (like `χ` and `κ`) are integrated backwards from today, and other stages forwards.
 Each option in `bgopts` is a single value for all stages, or a Tuple with one value per stage.
 
-The first stage is integrated over `ivspan`, and later stages over the span of the previous stage.
-The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `ivspan`.
+The first stage is integrated over `tspan`, and later stages over the span of the previous stage.
+The first forwards stage terminates at the event `terminate` (default today when ``a = 1``); pass `terminate = nothing` to integrate over all of `tspan`.
 
 If `pt = false`, or if `M` has no wavenumber parameter `k`, the perturbations are not created.
 The options `bgopts` and `ptopts` are passed to the `ODEProblem` constructors of the background stages and perturbations, and `kwargs` are passed to all of them.
@@ -176,7 +176,7 @@ The [SciMLBase type parameters](https://docs.sciml.ai/SciMLBase/stable/interface
 """
 function CosmologyProblem(
     M::System, pars::Dict, shoot_pars = Dict(), shoot_conditions = [];
-    ivspan = (1e-6, 100.0), terminate = M.a ~ 1,
+    tspan = (1e-6, 100.0), terminate = M.a ~ 1,
     bg = true, pt = true, spline = true, debug = false, fully_determined = true, jac = true, sparse = true,
     bgopts = (), ptopts = (), iip = true, specialize = SciMLBase.AutoSpecialize,
     kwargs...
@@ -245,9 +245,9 @@ function CosmologyProblem(
         if !isempty(splvars)
             @set! stagesys.tearing_state = nothing # splining reorders variables and gives an incorrect Jacobian; see comment in the perturbations stage below
         end
-        stageivspan = backwards[i] ? reverse(ivspan) : ivspan # later stages get their span from the previous stages when solved
+        stagetspan = backwards[i] ? reverse(tspan) : tspan # later stages get their span from the previous stages when solved
         stageparsk = i == nbg ? stageparsk : restrict(stageparsk, stagesys) # the split-off stage only knows about some variables
-        stage = ODEProblem{iip, specialize}(stagesys, stageparsk, stageivspan; fully_determined, callback, jac, p_constructor, stageopts(bgopts, i, nbg)..., kwargs...) # never sparse because small
+        stage = ODEProblem{iip, specialize}(stagesys, stageparsk, stagetspan; fully_determined, callback, jac, p_constructor, stageopts(bgopts, i, nbg)..., kwargs...) # never sparse because small
         if !isempty(splvars)
             newsys = stage.f.sys
             @set! newsys.tearing_state = ts
@@ -275,7 +275,7 @@ function CosmologyProblem(
         end
         ts = ModelingToolkit.get_tearing_state(pt)
         @set! pt.tearing_state = nothing # additional pass in mtkcompile_spline modifies variable ordering and leads to an incorrect Jacobian; reset tearing state to nothing to trigger "manual" computation of the Jacobian
-        pt = ODEProblem{iip, specialize}(pt, parsk, ivspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
+        pt = ODEProblem{iip, specialize}(pt, parsk, tspan; fully_determined, jac, sparse, p_constructor, ptopts..., kwargs...)
         # restore tearing state via remake (not @set!) on pt.f while preserving the specialize level
         # (@set!-ing into a nested AbstractSciMLFunction field reconstructs it through ConstructionBase,
         # whose constructorof for SciML function types hardcodes SciMLBase.DEFAULT_SPECIALIZATION (i.e. AutoSpecialize))
@@ -624,7 +624,7 @@ function solvebg(prob::CosmologyProblem; shootopts = (alg = shootalg(prob), abst
 end
 
 function setuppt(ptprob::ODEProblem, bgsols::Tuple)
-    ivspanbg = extrema(bgsols[end].t) # e.g. until the background terminates
+    tspanbg = extrema(bgsols[end].t) # e.g. until the background terminates
     bgtunables = canonicalize(Tunable(), parameter_values(bgsols[end]))[1] # tunable parameters from the complete background (e.g. set by shooting)
 
     # copy parameters from background solution to perturbations problem, and spline all background unknowns into it
@@ -634,7 +634,7 @@ function setuppt(ptprob::ODEProblem, bgsols::Tuple)
     return k -> begin
         p = copy(newp) # newp specializes on spline types, while ptprob0.p does not; see https://github.com/SciML/ModelingToolkit.jl/issues/3715
         kset!(p, k)
-        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = ivspanbg)
+        newptprob = remake(ptprob; u0 = ptprob.u0, p = p, tspan = tspanbg)
         return newptprob
     end
 end
@@ -885,8 +885,8 @@ function timeseries(sol::CosmologySolution, var, vals; alg = ITP(), kwargs...)
     allequal(sign.(diff(sol[var]))) || error("$var is not monotonic")
     varfunc = getfunc(sol.bg[end], var)
     f(t, p) = varfunc(t) - p # var(t) == val when f(t) == 0
-    ivspan = extrema(sol.bg[end].t)
-    prob = IntervalNonlinearProblem(f, ivspan, vals[1]; kwargs...)
+    tspan = extrema(sol.bg[end].t)
+    prob = IntervalNonlinearProblem(f, tspan, vals[1]; kwargs...)
     return map(val -> solve(remake(prob; p = val); alg).u, vals)
 end
 """

@@ -1091,7 +1091,7 @@ end
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
 
     # use timespan that goes past today, but terminate when a = 1 with a callback
-    prob = CosmologyProblem(M, p; ivspan = (-9.0, 0.1), terminate = M.a ~ 1)
+    prob = CosmologyProblem(M, p; tspan = (-9.0, 0.1), terminate = M.a ~ 1)
     ks = 10.0 .^ 0:0.5:3
     sol = solve(prob, ks)
     @test issuccess(sol)
@@ -1099,7 +1099,7 @@ end
     @test sol[M.H][end] ≈ 1.0
 
     # integrate exactly to a = 1 with no termination condition
-    prob = CosmologyProblem(M, p; ivspan = (-9.0, 0.0), terminate = nothing)
+    prob = CosmologyProblem(M, p; tspan = (-9.0, 0.0), terminate = nothing)
     sol = solve(prob, ks)
     @test issuccess(sol)
     @test sol[M.a][end] ≈ 1.0
@@ -1143,10 +1143,10 @@ end
         M1.wa => 0.2,
         M1.α => 50.0,
     )
-    prob1 = CosmologyProblem(M1, p; ivspan = (0, -8), terminate = nothing)
-    prob2 = CosmologyProblem(M2, p; ivspan = (0, -8), terminate = nothing)
-    prob3 = CosmologyProblem(M3, p; ivspan = (0, -8), terminate = nothing)
-    prob4 = CosmologyProblem(M4, p; ivspan = (0, -8), terminate = nothing)
+    prob1 = CosmologyProblem(M1, p; tspan = (0, -8), terminate = nothing)
+    prob2 = CosmologyProblem(M2, p; tspan = (0, -8), terminate = nothing)
+    prob3 = CosmologyProblem(M3, p; tspan = (0, -8), terminate = nothing)
+    prob4 = CosmologyProblem(M4, p; tspan = (0, -8), terminate = nothing)
     @test issuccess(solve(prob1))
     @test issuccess(solve(prob2))
     @test issuccess(solve(prob3))
@@ -1205,22 +1205,22 @@ end
     ]
     M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3)
-    prob = CosmologyProblem(M, p; bg = ([ρr, ρm], [τ]), ivspan = (-8.0, 0.0), terminate = nothing)
+    prob = CosmologyProblem(M, p; bg = ([ρr, ρm], [τ]), tspan = (-8.0, 0.0), terminate = nothing)
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol)
 
     # the same stages are detected automatically from the dependencies and backwards metadata
-    probauto = CosmologyProblem(M, p; ivspan = (-8.0, 0.0), terminate = nothing)
+    probauto = CosmologyProblem(M, p; tspan = (-8.0, 0.0), terminate = nothing)
     @test SymBoltz.isbackwards.(probauto.bg) == (true, false)
     @test issetequal(unknowns(probauto.bg[1].f.sys), [ρr, ρm])
     @test solve(probauto, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
     # τ cannot be split off before the densities it depends on
-    @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), ivspan = (-8.0, 0.0), terminate = nothing)
+    @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), tspan = (-8.0, 0.0), terminate = nothing)
 
     # the variables of one stage must be declared with the same direction
-    @test_throws "are in the same stage" CosmologyProblem(M, p; bg = ([ρr, ρm, τ],), ivspan = (-8.0, 0.0), terminate = nothing)
+    @test_throws "are in the same stage" CosmologyProblem(M, p; bg = ([ρr, ρm, τ],), tspan = (-8.0, 0.0), terminate = nothing)
 
     # the backward solve hits its boundary condition ρ(a=1) = 3/8π*Ω₀ exactly
     @test sol(M.ρr, 0.0) == 3/8π * p[M.Ωr0]
@@ -1287,15 +1287,15 @@ end
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3, M.h => 0.7, M.As => 2e-9, M.ns => 0.96)
 
     # all background unknowns are integrated backwards in one stage, so there is nothing to terminate
-    @test_throws "terminate = nothing" CosmologyProblem(M, p; ivspan = (-8.0, 0.0))
-    prob = CosmologyProblem(M, p; ivspan = (-8.0, 0.0), terminate = nothing)
+    @test_throws "terminate = nothing" CosmologyProblem(M, p; tspan = (-8.0, 0.0))
+    prob = CosmologyProblem(M, p; tspan = (-8.0, 0.0), terminate = nothing)
     @test length(prob.bg) == 1
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol) && length(sol.bg) == 1
 
     # splitting all background unknowns off into a first stage leaves the last with none, but gives the same result
-    probbg = CosmologyProblem(M, p; bg = ([ρr, ρm], []), ivspan = (-8.0, 0.0), terminate = nothing)
+    probbg = CosmologyProblem(M, p; bg = ([ρr, ρm], []), tspan = (-8.0, 0.0), terminate = nothing)
     @test isempty(unknowns(probbg.bg[end].f.sys))
     @test solve(probbg, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
