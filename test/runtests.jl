@@ -1108,6 +1108,7 @@ end
 end
 
 @testset "Interacting background integrated backwards with b = log(a)" begin
+    # 1) Simplified interacting models
     function interacting_model(f; name = :QΛCDM)
         @independent_variables b # = log(a)
         D = Differential(b)
@@ -1152,6 +1153,9 @@ end
     @test issuccess(solve(prob2))
     @test issuccess(solve(prob3))
     @test issuccess(solve(prob4))
+
+    # 2) Full interacting models (in own module to not leak globals)
+    Base.include(Module(), "interacting.jl") # do not pollute global namespace
 end
 
 @testset "Automatic background stages" begin
