@@ -707,10 +707,6 @@ function solvept(ptprob::ODEProblem; alg = default_ptalg(ptprob), reltol = 1e-5,
     return solve(ptprob, alg; reltol, abstol, kwargs...)
 end
 
-function time_today(prob::CosmologyProblem)
-    return maximum(solvebg(prob)[end].t)
-end
-
 """
     issuccess(sol::CosmologySolution)
 
