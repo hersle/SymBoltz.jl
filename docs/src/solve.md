@@ -53,7 +53,7 @@ sol = solve(prob, ks)
 ```
 
 ```@docs
-solve(prob::CosmologyProblem, ks::AbstractArray)
+solve(prob::CosmologyProblem, ks::Union{Nothing, AbstractArray} = nothing)
 ```
 
 ## Accessing the solution
