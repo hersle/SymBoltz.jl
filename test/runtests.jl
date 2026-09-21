@@ -74,7 +74,7 @@ end
 
 @testset "Backwards integration from today" begin
     sol = solve(prob)
-    @test length(sol.bg) == 2 && SymBoltz.isbackwards(sol.bg[end]) # χ and κ are integrated backwards in the last stage
+    @test length(sol.bg) == 2 && sol.bg[end].t[end] < sol.bg[end].t[begin] # χ and κ are integrated backwards in the last stage
     @test sol.bg[end].t[begin] == sol.bg[1].t[end] # from where the first stage terminates
     @test sol[M.χ][end] == 0.0
     @test sol[M.b.κ][end] == 0.0
@@ -1213,7 +1213,8 @@ end
 
     # the same stages are detected automatically from the dependencies and backwards metadata
     probauto = CosmologyProblem(M, p; tspan = (-8.0, 0.0), terminate = nothing)
-    @test SymBoltz.isbackwards.(probauto.bg) == (true, false)
+    @test probauto.bg[1].tspan == reverse(probauto.tspan) # the first stage is backwards
+    @test probauto.bg[2].tspan == probauto.tspan # the second stage is forwards
     @test issetequal(unknowns(probauto.bg[1].f.sys), [ρr, ρm])
     @test solve(probauto, ks)(M.δm, 0.0, ks) ≈ sol(M.δm, 0.0, ks)
 
@@ -1287,13 +1288,19 @@ end
     M = complete(System(eqs, b, vars, pars; initial_conditions, name = :RMΛ))
     p = Dict(M.Ωr0 => 1e-4, M.Ωm0 => 0.3, M.h => 0.7, M.As => 2e-9, M.ns => 0.96)
 
-    # all background unknowns are integrated backwards in one stage, so there is nothing to terminate
-    @test_throws "terminate = nothing" CosmologyProblem(M, p; tspan = (-8.0, 0.0))
+    # the default event a ~ 1 is already satisfied where the backwards stage starts, so it never triggers and the whole span is integrated
+    probdefault = CosmologyProblem(M, p; tspan = (-8.0, 0.0))
+    @test solve(probdefault).bg[1].t[end] == -8.0
     prob = CosmologyProblem(M, p; tspan = (-8.0, 0.0), terminate = nothing)
     @test length(prob.bg) == 1
     ks = 10.0 .^ (0:3)
     sol = solve(prob, ks)
     @test issuccess(sol) && length(sol.bg) == 1
+
+    # the backwards first stage can terminate at an event, which shrinks the span of the later perturbations
+    probterm = CosmologyProblem(M, p; tspan = (-8.0, 0.0), terminate = M.a ~ 1e-3)
+    solterm = solve(probterm, ks)
+    @test solterm.bg[1].t[end] ≈ log(1e-3) && solterm.pts[1].t[begin] ≈ log(1e-3) && solterm.pts[1].t[end] ≈ 0.0
 
     # splitting all background unknowns off into a first stage leaves the last with none, but gives the same result
     probbg = CosmologyProblem(M, p; bg = ([ρr, ρm], []), tspan = (-8.0, 0.0), terminate = nothing)

@@ -17,8 +17,9 @@ import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 background(sys) = transform((sys, _) -> filter_system(isbackground, sys), sys)
 perturbations(sys) = transform((sys, _) -> filter_system(isperturbation, sys), sys)
 
-struct CosmologyProblem{Tbg <: Tuple{Vararg{ODEProblem}}, Tpt <: Union{ODEProblem, Nothing}}
+struct CosmologyProblem{Ttspan <: Tuple, Tbg <: Tuple{Vararg{ODEProblem}}, Tpt <: Union{ODEProblem, Nothing}}
     M::System
+    tspan::Ttspan # time span in the forwards direction; every stage is integrated over this or its reverse
 
     bg::Tbg # background stages solved in order, each with the unknowns of the previous stages splined in (the last has all background variables)
     pt::Tpt
@@ -26,7 +27,7 @@ struct CosmologyProblem{Tbg <: Tuple{Vararg{ODEProblem}}, Tpt <: Union{ODEProble
     pars::Vector{Symbolics.SymbolicT}
     shoot::Dict
     conditions::Vector{Equation} # shooting conditions in the form lhs - rhs ~ 0
-    terminate::Union{Nothing, Equation} # event that stops the first forwards integration stage
+    terminate::Union{Nothing, Equation} # event that stops the first integration stage
 end
 
 struct CosmologySolution{Tbg <: Tuple{Vararg{ODESolution}}, Tpts <: Union{Nothing, EnsembleSolution, Vector{<:ODESolution}}, Tks <: Union{Nothing, AbstractVector}}
@@ -37,9 +38,6 @@ struct CosmologySolution{Tbg <: Tuple{Vararg{ODESolution}}, Tpts <: Union{Nothin
 end
 
 algname(alg) = string(nameof(typeof(alg)))
-
-isbackwards(prob::ODEProblem) = prob.tspan[end] < prob.tspan[begin] # TODO: assumes iv is e.g. τ or log(a), but not e.g. z
-isbackwards(sol::ODESolution) = sol.t[end] < sol.t[begin]
 
 # Print the unknowns of a stage with n shortest names (usually the most fundamental variables)
 function show_unknowns(io::IO, prob::ODEProblem; n = 3)
@@ -64,14 +62,14 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true
     printstyled(io, nameof(prob.M), '\n'; bold)
 
     iv = ModelingToolkit.get_iv(prob.M)
-    tmin, tmax = extrema(prob.bg[1].tspan) # in either direction
     printstyled(io, "Timespan:"; bold)
-    print(io, " from ", iv, " = ", tmin, " till ", iv, " = ", tmax)
+    print(io, " from ", iv, " = ", prob.tspan[begin], " till ", iv, " = ", prob.tspan[end])
     !isnothing(prob.terminate) && print(symio, " or ", prob.terminate)
 
     printstyled(io, "\nStages:"; bold)
     for (i, stage) in enumerate(prob.bg)
-        print(io, '\n', indent, "Background $i: ", isbackwards(stage) ? "backwards" : "forwards")
+        isbackwards = stage.tspan[begin] != prob.tspan[begin] # every stage is integrated over the forwards time span or its reverse
+        print(io, '\n', indent, "Background $i: ", isbackwards ? "backwards" : "forwards")
         nvars = length(unknowns(stage.f.sys))
         print(io, ", ", nvars, " unknowns")
         nvars > 0 && show_unknowns(io, stage)
@@ -213,8 +211,6 @@ function CosmologyProblem(
         backwards = map(stagebackwards, bg)
     end
     nbg = length(bg)
-    iterminate = findfirst(!, backwards) # first forwards stage
-    isnothing(terminate) || !isnothing(iterminate) || error("All background stages are integrated backwards, so none can terminate at the event $terminate; pass terminate = nothing.")
 
     bgopts = (jac = bgjac, sparse = bgsparse, bgopts...) # extra options take precedence
     bgprobs = ODEProblem[]
@@ -235,16 +231,16 @@ function CosmologyProblem(
             stagesys = debug_system(stagesys)
         end
 
-        # Stop the first forwards stage at the event given by the symbolic `terminate` event (default is today: a ~ 1)
-        callback = if isnothing(terminate) || i != iterminate
-            nothing # no event; integrate the whole span
-        else
+        # Stop the first stage at the event given by the symbolic `terminate` event (default is today: a ~ 1), which shrinks the span of all later stages
+        callback = if i == 1 && !isnothing(terminate)
             eventfunc = ModelingToolkit.build_explicit_observed_function(stagesys, terminate.lhs - terminate.rhs) # works whether the event's variables are independent, unknown or observed
             ContinuousCallback(
                 (u, t, integrator) -> eventfunc(u, integrator.p, t), terminate!;
                 save_positions = (true, false), # don't duplicate final point
                 rootfind = SciMLBase.RightRootFind # prefer right root, so a(τ₀) ≤ 1.0 and root finding algorithms get different signs also today (alternatively, try to enforce integrator.u[aidx] = 1.0 in affect! and set save_positions = (false, true), although this didn't work exactly last time)
             )
+        else
+            nothing # no termination event, integrate the whole time span
         end
 
         ts = ModelingToolkit.get_tearing_state(stagesys)
@@ -294,7 +290,7 @@ function CosmologyProblem(
 
     pars = [unwrap(par) for (par, val) in pars]
     shoot_conditions = Equation[eq.lhs - eq.rhs ~ 0 for eq in shoot_conditions]
-    return CosmologyProblem(M, bg, pt, pars, shoot_pars, shoot_conditions, terminate)
+    return CosmologyProblem(M, tspan, bg, pt, pars, shoot_pars, shoot_conditions, terminate)
 end
 
 # restrict a variable/parameter map (or list) to those that are part of the problem, which can be a reduced subsystem
@@ -345,7 +341,7 @@ function remake_function(prob::CosmologyProblem, pars; kwargs...)
         vals = scalar ? [vals] : vals
         bgnew = bgset(vals)
         ptnew = isnothing(pt) ? nothing : remake(pt; zip((:u0, :p), ptset(pt, vals))..., kwargs...)
-        return CosmologyProblem(prob.M, bgnew, ptnew, prob.pars, prob.shoot, prob.conditions, prob.terminate)
+        return CosmologyProblem(prob.M, prob.tspan, bgnew, ptnew, prob.pars, prob.shoot, prob.conditions, prob.terminate)
     end
 end
 
@@ -523,7 +519,7 @@ end
 
 # TODO: more generic shooting method that can do anything (e.g. S8)
 function _solvebg_shoot_f(x, p)
-    n, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
+    n, tspan, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
     u = x .* scale
     bgsols = solvebg(setvars(u isa Number ? [u] : u); kwargs..., save_everystep = false, save_start = true, save_end = true, verbose)
     if length(bgsols) < n || !successful_retcode(bgsols[end])
@@ -531,14 +527,16 @@ function _solvebg_shoot_f(x, p)
         return u .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
     end
     bgsol = bgsols[end] # the complete background
-    result = getconds(bgsol, argmax(bgsol.t)) # today is the last or first saved step, depending on direction
+    isbackwards = bgsol.t[begin] != tspan[begin] # every stage starts at the beginning of the forwards time span, unless it is integrated backwards from today
+    itoday = isbackwards ? firstindex(bgsol.t) : lastindex(bgsol.t) # today is at the forwards end of the background
+    result = getconds(bgsol, itoday)
     result = u isa Number ? only(result) : result
     verbose && eltype(u) <: AbstractFloat && println("Shooting: ", varvalstr(varstrs, u), " -> ", varvalstr(constrs, result))
     return result
 end
 
 # Solve the background stages with the shooting method for the parameters `vars` (mapped to initial guesses), so that the equations `conditions` hold at the final time
-function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootalg(), abstol = 1e-5), verbose = false, kwargs...)
+function solvebg(bg::Tuple, tspan, vars, conditions; shootopts = (alg = default_shootalg(), abstol = 1e-5), verbose = false, kwargs...)
     length(vars) == length(conditions) || error("Different number of shooting parameters and conditions")
 
     guess = collect(values(vars))
@@ -567,7 +565,7 @@ function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootal
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), tspan, setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
     u = sol.u .* scale
 
@@ -613,9 +611,9 @@ Prepare the background stage `bgprob` to be solved on top of the solutions `bgso
 spline their unknowns into it, and integrate over the span of the last previous stage.
 """
 function setupbg(bgprob::ODEProblem, bgsols::Tuple)
-    isempty(bgsols) && return bgprob
-    tspan = extrema(bgsols[end].t)
-    tspan = isbackwards(bgprob) ? reverse(tspan) : tspan
+    isempty(bgsols) && return bgprob # first background stage returned as-is
+    tmin, tmax = extrema(bgsols[end].t) # the span covered by the previous stages
+    tspan = clamp.(bgprob.tspan, tmin, tmax) # shrink this stage's span to it, keeping its direction
     p = bgprob.p
     if !isempty(p.nonnumeric)
         bgprob, p = setspline(bgprob, spline(bgsols...))
@@ -632,11 +630,12 @@ Each option in `kwargs` can be a single value for all stages, or a Tuple with on
 """
 function solvebg(prob::CosmologyProblem; shootopts = (alg = default_shootalg(prob), abstol = 1e-5), verbose = false, kwargs...)
     isempty(prob.shoot) && return solvebg(prob.bg; verbose, kwargs...)
-    return solvebg(prob.bg, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
+    return solvebg(prob.bg, prob.tspan, prob.shoot, prob.conditions; shootopts, verbose, kwargs...)
 end
 
 function setuppt(ptprob::ODEProblem, bgsols::Tuple)
-    tspanbg = extrema(bgsols[end].t) # e.g. until the background terminates
+    tmin, tmax = extrema(bgsols[end].t) # the span covered by the background, e.g. until it terminates
+    tspanbg = clamp.(ptprob.tspan, tmin, tmax) # shrink the forwards perturbation span to it
     bgtunables = canonicalize(Tunable(), parameter_values(bgsols[end]))[1] # tunable parameters from the complete background (e.g. set by shooting)
 
     # copy parameters from background solution to perturbations problem, and spline all background unknowns into it
