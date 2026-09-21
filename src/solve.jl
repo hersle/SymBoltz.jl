@@ -910,35 +910,6 @@ function timeseries(sol::CosmologySolution, var, dvar, vals::AbstractArray; kwar
     return ts
 end
 
-"""
-    unknowns(prob::CosmologyProblem)
-
-Get all unknown variables from the background stages and perturbations of the cosmological problem `prob`.
-"""
-function unknowns(prob::CosmologyProblem)
-    bg = reduce(vcat, (unknowns(stage.f.sys) for stage in prob.bg))
-    return [bg; unknowns(prob.pt.f.sys)]
-end
-
-"""
-    parameters(prob::CosmologyProblem; nonnumeric = false)
-
-Get all parameter values of the cosmological problem `prob`.
-"""
-function parameters(prob::CosmologyProblem; nonnumeric = false)
-    ptpars = isnothing(prob.pt) ? Dict() : parameters(prob.pt)
-    pars = merge(map(parameters, prob.bg)..., ptpars)
-    !nonnumeric && filter!(par_val -> par_val[2] isa Number, pars)
-    return pars
-end
-function parameters(prob::ODEProblem)
-    pars = parameters(prob.f.sys)
-    return Dict(pars .=> prob.ps[pars])
-end
-function parameters(sol::CosmologySolution; kwargs...)
-    return parameters(sol.prob; kwargs...)
-end
-
 # Fix model/solution under broadcasted calls
 Base.broadcastable(sys::System) = Ref(sys)
 Base.broadcastable(sol::CosmologySolution) = Ref(sol)

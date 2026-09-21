@@ -1,7 +1,6 @@
 module SymBoltz
 
 using Reexport
-import ModelingToolkit: parameters, unknowns # explicitly imported because they are extended
 @reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
 using Symbolics, SymbolicUtils
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
