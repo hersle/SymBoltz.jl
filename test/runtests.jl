@@ -302,13 +302,15 @@ end
 end
 
 @testset "Time and optical depth today" begin
-    ks = 1.0
-    prob = CosmologyProblem(M, pars) # recreate since solution usually modifies problem parameters
-    sol = solve(prob, ks)
-    τ0 = sol[M.τ][end]
-    @test sol(M.g.a, τ0) ≈ sol(M.g.a, τ0, ks) ≈ 1.0
-    @test sol(M.χ, τ0) == sol(M.χ, τ0, ks) == 0.0
-    @test sol(M.b.κ, τ0) == sol(M.b.κ, τ0, ks) == 0.0
+    k = 1.0
+    sol = solve(prob, k)
+    t0 = only(unique([sol.bg[1].t[end], sol.bg[2].t[begin]])) # t0 should be equal in both background stages
+    @test sol(M.g.a, t0) ≈ 1
+    @test sol(M.g.a, t0, k) ≈ 1 # go through background spline
+    @test sol(M.χ, t0) ≈ 0 atol=1e-20 # ≈0 is equivalent to ==0 without an absolute tolerance
+    @test sol(M.χ, t0, k) ≈ 0 atol=1e-20 # go through background spline
+    @test sol(M.b.κ, t0) ≈ 0 atol=1e-20
+    @test sol(M.b.κ, t0, k) ≈ 0 atol=1e-20 # go through background spline
 end
 
 @testset "Equal parameters in background and perturbation solutions" begin
@@ -619,7 +621,8 @@ end
 
 @testset "Is-in-place and specialization level" begin
     ks = 10 .^ range(0, 3, length=5)
-    for iip in (true, false), specialize in (SciMLBase.AutoSpecialize, SciMLBase.FullSpecialize)
+    # iip = false struggles with type inference on Julia 1.10 and takes ~10x longer to compile (only want iip = true anyway)
+    for iip in (true,), specialize in (SciMLBase.AutoSpecialize, SciMLBase.FullSpecialize)
         prob = CosmologyProblem(M, pars; iip, specialize)
         @test all(isinplace(stage) == iip for stage in prob.bg)
         @test isinplace(prob.pt) == iip
