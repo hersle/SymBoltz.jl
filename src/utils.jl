@@ -21,11 +21,12 @@ Symbolics.option_to_metadata_type(::Val{:backwards}) = BackwardsMetadata
 getbackwards(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), BackwardsMetadata, false)
 
 # Whether the variables vars in one stage are integrated backwards (forwards if there are none)
-function stagebackwards(vars, reason = "are in the same stage")
-    dirs = unique(getbackwards.(vars))
-    length(dirs) ≤ 1 || error("$(join(vars, ", ")) $reason, so they must be integrated in the same direction, but only some are declared with [backwards = true]")
+function isbackwards(vars)
+    dirs = unique(Bool.(getbackwards.(vars)))
+    length(dirs) ≤ 1 || error("$(join(vars, ", ")) must be integrated in the same direction, but only some are declared with [backwards = true]")
     return isempty(dirs) ? false : only(dirs)
 end
+isbackwards(prob::ODEProblem) = isbackwards(unknowns(prob.f.sys))
 
 # merge/copy collections that are safe to mutate and are type-stable when one is empty
 function mergesafe(a, b)
@@ -309,7 +310,7 @@ function split_stages(sys::System)
 
     # blocks of mutually dependent variables, which must be integrated together in one direction
     blocks = strongly_connected_components(vargraph)
-    backwards = map(block -> stagebackwards(vars[block], "depend on each other"), blocks)
+    backwards = map(block -> isbackwards(vars[block]), blocks)
     blockgraph = condensation(vargraph, blocks)
 
     # visit blocks in dependency order, taking all available blocks in the current direction before switching direction

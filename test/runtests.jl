@@ -1226,7 +1226,7 @@ end
     @test_throws "depend on ρm(b), ρr(b)" CosmologyProblem(M, p; bg = ([τ], [ρr, ρm]), tspan = (-8.0, 0.0), terminate = nothing)
 
     # the variables of one stage must be declared with the same direction
-    @test_throws "are in the same stage" CosmologyProblem(M, p; bg = ([ρr, ρm, τ],), tspan = (-8.0, 0.0), terminate = nothing)
+    @test_throws "must be integrated in the same direction" CosmologyProblem(M, p; bg = ([ρr, ρm, τ],), tspan = (-8.0, 0.0), terminate = nothing)
 
     # the backward solve hits its boundary condition ρ(a=1) = 3/8π*Ω₀ exactly
     @test sol(M.ρr, 0.0) == 3/8π * p[M.Ωr0]

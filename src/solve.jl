@@ -68,8 +68,7 @@ function Base.show(io::IO, prob::CosmologyProblem; indent = "  ", compact = true
 
     printstyled(io, "\nStages:"; bold)
     for (i, stage) in enumerate(prob.bg)
-        isbackwards = stage.tspan[begin] != prob.tspan[begin] # every stage is integrated over the forwards time span or its reverse
-        print(io, '\n', indent, "Background $i: ", isbackwards ? "backwards" : "forwards")
+        print(io, '\n', indent, "Background $i: ", isbackwards(stage) ? "backwards" : "forwards")
         nvars = length(unknowns(stage.f.sys))
         print(io, ", ", nvars, " unknowns")
         nvars > 0 && show_unknowns(io, stage)
@@ -204,7 +203,7 @@ function CosmologyProblem(
         bg, backwards = split_stages(sys)
     else
         bg isa Tuple && !isempty(bg) || error("bg must be true or a non-empty Tuple of background stages, but got $bg")
-        backwards = map(stagebackwards, bg)
+        backwards = map(isbackwards, bg)
     end
     nbg = length(bg)
 
@@ -509,6 +508,7 @@ function solvebg(bg::Tuple; verbose = false, kwargs...)
         if i < n
             opts = (; opts..., save_everystep = true, save_start = true, save_end = true, dense = true) # spline the whole solution into later stages
         end
+        verbose && println("Solving background $i")
         bgsol = solvebg(bgprob; verbose, name = "Background stage $i", opts...)
         bgsols = (bgsols..., bgsol)
         successful_retcode(bgsol) || break # cannot set up later stages
@@ -518,7 +518,7 @@ end
 
 # TODO: more generic shooting method that can do anything (e.g. S8)
 function _solvebg_shoot_f(x, p)
-    n, isbackwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
+    n, backwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs = p # unpack
     u = x .* scale
     bgsols = solvebg(setvars(u isa Number ? [u] : u); kwargs..., save_everystep = false, save_start = true, save_end = true, verbose)
     if length(bgsols) < n || !successful_retcode(bgsols[end])
@@ -526,7 +526,7 @@ function _solvebg_shoot_f(x, p)
         return u .* NaN # return NaN instead of erroring, so solvers can use this information to backtrack/retry into valid regions
     end
     bgsol = bgsols[end] # the complete background
-    itoday = isbackwards ? firstindex(bgsol.t) : lastindex(bgsol.t) # today is at the forwards end of the background
+    itoday = backwards ? firstindex(bgsol.t) : lastindex(bgsol.t) # today is at the forwards end of the background
     result = getconds(bgsol, itoday)
     result = u isa Number ? only(result) : result
     verbose && eltype(u) <: AbstractFloat && println("Shooting: ", varvalstr(varstrs, u), " -> ", varvalstr(constrs, result))
@@ -549,7 +549,7 @@ function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootal
     scale = guess isa Tuple ? 1 : map(g -> max(abs(g), one(g)), guess) # solve for large parameters relative to their guesses, so they are of order unity
     setvars = bgsetter(bg, vars) # efficient setter
     getconds = getsym(bg[end], conditions) # efficient getter in the complete background
-    isbackwards = stagebackwards(unknowns(bg[end].f.sys)) # whether today is at the start (backwards) or end (forwards) of the complete background
+    backwards = isbackwards(bg[end]) # whether today is at the start (backwards) or end (forwards) of the complete background
 
     if guess isa Tuple
         if shootopts.alg isa AbstractBracketingAlgorithm
@@ -564,7 +564,7 @@ function solvebg(bg::Tuple, vars, conditions; shootopts = (alg = default_shootal
             NonlinearProblemT = NonlinearProblem
         end
     end
-    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), isbackwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
+    prob = NonlinearProblemT(_solvebg_shoot_f, guess ./ scale, (length(bg), backwards, setvars, getconds, scale, kwargs, verbose, varstrs, constrs))
     sol = solve(prob; shootopts...)
     u = sol.u .* scale
 
@@ -672,17 +672,16 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = def
     # TODO: can I exploit that the structure of the perturbation ODEs is ẏ = J * y with "constant" J?
     ptprobf = setuppt(ptprob, bgsols)
 
+    verbose && println("Solving perturbations for $(length(ks)) k-modes")
+
     function output_func_warn(sol, i)
         if !successful_retcode(sol)
             @warn warning_failed_solution(sol, "Perturbation (mode k = $(ks[i]))"; verbose)
-        elseif verbose
-            print("\rSolved perturbations for wavenumber k = $(ks[i])")
         end
         return output_func(sol, i)
     end
 
     ptsols = fetch.(@spawnif output_func_warn(solve(ptprobf(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, callback = callback(i), kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
-    verbose && println()
     return ptsols
 end
 """
