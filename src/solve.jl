@@ -111,12 +111,12 @@ function Base.show(io::IO, sol::CosmologySolution; indent = "  ", bold = true)
         nmin, nmax = extrema(map(ptsol -> length(ptsol.u), sol.pts))
         n = length(sol.pts)
         retcodes = unique(map(ptsol -> ptsol.retcode, sol.pts))
-        print(io, '\n', indent, "Perturbations: return codes ")
+        print(io, '\n', indent, "Perturbations ($n k-modes): return codes ")
         for (i, retcode) in enumerate(retcodes)
             printstyled(io, retcode; color = retcode_color(retcode))
             i < length(retcodes) && print(io, ", ")
         end
-        print(io, "; solved with $(algname(sol.pts[1].alg)); $nmin-$nmax points; x$n k ∈ [$kmin, $kmax]")
+        print(io, "; solved with $(algname(sol.pts[1].alg)); $nmin-$nmax points")
     end
 end
 
