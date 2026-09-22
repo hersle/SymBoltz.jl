@@ -10,8 +10,8 @@ struct ShootMetadata <: Symbolics.AbstractVariableMetadata end
 Symbolics.option_to_metadata_type(::Val{:shoot}) = ShootMetadata
 getshoot(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), ShootMetadata, false)
 function shootvars(M::System)
-    shootvars = Set(filter!(getshoot, union(ModelingToolkit.get_unknowns(M), ModelingToolkit.get_ps(M))))
-    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.get_guesses(M))
+    shootvars = Set(filter!(getshoot, union(ModelingToolkit.unknowns(M), ModelingToolkit.parameters(M)))) # including subsystems
+    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.guesses(M))
     return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
 end
 

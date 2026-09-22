@@ -183,7 +183,7 @@ function CosmologyProblem(
     p_constructor(buf) = convert(Vector{isempty(buf) ? eltype(buf) : typeof(first(buf))}, buf) # converts nonnumeric Any vector to vector of concrete spline type
     check_parameters(pars)
     shoot_pars_sys = shootvars(M)
-    conditions_sys = ModelingToolkit.get_constraints(M)
+    conditions_sys = ModelingToolkit.constraints(M) # including subsystems
     shoot_pars = mergesafe(shoot_pars_sys, shoot_pars) # read from system, but let passed guesses override them
     shoot_conditions = unionsafe(shoot_conditions, conditions_sys) # read from system
 
