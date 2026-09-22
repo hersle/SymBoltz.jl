@@ -97,13 +97,19 @@ plot(p1, p2, layout = (2, 1))
 SymBoltz.QCDM
 ```
 
+Solve a tracking quintessence field in an inverse power-law potential ``V(ϕ) = V_0 (\sqrt{8π} ϕ)^{-α}`` with ``α > 0``.
+The field starts frozen and joins the tracker solution with ``w = -2/(α+2)`` during matter domination, before it accelerates the late-time expansion.
+The shooting method is used to determine the potential amplitude `V0` such that the constraint ``ℋ = 1`` holds today.
 ```@example QCDM
 using SymBoltz, Plots
-@parameters V0 N
-V = ϕ -> V0 * ϕ^N
-M = QCDM(V, I = nothing)
-pars = merge(parameters_Planck18(M), Dict(M.Q.ϕini => 1.0, M.Q.ϕ′ini => 1.0, M.Q.V0 => 1e-2, M.Q.N => 2))
-prob = CosmologyProblem(M, pars)
-sol = solve(prob) # TODO: shoot so M.g.ℋ ~ 1 today
-plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(τ))
+@parameters V0 α
+V = ϕ -> V0 * (√(8π) * ϕ)^(-α)
+M = QCDM(V)
+pars = merge(parameters_Planck18(M), Dict(M.Q.α => 2.0, M.Q.ϕini => 1e-4))
+prob = CosmologyProblem(M, pars, Dict(M.Q.V0 => 0.2)) # shoot V0 from initial guess
+ks = [1e-1, 1e0, 1e1, 1e2, 1e4]
+sol = solve(prob, ks)
+p1 = plot(sol, log10(M.g.a), [M.Q.w, log10(M.Q.ϕ/M.Q.ϕini)/5 - 1])
+p2 = plot(sol, log10(M.g.a), M.Q.δ, ks)
+plot(p1, p2, layout = (2, 1), size = (600, 600))
 ```

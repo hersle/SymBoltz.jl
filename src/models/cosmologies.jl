@@ -166,13 +166,14 @@ function RMΛ(;
 end
 
 """
-    QCDM(v; name = :QCDM, kwargs...)
+    QCDM(V; name = :QCDM, kwargs...)
 
-Create a ΛCDM model, but with the quintessence scalar field in the potential `v` as dark energy instead of the cosmological constant.
+Create a ΛCDM model, but with the quintessence scalar field in the potential `V(ϕ)` as dark energy instead of the cosmological constant.
+One parameter must be shot for to give the dark energy density today (see [`quintessence`](@ref SymBoltz.quintessence)).
 """
-function QCDM(v; name = :QCDM, kwargs...)
+function QCDM(V; name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = quintessence(M.g, v)
+    Q = quintessence(M.g, V)
     return ΛCDM(Λ = Q; name, kwargs...)
 end
 
