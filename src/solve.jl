@@ -856,23 +856,30 @@ function (sol::CosmologySolution)(is, tmap::Pair, ks)
 end
 
 """
+    timeseries(sol::ODESolution; kwargs...)
     timeseries(bgsols::Tuple; kwargs...)
     timeseries(sol::CosmologySolution; kwargs...)
 
-Return the time steps of all background stage solutions within the span of the last stage, in ascending order.
+Return the time steps of one or more background stage solutions.
 """
-function timeseries(bgsols::Tuple{Vararg{ODESolution}}; kwargs...)
-    ts = sort!(mapreduce(sol -> collect(sol.t), vcat, bgsols)) # collect, so no solution's own time steps are mutated
-    tmin, tmax = extrema(bgsols[end].t) # each stage integrates within the span of the previous one
-    ts = [t for (i, t) in enumerate(ts) if tmin ≤ t ≤ tmax && (i == 1 || t != ts[i-1])] # remove duplicates with ==, which (unlike unique) ignores ForwardDiff partials
-    return timeseries(ts; kwargs...)
+function timeseries(sol::ODESolution; kwargs...)
+    return timeseries(sol.t; kwargs...)
 end
-timeseries(sol::CosmologySolution; kwargs...) = timeseries(sol.bg; kwargs...)
+function timeseries(bgsols::Tuple{Vararg{ODESolution}}; kwargs...)
+    tmin, tmax = extrema(bgsols[end].t) # each stage integrates within the span of the previous one
+    ts = sort!([t for sol in bgsols for t in sol.t if tmin < t < tmax]) # interior points (differs between stages)
+    return timeseries([tmin; ts; tmax]; kwargs...) # endpoints (common to all stages)
+end
+function timeseries(sol::CosmologySolution; kwargs...)
+    ts = timeseries(sol.bg; kwargs...)
+    sol.prob.tspan[end] < sol.prob.tspan[begin] && reverse!(ts)
+    return ts
+end
 function timeseries(sol::CosmologySolution, k; kwargs...)
     i1, i2 = neighboring_modes_indices(sol, k)
     t1s = sol.pts[i1].t
     t2s = sol.pts[i2].t
-    ts = sort!(unique!([t1s; t2s])) # average or interleave?
+    ts = sort!(unique!([t1s; t2s]); rev = sol.prob.tspan[end] < sol.prob.tspan[begin])
     return timeseries(ts; kwargs...)
 end
 function timeseries(ts::AbstractArray; Nextra = 0)

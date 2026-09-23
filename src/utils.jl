@@ -27,6 +27,8 @@ function isbackwards(vars)
     return isempty(dirs) ? false : only(dirs)
 end
 isbackwards(prob::ODEProblem) = isbackwards(unknowns(prob.f.sys))
+isbackwards(sol::ODESolution) = isbackwards(sol.prob)
+isforwards(x) = !isbackwards(x)
 
 # merge/copy collections that are safe to mutate and are type-stable when one is empty
 function mergesafe(a, b)

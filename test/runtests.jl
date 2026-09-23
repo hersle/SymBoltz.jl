@@ -157,7 +157,11 @@ end
 
 @testset "Timeseries" begin
     sol = solve(prob)
-    τs = SymBoltz.timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
+    @test isforwards(sol.bg[1]) && timeseries(sol.bg[1])[begin] == prob.tspan[begin] # forwards timeseries should begin at tspan[begin]
+    @test isbackwards(sol.bg[2]) && timeseries(sol.bg[2])[end] == prob.tspan[begin] # backwards timeseries should end at tspan[begin]
+    @test timeseries(sol)[begin] == prob.tspan[begin]
+
+    τs = timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
     zs = sol(M.g.z, τs)
     as = sol(M.g.a, τs)
     @test τs[end-1] != τs[end] # ensure callback does not duplicate last point
@@ -165,11 +169,11 @@ end
     @test isapprox(zs[end], 0.0; atol = 1e-12) && zs[end] <= 0.0 # z(τ₀) ≈ 0.0, but not more, so root finding algorithms on time series work with different signs today
 
     # Invert z to τ with root finding and check we get the same τ
-    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, zs); atol = 1e-12))
-    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.a, as); atol = 1e-12))
+    @test all(isapprox.(τs, timeseries(sol, M.g.z, zs); atol = 1e-12))
+    @test all(isapprox.(τs, timeseries(sol, M.g.a, as); atol = 1e-12))
 
     # Invert z and ż to τ with Hermite spline and check we get the same τ
-    @test all(isapprox.(τs, SymBoltz.timeseries(sol, M.g.z, M.g.ż, zs); atol = 1e-6)) # TODO: make more reliable
+    @test all(isapprox.(τs, timeseries(sol, M.g.z, M.g.ż, zs); atol = 1e-6)) # TODO: make more reliable
 end
 
 @testset "Source grid" begin
@@ -255,7 +259,7 @@ end
 
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
-    τs = SymBoltz.timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
+    τs = timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax
     function checkvar(var, atol, rtol)
         vals1 = sol(var, τs) # from background
         vals2 = sol(var, τs, 1.0) # from splined perturbations
