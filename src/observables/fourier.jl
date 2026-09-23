@@ -91,7 +91,7 @@ function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::Abstr
     P = P0 .* sol(S, τ, k) .^ 2
     return P
 end
-spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, maximum(sol.bg[end].t); kwargs...) # fallback without time (today)
+spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, today(sol); kwargs...) # fallback without time (today)
 spectrum_matter(modes::AbstractVector, probsol, k, τ::Number; kwargs...) = spectrum_matter(modes, probsol, k, [τ])[:, 1, :] # fallback with single time
 spectrum_matter(mode::Symbol, probsol, args...; kwargs...) = selectdim(spectrum_matter([mode], probsol, args...; kwargs...), 1, 1) # fallback with single mode specified
 spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with modes unspecified
@@ -216,7 +216,7 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks, bgsols::Tuple; ptalg =
     # Save callback similar to https://github.com/SciML/SciMLBase.jl/blob/97f6d4aff88ab5f2dedc90ef503edabe72f00e93/src/solutions/ode_solutions.jl#L369-L373
     save_func(u, t, integrator) = getSs(SciMLBase.ProblemState(; u, p = SciMLBase.parameter_values(integrator), t))
     savedvalues = [SavedValues(eltype(τs), T) for _ in ks] # one save container per k
-    callback(ik) = SavingCallback(save_func, savedvalues[ik]; saveat = τs)
+    callback(ik) = SavingCallback(save_func, savedvalues[ik]; saveat = τs, tdir = sign(prob.pt.tspan[end] - prob.pt.tspan[begin])) # tdir orders saveat in the integration direction (default +1 breaks when the independent variable decreases)
     solvept(prob.pt, bgsols, ks; alg = ptalg, reltol = ptreltol, abstol = ptabstol, callback, save_everystep = false, save_start = false, dense = false, ptopts..., thread, verbose)
 
     out = Matrix{T}(undef, length(τs), length(ks))
