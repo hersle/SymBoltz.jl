@@ -66,7 +66,7 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
             [G[l] ~ 0 for l in 4:lmax]...
         ])
     else
-        append!(eqs, [collect(G .~ 0)...]) # pin to zero
+        append!(eqs, [G0 ~ 0; collect(G .~ 0)...]) # pin to zero
     end
     description = "Photon radiation"
     return extend(γ, System(eqs, τ, vars, []; initialization_eqs=ieqs, bindings, name, kwargs...); description)
