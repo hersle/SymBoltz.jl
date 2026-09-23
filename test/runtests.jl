@@ -9,6 +9,7 @@ using Statistics
 using DelimitedFiles
 using StaticArrays
 using SciMLBase
+using SparseArrays
 
 lmax = 5
 M = ΛCDM(K = nothing; lmax) # flat
@@ -1349,4 +1350,39 @@ end
     J_ad = ForwardDiff.jacobian(output, θ0)
     J_fd = FiniteDiff.finite_difference_jacobian(output, θ0, Val{:central}; relstep = 1e-2, absstep = 1e-6) # absstep keeps Ωr0 = 1e-4 positive; smaller steps are dominated by ODE solver noise
     @test all(isapprox.(J_ad, J_fd; rtol = 1e-3))
+end
+
+@testset "Perturbation Jacobian sparsity pattern" begin
+    # Small model so every dependency can be written out by hand
+    γ = SymBoltz.photons(SymBoltz.metric(); lmax = 4, polarization = false)
+    M = ΛCDM(; γ, ν = nothing, h = nothing, K = nothing)
+    p = parameters_Planck18(M)
+    prob = CosmologyProblem(M, p)
+
+    # Which variables do every variable depend on?
+    deps = Dict(
+        M.Φ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # Einstein eq depends on δρ(F0, δc, δb) and Ψ(Φ, F2)
+        M.c.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.c.θ, M.b.δ], # continuity D(δc) = -θc + 3*D(Φ) has same vars as D(Φ), plus θc
+        M.c.θ => [M.γ.F[2], M.Φ, M.c.θ], # Euler eq D(θc) ~ -ℋ*θc + k^2*Ψ(Φ, F2)
+        M.b.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ, M.b.θ], # same as D(δc) plus the -3*ℋ*cₛ²*δb pressure term
+        M.b.θ => [M.γ.F[1], M.γ.F[2], M.Φ, M.b.δ, M.b.θ], # same as θc, plus cₛ²*k^2*δb and Thomson drag towards θγ(F1)
+        M.γ.F0 => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # D(F0) ~ -k*F1 + 4*D(Φ), with δρ(F0, δc, δb) and Ψ(Φ, F2)
+        M.γ.F[1] => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.b.θ], # free streaming to F0 and F2, plus Ψ(Φ, F2) and Thomson drag towards θb
+        M.γ.F[2] => [M.γ.F[1], M.γ.F[2], M.γ.F[3]], # free streaming to F[l±1] and Thomson scattering to itself and Π = F2 without polarization
+        M.γ.F[3] => [M.γ.F[2], M.γ.F[3], M.γ.F[4]], # same, but without the Π term
+        M.γ.F[4] => [M.γ.F[3], M.γ.F[4]] # same, but truncated with no F[5]
+    )
+    deps = Dict(SymBoltz.unwrap(u) => Set(map(SymBoltz.unwrap, d)) for (u, d) in deps) # unwrap to make membership testing work
+
+    # Test that unknowns match
+    us = unknowns(prob.pt.f.sys)
+    @test Set(keys(deps)) == Set(us)
+
+    # Test that nonzero sparse Jacobian entries correspond exactly to deps
+    J = prob.pt.f.jac_prototype
+    rows, cols, _ = findnz(J)
+    for (i, j) in zip(rows, cols)
+        @test us[j] in deps[us[i]]
+    end
+    @test nnz(J) == sum(length, values(deps)) # ensure deps do not contain anything that is not in J
 end
