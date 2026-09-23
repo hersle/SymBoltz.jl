@@ -6,8 +6,9 @@
 
 using SymBoltz, Test
 
-@independent_variables b # logarithmic scale factor b = log(a)
-D = Differential(b) # log(a)-derivative operator
+@independent_variables χ # lookback conformal time χ = τ₀ - τ (χ = 0 today, χ > 0 in the past)
+Dχ = Differential(χ) # χ-derivative operator
+Dτ(X) = -Dχ(X) # τ-derivative operator
 
 function interacting_model(; Qbc = 0, QbΛ = 0, QcΛ = 0, δQbc = 0, δQbΛ = 0, δQcΛ = 0, fQbc = 0, fQbΛ = 0, fQcΛ = 0, name = :QΛCDM)
 # Constants, some functions and atomic energy levels defined in internal files
@@ -33,8 +34,6 @@ x, W = SymBoltz.momentum_quadrature(f₀, nx)
 x² = x .^ 2
 ∫dx_x²_f₀(f) = sum(collect(f .* W))
 
-Dτ(X) = ℋ * D(X) # τ-derivative operator
-
 # 1) Parameters (add your own)
 pars = @parameters begin
     k, # wavenumber
@@ -42,7 +41,7 @@ pars = @parameters begin
     Ωc0, # cold dark matter
     Ωb0, YHe, fHe, # baryons and recombination
     Tγ0, Ωγ0, # photons
-    Ων0, Tν0, Neff, # massless neutrinos
+    Ων0, Tν0, Nν, # massless neutrinos
     mh, mh_eV, Nh, Th0, Ωh0, yh0, Iρh0, # massive neutrinos
     ΩΛ0, w0, wa, cΛs2, # dark energy (cosmological constant or w0wa)
     zre1, Δzre1, nre1, # 1st reionization
@@ -52,38 +51,37 @@ pars = @parameters begin
     αbc, αcΛ, αbΛ # interactions
 end
 
-# 2) Background (b) and perturbation (b,k) variables (add your own)
+# 2) Background (χ) and perturbation (χ,k) variables (add your own)
 vars = @variables begin
-    a(b), z(b), ℋ(b), H(b), Ψ(b,k), Φ(b,k), τ(b), χ(b), [backwards = true], # metric
-    ρ(b), P(b), δρ(b,k), Π(b,k), # gravity
-    ρb(b), [backwards = true], Pb(b), wb(b), Tb(b), δb(b,k), Δb(b,k), θb(b,k), # baryons
-    κ(b), [backwards = true], v(b), csb2(b), β(b), ΔT(b), DTb(b), μc²(b), Xe(b), ne(b), λe(b), HSI(b), # recombination
-    XH⁺(b), nH(b), αH(b), βH(b), KH(b), KHfitfactor(b), CH(b), # Hydrogen recombination
-    nHe(b), XHe⁺(b), XHe⁺⁺(b), αHe(b), βHe(b), RHe⁺(b), τHe(b), KHe(b), invKHe0(b), invKHe1(b), invKHe2(b), CHe(b), DXHe⁺(b), DXHet⁺(b), γ2ps(b), αHet(b), βHet(b), τHet(b), pHet(b), CHet(b), CHetnum(b), γ2pt(b), # Helium recombination
-    Xre1(b), Xre2(b), # reionization
-    ργ(b), Pγ(b), wγ(b), Tγ(b), Fγ0(b,k), Fγ(b,k)[1:lγmax], Gγ0(b,k), Gγ(b,k)[1:lγmax], δγ(b,k), θγ(b,k), σγ(b,k), Πγ(b,k), # photons
-    ρc(b), [backwards = true], Pc(b), wc(b), δc(b,k), Δc(b,k), θc(b,k), # cold dark matter
-    ρν(b), Pν(b), wν(b), Tν(b), Fν0(b,k), Fν(b,k)[1:lνmax], δν(b,k), θν(b,k), σν(b,k), # massless neutrinos
-    ρh(b), Ph(b), wh(b), Ωh(b), Th(b), yh(b), csh2(b,k), δh(b,k), Δh(b,k), σh(b,k), uh(b,k), θh(b,k), Eh(b)[1:nx], ψh0(b,k)[1:nx], ψh(b,k)[1:nx,1:lhmax], Iρh(b), IPh(b), Iδρh(b,k), # massive neutrinos
-    ρΛ(b), [backwards = true], PΛ(b), wΛ(b), cΛa2(b), δΛ(b,k), θΛ(b,k), ΔΛ(b,k), # dark energy (cosmological constant or w0wa)
-    Qb(b), Qc(b), QΛ(b), δQb(b,k), δQc(b,k), δQΛ(b,k), fQb(b,k), fQc(b,k), fQΛ(b,k), θ(b,k), # interactions
-    fν(b), # misc
-    ρm(b,k), Δm(b,k), # matter source functions
-    ST_SW(b,k), ST_ISW(b,k), ST_Doppler(b,k), ST_polarization(b,k), ST(b,k), SE_kχ²(b,k), Sψ(b,k) # CMB source functions
+    a(χ), [backwards = true], z(χ), ℋ(χ), H(χ), Ψ(χ,k), Φ(χ,k), τ(χ), # metric
+    ρ(χ), P(χ), δρ(χ,k), Π(χ,k), # gravity
+    ρb(χ), [backwards = true], Pb(χ), wb(χ), Tb(χ), δb(χ,k), Δb(χ,k), θb(χ,k), # baryons
+    κ(χ), [backwards = true], v(χ), csb2(χ), β(χ), ΔT(χ), DTb(χ), μc²(χ), Xe(χ), ne(χ), λe(χ), HSI(χ), # recombination
+    XH⁺(χ), nH(χ), αH(χ), βH(χ), KH(χ), KHfitfactor(χ), CH(χ), # Hydrogen recombination
+    nHe(χ), XHe⁺(χ), XHe⁺⁺(χ), αHe(χ), βHe(χ), RHe⁺(χ), τHe(χ), KHe(χ), invKHe0(χ), invKHe1(χ), invKHe2(χ), CHe(χ), DXHe⁺(χ), DXHet⁺(χ), γ2ps(χ), αHet(χ), βHet(χ), τHet(χ), pHet(χ), CHet(χ), CHetnum(χ), γ2pt(χ), # Helium recombination
+    Xre1(χ), Xre2(χ), # reionization
+    ργ(χ), Pγ(χ), wγ(χ), Tγ(χ), Fγ0(χ,k), Fγ(χ,k)[1:lγmax], Gγ0(χ,k), Gγ(χ,k)[1:lγmax], δγ(χ,k), θγ(χ,k), σγ(χ,k), Πγ(χ,k), # photons
+    ρc(χ), [backwards = true], Pc(χ), wc(χ), δc(χ,k), Δc(χ,k), θc(χ,k), # cold dark matter
+    ρν(χ), Pν(χ), wν(χ), Tν(χ), Fν0(χ,k), Fν(χ,k)[1:lνmax], δν(χ,k), θν(χ,k), σν(χ,k), # massless neutrinos
+    ρh(χ), Ph(χ), wh(χ), Ωh(χ), Th(χ), yh(χ), csh2(χ,k), δh(χ,k), Δh(χ,k), σh(χ,k), uh(χ,k), θh(χ,k), Eh(χ)[1:nx], ψh0(χ,k)[1:nx], ψh(χ,k)[1:nx,1:lhmax], Iρh(χ), IPh(χ), Iδρh(χ,k), # massive neutrinos
+    ρΛ(χ), [backwards = true], PΛ(χ), wΛ(χ), cΛa2(χ), δΛ(χ,k), θΛ(χ,k), ΔΛ(χ,k), # dark energy (cosmological constant or w0wa)
+    Qb(χ), Qc(χ), QΛ(χ), δQb(χ,k), δQc(χ,k), δQΛ(χ,k), fQb(χ,k), fQc(χ,k), fQΛ(χ,k), θ(χ,k), # interactions
+    fν(χ), # misc
+    ρm(χ,k), Δm(χ,k), # matter source functions
+    ST_SW(χ,k), ST_ISW(χ,k), ST_Doppler(χ,k), ST_polarization(χ,k), ST(χ,k), SE(χ,k), Sψ(χ,k) # CMB source functions
 end
 
 # 3) Equations for time evolution (modify or add your own)
 eqs = [
     # metric equations
-    a ~ exp(b)
+    Dτ(a) ~ a * ℋ
     z ~ 1/a - 1
     ℋ ~ a * H
-    D(τ) ~ 1 / ℋ
-    D(χ) ~ -1 / ℋ
+    Dτ(τ) ~ 1 # conformal time τ = τ₀ - χ since the big bang
 
     # gravity equations
     H ~ √(8π/3 * ρ) # 1st Friedmann equation
-    D(Φ) ~ (-4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Ψ) / ℋ
+    Dτ(Φ) ~ -4π/3*a^2/ℋ*δρ - k^2/(3ℋ)*Φ - ℋ*Ψ
     k^2 * (Φ - Ψ) ~ 12π * a^2 * Π
     ρ ~ ρc + ρb + ργ + ρν + ρh + ρΛ
     P ~ Pγ + Pν + Ph + PΛ
@@ -94,12 +92,12 @@ eqs = [
     β ~ 1 / (kB*Tb)
     λe ~ 2π*ħ / √(2π*me/β)
     HSI ~ H0SI * H
-    D(κ) ~ (-a/H0SI * ne * σT * c) / ℋ
-    v ~ ℋ * expand_derivatives(D(exp(-κ)))
-    csb2 ~ kB/μc² * (Tb - D(Tb)/3)
+    Dτ(κ) ~ -a/H0SI * ne * σT * c
+    v ~ expand_derivatives(Dτ(exp(-κ)))
+    csb2 ~ kB/μc² * (Tb - DTb/(3ℋ))
     μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
-    DTb ~ -2Tb - a/(h*ℋ) * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT
-    D(ΔT) ~ DTb - D(Tγ)
+    DTb ~ -2Tb*ℋ - a/h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT
+    Dτ(ΔT) ~ DTb + ℋ*Tγ # Tγ ∝ 1/a
     Tb ~ ΔT + Tγ
     nH ~ (1-YHe) * ρb*H0SI^2/GN / mH
     nHe ~ fHe * nH
@@ -112,7 +110,7 @@ eqs = [
     KHfitfactor ~ 1 + KHfitfactorfunc(a, -0.14, 7.28, 0.18) + KHfitfactorfunc(a, 0.079, 6.73, 0.33)
     KH ~ KHfitfactor/8π * λH2s1s^3 / HSI
     CH ~ smoothifelse(XH⁺ - 0.99, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3)
-    D(XH⁺) ~ (-a/H0SI * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s))) / ℋ
+    Dτ(XH⁺) ~ -a/H0SI * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s))
 
     # baryon He⁺ + e⁻ singlet recombination
     αHe ~ αHefit(Tb; q=10^(-16.744), p=0.711)
@@ -124,7 +122,7 @@ eqs = [
     γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
     invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺)
     CHe ~ smoothifelse(XHe⁺ - 0.99, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3)
-    DXHe⁺ ~ (-a/H0SI * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))) / ℋ
+    DXHe⁺ ~ -a/H0SI * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
     # baryon He⁺ + e⁻ triplet recombination
     αHet ~ αHefit(Tb; q=10^(-16.306), p=0.761)
@@ -134,10 +132,10 @@ eqs = [
     γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
     CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s)
     CHet ~ reg(CHetnum) / (reg(CHetnum) + βHet)
-    DXHet⁺ ~ (-a/H0SI * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))) / ℋ
+    DXHet⁺ ~ -a/H0SI * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
 
     # baryon He⁺ + e⁻ total recombination
-    D(XHe⁺) ~ DXHe⁺ + DXHet⁺
+    Dτ(XHe⁺) ~ DXHe⁺ + DXHet⁺
 
     # baryon He⁺⁺ + e⁻ recombination
     RHe⁺ ~ exp(-β*EHe⁺∞1s) / (nH * λe^3)
@@ -150,40 +148,40 @@ eqs = [
     # baryons
     wb ~ 0
     Pb ~ wb*ρb
-    Δb ~ δb + 3ℋ*θb/k^2
+    Δb ~ δb + (3ℋ*(1+wb) - a*Qb/ρb)*θb/k^2 # gauge-independent with ρb′ = -3ℋ(1+wb)ρb + aQb
 
     # photons
     Tγ ~ Tγ0 / a
     ργ ~ 3/8π * Ωγ0 / a^4
     wγ ~ 1/3
     Pγ ~ wγ * ργ
-    D(Fγ0) ~ -k*Fγ[1]/ℋ + 4*D(Φ)
-    D(Fγ[1]) ~ k/(3ℋ)*(Fγ0-2Fγ[2]+4Ψ) - 4/3 * D(κ)/k * (θb - θγ)
-    [D(Fγ[l]) ~ k/((2l+1)*ℋ) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + D(κ) * (Fγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
-    D(Fγ[lγmax]) ~ k*Fγ[lγmax-1]/ℋ - (lγmax+1) / (τ*ℋ) * Fγ[lγmax] + D(κ) * Fγ[lγmax]
+    Dτ(Fγ0) ~ -k*Fγ[1] + 4*Dτ(Φ)
+    Dτ(Fγ[1]) ~ k/3*(Fγ0-2Fγ[2]+4Ψ) - 4/3 * Dτ(κ)/k * (θb - θγ)
+    [Dτ(Fγ[l]) ~ k/(2l+1) * (l*Fγ[l-1] - (l+1)*Fγ[l+1]) + Dτ(κ) * (Fγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
+    Dτ(Fγ[lγmax]) ~ k*Fγ[lγmax-1] - (lγmax+1) / τ * Fγ[lγmax] + Dτ(κ) * Fγ[lγmax]
     δγ ~ Fγ0
     θγ ~ 3k*Fγ[1]/4
     σγ ~ Fγ[2]/2
     Πγ ~ Fγ[2] + Gγ0 + Gγ[2]
-    D(Gγ0) ~ k * (-Gγ[1]) / ℋ + D(κ) * (Gγ0 - Πγ/2)
-    D(Gγ[1]) ~ k/((2*1+1)*ℋ) * (1*Gγ0 - 2*Gγ[2]) + D(κ) * Gγ[1]
-    [D(Gγ[l]) ~ k/((2l+1)*ℋ) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + D(κ) * (Gγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
-    D(Gγ[lγmax]) ~ k*Gγ[lγmax-1]/ℋ - (lγmax+1) / (τ*ℋ) * Gγ[lγmax] + D(κ) * Gγ[lγmax]
+    Dτ(Gγ0) ~ -k * Gγ[1] + Dτ(κ) * (Gγ0 - Πγ/2)
+    Dτ(Gγ[1]) ~ k/3 * (1*Gγ0 - 2*Gγ[2]) + Dτ(κ) * Gγ[1]
+    [Dτ(Gγ[l]) ~ k/(2l+1) * (l*Gγ[l-1] - (l+1)*Gγ[l+1]) + Dτ(κ) * (Gγ[l] - δkron(l,2)/10*Πγ) for l in 2:lγmax-1]...
+    Dτ(Gγ[lγmax]) ~ k*Gγ[lγmax-1] - (lγmax+1) / τ * Gγ[lγmax] + Dτ(κ) * Gγ[lγmax]
 
     # cold dark matter
     wc ~ 0
     Pc ~ wc*ρc
-    Δc ~ δc + 3ℋ*θc/k^2
+    Δc ~ δc + (3ℋ*(1+wc) - a*Qc/ρc)*θc/k^2
 
     # massless neutrinos
     ρν ~ 3/8π * Ων0 / a^4
     wν ~ 1/3
     Pν ~ wν * ρν
     Tν ~ Tν0 / a
-    D(Fν0) ~ -k*Fν[1]/ℋ + 4*D(Φ)
-    D(Fν[1]) ~ k/(3ℋ)*(Fν0-2Fν[2]+4Ψ)
-    [D(Fν[l]) ~ k/((2l+1)*ℋ) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
-    D(Fν[lνmax]) ~ k*Fν[lνmax-1]/ℋ - (lνmax+1) / (τ*ℋ) * Fν[lνmax]
+    Dτ(Fν0) ~ -k*Fν[1] + 4*Dτ(Φ)
+    Dτ(Fν[1]) ~ k/3*(Fν0-2Fν[2]+4Ψ)
+    [Dτ(Fν[l]) ~ k/(2l+1) * (l*Fν[l-1] - (l+1)*Fν[l+1]) for l in 2:lνmax-1]...
+    Dτ(Fν[lνmax]) ~ k*Fν[lνmax-1] - (lνmax+1) / τ * Fν[lνmax]
     δν ~ Fν0
     θν ~ 3k*Fν[1]/4
     σν ~ Fν[2]/2
@@ -204,16 +202,16 @@ eqs = [
     σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
     csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
-    [D(ψh0[i]) ~ -k/ℋ * x[i]/Eh[i] * ψh[i,1] - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [D(ψh[i,1]) ~ k/(3ℋ) * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/(3ℋ) * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [D(ψh[i,l]) ~ k/((2l+1)*ℋ) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
-    [D(ψh[i,lhmax]) ~ k/((2lhmax+1)*ℋ) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
+    [Dτ(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - Dτ(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [Dτ(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [Dτ(ψh[i,l]) ~ k/(2l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1]) for i in 1:nx, l in 2:lhmax-1]...
+    [Dτ(ψh[i,lhmax]) ~ k/(2lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1])) for i in 1:nx]...
 
     # dark energy (cosmological constant or w0wa)
     wΛ ~ w0 + wa*(1-a)
     PΛ ~ wΛ*ρΛ
-    cΛa2 ~ wΛ + ρΛ * D(wΛ) / D(ρΛ) # completely general
-    ΔΛ ~ δΛ + 3ℋ*(1+wΛ)*θΛ/k^2
+    cΛa2 ~ wΛ + ρΛ * Dτ(wΛ) / Dτ(ρΛ) # completely general
+    ΔΛ ~ δΛ + (3ℋ*(1+wΛ) - a*QΛ/ρΛ)*θΛ/k^2
 
     # neutrino-to-radiation fraction
     fν ~ (ρν + ρh) / (ρν + ρh + ργ)
@@ -228,7 +226,7 @@ eqs = [
     ST_Doppler ~ Dτ(v*θb) / k^2 |> expand_derivatives
     ST_polarization ~ 3/(16k^2) * Dτ(Dτ(v*Πγ)) |> expand_derivatives
     ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
-    SE_kχ² ~ 3/16 * v*Πγ
+    SE ~ 3/16 * v*Πγ / (k*χ)^2
     Sψ ~ -(Ψ + Φ)
 
     # total interactions on each species from the pairwise ones
@@ -242,15 +240,15 @@ eqs = [
     fQc ~ +fQbc + fQcΛ
     fQΛ ~ -fQcΛ - fQbΛ
     θ ~ ((ρΛ+PΛ)*θΛ + (ρh+Ph)*θh + (ρν+Pν)*θν + (ρc+Pc)*θc + (ργ+Pγ)*θγ + (ρb+Pb)*θb) / ((ρΛ+PΛ) + (ρh+Ph) + (ρν+Pν) + (ρc+Pc) + (ργ+Pγ) + (ρb+Pb)) # total velocity
-    D(ρb) ~ (-3ℋ *(1+wb)*ρb + a*Qb) / ℋ
-    D(ρc) ~ (-3ℋ *(1+wc)*ρc + a*Qc) / ℋ
-    D(ρΛ) ~ (-3ℋ *(1+wΛ)*ρΛ + a*QΛ) / ℋ
-    D(δb) ~ (-θb - 3ℋ*csb2*δb + (a * Qb / ρb) * (Ψ - δb + 3ℋ*csb2*θb/k^2) + (a * δQb / ρb)) / ℋ + 3*D(Φ)
-    D(θb) ~ (-ℋ*θb + k^2*csb2*δb + k^2*Ψ + (a * Qb / ρb) * (θ - θb*(1+csb2)) + (a * k^2 / ρb) * fQb) / ℋ - 4/3*D(κ)*ργ/ρb*(θγ-θb)
-    D(δc) ~ (-θc + (a * Qc / ρc) * (Ψ - δc) + (a * δQc / ρc)) / ℋ + 3*D(Φ)
-    D(θc) ~ (-ℋ*θc + k^2*Ψ + (a * Qc / ρc) * (θ - θc) + (a * k^2 / ρc) * fQc) / ℋ
-    D(δΛ) ~ (-(1+wΛ)*θΛ - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ + (a * QΛ / ρΛ) * (Ψ - δΛ + 3ℋ*(cΛs2-cΛa2)*θΛ/k^2) + (a * δQΛ / ρΛ)) / ℋ + 3*(1+wΛ)*D(Φ)
-    D(θΛ) ~ (-ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ  + (a * QΛ / (ρΛ*(1+wΛ))) * (θ - θΛ*(1+cΛs2)) + (a * k^2 / (ρΛ*(1+wΛ))) * fQΛ) / ℋ
+    Dτ(ρb) ~ -3ℋ*(1+wb)*ρb + a*Qb
+    Dτ(ρc) ~ -3ℋ*(1+wc)*ρc + a*Qc
+    Dτ(ρΛ) ~ -3ℋ*(1+wΛ)*ρΛ + a*QΛ
+    Dτ(δb) ~ -θb - 3ℋ*csb2*δb + (a * Qb / ρb) * (Ψ - δb + 3ℋ*csb2*θb/k^2) + (a * δQb / ρb) + 3*Dτ(Φ)
+    Dτ(θb) ~ -ℋ*θb + k^2*csb2*δb + k^2*Ψ + (a * Qb / ρb) * (θ - θb*(1+csb2)) + (a * k^2 / ρb) * fQb - 4/3*Dτ(κ)*ργ/ρb*(θγ-θb)
+    Dτ(δc) ~ -θc + (a * Qc / ρc) * (Ψ - δc) + (a * δQc / ρc) + 3*Dτ(Φ)
+    Dτ(θc) ~ -ℋ*θc + k^2*Ψ + (a * Qc / ρc) * (θ - θc) + (a * k^2 / ρc) * fQc
+    Dτ(δΛ) ~ -(1+wΛ)*θΛ - 3ℋ*(cΛs2-wΛ)*δΛ - 9*(ℋ/k)^2*(1+wΛ)*(cΛs2-cΛa2)*θΛ + (a * QΛ / ρΛ) * (Ψ - δΛ + 3ℋ*(cΛs2-cΛa2)*θΛ/k^2) + (a * δQΛ / ρΛ) + 3*(1+wΛ)*Dτ(Φ)
+    Dτ(θΛ) ~ -ℋ*(1-3*cΛs2)*θΛ + cΛs2/(1+wΛ)*k^2*δΛ + k^2*Ψ  + (a * QΛ / (ρΛ*(1+wΛ))) * (θ - θΛ*(1+cΛs2)) + (a * k^2 / (ρΛ*(1+wΛ))) * fQΛ
 ]
 
 # 4) Equations for initial conditions (modify or add your own)
@@ -295,7 +293,8 @@ initialization_eqs = [
 
 # 5) Default numerical values for parameters and initial conditions (modify or add your own, remove to require explicit value when creating CosmologyProblem)
 initial_conditions = [
-    τ => a / √(Ωγ0 + Ων0 + Ωh0/Iρh0*7π^4/120) # initialize conformal time from radiation-dominated solution
+    a => 1.0 # today
+    τ => 1/ℋ # initialize conformal time from radiation-dominated solution
     ρb => 3/8π*Ωb0 # today
     ρc => 3/8π*Ωc0 # today
     ρΛ => 3/8π*ΩΛ0 # today
@@ -304,7 +303,6 @@ initial_conditions = [
     XHe⁺ => 1.0
     XH⁺ => 1.0
     κ => 0.0 # today
-    χ => 0.0 # today
     ΔT => 0.0
     zre1 => 7.6711
     Δzre1 => 0.5
@@ -313,8 +311,7 @@ initial_conditions = [
     Δzre2 => 0.5
     nre2 => 1
     Tν0 => (4/11)^(1/3) * Tγ0
-    Ων0 => Neff * 7/8 * (4/11)^(4/3) * Ωγ0
-    Nh => 3
+    Ων0 => Nν * 7/8 * (4/11)^(4/3) * Ωγ0
     Th0 => (4/11)^(1/3) * Tγ0
     ΩΛ0 => 1 - Ωγ0 - Ωc0 - Ωb0 - Ων0 - Ωh0
     Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*H0SI^2)
@@ -326,8 +323,11 @@ initial_conditions = [
     cΛs2 => 1
 ]
 
+# Equations are written with τ-derivatives; move the sign to the right side so the left sides are χ-derivatives
+eqs = [Symbolics.is_derivative(Symbolics.unwrap(-eq.lhs)) ? -eq.lhs ~ -eq.rhs : eq for eq in eqs]
+
 # 6) Pack everything down into a symbolic system (modify the name to fit your modified model)
-return complete(System(eqs, b, vars, pars; initialization_eqs, initial_conditions, name))
+return complete(System(eqs, χ, vars, pars; initialization_eqs, initial_conditions, name))
 end
 
 # 0) Create non-interacting base model to access variables
@@ -339,7 +339,7 @@ F = ρΛ
 δF = ρΛ*δΛ
 M1 = interacting_model(
     QcΛ = αcΛ * ℋ * F / a,
-    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - ℋ*D(Φ))),
+    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - Dτ(Φ))),
     fQcΛ = αcΛ * ℋ * F / (a*k^2) * (θc - θ),
 )
 
@@ -348,7 +348,7 @@ F = ρc + ρΛ
 δF = ρc*δc + ρΛ*δΛ
 M2 = interacting_model(
     QcΛ = αcΛ * ℋ * F / a,
-    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - ℋ*D(Φ))),
+    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - Dτ(Φ))),
     fQcΛ = αcΛ * ℋ * F / (a*k^2) * (θc - θ),
 )
 
@@ -357,7 +357,7 @@ F = 3ρc*ρΛ / (ρc + ρΛ)
 δF = 3ρc*ρΛ / (ρc + ρΛ)^2 * (ρΛ*δc + ρc*δΛ)
 M3 = interacting_model(
     QcΛ = αcΛ * ℋ * F / a,
-    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - ℋ*D(Φ))),
+    δQcΛ = αcΛ / a * (ℋ * (δF - F*Ψ) + F * (θ/3 - Dτ(Φ))),
     fQcΛ = αcΛ * ℋ * F / (a*k^2) * (θc - θ),
 )
 
@@ -372,7 +372,8 @@ p1 = Dict(
     M.Ωb0 => 0.05,
     M.YHe => 0.25,
     M.Tγ0 => 2.7255,
-    M.Neff => 3.046,
+    M.Nν => 3.046 - 1,
+    M.Nh => 1,
     M.mh_eV => 0.02,
     M.As => 2e-9,
     M.ns => 0.94,
@@ -386,11 +387,12 @@ p2 = p1
 p3 = p1
 p4 = merge(p1, Dict(M.w0 => -0.98, M.Ωc0 => 0.3)) # alphaCDM needs w0 > -1 (momentum drag flips sign for phantom w0)
 
-tspan = log.((1e-8, 1e-0)) # integrate from a = 1e-8 to a = 1
-prob1 = CosmologyProblem(M1, p1; tspan, terminate = nothing)
-prob2 = CosmologyProblem(M2, p2; tspan, terminate = nothing)
-prob3 = CosmologyProblem(M3, p3; tspan, terminate = nothing)
-prob4 = CosmologyProblem(M4, p4; tspan, terminate = nothing)
+tspan = (100.0, 0.0) # forwards in time is decreasing χ; backwards stages integrate from χ = 0 (today) until terminating at a = 1e-8
+terminate = M.a ~ 1e-8
+prob1 = CosmologyProblem(M1, p1; tspan, terminate)
+prob2 = CosmologyProblem(M2, p2; tspan, terminate)
+prob3 = CosmologyProblem(M3, p3; tspan, terminate)
+prob4 = CosmologyProblem(M4, p4; tspan, terminate)
 
 probf1 = remake_function(prob1, M1.αcΛ)
 probf2 = remake_function(prob2, M2.αcΛ)
@@ -402,3 +404,14 @@ ks = [1.0, 10.0, 100.0, 1000.0]
 @test all(issuccess(solve(probf2(α), ks)) for α in [0.0, 0.001, 0.01, 0.03, 0.1, 0.3, 0.7])
 @test all(issuccess(solve(probf3(α), ks)) for α in [-0.1, -0.01, 0.0, 0.01, 0.1, 0.3, 1.0])
 @test all(issuccess(solve(probf4(α), ks)) for α in [0.0, 1.0, 10.0, 100.0])
+
+# Matter power spectrum
+sol = solve(probf1(0.1), ks)
+@test spectrum_matter(sol, ks) == spectrum_matter(sol, ks, 0.0) # today is at χ = 0
+
+# CMB power spectrum
+jl = SphericalBesselCache(25:25:2000)
+ls = 25:2000
+Dls = spectrum_cmb([:TT, :TE, :EE], probf1(0.1), jl, ls; normalization = :Dl)
+@test all(isfinite, Dls) && all(>(0), Dls[:, 1]) && all(>(0), Dls[:, 3]) # TT, EE > 0
+@test ls[argmax(Dls[:, 1])] in 200:250 # first acoustic peak at ℓ ≈ 220
