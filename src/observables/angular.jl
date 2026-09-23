@@ -220,7 +220,7 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -230,7 +230,6 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 # Precision parameters
 
 - `xs`: Grid of ``(τ-τᵢ)/(τ₀-τᵢ)`` specifying the ``τ``-points that will be sampled in line-of-sight integration (also if the independent variable is not ``τ``), or an integer number of points interpolated from the background time steps.
-- `τcut`: Remove all earlier times from the line-of-sight integral sampling time points.
 - `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to a finer grid set by `Δkτ0`.
 - `Δkτ0`: Grid spacing to use when integrating over ``k`` to project to ``ℓ``-space.
 - `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
@@ -251,7 +250,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), τcut = 1e-2, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, Δkτ0 = 2π/4, xs = cosgrid(0.0, 1.0; length=1200), l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -268,24 +267,22 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     ls = collect(jl.l)
     sol = solve(prob; bgalg, bgreltol, bgabstol, bgopts, verbose)
-    tbg = timeseries(sol)
     τbg = sol[prob.M.τ] # conformal times at background time points (also if τ is not the independent variable)
-    τ0 = τbg[end]
+    τi, τ0 = τbg[begin], τbg[end]
     ks_fine = lingrid(minimum(kinterp), maximum(kinterp); step=Δkτ0/τ0) # for k-quadrature after LOS integration
 
-    icut = findfirst(≥(τcut), τbg)
-    ts = tbg[icut:end] # by default, use background time points for line of sight integration
+    ts = timeseries(sol) # by default, use background time points for line of sight integration
+    ti, t0 = ts[begin], ts[end]
     if xs isa AbstractArray
         # explicit fractional grid x = (τ-τᵢ)/(τ₀-τᵢ) ∈ [0,1], mapped to the independent variable (e.g. τ or ln(a))
         xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
         xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        τi = τbg[icut]
-        ts = LinearInterpolation(ts, τbg[icut:end]).(τi .+ (τ0 - τi) .* xs)
+        ts = LinearInterpolation(ts, τbg)(τi .+ (τ0 - τi) .* xs)
     elseif xs isa Int
         # interpolate xs points from background time grid, preserving its density structure
-        ts = LinearInterpolation(ts, 1.0:length(ts)).(range(1.0, length(ts), length = xs))
+        ts = LinearInterpolation(ts, 1.0:length(ts))(range(1.0, length(ts), length = xs))
     end
-    ts[begin], ts[end] = tbg[icut], tbg[end] # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
+    ts[begin], ts[end] = ti, t0 # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
     τs = sol(prob.M.τ, ts) # conformal times at the sampled points for line-of-sight integration
 
     # Integrate perturbations to calculate source function on coarse k-grid
