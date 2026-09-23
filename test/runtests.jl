@@ -155,11 +155,18 @@ end
     @test SymBoltz.extend_array(1.0:1.0:3.0, 4) == 1.0:0.2:3.0
 end
 
-@testset "Timeseries" begin
+@testset "Timeseries and today" begin
     sol = solve(prob)
-    @test isforwards(sol.bg[1]) && timeseries(sol.bg[1])[begin] == prob.tspan[begin] # forwards timeseries should begin at tspan[begin]
-    @test isbackwards(sol.bg[2]) && timeseries(sol.bg[2])[end] == prob.tspan[begin] # backwards timeseries should end at tspan[begin]
-    @test timeseries(sol)[begin] == prob.tspan[begin]
+    t1 = timeseries(sol.bg[1])
+    t2 = timeseries(sol.bg[2])
+    t = timeseries(sol)
+    @test length(t) == length(t1) + length(t2) - 2 # -2 because endpoints are common
+    @test isforwards(sol.bg[1]) && t1[begin] == prob.tspan[begin] # forwards timeseries should begin at tspan[begin]
+    @test isbackwards(sol.bg[2]) && t2[end] == prob.tspan[begin] # backwards timeseries should end at tspan[begin]
+    @test t[begin] == prob.tspan[begin]
+    @test isforwards(sol.bg[1]) && today(sol.bg[1]) == t1[end] # forwards stage should end today
+    @test isbackwards(sol.bg[2]) && today(sol.bg[2]) == t2[begin] # backwards stage should start today
+    @test today(sol) == t[end]
 
     τs = timeseries(sol; Nextra=1) # naive implementation could transform endpoints slightly through exp(log(τ))
     zs = sol(M.g.z, τs)

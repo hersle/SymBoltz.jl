@@ -856,6 +856,15 @@ function (sol::CosmologySolution)(is, tmap::Pair, ks)
 end
 
 """
+    today(sol)
+
+Return the value of the independent variable today,
+defined as the final time of forwards integration and the start time of backwards integration.
+"""
+today(sol::ODESolution) = isbackwards(sol.prob) ? sol.t[begin] : sol.t[end]
+today(sol::CosmologySolution) = today(sol.bg[1]) # just use the first background solution stage
+
+"""
     timeseries(sol::ODESolution; kwargs...)
     timeseries(bgsols::Tuple; kwargs...)
     timeseries(sol::CosmologySolution; kwargs...)
