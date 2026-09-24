@@ -15,8 +15,12 @@ const pc = 1u"pc/m" |> NoUnits
 const kpc = 1u"kpc/m" |> NoUnits
 const Mpc = 1u"Mpc/m" |> NoUnits
 const Gpc = 1u"Gpc/m" |> NoUnits
+"100 km/Mpc, or equivalently H₀ / (h/s)"
 const H100 = 100 * km/Mpc
-const k0 = H100 * Mpc / c # h/Mpc
+"c / (100 km/s), or equivalently (c/H₀) / (Mpc/h)"
+const L100 = c / H100 / Mpc
+"(100 km/s) / c, or equivalently (H₀/c) / (h/Mpc)"
+const k100 = 1 / L100
 const eV = 1u"eV/J" |> NoUnits
 
 const me = PhysicalConstants.CODATA2018.m_e / u"kg"
@@ -43,8 +47,3 @@ const λHet2s1s = 62.5563e-9; const fHet2s1s = c/λHet2s1s; const EHet2s1s = h*f
 const EHet2p2s = EHet2p1s - EHet2s1s
 
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta
-
-k_dimensionless(k::Number, h) = k
-k_dimensionless(k::Quantity, h) = NoUnits(k / (h*H100 / c / u"m"))
-k_dimensionless(k::Number, bgsol::ODESolution) = k
-k_dimensionless(k::Quantity, bgsol::ODESolution) = k_dimensionless(k, getsym(bgsol, :h)(bgsol))

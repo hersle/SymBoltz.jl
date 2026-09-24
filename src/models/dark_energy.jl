@@ -67,16 +67,26 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
 end
 
 """
-    quintessence(g[, v]; name = :ϕ, kwargs...)
+    quintessence(g, V; name = :Q, kwargs...)
 
-Create a species with a quintessence scalar field in the potential `v` in the spacetime with metric `g`.
+Create a species with a quintessence scalar field in the potential `V(ϕ)` in the spacetime with metric `g`.
+The reduced density today `Ω₀` is imposed as a shooting condition, so one parameter (e.g. `ϕini` or one in `V`) must be shot for in `CosmologyProblem`.
 """
-function quintessence(g; name = :Q, kwargs...)
-    @variables begin
+function quintessence(g, V; name = :Q, kwargs...)
+    v = V # the potential function; V is redefined as a variable below
+    pars = @parameters begin
+        Ω₀, [description = "Reduced background density today"]
+        ϕini, [description = "Initial scalar field"]
+        ϕ′ini = 0.0, [description = "Initial scalar field conformal time derivative"]
+    end
+    vars = @variables begin
         ϕ(τ), [description = "Background scalar field"]
         ρ(τ), [description = "Effective background density"]
         P(τ), [description = "Effective background pressure"]
         w(τ), [description = "Equation of state"]
+        δϕ(τ, k), [description = "Scalar field perturbation"]
+        δρ(τ, k), [description = "Density perturbation"]
+        δP(τ, k), [description = "Pressure perturbation"]
         δ(τ, k), [description = "Overdensity"]
         σ(τ, k), [description = "Shear stress"]
         V(τ), [description = "Potential of scalar field"]
@@ -86,9 +96,13 @@ function quintessence(g; name = :Q, kwargs...)
         m²(τ), [description = "Effective mass"]
         ϵs(τ), [description = "1st slow roll parameter"]
         ηs(τ), [description = "2nd slow roll parameter"]
-        cₛ²(τ), [description = "Speed of sound squared"]
+        cₛ²(τ, k), [description = "Effective speed of sound squared"]
     end
+    ∂_∂ϕ = Differential(ϕ)
     eqs = [
+        V ~ v(ϕ)
+        V′ ~ simplify(expand_derivatives(∂_∂ϕ(v(ϕ))))
+        V′′ ~ simplify(expand_derivatives(∂_∂ϕ(∂_∂ϕ(v(ϕ)))))
         K ~ (D(ϕ)/g.a)^2 / 2 # ϕ̇²/2 = (ϕ′/a)²/2
         D(D(ϕ)) ~ -2 * g.ℋ * D(ϕ) - g.a^2 * V′ # with cosmic time: ϕ̈ + 3*H*ϕ̇ + V′ = 0
         ρ ~ K + V
@@ -98,20 +112,22 @@ function quintessence(g; name = :Q, kwargs...)
         ϵs ~ (V′/V)^2 / (16*Num(π))
         ηs ~ (V′′/V) / (8*Num(π))
 
-        δ ~ 0
-        σ ~ 0
-        cₛ² ~ 0
+        # perturbed Klein-Gordon equation and effective fluid perturbations in the conformal Newtonian gauge
+        D(D(δϕ)) ~ -2*g.ℋ*D(δϕ) - (k^2 + g.a^2*V′′)*δϕ + D(ϕ)*(g.Ψ̇ + 3*g.Φ̇) - 2*g.a^2*V′*g.Ψ
+        δρ ~ (D(ϕ)*D(δϕ) - D(ϕ)^2*g.Ψ) / g.a^2 + V′*δϕ
+        δP ~ (D(ϕ)*D(δϕ) - D(ϕ)^2*g.Ψ) / g.a^2 - V′*δϕ
+        δ ~ δρ / ρ
+        cₛ² ~ δP / δρ # so δP = cₛ² * δρ
+        σ ~ 0 # no anisotropic stress
     ]
+    append!(pars, filter(ModelingToolkit.isparameter, Symbolics.get_variables(v(ϕ)))) # collect any additional parameters in the potential function
+    initial_conditions = [ϕ => ϕini]
+    initialization_eqs = [
+        D(ϕ) ~ ϕ′ini
+        δϕ ~ D(ϕ)*g.Ψ*τ/2 # adiabatic ICs with same time shift as photons: δϕ/ϕ′ = δργ/ργ′ = Ψ/(2ℋ) with ℋ ≈ 1/τ
+        D(δϕ) ~ (D(D(ϕ))*τ + D(ϕ))*g.Ψ/2 # time derivative of the above with Ψ constant on superhorizon scales
+    ]
+    constraints = [ρ ~ 3/(8*Num(π)) * Ω₀] # density today
     description = "Quintessence dark energy"
-    return System(eqs, τ; name, description, kwargs...)
-end
-function quintessence(g, v; name = :Q, kwargs...)
-    @variables begin
-        ϕ(τ), [description = "Background scalar field"]
-    end
-    ∂_∂ϕ = Differential(ϕ)
-    v′ = ∂_∂ϕ(v(ϕ)) |> expand_derivatives |> simplify
-    v′′ = ∂_∂ϕ(∂_∂ϕ(v(ϕ))) |> expand_derivatives |> simplify
-    Q = complete(quintessence(g; name, kwargs...))
-    return extend(Q, System([Q.V ~ v(ϕ), Q.V′ ~ v′, Q.V′′ ~ v′′], τ; name))
+    return System(eqs, τ, vars, pars; initial_conditions, initialization_eqs, constraints, name, description, kwargs...)
 end

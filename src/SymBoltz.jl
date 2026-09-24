@@ -1,7 +1,6 @@
 module SymBoltz
 
 using Reexport
-import ModelingToolkit: parameters, unknowns # explicitly imported because they are extended
 @reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
 using Symbolics, SymbolicUtils
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
@@ -52,11 +51,12 @@ include("plot.jl")
 export RMΛ, ΛCDM, w0waCDM, QCDM, GRΛCDM, BDΛCDM
 export CosmologyProblem, CosmologySolution
 export background, perturbations, expandeq
-export solve, solvebg, solvept, remake, issuccess, parameter_updater
+export solve, solvebg, solvept, remake, remake_function, issuccess
 export parameters_Planck18
-export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_adaptive, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache
+export H100, k100, L100
+export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_chebyshev, sound_horizon, distance_luminosity, SphericalBesselCache
+export timeseries, today, isforwards, isbackwards
 export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
-export express_derivatives
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
 

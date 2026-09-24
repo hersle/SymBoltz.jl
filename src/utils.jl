@@ -2,6 +2,7 @@ import DataInterpolations: CubicSpline, CubicHermiteSpline
 import Symbolics: taylor, operation, sorted_arguments, unwrap
 import Base: identity, replace
 using QuadGK
+import Graphs: neighborhood, nv, SimpleDiGraph, add_edge!, strongly_connected_components, condensation, indegree, outneighbors
 using ModelingToolkit: get_description, get_systems
 
 # Register custom shooting metadata (https://docs.sciml.ai/Symbolics/stable/manual/metadata)
@@ -9,10 +10,25 @@ struct ShootMetadata <: Symbolics.AbstractVariableMetadata end
 Symbolics.option_to_metadata_type(::Val{:shoot}) = ShootMetadata
 getshoot(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), ShootMetadata, false)
 function shootvars(M::System)
-    shootvars = Set(filter!(getshoot, union(ModelingToolkit.get_unknowns(M), ModelingToolkit.get_ps(M))))
-    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.get_guesses(M))
+    shootvars = Set(filter!(getshoot, union(ModelingToolkit.unknowns(M), ModelingToolkit.parameters(M)))) # including subsystems
+    guesses = filter(guess -> guess[1] in shootvars, ModelingToolkit.guesses(M))
     return Dict(par => Symbolics.value(guess) for (par, guess) in guesses)
 end
+
+# Register custom metadata for variables integrated backwards from today
+struct BackwardsMetadata <: Symbolics.AbstractVariableMetadata end
+Symbolics.option_to_metadata_type(::Val{:backwards}) = BackwardsMetadata
+getbackwards(x) = Symbolics.getmetadata_maybe_indexed(unwrap(x), BackwardsMetadata, false)
+
+# Whether the variables vars in one stage are integrated backwards (forwards if there are none)
+function isbackwards(vars)
+    dirs = unique(Bool.(getbackwards.(vars)))
+    length(dirs) ≤ 1 || error("$(join(vars, ", ")) must be integrated in the same direction, but only some are declared with [backwards = true]")
+    return isempty(dirs) ? false : only(dirs)
+end
+isbackwards(prob::ODEProblem) = isbackwards(unknowns(prob.f.sys))
+isbackwards(sol::ODESolution) = isbackwards(sol.prob)
+isforwards(x) = !isbackwards(x)
 
 # merge/copy collections that are safe to mutate and are type-stable when one is empty
 function mergesafe(a, b)
@@ -56,7 +72,7 @@ function identity(sys::System)
     ics = ModelingToolkit.get_initial_conditions(sys)
     bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
-    pars = ModelingToolkit.get_ps(sys)
+    pars = [ModelingToolkit.get_ps(sys); setdiff(collect(keys(bindings)), ModelingToolkit.parameters(sys))] # re-add bound parameters of this level, which MTK excludes
     guesses = ModelingToolkit.get_guesses(sys)
     return System(eqs, iv, vars, pars; initialization_eqs=ieqs, initial_conditions=ics, bindings, guesses=guesses, name=nameof(sys), description=get_description(sys))
 end
@@ -65,16 +81,27 @@ function debugize(sys::System)
     return transform((s, _) -> length(get_systems(s)) == 0 ? debug_system(s) : identity(s), sys)
 end
 
-function find_inner_variables(expr)
+# the variable an expression is about, without derivatives and array indices: D(x) -> x, y[i] -> y
+function basevar(x)
+    x = unwrap(x)
+    iscall(x) || return x
+    op = operation(x)
+    op isa Differential && return basevar(only(sorted_arguments(x)))
+    op === getindex && return basevar(first(sorted_arguments(x)))
+    return x
+end
+
+# all variables in an expression, without derivatives and array indices, like basevar: D(x) + y[i] -> Set([x, y])
+function basevars(expr)
     vars = Set{Symbolics.SymbolicT}()
     is_atomic = x -> SymbolicUtils.default_is_atomic(x) && !(iscall(x) && (operation(x) isa Differential || operation(x) === getindex))
     SymbolicUtils.search_variables!(vars, expr; is_atomic)
     return vars
 end
 
-issymbolic(x) = !isempty(find_inner_variables(x))
+issymbolic(x) = !isempty(basevars(x))
 
-isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, find_inner_variables(expr)) # functions of at most τ
+isbackground(expr) = all(var -> !iscall(var) || length(arguments(var)) ≤ 1, basevars(expr)) # functions of at most τ
 isperturbation(expr) = true # functions of at most τ, k (always yes)
 
 function filter_system(f::Function, sys::System)
@@ -84,7 +111,7 @@ function filter_system(f::Function, sys::System)
     ics = ModelingToolkit.get_initial_conditions(sys)
     bindings = ModelingToolkit.get_bindings(sys)
     vars = ModelingToolkit.get_unknowns(sys)
-    pars = ModelingToolkit.get_ps(sys)
+    pars = [ModelingToolkit.get_ps(sys); setdiff(collect(keys(bindings)), ModelingToolkit.parameters(sys))] # re-add bound parameters of this level, which MTK excludes
     guesses = ModelingToolkit.get_guesses(sys)
 
     # extract requested orders
@@ -115,12 +142,14 @@ function spline(y, ẏ, x)
     return CubicHermiteSpline(ẏ, y, x) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
 end
 
-function spline(sol::ODESolution)
-    ts = sol.t
-    N, _ = size(sol)
-    T = eltype(eltype(sol.u))
-    us = reduce(hcat, sol(ts, Val{0}).u)
-    dus = reduce(hcat, sol(ts, Val{1}).u)
+# Spline the unknowns of one or more ODE solutions on common time steps, storing them all in one SVector.
+# Solutions are concatenated in the given order, and may be integrated in any direction.
+function spline(sols::ODESolution...)
+    ts = timeseries(sols) # so none of the solutions are extrapolated
+    sols = filter(sol -> !isempty(sol.u[begin]), sols) # solutions without unknowns have nothing to spline
+    us = reduce(vcat, (stack(sol(ts, Val{0}).u) for sol in sols))
+    dus = reduce(vcat, (stack(sol(ts, Val{1}).u) for sol in sols))
+    N, T = size(us, 1), eltype(us)
     us = collect(vec(reinterpret(reshape, SVector{N, T}, us))) # convert to Vector of SVectors
     dus = collect(vec(reinterpret(reshape, SVector{N, T}, dus)))
     return CubicHermiteSpline(dus, us, ts; extrapolation = ExtrapolationType.Extension, cache_parameters = true) # TODO: use PCHIP instead? https://docs.sciml.ai/DataInterpolations/stable/methods/#PCHIP-Interpolation
@@ -181,11 +210,10 @@ function reduce_array!(a::AbstractArray, target_length::Integer)
 end
 
 # TODO: Use MTKStdLib Interpolation blocks? https://docs.sciml.ai/ModelingToolkitStandardLibrary/stable/tutorials/input_component/#Interpolation-Block
-function mtkcompile_spline(sys::System, vars)
+function mtkcompile_spline(sys::System, vars; splname = :spline, removeics! = remove_background_initial_conditions!)
     vars = ModelingToolkit.unwrap.(vars)
 
     # Build mapping from variables to spline parameters
-    splname = :bgspline
     spldummy = dummyspline(length(vars))
     uprototype = spldummy.u[begin]
     spl, = @parameters $splname::Any
@@ -220,11 +248,11 @@ function mtkcompile_spline(sys::System, vars)
 
         # Do not solve for splined variables during initialization, and add dummy defaults for all splines
         ieqs = ModelingToolkit.get_initialization_eqs(sys)
-        ieqs = remove_background_initial_conditions!(ieqs)
+        ieqs = removeics!(ieqs)
         @set! sys.initialization_eqs = ieqs
 
         ics = ModelingToolkit.get_initial_conditions(sys)
-        ics = remove_background_initial_conditions!(ics)
+        ics = removeics!(ics)
         @set! sys.initial_conditions = ics
 
         return sys
@@ -240,9 +268,126 @@ lhs(eq::Equation) = eq.lhs # for equations
 
 function remove_background_initial_conditions!(ics)
     filter!(ics) do ic
-        var = only(find_inner_variables(lhs(ic)))
+        var = only(basevars(lhs(ic)))
         return !iscall(var) || length(arguments(var)) != 1 # keep parameters and functions of (τ,k)
     end
+end
+
+# remove initial conditions of the given variables (e.g. because they are splined from another solution)
+function remove_initial_conditions!(ics, vars)
+    filter!(ic -> isdisjoint(basevars(lhs(ic)), vars), ics)
+end
+
+# differentiated variables of the flattened system sys, i.e. those that must be integrated
+diffvars(sys::System) = unique(basevar(eq.lhs) for eq in ModelingToolkit.get_eqs(sys) if Symbolics.is_derivative(unwrap(eq.lhs)))
+
+# Graph of what each unknown and parameter depends on through its equations, initial conditions and bindings
+function dependency_graph(sys::System)
+    allvars = unique([ModelingToolkit.get_unknowns(sys); ModelingToolkit.get_ps(sys)]) # asgraph assumes no duplicates
+    defs = [ModelingToolkit.get_eqs(sys); [var ~ val for (var, val) in ModelingToolkit.get_initial_conditions(sys)]; [var ~ val for (var, val) in ModelingToolkit.get_bindings(sys)]]
+    graph = ModelingToolkit.varvar_dependencies(ModelingToolkit.asgraph(sys; variables = allvars, eqs = defs), ModelingToolkit.variable_dependencies(sys; variables = allvars, eqs = defs))
+    return graph, allvars
+end
+
+"""
+    split_stages(sys::System)
+
+Split the differential variables of the flattened system `sys` into the fewest stages that can be integrated sequentially, each depending only on the previous ones.
+Mutually dependent variables are integrated together, backwards if they are declared with `[backwards = true]`, and forwards otherwise.
+Return a Tuple of variable vectors and a Tuple of whether each stage is integrated backwards.
+"""
+function split_stages(sys::System)
+    vars = diffvars(sys)
+    isempty(vars) && return (vars,), (false,)
+    graph, allvars = dependency_graph(sys)
+    idxs = Dict(var => i for (i, var) in enumerate(allvars))
+    varidxs = Dict(var => i for (i, var) in enumerate(vars))
+
+    # graph between differential variables, with an edge i → j if variable j depends on variable i (possibly through other variables)
+    vargraph = SimpleDiGraph(length(vars))
+    for (j, var) in enumerate(vars), dep in allvars[neighborhood(graph, idxs[var], nv(graph); dir = :in)]
+        i = get(varidxs, dep, j)
+        i == j || add_edge!(vargraph, i, j)
+    end
+
+    # blocks of mutually dependent variables, which must be integrated together in one direction
+    blocks = strongly_connected_components(vargraph)
+    backwards = map(block -> isbackwards(vars[block]), blocks)
+    blockgraph = condensation(vargraph, blocks)
+
+    # visit blocks in dependency order, taking all available blocks in the current direction before switching direction
+    function group(backward)
+        indeg = indegree(blockgraph)
+        available = findall(iszero, indeg)
+        groups, groupbackwards = Vector{Int}[], Bool[]
+        while !isempty(available)
+            stage = Int[]
+            while (i = findfirst(b -> backwards[b] == backward, available)) !== nothing
+                b = popat!(available, i)
+                append!(stage, blocks[b])
+                for c in outneighbors(blockgraph, b)
+                    indeg[c] -= 1
+                    indeg[c] == 0 && push!(available, c)
+                end
+            end
+            if !isempty(stage)
+                push!(groups, sort!(stage)) # keep original variable order
+                push!(groupbackwards, backward)
+            end
+            backward = !backward
+        end
+        return groups, groupbackwards
+    end
+    groups, groupbackwards = argmin(length ∘ first, [group(false), group(true)]) # start in the direction that gives the fewest groups, preferring forwards
+    return Tuple(vars[stage] for stage in groups), Tuple(groupbackwards)
+end
+
+"""
+    split_system(sys::System, vars)
+
+Split off the part of the flattened system `sys` that is needed to solve for the variables `vars` alone,
+i.e. their equations and initial conditions, and everything these depend on.
+Errors if `vars` depend on other unknowns of `sys`, which makes such a split impossible.
+"""
+function split_system(sys::System, vars)
+    isempty(get_systems(sys)) || error("Can only split the flattened system $(nameof(sys)); flatten it first with ModelingToolkit.flatten")
+    iv = ModelingToolkit.get_iv(sys)
+    eqs = ModelingToolkit.get_eqs(sys)
+    ics = ModelingToolkit.get_initial_conditions(sys)
+    binds = ModelingToolkit.get_bindings(sys)
+    ieqs = ModelingToolkit.get_initialization_eqs(sys)
+    guesses = ModelingToolkit.get_guesses(sys)
+    graph, allvars = dependency_graph(sys)
+
+    # collect everything vars depend on
+    vars = Set{Any}(basevar.(vars))
+    idxs = Dict(var => i for (i, var) in enumerate(allvars))
+    for var in vars
+        haskey(idxs, var) || error("$var is not an unknown or parameter of the system $(nameof(sys))")
+    end
+    dependencies(vars) = Set{Any}(allvars[mapreduce(var -> neighborhood(graph, idxs[var], nv(graph); dir = :in), union, vars; init = Int[])])
+    needed = dependencies(vars)
+    push!(needed, iv)
+
+    # also collect parameters that appear only in initialization equations of the needed variables (e.g. D(x) ~ ẋini)
+    ieqvars(ieq) = union(basevars(ieq.lhs), basevars(ieq.rhs))
+    ieqpars = [var for ieq in ieqs if all(var -> var in needed || ModelingToolkit.isparameter(var), ieqvars(ieq)) for var in ieqvars(ieq) if !(var in needed)]
+    union!(needed, dependencies(ieqpars))
+
+    # the split is only possible if vars do not depend on other variables that must be integrated
+    extra = setdiff(intersect(needed, Set{Any}(diffvars(sys))), vars)
+    namelist(vs) = join(sort!(string.(collect(vs))), ", ")
+    isempty(extra) || error("Cannot split off $(namelist(vars)) from the system $(nameof(sys)), since they depend on $(namelist(extra)), which would have to be split off, too.")
+
+    keep(x) = basevar(x) in needed
+    eqs = filter(eq -> keep(eq.lhs), eqs) # keeps original order
+    unks = filter(keep, ModelingToolkit.get_unknowns(sys))
+    pars = filter(keep, ModelingToolkit.get_ps(sys))
+    ics = [var => val for (var, val) in ics if keep(var)]
+    binds = [var => val for (var, val) in binds if keep(var)]
+    ieqs = filter(ieq -> all(keep, union(basevars(ieq.lhs), basevars(ieq.rhs))), ieqs)
+    guesses = [var => val for (var, val) in guesses if keep(var)]
+    return System(eqs, iv, unks, pars; initial_conditions = ics, bindings = binds, initialization_eqs = ieqs, guesses, name = nameof(sys), description = get_description(sys))
 end
 
 # https://github.com/JuliaQuantumControl/QuantumControlBase.jl/blob/master/src/conditionalthreads.jl

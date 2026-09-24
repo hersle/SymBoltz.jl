@@ -15,15 +15,14 @@ To do so, let us write a small wrapper function that calculates the power spectr
 ```@example ad
 using SymBoltz
 M = ΛCDM(K = nothing)
-pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.Neff, M.g.h, M.b.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
+pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.N, M.g.h, M.b.YHe, M.h.m_eV, M.I.ln_As1e10, M.I.ns]
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
-probgen = parameter_updater(prob0, pars)
-P(k, θ) = spectrum_matter(probgen(θ), k)
+probf = remake_function(prob0, pars)
+P(k, θ) = spectrum_matter(probf(θ), k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad
-using Unitful, UnitfulAstro
 θ = [2.7, 0.27, 0.05, 3.0, 0.7, 0.25, 0.02, 3.0, 0.95]
 ks = 10 .^ range(0.5, 3.5, length=100)
 Ps = P(ks, θ)
@@ -48,7 +47,7 @@ We can plot them all at once:
 plot(
     log10.(ks), dlgP_dlgθs;
     xlabel = "lg(k / (H₀/c))", ylabel = "∂ lg(P/(c/H₀)³) / ∂ lg(θᵢ)",
-    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
+    labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Nν" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 ```
 
@@ -72,7 +71,7 @@ p1 = plot(
 p2 = plot(
    log10.(ks), dlgP_dlgθs;
    xlabel = "lg(k / (H₀/c))", ylabel = "∂ lg(P/(c/H₀)³) / ∂ lg(θᵢ)",
-   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Neff" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
+   labels = "θᵢ=" .* ["Tγ0" "Ωc0" "Ωb0" "Nν" "h" "YHe" "mh" "ln(10¹⁰As)" "ns"]
 )
 plot(p1, p2, layout=(2, 1), size = (600, 600))
 ```

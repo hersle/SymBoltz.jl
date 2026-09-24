@@ -53,11 +53,9 @@ function ΛCDM(;
     @named r = effective_species(g, radiation_species; effective_name = "Early-time radiation")
     pars = @parameters begin
         C = 1//2, [description = "Initial conditions integration constant"]
-        τ0 = NaN, [description = "Conformal time today"]
-        τrec = NaN, [description = "Conformal time of recombination"]
     end
     vars = @variables begin
-        χ(τ), [description = "Conformal lookback time from today"]
+        χ(τ) = 0.0, [backwards = true, description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         ST(τ, k), [description = "Temperature source function"]
         ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
@@ -65,7 +63,7 @@ function ΛCDM(;
         ST_Doppler(τ, k), [description = "Doppler contribution to ST"]
         ST_polarization(τ, k), [description = "Polarization contribution to ST"]
         SE(τ, k), [description = "E-mode polarization source function"]
-        Sψ(τ, k), [description = "Lensing source function"]
+        Sψ(τ, k), [description = "Lensing source function (without the line-of-sight kernel applied in spectrum_cmb)"]
     end
     guesses = Dict(
         g.a => τ # sensible initial guess because radiation-dominated solution is e.g. a = √(Ωr0)*τ
@@ -77,7 +75,7 @@ function ΛCDM(;
     ]
     have(ν) && have(γ) && push!(bindings,
         ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
-        ν.Ω₀ => ν.Neff * 7/8 * (4/11)^(4/3) * γ.Ω₀,
+        ν.Ω₀ => ν.N * 7/8 * (4/11)^(4/3) * γ.Ω₀,
     )
     have(h) && have(γ) && push!(bindings,
         h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
@@ -87,7 +85,7 @@ function ΛCDM(;
         G.P ~ sum(s.P for s in species)
         b.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
-        χ ~ τ0 - τ
+        D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
@@ -102,7 +100,7 @@ function ΛCDM(;
         ST_polarization ~ 3/(16*k^2) * D(D(b.v*γ.Π)) |> expand_derivatives
         ST ~ ST_SW + ST_ISW + ST_Doppler + ST_polarization
         SE ~ 3/16 * b.v*γ.Π / (k*χ)^2
-        Sψ ~ ifelse(τ ≥ τrec, -(g.Ψ+g.Φ) * (τ-τrec)/(τ0-τrec)/(τ0-τ), 0)
+        Sψ ~ -(g.Ψ+g.Φ)
     ]
     # TODO: do various initial condition types (adiabatic, isocurvature, ...) from here?
     # TODO: automatically solve for initial conditions following e.g. https://arxiv.org/pdf/1012.0569 eq. (1)?
@@ -142,16 +140,13 @@ function RMΛ(;
     name = :RMΛ, kwargs...
 )
     vars = @variables begin
-        χ(τ), [description = "Conformal lookback time from today"]
-    end
-    pars = @parameters begin
-        τ0 = NaN, [description = "Conformal time today"]
+        χ(τ) = 0.0, [backwards = true, description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
     end
     species = filter(have, [r, m, K, Λ])
     eqs = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
-        χ ~ τ0 - τ
+        D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
@@ -164,20 +159,21 @@ function RMΛ(;
         g.a => √(r.Ω₀) * τ # default initial scale factor
     ]
     bindings = Ω₀_eqs(G, species) # parameter equations
-    connections = System(eqs, τ, vars, [pars; k]; initialization_eqs = ieqs, initial_conditions = ics, bindings, name)
+    connections = System(eqs, τ, vars, [k]; initialization_eqs = ieqs, initial_conditions = ics, bindings, name)
     components = filter(!isnothing, [g; G; species; I])
     M = compose(connections, components...)
     return complete(M; flatten = false, split = false)
 end
 
 """
-    QCDM(v; name = :QCDM, kwargs...)
+    QCDM(V; name = :QCDM, kwargs...)
 
-Create a ΛCDM model, but with the quintessence scalar field in the potential `v` as dark energy instead of the cosmological constant.
+Create a ΛCDM model, but with the quintessence scalar field in the potential `V(ϕ)` as dark energy instead of the cosmological constant.
+One parameter must be shot for to give the dark energy density today (see [`quintessence`](@ref SymBoltz.quintessence)).
 """
-function QCDM(v; name = :QCDM, kwargs...)
+function QCDM(V; name = :QCDM, kwargs...)
     M = ΛCDM()
-    Q = quintessence(M.g, v)
+    Q = quintessence(M.g, V)
     return ΛCDM(Λ = Q; name, kwargs...)
 end
 

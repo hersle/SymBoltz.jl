@@ -55,6 +55,7 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
     pars = @parameters begin
         ω, [description = "Brans-Dicke coupling constant"]
         ϕini, [description = "Initial Brans-Dicke scalar field"]
+        ϕ̇ini, [description = "Initial Brans-Dicke scalar field conformal time derivative"]
     end
     vars = @variables begin
         ρ(τ), [description = "Total background density"]
@@ -100,6 +101,7 @@ function brans_dicke(g; name = :G, acceleration = false, kwargs...)
         g.Φ̇ ~ D(g.Φ)
     ])
     ics = [ϕ => ϕini, δϕ => 0.0] # TODO: set properly
+    push!(ieqs, D(ϕ) ~ ϕ̇ini) # overdetermined initialization if in ics
     push!(ieqs, D(δϕ) ~ 0.0) # works better than having it in ics # TODO: set properly
     guesses = [ρ => 1.0, D(g.a) => +1.0]
     description = "Brans-Dicke gravity"

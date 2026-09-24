@@ -13,7 +13,7 @@ pars = Dict(
     M.c.Ω₀ => 0.27,
     M.b.Ω₀ => 0.05,
     M.γ.T₀ => 2.7,
-    M.ν.Neff => 3.0,
+    M.ν.N => 3.0,
     M.b.YHe => 0.25,
     M.h.m_eV => 0.02,
     M.I.ln_As1e10 => 3.0,
@@ -27,10 +27,10 @@ prob0 = CosmologyProblem(M, merge(pars, Dict(pars_varying .=> NaN))) # set varyi
 Next, create a function for computing $Cₗ$ of the CMB TT power spectrum.
 Since $Cₗ$ is an expensive but smooth function of $l$, we make one function for it exactly on a coarse grid of $l$ and another for interpolating it to a finer grid:
 ```@example forecast
-probgen = parameter_updater(prob0, pars_varying)
+probf = remake_function(prob0, pars_varying)
 jl = SphericalBesselCache(40:20:1000)
 ls = 40:1:1000
-Cl(θ) = spectrum_cmb(:TT, probgen(θ), jl, ls)
+Cl(θ) = spectrum_cmb(:TT, probf(θ), jl, ls)
 ```
 We can now compute $Cₗ$ and the cosmic variance uncertainties
 ```math
