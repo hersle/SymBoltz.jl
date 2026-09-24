@@ -1,24 +1,31 @@
 # Performance and benchmarks
 
-Model setup and hardware information:
+Model setup:
 
 ```@example bench
 using MKL, LinearSolve, PureUMFPACK
 using SymBoltz
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF
 using Base.Threads, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
+
 M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-
-using Dates, InteractiveUtils, LinearAlgebra
-LinearAlgebra.BLAS.set_num_threads(1)
-println("Current time: ", now(), "\n")
-println(sprint(InteractiveUtils.versioninfo)) # show computer information
-println(LinearAlgebra.BLAS.get_config())
-println("BLAS threads: ", LinearAlgebra.BLAS.get_num_threads())
 nothing # hide
 ```
+
+!!! details "Hardware and package information"
+    ```@example bench
+    using Dates, InteractiveUtils, LinearAlgebra, Pkg, LibGit2
+    println("Build time: ", now(UTC), " UTC\n")
+    InteractiveUtils.versioninfo() # show computer information
+    println()
+    LinearAlgebra.versioninfo() # show BLAS backend and threads
+    println()
+    println("SymBoltz commit: ", LibGit2.head(pkgdir(SymBoltz)), "\n")
+    Pkg.status(; mode = Pkg.PKGMODE_MANIFEST) # show all package versions
+    nothing # hide
+    ```
 
 ## Background: precision-work diagram
 
