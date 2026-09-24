@@ -275,9 +275,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     ti, t0 = ts[begin], ts[end]
     if xs isa AbstractArray
         # explicit fractional grid x = (τ-τᵢ)/(τ₀-τᵢ) ∈ [0,1], mapped to the independent variable (e.g. τ or ln(a))
-        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
-        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        ts = LinearInterpolation(ts, τbg)(τi .+ (τ0 - τi) .* xs)
+        ts = LinearInterpolation(ts, τbg; extrapolation = ExtrapolationType.Extension)(τi .+ (τ0 - τi) .* xs) # extrapolate to avoid out-of-bounds errors from slight rounding issues at x ≈ 0 and x ≈ 1
     elseif xs isa Int
         # interpolate xs points from background time grid, preserving its density structure
         ts = LinearInterpolation(ts, 1.0:length(ts))(range(1.0, length(ts), length = xs))
