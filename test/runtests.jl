@@ -114,25 +114,13 @@ end
     end
 end
 
-@testset "Spherical Bessel function chain rule" begin
-    x = 0.0:0.1:10.0
-
-    # Test jl(l, x) chain rule
-    crazy(l, x) = sin(7*SymBoltz.jl(l, x^2)) # crazy composite function involving jl
-    for l in 1:500
-        dcrazy_fd(l, x) = FiniteDiff.finite_difference_derivative(x -> crazy(l, x), x)
-        dcrazy_ad(l, x) = ForwardDiff.derivative(x -> crazy(l, x), x)
-        @test all(isapprox.(dcrazy_ad.(l, x), dcrazy_fd.(l, x); atol = 1e-6))
-    end
-end
-
 @testset "Spherical Bessel function cache" begin
     ls = 10:10:100
     i5 = 0
     i10 = 1
     jl_lin = SphericalBesselCache(ls; dx = 2π/150, hermite = false)
     jl_her = SphericalBesselCache(ls; dx = 2π/15, hermite = true)
-    for (jl, atol) in [(jl_lin, 1e-5), (jl_her, 1e-5)]
+    for (jl, atol, datol) in [(jl_lin, 1e-5, 1e-3), (jl_her, 1e-5, 1e-4)]
         @test_throws BoundsError jl(i5, 0.0) # not cached
         @test_throws BoundsError jl(i10, -1.0)
         @test_throws BoundsError jl(i10, jl.x[end] + 1.0)
@@ -140,13 +128,15 @@ end
         @test isapprox(jl(i10, jl.x[end]), SymBoltz.sphericalbesselj(10, jl.x[end]); atol = 1e-16)
         @test isapprox(jl(i10, 123.456), SymBoltz.sphericalbesselj(10, 123.456); atol)
 
+        # Test value through cache vs. Bessels.jl library implementation
         xs = range(jl.x[begin], jl.x[end], step=0.001)
         is = eachindex(ls)
         @test all(isapprox.(jl.(is', xs), SymBoltz.jl.(ls', xs); atol))
         @test (@ballocated $jl($i10, π)) == 0 # non-allocating
 
-        j10(x) = jl(i10, x)
-        @test isfinite(ForwardDiff.derivative(j10, π))
+        # Test ForwardDiff derivative through cache vs. analytical derivative jₗ′ = (l jₗ₋₁ - (l+1) jₗ₊₁) / (2l+1)
+        jl′(il, x) = ForwardDiff.derivative(Base.Fix1(jl, il), x)
+        @test all(isapprox.(jl′.(is', xs), SymBoltz.jl′.(ls', xs); atol = datol))
     end
 end
 

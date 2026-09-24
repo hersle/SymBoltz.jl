@@ -2,8 +2,6 @@ using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using MatterPower
 using ForwardDiff
-using ForwardDiffChainRules
-import ChainRulesCore
 
 struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     l::Tl
@@ -77,10 +75,6 @@ function jl′(l, ls::AbstractRange, Jls)
     i = 1 + l - ls[begin] # ls[i] == l (assuming step of ls is 1)
     return l/(2l+1)*Jls[i-1] - (l+1)/(2l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
 end
-
-# Overload chain rule for spherical Bessel function
-ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * Δx # (value, derivative)
-@ForwardDiff_frule jl(l::Integer, x::ForwardDiff.Dual) # define dispatch
 
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(τ0-τini)
