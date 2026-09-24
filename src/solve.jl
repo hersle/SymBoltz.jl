@@ -3,7 +3,6 @@ import LinearAlgebra: issuccess, BLAS
 import CommonSolve: solve
 import SciMLBase: remake, successful_retcode
 import SciMLLogging
-import PreallocationTools: DiffCache, get_tmp
 import SciMLStructures
 import SciMLStructures: canonicalize, Tunable
 import OhMyThreads: TaskLocalValue
