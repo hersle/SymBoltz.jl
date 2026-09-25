@@ -265,7 +265,7 @@ end
     end
     @test checkvar(M.g.a, 1e-6, 0)
     @test checkvar(M.b.κ̇, 0, 1e-2)
-    @test checkvar(M.b.κ, 0, 1e-4)
+    @test checkvar(M.b.κ, 1e-20, 1e-4) # atol since κ ≈ 0 today
     @test checkvar(M.b.v, 1e-3, 0)
     @test checkvar(M.b.v̇, 0, 1e1) # TODO: improve
     @test checkvar(M.b.cₛ², 1e-4, 0)
