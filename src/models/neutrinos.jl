@@ -74,6 +74,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
     x, W = momentum_quadrature(f₀, nx)
     x² = x .^ 2
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
+    dlnf₀ = dlnf₀_dlnx.(x)
 
     pars = @parameters begin
         N = 3, [description = "Number of degenerate neutrino masses"]
@@ -104,6 +105,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         Iρ(τ), [description = "Density integral"]
         IP(τ), [description = "Pressure integral"]
         Iδρ(τ, k), [description = "Overdensity integral"]
+        C(τ), [description = "Normalization of d(ln f₀)/d(ln x) for the momentum quadrature"]
     end
 
     eqs = [
@@ -116,6 +118,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         P ~ 2N/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
         Ω ~ 8*Num(π)/3 * ρ
+        C ~ -(3*Iρ + IP) / ∫dx_x²_f₀(E .* dlnf₀) # = 1 analytically (integrate by parts), but not with quadrature
 
         Iδρ ~ ∫dx_x²_f₀(E .* ψ0)
         δ ~ Iδρ / Iρ
@@ -126,15 +129,15 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         cₛ² ~ ∫dx_x²_f₀(x² ./ E .* ψ0) / 3Iδρ # δP/δρ
 
         [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
-        [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-        [D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * C * dlnf₀[i] for i in 1:nx]...
+        [D(ψ[i,1]) ~ k/3 * x[i]/E[i] * (ψ0[i] - 2*ψ[i,2]) - k/3 * E[i]/x[i] * g.Ψ * C * dlnf₀[i] for i in 1:nx]...
         [D(ψ[i,l]) ~ k/(2*l+1) * x[i]/E[i] * (l*ψ[i,l-1] - (l+1) * ψ[i,l+1]) for i in 1:nx, l in 2:lmax-1]...
         [D(ψ[i,lmax]) ~ k/(2*lmax+1) * x[i]/E[i] * (lmax*ψ[i,lmax-1] - (lmax+1) * ((2*lmax+1) * E[i]/x[i] * ψ[i,lmax] / (k*τ) - ψ[i,lmax-1])) for i in 1:nx]... # explicitly inserted ψ[lmax+1] to avoid array allocations in newer MTK (see example in https://github.com/SciML/ModelingToolkit.jl/issues/3708)
     ]
     ieqs = [
-        [ψ0[i] ~ -1//4 * (-2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-        [ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-        [ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+        [ψ0[i] ~ -1//4 * (-2*g.Ψ) * C * dlnf₀[i] for i in 1:nx]...
+        [ψ[i,1] ~ -1//3 * E[i]/x[i] * (1/2*k*τ*g.Ψ) * C * dlnf₀[i] for i in 1:nx]...
+        [ψ[i,2] ~ -1//2 * (1//15*(k*τ)^2*g.Ψ) * C * dlnf₀[i] for i in 1:nx]...
         [ψ[i,l] ~ 0 for i in 1:nx, l in 3:lmax]... # TODO: full ICs
     ]
     description = "Massive neutrino"

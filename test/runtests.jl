@@ -239,16 +239,26 @@ end
     @test all(isapprox.(Fls[:,1] ./ Fls[:,2], map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))[1:4])
 
     # Check initial ratio of metric potentials
-    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
+    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-5))
 
     # Check initial adiabatic perturbations
     species = [M.c, M.b, M.γ, M.ν, M.h]
     y0s = sol([s.δ/(1+s.w) for s in species], τini, ks) # should be equal for all species
     y1s = sol([s.u/M.k for s in species], τini, ks) # should be equal for all species
-    @test isapprox(minimum(y0s), maximum(y0s); rtol = 1e-3)
-    @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-3)
+    @test isapprox(minimum(y0s), maximum(y0s); rtol = 1e-10)
+    @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-7)
     y2s = sol([s.σ/M.k^2 for s in [M.ν, M.h]], τini, ks) # should be equal for massless and massive neutrinos
-    @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-3)
+    @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-10)
+    @test all(isapprox.(sol(M.h.δ / M.g.Ψ, τini, ks), -2; rtol = 1e-10)) # relativistic massive neutrinos (momentum quadrature must be normalized)
+
+    # Check the Einstein (Poisson) constraint 4πa² Σᵢρᵢ Δᵢ = -k²Φ on superhorizon scales,
+    # which is sensitive to spurious isocurvature modes from inconsistent (non-adiabatic) initial conditions
+    k = 1e1
+    solk = solve(prob, k)
+    for lga in (-4, -3)
+        τ = timeseries(solk, log10(M.g.a), lga)
+        @test isapprox(solk(4π*M.g.a^2*sum(s.ρ*s.Δ for s in species), τ, k), solk(-M.k^2*M.g.Φ, τ, k); rtol = 1e-3)
+    end
 
     # Perturbations span the same τ as the background
     sol = solve(prob, [1e0, 1e1])
