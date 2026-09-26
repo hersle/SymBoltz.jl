@@ -120,7 +120,7 @@ end
     i10 = 1
     jl_lin = SphericalBesselCache(ls; dx = 2π/150, hermite = false)
     jl_her = SphericalBesselCache(ls; dx = 2π/15, hermite = true)
-    for (jl, atol, datol) in [(jl_lin, 1e-5, 1e-3), (jl_her, 1e-5, 1e-4)]
+    for (jl, atol, datol) in [(jl_lin, 1e-5, 1e-3), (jl_her, 1e-5, 1e-5)]
         @test_throws BoundsError jl(i5, 0.0) # not cached
         @test_throws BoundsError jl(i10, -1.0)
         @test_throws BoundsError jl(i10, jl.x[end] + 1.0)
@@ -379,7 +379,7 @@ end
     logθ = [log(pars[par]) for par in diffpars]
     ∂logDlTT_∂logθ_ad = ForwardDiff.jacobian(logDlTT, logθ)
     ∂logDlTT_∂logθ_fd = FiniteDiff.finite_difference_jacobian(logDlTT, logθ, Val{:central}; relstep = 1e-3) # 1e-4 screws up at small l
-    @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 1e0)) # TODO: fix and decrease tolerance!!!
+    @test all(isapprox.(∂logDlTT_∂logθ_ad, ∂logDlTT_∂logθ_fd; atol = 2e-1)) # TODO: fix and decrease tolerance (max difference ~0.1 at l = 25, ≤ 6e-3 for l ≥ 125)
 
     #= for debug plotting
     using CairoMakie

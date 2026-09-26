@@ -15,7 +15,8 @@ end
 function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
-    invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
+    dx = step(xs) # the resulting step, which need not be exactly the requested dx
+    invdx = 1.0 / dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
     ys  = jl.(ls, xs') # contiguous in l
     dys = hermite ? jl′.(ls, xs') : nothing
@@ -42,6 +43,35 @@ end
     dy₋ = jl.dy[il, i+1]
     dy₊ = jl.dy[il, i+2]
     return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+end
+
+# jₗ″ from the spherical Bessel equation x² jₗ″ + 2x jₗ′ + (x² - l(l+1)) jₗ = 0
+@inline @fastmath function jl″(l, x, y, dy)
+    x == 0 && return l == 0 ? -1/3 : l == 1 ? 0.0 : l == 2 ? 2/15 : 0.0
+    invx = 1/x
+    return -2dy*invx - (1 - l*(l+1)*invx^2) * y
+end
+
+# Hermite interpolation of the cached jₗ′ using jₗ″ at the nodes; more accurate than differentiating the jₗ interpolant
+@inline Base.@propagate_inbounds @fastmath function jl′(jl::SphericalBesselCache{Tl, Matrix{Float64}}, il::Int, x) where {Tl}
+    w = x * jl.invdx
+    i = trunc(Int, w)
+    w = w - i
+    wm1 = w - 1.0
+    l = jl.l[il]
+    y₋  = jl.y[il, i+1]
+    y₊  = jl.y[il, i+2]
+    dy₋ = jl.dy[il, i+1]
+    dy₊ = jl.dy[il, i+2]
+    ddy₋ = jl″(l, jl.x[i+1], y₋, dy₋)
+    ddy₊ = jl″(l, jl.x[i+2], y₊, dy₊)
+    return (1+2w)*wm1*wm1 * dy₋ + w*w*(3-2w) * dy₊ + w*wm1 * (wm1 * ddy₋ + w * ddy₊) * jl.dx
+end
+
+# Propagate the interpolated derivative through ForwardDiff Duals
+@inline Base.@propagate_inbounds function (jl::SphericalBesselCache{Tl, Matrix{Float64}})(il::Int, x::ForwardDiff.Dual{T}) where {Tl, T}
+    x₀ = ForwardDiff.value(x)
+    return ForwardDiff.Dual{T}(jl(il, x₀), jl′(jl, il, x₀) * ForwardDiff.partials(x))
 end
 
 function Base.show(io::IO, jl::SphericalBesselCache{Tl, Tdy}) where {Tl, Tdy}
