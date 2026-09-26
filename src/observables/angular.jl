@@ -119,7 +119,7 @@ end
 
 For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
-Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
+Iₗ(k) = ∫dτ S(τ,k) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
 The element `Ss[i,j]` holds the source function value ``S(τᵢ, kⱼ)``.
@@ -214,7 +214,7 @@ end
 
 Compute the angular power spectrum
 ```math
-Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,τ₀)
+Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(τ₀,k) Θₗᴮ(τ₀,k)
 ```
 for the given `ls`.
 If `normalization == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
