@@ -17,17 +17,13 @@ It uses the logarithm of the scale factor ``b = \ln a`` as the independent varia
 using SymBoltz
 
 # Constants, some functions and atomic energy levels defined in internal files
-@unpack kB, ħ, c, GN, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s = SymBoltz
+@unpack kB, ħ, c, GN, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s, ΛH2s1s, ΛHe2s1s, AHe2p1s, AHet2p1s, σHe2p1s, σHet2p1s = SymBoltz
 lγmax = 10
 lνmax = 10
 lhmax = 10
 # RECFAST switches off He corrections when XH⁺ ≈ XHe⁺ ≈ 1, but we use a smooth+symmetric regularization of
 # (1-X) that makes it a small positive number, even if numerical errors causes X to drift slightly above 1
 reg(x; ϵ = 1e-9) = √(x^2 + ϵ^2)
-ΛH = 8.2245809
-ΛHe = 51.3
-A2ps = 1.798287e9
-A2pt = 177.58e0
 αHfit(T; F=1.125, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d)
 αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p))
 KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
@@ -121,7 +117,7 @@ eqs = [
     βH ~ αH / λe^3 * exp(-β*EH∞2s)
     KHfitfactor ~ 1 + KHfitfactorfunc(a, -0.14, 7.28, 0.18) + KHfitfactorfunc(a, 0.079, 6.73, 0.33)
     KH ~ KHfitfactor/8π * λH2s1s^3 / HSI
-    CH ~ smoothifelse(XH⁺ - 0.99, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3)
+    CH ~ smoothifelse(XH⁺ - 0.99, (1 + KH*ΛH2s1s*nH*(1-XH⁺)) / (1 + KH*(ΛH2s1s+βH)*nH*(1-XH⁺)), 1; k = 1e3)
     D(XH⁺) ~ -a/H0SI * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s)) / ℋ
 
     # baryon He⁺ + e⁻ singlet recombination
@@ -129,20 +125,20 @@ eqs = [
     βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
     KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2)
     invKHe0 ~ 8π*HSI / λHe2p1s^3
-    τHe ~ 3*A2ps*nHe*reg(1-XHe⁺) / invKHe0
+    τHe ~ 3*AHe2p1s*nHe*reg(1-XHe⁺) / invKHe0
     invKHe1 ~ -exp(-τHe) * invKHe0
-    γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
-    invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺)
-    CHe ~ smoothifelse(XHe⁺ - 0.99, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3)
+    γ2ps ~ γHe(A = AHe2p1s, σ = σHe2p1s, f = fHe2p1s)
+    invKHe2 ~ AHe2p1s/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺)
+    CHe ~ smoothifelse(XHe⁺ - 0.99, (exp(-β*EHe2p2s) + KHe*ΛHe2s1s*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe2s1s+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3)
     DXHe⁺ ~ -a/H0SI * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
     # baryon He⁺ + e⁻ triplet recombination
     αHet ~ αHefit(Tb; q=10^(-16.306), p=0.761)
     βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
-    τHet ~ 3*A2pt*nHe*reg(1-XHe⁺) * λHet2p1s^3/(8π*HSI)
+    τHet ~ 3*AHet2p1s*nHe*reg(1-XHe⁺) * λHet2p1s^3/(8π*HSI)
     pHet ~ (1 - exp(-τHet)) / τHet
-    γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
-    CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s)
+    γ2pt ~ γHe(A = AHet2p1s, σ = σHet2p1s, f = fHet2p1s)
+    CHetnum ~ AHet2p1s*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s)
     CHet ~ reg(CHetnum) / (reg(CHetnum) + βHet)
     DXHet⁺ ~ -a/H0SI * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
 

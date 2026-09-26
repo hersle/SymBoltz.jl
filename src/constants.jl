@@ -31,6 +31,7 @@ const mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
 const λH∞1s   =  91.17534e-9; const fH∞1s  = c/λH∞1s;  const EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)
 const λH2s1s  = 121.56700e-9; const fH2s1s = c/λH2s1s; const EH2s1s = h*fH2s1s # 2s - 1s
 const EH∞2s  = EH∞1s - EH2s1s # E(∞) - E(2s)
+const ΛH2s1s = 8.2245809 # 2s - 1s two-photon decay rate (s⁻¹)
 
 # Helium singlet transitions
 const λHe∞1s  =  50.42590e-9; const fHe∞1s  = c/λHe∞1s;  const EHe∞1s  = h*fHe∞1s
@@ -39,11 +40,16 @@ const λHe2p1s =  58.43344e-9; const fHe2p1s = c/λHe2p1s; const EHe2p1s = h*fHe
 const EHe2p2s = EHe2p1s - EHe2s1s
 const EHe∞2s  = EHe∞1s - EHe2s1s
 const EHe⁺∞1s = 54.4178 * eV
+const ΛHe2s1s = 51.3 # 2s - 1s two-photon decay rate (s⁻¹)
+const AHe2p1s = 1.798287e9 # 2p - 1s Einstein A coefficient (s⁻¹)
+const σHe2p1s = 1.436289e-22 # H photoionization cross section at the 2p - 1s line (m²)
 
 # Helium triplet transitions
 const λHet∞2s = 260.0463e-9; const fHet∞2s = c/λHet∞2s; const EHet∞2s = h*fHet∞2s # ∞ - 2³s; ionization of lowest triplet state (4.77 or 4.8 eV) (read: "wavelength Helium triplet ∞ to 2s")
 const λHet2p1s = 59.1411e-9; const fHet2p1s = c/λHet2p1s; const EHet2p1s = h*fHet2p1s
 const λHet2s1s = 62.5563e-9; const fHet2s1s = c/λHet2s1s; const EHet2s1s = h*fHet2s1s
 const EHet2p2s = EHet2p1s - EHet2s1s
+const AHet2p1s = 177.58 # 2p - 1s Einstein A coefficient (s⁻¹)
+const σHet2p1s = 1.484872e-22 # H photoionization cross section at the 2p - 1s line (m²)
 
 δkron(i, j) = (i == j ? 1 : 0) # Kronecker delta

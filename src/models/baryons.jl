@@ -35,9 +35,6 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         αHe(τ), βHe(τ), RHe⁺(τ), τHe(τ), KHe(τ), invKHe0(τ), invKHe1(τ), invKHe2(τ), CHe(τ), DXHe⁺(τ), DXHet⁺(τ) # invK = 1 / K
     end
 
-    ΛH = 8.2245809 # s⁻¹
-    ΛHe = 51.3 # s⁻¹
-
     αHfit(T; F=FH, a=4.309, b=-0.6166, c=0.6703, d=0.5300, T₀=1e4) = F * 1e-19 * a * (T/T₀)^b / (1 + c * (T/T₀)^d) # fitting formula to Hummer's table (fudge factor here is equivalent to the way RECFAST does it)
     αHefit(T; q=NaN, p=NaN, T1=10^5.114, T2=3.0) = q / (√(T/T2) * (1+√(T/T2))^(1-p) * (1+√(T/T1))^(1+p)) # fitting formula
 
@@ -50,7 +47,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         αH ~ αHfit(T)
         βH ~ αH / λe^3 * exp(-β*EH∞2s)
         KH ~ KHfitfactor/8π * λH2s1s^3 / H # KHfitfactor ≈ 1; see above
-        CH ~ smoothifelse(XH⁺ - XlimC, (1 + KH*ΛH*nH*(1-XH⁺)) / (1 + KH*(ΛH+βH)*nH*(1-XH⁺)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
+        CH ~ smoothifelse(XH⁺ - XlimC, (1 + KH*ΛH2s1s*nH*(1-XH⁺)) / (1 + KH*(ΛH2s1s+βH)*nH*(1-XH⁺)), 1; k = 1e3) # CLASS has FH in denominator; SymBoltz has it in αH (similar to Rdown in CLASS)
         D(XH⁺) ~ -g.a/(H100*g.h) * CH * (αH*XH⁺*ne - βH*(1-XH⁺)*exp(-β*EH2s1s)) # XH⁺ = nH⁺ / nH; multiplied by H₀ on left because side τ is physical τ/(1/H₀)
 
         # He⁺ + e⁻ singlet recombination
@@ -58,7 +55,7 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         βHe ~ 4 * αHe / λe^3 * exp(-β*EHe∞2s)
         KHe ~ 1 / (invKHe0 + invKHe1 + invKHe2) # corrections are additive in inverse KHe
         invKHe0 ~ 8π*H / λHe2p1s^3
-        CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-β*EHe2p2s) + KHe*ΛHe*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
+        CHe ~ smoothifelse(XHe⁺ - XlimC, (exp(-β*EHe2p2s) + KHe*ΛHe2s1s*nHe*(1-XHe⁺)) / (exp(-β*EHe2p2s) + KHe*(ΛHe2s1s+βHe)*nHe*(1-XHe⁺)), 1; k = 1e3) # TODO: normal ifelse()? https://github.com/SciML/ModelingToolkit.jl/issues/3897
         DXHe⁺ ~ -g.a/(H100*g.h) * CHe * (αHe*XHe⁺*ne - βHe*(1-XHe⁺)*exp(-β*EHe2s1s))
 
         # He⁺ + e⁻ total recombination
@@ -89,24 +86,22 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
         # RECFAST switches off He corrections when XH⁺ ≈ XHe⁺ ≈ 1, but we use a smooth+symmetric regularization of
         # (1-X) that makes it a small positive number, even if numerical errors causes X to drift slightly above 1
         reg(x; ϵ = 1e-9) = √(x^2 + ϵ^2) # regularize x so it remains small and positive even if x→0 or drifts to x<0
-        A2ps = 1.798287e9 # A 2p singlet
-        A2pt = 177.58e0 # A 2p triplet
         γHe(; A=NaN, σ=NaN, f=NaN) = 3*A*fHe*reg(1-XHe⁺)*c^2 / (8π*σ*√(2π/(β*mHe*c^2))*reg(1-XH⁺)*f^3)
         append!(vars, @variables γ2ps(τ) αHet(τ) βHet(τ) τHet(τ) pHet(τ) CHet(τ) CHetnum(τ) γ2pt(τ))
         append!(eqs, [
-            τHe ~ 3*A2ps*nHe*reg(1-XHe⁺) / invKHe0
+            τHe ~ 3*AHe2p1s*nHe*reg(1-XHe⁺) / invKHe0
             invKHe1 ~ -exp(-τHe) * invKHe0 # RECFAST He flag 1
 
-            γ2ps ~ γHe(A = A2ps, σ = 1.436289e-22, f = fHe2p1s)
-            invKHe2 ~ A2ps/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction)
+            γ2ps ~ γHe(A = AHe2p1s, σ = σHe2p1s, f = fHe2p1s)
+            invKHe2 ~ AHe2p1s/(1+0.36*γ2ps^0.86)*3*nHe*(1-XHe⁺) # RECFAST He flag 2 (Doppler correction)
 
             # He⁺ + e⁻ triplet recombination
             αHet ~ αHefit(T; q=10^(-16.306), p=0.761)
             βHet ~ 4/3 * αHet / λe^3 * exp(-β*EHet∞2s)
-            τHet ~ A2pt*nHe*reg(1-XHe⁺)*3 * λHet2p1s^3/(8π*H)
+            τHet ~ AHet2p1s*nHe*reg(1-XHe⁺)*3 * λHet2p1s^3/(8π*H)
             pHet ~ (1 - exp(-τHet)) / τHet
-            γ2pt ~ γHe(A = A2pt, σ = 1.484872e-22, f = fHet2p1s)
-            CHetnum ~ A2pt*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet
+            γ2pt ~ γHe(A = AHet2p1s, σ = σHet2p1s, f = fHet2p1s)
+            CHetnum ~ AHet2p1s*(pHet+1/(1+0.66*γ2pt^0.9)/3)*exp(-β*EHet2p2s) # numerator of CHet
             CHet ~ reg(CHetnum) / (reg(CHetnum) + βHet) # TODO: is sign in p-s exponentials wrong/different to what it is in just CHe?
             DXHet⁺ ~ -g.a/(H100*g.h) * CHet * (αHet*XHe⁺*ne - βHet*(1-XHe⁺)*3*exp(-β*EHet2s1s))
         ])
