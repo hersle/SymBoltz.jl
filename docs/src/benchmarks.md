@@ -30,7 +30,7 @@ nothing # hide
 ## Background: precision-work diagram
 
 This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances.
-Every solution is compared to a reference solution with very small tolerance.
+Every solution is compared to a reference solution using `Rodas5P` with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
@@ -59,30 +59,31 @@ function workprec(prob, algs, tols, refsol; N = 5, norm = x -> norm(x, 2), kwarg
     return results
 end
 
-function plot_workprec(wp; title = "", kwargs...)
-    p = plot(; xlabel = "time / s", ylabel = "L₂ error", xscale = :log10, yscale = :log10, title, legend = :topright, kwargs...)
+function plot_workprec!(p, wp; subplot = 1)
     for (i, (label, points)) in enumerate(wp)
         times = map(first, points)
         errors = map(last, points)
         color = i
         marker = Plots._shape_keys[i]
         linewidth = 2
-        plot!(p, times, errors; label, color, marker, linewidth)
+        plot!(p, times, errors; label, color, marker, linewidth, subplot)
     end
     return p
 end
+plot_workprec(wp; title = "", kwargs...) = plot_workprec!(plot(; xlabel = "time / s", ylabel = "L₂ error", xscale = :log10, yscale = :log10, title, legend = :topright, kwargs...), wp)
 
 linsolve = RFLUFactorization()
 refalg = Rodas5P(; linsolve)
 bgsol = solve(prob.bg[1], refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
 
 tols = 1 ./ 10 .^ (7:11)
-bgalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
+algtypes = [TRBDF2, KenCarp4, Kvaerno5, Rodas5P, FBDF, QNDF, NordsieckBDF] # same for background and perturbations
+bgalgs = [Alg(; linsolve) for Alg in algtypes]
 wp = workprec(prob.bg[1], bgalgs, tols, bgsol)
-plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg))", size = (800, 400), margin = 5*Plots.mm)
+plot_workprec(wp; title = "Background", size = (800, 400), margin = 5*Plots.mm)
 ```
 
-Note that the `FBDF` and `QNDF` methods are unstable for several tolerances.
+Note that the `QNDF` and `NordsieckBDF` methods are unstable for several tolerances.
 
 ## Perturbations: parallelization
 
@@ -107,35 +108,27 @@ plot(results; size = (800, 400))
 
 This plot compares the time to solve a perturbation $k$-mode vs. accuracy of the solution using different ODE solvers and tolerances.
 Each subplot corresponds to a different $k$-mode.
-Every solution is compared to a reference solution with very small tolerance.
+Every solution is compared to a reference solution using `Rodas5P` with very small tolerance.
 The points on each curve correspond to a sequence of tolerances.
 
 ```@example bench
 # TODO: test different nlsolve # hide
 # TODO: add AdaptiveRadau/RadauIIA5 when they support sparse J: https://github.com/SciML/OrdinaryDiffEq.jl/issues/2892 # hide
 linsolve = PureKLUFactorization()
-ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
+ptalgs = [Alg(; linsolve) for Alg in algtypes]
 ptprobf = SymBoltz.setuppt(prob.pt, solvebg(prob))
 refalg = Rodas5P(; linsolve)
 tols = 1 ./ 10 .^ (5:9)
 
-function plot_workprec_pert(k; kwargs...)
+ks = [1e1, 1e2, 1e3, 1e4]
+p = plot(xlabel = "time / s", ylabel = "L₂ error", xscale = :log10, yscale = :log10, layout = (2, 2), size = (800, 800))
+for (i, k) in enumerate(ks)
     ptprob = ptprobf(k)
     refsol = solve(ptprob, refalg; abstol = 1e-10, reltol = 1e-10)
-    wp = workprec(ptprob, ptalgs, tols, refsol)
-    return plot_workprec(wp; title = "Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c", size = (800, 400), margin = 5*Plots.mm, kwargs...)
+    plot_workprec!(p, workprec(ptprob, ptalgs, tols, refsol); subplot = i)
+    plot!(p; title = "k = $k H₀/c", legend_position = i == length(ks) ? :bottomleft : false, subplot = i)
 end
-
-pk1 = plot_workprec_pert(1e1)
-```
-```@example bench
-pk2 = plot_workprec_pert(1e2)
-```
-```@example bench
-pk3 = plot_workprec_pert(1e3)
-```
-```@example bench
-pk4 = plot_workprec_pert(1e4)
+p
 ```
 
 ## Perturbations: time per mode
@@ -160,7 +153,7 @@ plot(
 
 ```@example bench
 ks = [1e0, 1e1, 1e2, 1e3]
-p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
+p = plot(xlabel = "τ", ylabel = "Δτ", layout = (2, 2), size = (800, 800))
 for (i, k) in enumerate(ks)
     for ptalg in ptalgs
         ptprob = ptprobf(k)
@@ -170,6 +163,7 @@ for (i, k) in enumerate(ks)
         τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
         plot!(p, τs, Δτs; marker = :auto, markerstrokewidth = 0, markersize = 2, label = SymBoltz.algname(ptalg), title = "k = $k H₀/c", subplot = i)
     end
+    plot!(p; legend_position = i == 3 ? :topleft : false, subplot = i)
 end
 p
 ```
