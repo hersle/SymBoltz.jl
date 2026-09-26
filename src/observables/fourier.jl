@@ -53,7 +53,7 @@ end
 
 Compute the matter power spectrum
 ```math
-P(k,τ) = P₀(k) |Δ(k,τ)|²
+P(τ,k) = P₀(k) |Δ(τ,k)|²
 ```
 of the total gauge-invariant overdensity
 ```math

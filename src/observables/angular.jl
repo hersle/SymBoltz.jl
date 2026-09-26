@@ -2,8 +2,6 @@ using Bessels: besselj!, sphericalbesselj
 using DataInterpolations
 using MatterPower
 using ForwardDiff
-using ForwardDiffChainRules
-import ChainRulesCore
 
 struct SphericalBesselCache{Tl, Tdy <: Union{Matrix{Float64}, Nothing}}
     l::Tl
@@ -17,7 +15,8 @@ end
 function SphericalBesselCache(ls; xmax = 20*maximum(ls), dx = 2π/15, hermite = true)
     xmin = 0.0
     xs = range(xmin, xmax, length = trunc(Int, (xmax - xmin) / dx)) # fixed length (so endpoints are exact) that gives step as close to dx as possible
-    invdx = 1.0 / step(xs) # using the resulting step, which need not be exactly dx
+    dx = step(xs) # the resulting step, which need not be exactly the requested dx
+    invdx = 1.0 / dx
     xs = collect([xs; xs[end]]) # pad with 1 extra duplicate point to avoid bounds check during interpolation
     ys  = jl.(ls, xs') # contiguous in l
     dys = hermite ? jl′.(ls, xs') : nothing
@@ -44,6 +43,35 @@ end
     dy₋ = jl.dy[il, i+1]
     dy₊ = jl.dy[il, i+2]
     return (1+2w)*wm1*wm1 * y₋ + w*w*(3-2w) * y₊ + w*wm1 * (wm1 * dy₋ + w * dy₊) * jl.dx # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+end
+
+# jₗ″ from the spherical Bessel equation x² jₗ″ + 2x jₗ′ + (x² - l(l+1)) jₗ = 0
+@inline @fastmath function jl″(l, x, y, dy)
+    x == 0 && return l == 0 ? -1/3 : l == 1 ? 0.0 : l == 2 ? 2/15 : 0.0
+    invx = 1/x
+    return -2dy*invx - (1 - l*(l+1)*invx^2) * y
+end
+
+# Hermite interpolation of the cached jₗ′ using jₗ″ at the nodes; more accurate than differentiating the jₗ interpolant
+@inline Base.@propagate_inbounds @fastmath function jl′(jl::SphericalBesselCache{Tl, Matrix{Float64}}, il::Int, x) where {Tl}
+    w = x * jl.invdx
+    i = trunc(Int, w)
+    w = w - i
+    wm1 = w - 1.0
+    l = jl.l[il]
+    y₋  = jl.y[il, i+1]
+    y₊  = jl.y[il, i+2]
+    dy₋ = jl.dy[il, i+1]
+    dy₊ = jl.dy[il, i+2]
+    ddy₋ = jl″(l, jl.x[i+1], y₋, dy₋)
+    ddy₊ = jl″(l, jl.x[i+2], y₊, dy₊)
+    return (1+2w)*wm1*wm1 * dy₋ + w*w*(3-2w) * dy₊ + w*wm1 * (wm1 * ddy₋ + w * ddy₊) * jl.dx
+end
+
+# Propagate the interpolated derivative through ForwardDiff Duals
+@inline Base.@propagate_inbounds function (jl::SphericalBesselCache{Tl, Matrix{Float64}})(il::Int, x::ForwardDiff.Dual{T}) where {Tl, T}
+    x₀ = ForwardDiff.value(x)
+    return ForwardDiff.Dual{T}(jl(il, x₀), jl′(jl, il, x₀) * ForwardDiff.partials(x))
 end
 
 function Base.show(io::IO, jl::SphericalBesselCache{Tl, Tdy}) where {Tl, Tdy}
@@ -78,10 +106,6 @@ function jl′(l, ls::AbstractRange, Jls)
     return l/(2l+1)*Jls[i-1] - (l+1)/(2l+1)*Jls[i+1] # analytical result (see e.g. https://arxiv.org/pdf/astro-ph/9702170 eq. (13)-(15))
 end
 
-# Overload chain rule for spherical Bessel function
-ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * Δx # (value, derivative)
-@ForwardDiff_frule jl(l::Integer, x::ForwardDiff.Dual) # define dispatch
-
 # TODO: line-of-sight integrate Θl using ODE for evolution of Jl?
 # TODO: spline sphericalbesselj for each l, from x=0 to x=kmax*(τ0-τini)
 # TODO: integrate with ApproxFun? see e.g. https://discourse.julialang.org/t/evaluate-integral-on-many-points-cubature-jl/1723/2
@@ -95,7 +119,7 @@ ChainRulesCore.frule((_, _, Δx), ::typeof(jl), l, x) = jl(l, x), jl′(l, x) * 
 
 For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
-Iₗ(k) = ∫dτ S(k,τ) jₗ(k(τ₀-τ))
+Iₗ(k) = ∫dτ S(τ,k) jₗ(k(τ₀-τ))
 ```
 over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`.
 The element `Ss[i,j]` holds the source function value ``S(τᵢ, kⱼ)``.
@@ -190,7 +214,7 @@ end
 
 Compute the angular power spectrum
 ```math
-Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(k,τ₀) Θₗᴮ(k,τ₀)
+Cₗᴬᴮ = (2/π) ∫\mathrm{d}k \, k² P₀(k) Θₗᴬ(τ₀,k) Θₗᴮ(τ₀,k)
 ```
 for the given `ls`.
 If `normalization == :Dl`, compute ``Dₗ = Cₗ l (l+1) / 2π`` instead.
@@ -275,9 +299,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     ti, t0 = ts[begin], ts[end]
     if xs isa AbstractArray
         # explicit fractional grid x = (τ-τᵢ)/(τ₀-τᵢ) ∈ [0,1], mapped to the independent variable (e.g. τ or ln(a))
-        xs[begin] == 0 || error("xs begins with $(xs[begin]), but should begin with 0")
-        xs[end] == 1 || error("xs ends with $(xs[end]), but should end with 1")
-        ts = LinearInterpolation(ts, τbg)(τi .+ (τ0 - τi) .* xs)
+        ts = LinearInterpolation(ts, τbg; extrapolation = ExtrapolationType.Extension)(τi .+ (τ0 - τi) .* xs) # extrapolate to avoid out-of-bounds errors from slight rounding issues at x ≈ 0 and x ≈ 1
     elseif xs isa Int
         # interpolate xs points from background time grid, preserving its density structure
         ts = LinearInterpolation(ts, 1.0:length(ts))(range(1.0, length(ts), length = xs))
