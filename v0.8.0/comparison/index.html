@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Comparison to CLASS · SymBoltz</title><meta name="title" content="Comparison to CLASS · SymBoltz"/><meta property="og:title" content="Comparison to CLASS · SymBoltz"/><meta property="twitter:title" content="Comparison to CLASS · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li class="is-active"><a class="tocitem" href>Comparison to CLASS</a><ul class="internal"><li><a class="tocitem" href="#Background"><span>Background</span></a></li><li><a class="tocitem" href="#Thermodynamics"><span>Thermodynamics</span></a></li><li><a class="tocitem" href="#Perturbations"><span>Perturbations</span></a></li><li><a class="tocitem" href="#Matter-power-spectrum"><span>Matter power spectrum</span></a></li><li><a class="tocitem" href="#CMB-power-spectrum"><span>CMB power spectrum</span></a></li></ul></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Comparison to CLASS</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Comparison to CLASS</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/comparison.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Comparison-to-CLASS"><a class="docs-heading-anchor" href="#Comparison-to-CLASS">Comparison to CLASS</a><a id="Comparison-to-CLASS-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-to-CLASS" title="Permalink"></a></h1><p>This page compares results from SymBoltz and the fantastic Einstein-Boltzmann solver <a href="https://github.com/lesgourg/class_public/">CLASS</a> for the ΛCDM model.</p><details>
+<summary><h2 style="display: inline-block">Setup</h2></summary><pre><code class="language-julia hljs">using SymBoltz
+using CLASS
+using DelimitedFiles
+using DataInterpolations
+using Unitful, UnitfulAstro
+using CairoMakie
+
+lmax = 6
+reionization = true
+Hswitch = 1
+Heswitch = 6
+M = w0waCDM(; lmax, reionization, Hswitch, Heswitch)
+pars = merge(parameters_Planck18(M), Dict(
+    M.X.w0 =&gt; -0.9,
+    M.X.wa =&gt; 0.1,
+    M.X.cₛ² =&gt; 0.9
+))
+h = pars[M.g.h] # needed later
+prob = CosmologyProblem(M, pars)
+
+function solve_class(pars, k = nothing)
+    prob = CLASSProblem(
+        &quot;write_background&quot; =&gt; &quot;yes&quot;,
+        &quot;write_thermodynamics&quot; =&gt; &quot;yes&quot;,
+        &quot;background_verbose&quot; =&gt; 2,
+        &quot;output&quot; =&gt; &quot;mPk, tCl, pCl&quot;, # need one to evolve perturbations
+
+        &quot;k_output_values&quot; =&gt; isnothing(k) ? &quot;&quot; : NoUnits(k / u&quot;1/Mpc&quot;),
+        &quot;ic&quot; =&gt; &quot;ad&quot;,
+        &quot;modes&quot; =&gt; &quot;s&quot;,
+        &quot;gauge&quot; =&gt; &quot;newtonian&quot;,
+
+        # metric
+        &quot;h&quot; =&gt; pars[M.g.h],
+
+        # photons
+        &quot;T_cmb&quot; =&gt; pars[M.γ.T₀],
+        &quot;l_max_g&quot; =&gt; lmax,
+        &quot;l_max_pol_g&quot; =&gt; lmax,
+
+        # baryons
+        &quot;Omega_b&quot; =&gt; pars[M.b.Ω₀],
+        &quot;YHe&quot; =&gt; pars[M.b.YHe],
+        &quot;recombination&quot; =&gt; &quot;recfast&quot;, # TODO: HyREC
+        &quot;recfast_Hswitch&quot; =&gt; Hswitch,
+        &quot;recfast_Heswitch&quot; =&gt; Heswitch,
+        &quot;reio_parametrization&quot; =&gt; reionization ? &quot;reio_camb&quot; : &quot;reio_none&quot;,
+
+        # cold dark matter
+        &quot;Omega_cdm&quot; =&gt; pars[M.c.Ω₀],
+
+        # neutrinos
+        &quot;N_ur&quot; =&gt; SymBoltz.have(M, :ν) ? pars[M.ν.Neff] : 0.0,
+        &quot;N_ncdm&quot; =&gt; SymBoltz.have(M, :h) ? 1 : 0,
+        &quot;deg_ncdm&quot; =&gt; SymBoltz.have(M, :h) ? pars[M.h.N] : 0,
+        &quot;m_ncdm&quot; =&gt; SymBoltz.have(M, :h) ? pars[M.h.m_eV] : 0.0, # in eV/c^2
+        &quot;T_ncdm&quot; =&gt; SymBoltz.have(M, :h) ? (4/11)^(1/3) : 0.0,
+        &quot;l_max_ur&quot; =&gt; lmax,
+        &quot;l_max_ncdm&quot; =&gt; lmax,
+
+        # primordial power spectrum
+        &quot;ln_A_s_1e10&quot; =&gt; pars[M.I.ln_As1e10],
+        &quot;n_s&quot; =&gt; pars[M.I.ns],
+
+        # w0wa dark energy
+        &quot;Omega_Lambda&quot; =&gt; 0.0, # unspecified
+        &quot;w0_fld&quot; =&gt; SymBoltz.have(M, :X) ? pars[M.X.w0] : -1.0,
+        &quot;wa_fld&quot; =&gt; SymBoltz.have(M, :X) ? pars[M.X.wa] : 0.0,
+        &quot;cs2_fld&quot; =&gt; SymBoltz.have(M, :X) ? pars[M.X.cₛ²] : 1.0,
+        &quot;use_ppf&quot; =&gt; SymBoltz.have(M, :X) ? &quot;no&quot; : &quot;yes&quot;, # use full equations (must be yes with CC to prevent crash)
+
+        # other stuff
+        &quot;Omega_k&quot; =&gt; SymBoltz.have(M, :K) ? pars[M.K.Ω₀] : 0.0, # curvature
+        &quot;Omega_scf&quot; =&gt; 0.0,
+        &quot;Omega_dcdmdr&quot; =&gt; 0.0,
+
+        # approximations (see include/precisions.h)
+        &quot;tight_coupling_trigger_tau_c_over_tau_h&quot; =&gt; 1e-2, # cannot turn off?
+        &quot;tight_coupling_trigger_tau_c_over_tau_k&quot; =&gt; 1e-3, # cannot turn off
+        &quot;radiation_streaming_approximation&quot; =&gt; 3, # turns off RSA
+        &quot;ur_fluid_approximation&quot; =&gt; 3, # turns off UFA
+        &quot;ncdm_fluid_approximation&quot; =&gt; 3, # turns off NCDM fluid approximation
+
+        #&quot;l_max_scalars&quot; =&gt; 1500,
+        #&quot;temperature_contributions&quot; =&gt; &quot;pol&quot;,
+    )
+    return solve(prob)
+end
+
+k = 1e1 / u&quot;Mpc&quot; # 1/Mpc
+sol1 = solve_class(pars, k)
+sol2 = solve(prob, k; ptopts = (alg = SymBoltz.Rodas4P(),)) # looks like lower-precision KenCarp4 and Kvaerno5 &quot;emulate&quot; radiation streaming, while higher-precision Rodas5P continues in an exact way
+
+function plot_compare(x1s, x2s, y1s, y2s, xlabel, ylabels; lgx=false, lgy=false, common=false, errtype=:auto, errlim=NaN, tol = nothing, kwargs...)
+    if !(ylabels isa AbstractArray)
+        y1s = [y1s]
+        y2s = [y2s]
+        ylabels = [ylabels]
+    end
+
+    xplot(x) = lgx ? log10.(abs.(x)) : x
+    yplot(y) = lgy ? log10.(abs.(y)) : y
+    xlab(x) = lgx ? &quot;lg(|$x|)&quot; : x
+    ylab(y) = lgy ? &quot;lg(|$y|)&quot; : y
+
+    fig = Figure(width = 800, height = 600)
+    ax1 = Axis(fig[2:3, 1]; xticklabelsvisible = false)
+    ax2 = Axis(fig[4, 1]; xlabel = xlab(xlabel), yminorticks = IntervalsBetween(10), yminorgridvisible = true)
+    maxerr = 0.0
+    xlims = (NaN, NaN)
+    linewidth = 2
+    lines!(ax1, [NaN]; color = :black, linewidth, linestyle = :solid, label = &quot;CLASS&quot;) # dummy for legend entry
+    lines!(ax1, [NaN]; color = :black, linewidth, linestyle = :dash, label = &quot;SymBoltz&quot;) # dummy for legend entry
+    for (i, (y1, y2, ylabel)) in enumerate(zip(y1s, y2s, ylabels))
+        x1, x2 = x1s, x2s
+        x1min, x1max = extrema(x1)
+        x2min, x2max = extrema(x2)
+
+        plotx1 = xplot(x1) # https://discourse.julialang.org/t/makie-axis-limits-with-inf/85784
+        plotx2 = xplot(x2)
+        ploty1 = replace!(yplot(y1), -Inf =&gt; NaN, Inf =&gt; NaN)
+        ploty2 = replace!(yplot(y2), -Inf =&gt; NaN, Inf =&gt; NaN)
+        color = Makie.wong_colors()[i]
+        lines!(ax1, plotx1, ploty1; color, alpha = 0.6, linewidth, linestyle = :solid)
+        lines!(ax1, plotx2, ploty2; color, alpha = 0.6, linewidth, linestyle = :dash)
+        lines!(ax1, [NaN]; color, linewidth, label = ylab(ylabel)) # dummy for legend entry
+
+        if i == 1
+            xlims = (x1min, x1max) # initialize so not NaN
+        end
+        xlims = if common
+            (max(xlims[1], x1min, x2min), min(xlims[2], x1max, x2max))
+        else
+            (min(xlims[1], x1min, x2min), max(xlims[2], x1max, x2max))
+        end
+
+        xmin = max(x1min, x2min) # need common times to compare error
+        xmax = min(x1max, x2max) # need common times to compare error
+        i1s = xmin .≤ x1 .≤ xmax # select x values in common range and exclude points too close in time (probably due to CLASS switching between approximation schemes)
+        i2s = xmin .≤ x2 .≤ xmax # select x values in common range
+        x1 = x1[i1s]
+        x2 = x2[i2s]
+        y1 = y1[i1s]
+        y2 = y2[i2s]
+        x = x2 # compare ratios at SymBoltz&#39; times
+        y1 = LinearInterpolation(y1, x1; extrapolation = ExtrapolationType.Linear).(x) # TODO: use built-in CosmoloySolution interpolation
+        y2 = LinearInterpolation(y2, x2; extrapolation = ExtrapolationType.Linear).(x)
+
+        !isnothing(tol) &amp;&amp; @assert all(isapprox.(y1, y2; atol = tol)) &quot;$ylabel does not match within absolute tolerance $tol. Maximum difference was $(maximum(abs.(y1.-y2))).&quot;
+
+        # Compare absolute error if quantity crosses zero, otherwise relative error (unless overridden)
+        abserr = (errtype == :abs) || (errtype == :auto &amp;&amp; (any(y1 .&lt;= 0) || any(y2 .&lt;= 0)))
+        if abserr
+            err = y2 .- y1
+            ylabel = &quot;SymBoltz - CLASS&quot;
+        else
+            err = y2 ./ y1 .- 1
+            ylabel = &quot;SymBoltz / CLASS - 1&quot;
+        end
+        ax2.ylabel = ylabel
+        maxerr = max(maxerr, maximum(abs.(err)))
+        lines!(ax2, xplot(x), err; color, alpha = 1.0, linewidth)
+    end
+
+    # write maximum error like a * 10^b (for integer a and b)
+    if isnan(errlim)
+        b = floor(log10(maxerr))
+        a = ceil(maxerr / 10^b)
+        errlim = a * 10^b
+    end
+    Makie.ylims!(ax2, (-errlim, +errlim))
+
+    xlims = xplot.(xlims) # transform to log?
+    Makie.xlims!(ax1, xlims)
+    Makie.xlims!(ax2, xlims)
+
+    #axislegend(ax1)
+    fig[1, 1] = Legend(fig, ax1; padding = (0, 0, 0, 0), margin = (0, 0, 0, 0), framevisible = false, orientation = :horizontal)
+
+    return fig
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Running CLASS version v3.3.2
+Computing background
+ -&gt; non-cold dark matter species with i=1 has m_i = 2.000000e-02 eV (so m_i / omega_i =9.402132e+01 eV)
+ -&gt; ncdm species i=1 sampled with 11 (resp. 11) points for purpose of background (resp. perturbation) integration. In the relativistic limit it gives Delta N_eff = 2.99999
+Chose ndf15 as generic_evolver
+ -&gt; age = 13.524395 Gyr
+ -&gt; conformal age = 13935.732025 Mpc
+ -&gt; N_eff = 5.98999 (summed over all species that are non-relativistic at early times)
+ -&gt; radiation/matter equality at z = 2438.912360
+    corresponding to conformal time = 133.231839 Mpc
+ ---------------------------- Budget equation -----------------------
+ ---&gt; Nonrelativistic Species
+-&gt; Bayrons                        Omega = 0.0493678       , omega = 0.0224
+-&gt; Cold Dark Matter               Omega = 0.26447         , omega = 0.12
+ ---&gt; Non-Cold Dark Matter Species (incl. massive neutrinos)
+-&gt; Non-Cold Species Nr.      1    Omega = 0.00140644      , omega = 0.000638153
+ ---&gt; Relativistic Species
+-&gt; Photons                        Omega = 5.45025e-05     , omega = 2.47298e-05
+-&gt; Ultra-relativistic relics      Omega = 3.701e-05       , omega = 1.67928e-05
+ ---&gt; Other Content
+-&gt; Dark Energy Fluid              Omega = 0.684664        , omega = 0.310657
+ ---&gt; Total budgets
+ Radiation                        Omega = 9.15124e-05     , omega = 4.15226e-05
+ Non-relativistic                 Omega = 0.315245        , omega = 0.143038
+ - Non-Free-Streaming Matter      Omega = 0.313838        , omega = 0.1424
+ - Non-Cold Dark Matter           Omega = 0.00140644      , omega = 0.000638153
+ Other Content                    Omega = 0.684664        , omega = 0.310657
+ TOTAL                            Omega = 1               , omega = 0.453737
+ --------------------------------------------------------------------
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Multi-threading over perturbation modes was requested, but BLAS is running with 2 threads.
+<span class="sgr33"><span class="sgr1">│ </span></span>It is recommended to restrict BLAS to one thread with `using LinearAlgebra: BLAS; BLAS.set_num_threads(1)`.
+<span class="sgr33"><span class="sgr1">│ </span></span>For more information, see https://docs.julialang.org/en/v1/manual/performance-tips/#man-multithreading-linear-algebra.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ SymBoltz ~/work/SymBoltz.jl/SymBoltz.jl/src/solve.jl:406</span></code></pre></details><h2 id="Background"><a class="docs-heading-anchor" href="#Background">Background</a><a id="Background-1"></a><a class="docs-heading-anchor-permalink" href="#Background" title="Permalink"></a></h2><h3 id="Conformal-time"><a class="docs-heading-anchor" href="#Conformal-time">Conformal time</a><a id="Conformal-time-1"></a><a class="docs-heading-anchor-permalink" href="#Conformal-time" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = (1 ./ (sol1[&quot;background&quot;][:,&quot;z&quot;] .+ 1))
+a2 = sol2[M.g.a]
+τ1 = sol1[&quot;background&quot;][:,&quot;conf. time [Mpc]&quot;]
+τ2 = sol2[M.τ] / (h*SymBoltz.k0)
+plot_compare(a1, a2, τ1, τ2, &quot;a&quot;, &quot;τ&quot;; tol = 5e-3)</code></pre><img src="e2bd9948.png" alt="Example block output"/><h3 id="Hubble-function"><a class="docs-heading-anchor" href="#Hubble-function">Hubble function</a><a id="Hubble-function-1"></a><a class="docs-heading-anchor-permalink" href="#Hubble-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">E1 = sol1[&quot;background&quot;][:,&quot;H [1/Mpc]&quot;]./sol1[&quot;background&quot;][end,&quot;H [1/Mpc]&quot;]
+E2 = sol2[M.g.H]
+plot_compare(a1, a2, E1, E2, &quot;a&quot;, &quot;E&quot;; lgx=true, lgy=true, tol = 3e8)</code></pre><img src="693fdb70.png" alt="Example block output"/><h3 id="Energy-densities"><a class="docs-heading-anchor" href="#Energy-densities">Energy densities</a><a id="Energy-densities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-densities" title="Permalink"></a></h3><pre><code class="language-julia hljs">ρ1 = map(s -&gt; sol1[&quot;background&quot;][:,&quot;(.)rho_$s&quot;], [&quot;g&quot;, &quot;ur&quot;, &quot;cdm&quot;, &quot;b&quot;, &quot;fld&quot;, &quot;ncdm[0]&quot;])
+ρ2 = map(s -&gt; sol2[s.ρ] * 8π/3*(h*SymBoltz.k0)^2, [M.γ, M.ν, M.c, M.b, M.X, M.h])
+plot_compare(a1, a2, ρ1, ρ2, &quot;a&quot;, [&quot;ργ&quot;, &quot;ρb&quot;, &quot;ρc&quot;, &quot;ρX&quot;, &quot;ρν&quot;, &quot;ρh&quot;]; lgx=true, lgy=true, tol = 3e15)</code></pre><img src="10c818a4.png" alt="Example block output"/><h3 id="Equations-of-state"><a class="docs-heading-anchor" href="#Equations-of-state">Equations of state</a><a id="Equations-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Equations-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs">wh1 = sol1[&quot;background&quot;][:,&quot;(.)p_ncdm[0]&quot;] ./ sol1[&quot;background&quot;][:,&quot;(.)rho_ncdm[0]&quot;]
+wh2 = sol2[M.h.w]
+wX1 = sol1[&quot;background&quot;][:,&quot;(.)w_fld&quot;]
+wX2 = sol2[M.X.w]
+plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], &quot;a&quot;, [&quot;wh&quot;, &quot;wX&quot;]; lgx=true, tol = 3e-4)</code></pre><img src="012a8f2d.png" alt="Example block output"/><h3 id="Photon-baryon-sound-horizon"><a class="docs-heading-anchor" href="#Photon-baryon-sound-horizon">Photon-baryon sound horizon</a><a id="Photon-baryon-sound-horizon-1"></a><a class="docs-heading-anchor-permalink" href="#Photon-baryon-sound-horizon" title="Permalink"></a></h3><pre><code class="language-julia hljs">rs1 = sol1[&quot;background&quot;][:,&quot;comov.snd.hrz.&quot;]
+rs2 = sound_horizon(sol2) ./ (h*SymBoltz.k0)
+plot_compare(a1, a2, rs1, rs2, &quot;a&quot;, &quot;rₛ&quot;; lgx = true, tol = 2e-2)</code></pre><img src="e7b70775.png" alt="Example block output"/><h3 id="Luminosity-distance"><a class="docs-heading-anchor" href="#Luminosity-distance">Luminosity distance</a><a id="Luminosity-distance-1"></a><a class="docs-heading-anchor-permalink" href="#Luminosity-distance" title="Permalink"></a></h3><pre><code class="language-julia hljs">dL1 = sol1[&quot;background&quot;][:,&quot;lum. dist.&quot;]
+dL2 = SymBoltz.distance_luminosity(sol2) / SymBoltz.Mpc
+plot_compare(a1, a2, dL1, dL2, &quot;a&quot;, &quot;dL&quot;; lgx=true, lgy=true, tol = 2e6)</code></pre><img src="8bf946ff.png" alt="Example block output"/><h2 id="Thermodynamics"><a class="docs-heading-anchor" href="#Thermodynamics">Thermodynamics</a><a id="Thermodynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Thermodynamics" title="Permalink"></a></h2><h3 id="Optical-depth-derivative"><a class="docs-heading-anchor" href="#Optical-depth-derivative">Optical depth derivative</a><a id="Optical-depth-derivative-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-derivative" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;scale factor a&quot;])
+a2 = sol2[M.g.a]
+dκ1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;kappa&#39; [Mpc^-1]&quot;])
+dκ2 = -sol2[M.b.κ̇] * (h*SymBoltz.k0)
+plot_compare(a1, a2, dκ1, dκ2, &quot;a&quot;, &quot;κ̇&quot;; lgx=true, lgy=true, tol = 2e3)</code></pre><img src="340d3d7a.png" alt="Example block output"/><h3 id="Optical-depth-exponential"><a class="docs-heading-anchor" href="#Optical-depth-exponential">Optical depth exponential</a><a id="Optical-depth-exponential-1"></a><a class="docs-heading-anchor-permalink" href="#Optical-depth-exponential" title="Permalink"></a></h3><pre><code class="language-julia hljs">expmκ1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;exp(-kappa)&quot;])
+expmκ2 = sol2[M.b.I]
+plot_compare(a1, a2, expmκ1, expmκ2, &quot;a&quot;, &quot;exp(-κ)&quot;; lgx=true, tol = 4e-5)</code></pre><img src="4b26752a.png" alt="Example block output"/><h3 id="Visibility-function"><a class="docs-heading-anchor" href="#Visibility-function">Visibility function</a><a id="Visibility-function-1"></a><a class="docs-heading-anchor-permalink" href="#Visibility-function" title="Permalink"></a></h3><pre><code class="language-julia hljs">v1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;g [Mpc^-1]&quot;])
+v2 = sol2[M.b.v] * (h*SymBoltz.k0)
+plot_compare(a1, a2, v1, v2, &quot;a&quot;, &quot;v&quot;; lgx=true, lgy=false, tol = 2e-6)</code></pre><img src="1f21eeda.png" alt="Example block output"/><h3 id="Free-electron-fraction"><a class="docs-heading-anchor" href="#Free-electron-fraction">Free electron fraction</a><a id="Free-electron-fraction-1"></a><a class="docs-heading-anchor-permalink" href="#Free-electron-fraction" title="Permalink"></a></h3><pre><code class="language-julia hljs">Xe1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;x_e&quot;])
+Xe2 = sol2[M.b.Xe]
+plot_compare(a1, a2, Xe1, Xe2, &quot;a&quot;, &quot;Xe&quot;; lgx=true, lgy=false, tol = 5e-4)</code></pre><img src="4dd8de28.png" alt="Example block output"/><h3 id="Baryon-temperature"><a class="docs-heading-anchor" href="#Baryon-temperature">Baryon temperature</a><a id="Baryon-temperature-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-temperature" title="Permalink"></a></h3><pre><code class="language-julia hljs">Tb1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;Tb [K]&quot;])
+Tb2 = sol2[M.b.T]
+dTb1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;dTb [K]&quot;])
+dTb2 = sol2[M.b.DT] ./ -sol2[M.g.H] # convert my dT/dt̂ to CLASS&#39; dT/dz = -1/H * dT/dt
+plot_compare(a1, a2, [Tb1, dTb1], [Tb2, dTb2], &quot;a&quot;, [&quot;Tb&quot;, &quot;dTb&quot;]; lgx=true, lgy=true, tol = 6e0)</code></pre><img src="5c2700fc.png" alt="Example block output"/><h3 id="Baryon-equation-of-state"><a class="docs-heading-anchor" href="#Baryon-equation-of-state">Baryon equation of state</a><a id="Baryon-equation-of-state-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-equation-of-state" title="Permalink"></a></h3><pre><code class="language-julia hljs"># baryon equation of state parameter (e.g. https://arxiv.org/pdf/1906.06831 eq. (B10))
+wb1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;w_b&quot;])
+wb2 = sol2[SymBoltz.kB*M.b.T/M.b.μc²]
+plot_compare(a1, a2, wb1, wb2, &quot;a&quot;, &quot;wb&quot;; lgx=true, lgy=true, tol = 3e-10)</code></pre><img src="ddeb4888.png" alt="Example block output"/><h3 id="Baryon-sound-speed"><a class="docs-heading-anchor" href="#Baryon-sound-speed">Baryon sound speed</a><a id="Baryon-sound-speed-1"></a><a class="docs-heading-anchor-permalink" href="#Baryon-sound-speed" title="Permalink"></a></h3><pre><code class="language-julia hljs">csb²1 = reverse(sol1[&quot;thermodynamics&quot;][:,&quot;c_b^2&quot;])
+csb²2 = sol2[M.b.cₛ²]
+plot_compare(a1, a2, csb²1, csb²2, &quot;a&quot;, &quot;csb²&quot;; lgx=true, lgy=true, tol = 4e-10)</code></pre><img src="5dd300ea.png" alt="Example block output"/><h2 id="Perturbations"><a class="docs-heading-anchor" href="#Perturbations">Perturbations</a><a id="Perturbations-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations" title="Permalink"></a></h2><h3 id="Metric-potentials"><a class="docs-heading-anchor" href="#Metric-potentials">Metric potentials</a><a id="Metric-potentials-1"></a><a class="docs-heading-anchor-permalink" href="#Metric-potentials" title="Permalink"></a></h3><pre><code class="language-julia hljs">a1 = sol1[&quot;perturbations_k0_s&quot;][:,&quot;a&quot;]
+a2 = sol2[1, M.g.a]
+Φ1, Ψ1 = sol1[&quot;perturbations_k0_s&quot;][:,&quot;phi&quot;], sol1[&quot;perturbations_k0_s&quot;][:,&quot;psi&quot;]
+Φ2, Ψ2 = sol2[1, M.g.Φ], sol2[1, M.g.Ψ]
+plot_compare(a1, a2, [Φ1, Ψ1], [Φ2, Ψ2], &quot;a&quot;, [&quot;Ψ&quot;, &quot;Φ&quot;]; lgx=true, tol = 2e-4)</code></pre><img src="ef75e8e3.png" alt="Example block output"/><h3 id="Energy-overdensities"><a class="docs-heading-anchor" href="#Energy-overdensities">Energy overdensities</a><a id="Energy-overdensities-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-overdensities" title="Permalink"></a></h3><pre><code class="language-julia hljs">δ1 = map(s -&gt; sol1[&quot;perturbations_k0_s&quot;][:,&quot;delta_$s&quot;], [&quot;b&quot;, &quot;cdm&quot;, &quot;g&quot;, &quot;ur&quot;, &quot;ncdm[0]&quot;])
+δ2 = map(s -&gt; sol2[1, s.δ], [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, δ1, δ2, &quot;a&quot;, [&quot;δb&quot;, &quot;δc&quot;, &quot;δγ&quot;, &quot;δν&quot;, &quot;δh&quot;]; lgx=true, lgy=true, tol = 3e2)</code></pre><img src="dc684819.png" alt="Example block output"/><h3 id="Momenta"><a class="docs-heading-anchor" href="#Momenta">Momenta</a><a id="Momenta-1"></a><a class="docs-heading-anchor-permalink" href="#Momenta" title="Permalink"></a></h3><pre><code class="language-julia hljs">θ1 = map(s -&gt; sol1[&quot;perturbations_k0_s&quot;][:,&quot;theta_$s&quot;], [&quot;b&quot;, &quot;cdm&quot;, &quot;g&quot;, &quot;ur&quot;, &quot;ncdm[0]&quot;])
+θ2 = map(s -&gt; sol2[1, s.θ] * (h*SymBoltz.k0), [M.b, M.c, M.γ, M.ν, M.h])
+plot_compare(a1, a2, θ1, θ2, &quot;a&quot;, [&quot;θb&quot;, &quot;θc&quot;, &quot;θγ&quot;, &quot;θν&quot;, &quot;θh&quot;]; lgx=true, lgy=true, tol = 3e-2)</code></pre><img src="00e3864f.png" alt="Example block output"/><h3 id="Dark-energy-overdensity"><a class="docs-heading-anchor" href="#Dark-energy-overdensity">Dark energy overdensity</a><a id="Dark-energy-overdensity-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-overdensity" title="Permalink"></a></h3><pre><code class="language-julia hljs">δρX1 = sol1[&quot;perturbations_k0_s&quot;][:,&quot;delta_rho_fld&quot;]
+δρX2 = sol2[1, M.X.δ*M.X.ρ] * 8π/3*(h*SymBoltz.k0)^2
+plot_compare(a1, a2, δρX1, δρX2, &quot;a&quot;, &quot;δρX&quot;; lgx=true, lgy=true, tol = 2e-7)</code></pre><img src="e94f15da.png" alt="Example block output"/><h3 id="Dark-energy-momentum"><a class="docs-heading-anchor" href="#Dark-energy-momentum">Dark energy momentum</a><a id="Dark-energy-momentum-1"></a><a class="docs-heading-anchor-permalink" href="#Dark-energy-momentum" title="Permalink"></a></h3><pre><code class="language-julia hljs">pX1 = sol1[&quot;perturbations_k0_s&quot;][:,&quot;rho_plus_p_theta_fld&quot;]
+pX2 = sol2[1, (M.X.ρ+M.X.P)*M.X.θ * 8π/3*(h*SymBoltz.k0)^3]
+plot_compare(a1, a2, pX1, pX2, &quot;a&quot;, &quot;pX&quot;; lgx=true, lgy=true, tol = 7e-8)</code></pre><img src="bcfd4b3f.png" alt="Example block output"/><h3 id="Shear-stresses"><a class="docs-heading-anchor" href="#Shear-stresses">Shear stresses</a><a id="Shear-stresses-1"></a><a class="docs-heading-anchor-permalink" href="#Shear-stresses" title="Permalink"></a></h3><pre><code class="language-julia hljs">σ1 = [sol1[&quot;perturbations_k0_s&quot;][:,&quot;shear_g&quot;], sol1[&quot;perturbations_k0_s&quot;][:,&quot;shear_ur&quot;]]
+σ2 = [sol2[1, M.γ.σ], sol2[1, M.ν.F[2]/2]]
+plot_compare(a1, a2, σ1, σ2, &quot;a&quot;, [&quot;σγ&quot;, &quot;σν&quot;]; lgx=true, tol = 5e-4)</code></pre><img src="5e8edf08.png" alt="Example block output"/><h3 id="Polarization"><a class="docs-heading-anchor" href="#Polarization">Polarization</a><a id="Polarization-1"></a><a class="docs-heading-anchor-permalink" href="#Polarization" title="Permalink"></a></h3><pre><code class="language-julia hljs">P1 = map(n -&gt; sol1[&quot;perturbations_k0_s&quot;][:,&quot;pol$(n)_g&quot;], 0:2)
+P2 = [sol2[1, var] for var in [M.γ.G0, M.γ.G[1], M.γ.G[2]]]
+plot_compare(a1, a2, P1, P2, &quot;a&quot;, [&quot;P0&quot;, &quot;P1&quot;, &quot;P2&quot;]; lgx=true, tol = 5e-5)</code></pre><img src="bea05e82.png" alt="Example block output"/><h2 id="Matter-power-spectrum"><a class="docs-heading-anchor" href="#Matter-power-spectrum">Matter power spectrum</a><a id="Matter-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#Matter-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function P_class(pars)
+    sol = solve_class(pars)
+    h = pars[M.g.h]
+    k = sol[&quot;pk&quot;][:,&quot;k (h/Mpc)&quot;] * h
+    P = sol[&quot;pk&quot;][:,&quot;P (Mpc/h)^3&quot;] / h^3
+    return k, P
+end
+function P_class(k, pars)
+    k′, P′ = P_class(pars)
+    P = exp.(LinearInterpolation(log.(P′), log.(k′)).(log.(k)))
+    return P
+end
+function P_symboltz(k, pars)
+    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars))) # TODO: move outside; common for Pk and Cl
+    P = spectrum_matter(prob′, k / u&quot;Mpc&quot;) / u&quot;Mpc^3&quot;
+    return P
+end
+k, P1 = P_class(pars)
+P2 = P_symboltz(k, pars)
+plot_compare(k, k, P1, P2, &quot;k/Mpc⁻¹&quot;, &quot;P/Mpc³&quot;; lgx = true, lgy = true, tol = 7e0)</code></pre><img src="73fd0256.png" alt="Example block output"/><pre><code class="language-julia hljs">using ForwardDiff, FiniteDiff
+
+k = 10 .^ range(-3, 0, length=100) # 1/Mpc
+function plot_compare_P_diff(par, val; relstep = 1e-2, kwargs...)
+    out = zeros(length(k))
+    f = function(out, logval)
+        val = exp(logval)
+        out .= log.(P_class(k, merge(pars, Dict(par =&gt; val))))
+        return out
+    end
+    Δt1 = @elapsed ∂logP1_∂logθ = FiniteDiff.finite_difference_gradient!(out, f, log(val), Val{:central}; relstep)
+    println(&quot;Computed CLASS derivatives in $Δt1 seconds&quot;)
+    Δt2 = @elapsed ∂logP2_∂logθ = ForwardDiff.derivative(logval -&gt; log.(P_symboltz(k, Dict(par =&gt; exp(logval)))), log(val))
+    println(&quot;Computed SymBoltz derivatives in $Δt2 seconds&quot;)
+    return plot_compare(k, k, ∂logP1_∂logθ, ∂logP2_∂logθ, &quot;k&quot;, &quot;∂(log(P))/∂(log($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))))&quot;; lgx = true, kwargs...)
+end
+
+
+plot_compare_P_diff(M.c.Ω₀, pars[M.c.Ω₀]; relstep = 1e-3, tol = 4e-2) # smaller relstep is noisier</code></pre><img src="60b8dc7d.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_P_diff(M.b.Ω₀, pars[M.b.Ω₀]; relstep = 1e-3, tol = 2e-2) # smaller relstep is noisier</code></pre><img src="9786bdba.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare_P_diff(M.g.h, pars[M.g.h]; relstep = 1e-3, tol = 5e-2) # smaller relstep is noisier</code></pre><img src="b3170816.png" alt="Example block output"/><h2 id="CMB-power-spectrum"><a class="docs-heading-anchor" href="#CMB-power-spectrum">CMB power spectrum</a><a id="CMB-power-spectrum-1"></a><a class="docs-heading-anchor-permalink" href="#CMB-power-spectrum" title="Permalink"></a></h2><pre><code class="language-julia hljs">function Dl_class(modes, l, pars)
+    sol = solve_class(pars)
+    lout = sol[&quot;cl&quot;][:,&quot;l&quot;]
+    Dl = [sol[&quot;cl&quot;][:,string(mode)] for mode in modes]
+    i = findall(l′ -&gt; l′ in l, lout)
+    Dl = [Dl[j][i] for j in eachindex(modes)]
+    return stack(Dl)
+end
+function Dl_symboltz(modes, l, pars; kwargs...)
+    prob′ = parameter_updater(prob, collect(keys(pars)))(collect(values(pars)))
+    return spectrum_cmb(modes, prob′, l; normalization = :Dl, kwargs...)
+end
+
+l = 20:20:2000 # CLASS default is lmax = 2500
+Dl1 = Dl_class([:TT, :TE, :EE], l, pars)
+Dl2 = Dl_symboltz([:TT, :TE, :EE], l, pars)
+plot_compare(l, l, Dl1[:, 1], Dl2[:, 1], &quot;l&quot;, &quot;Dₗ(TT)&quot;; tol = 8e-13)</code></pre><img src="8b0817e6.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[:, 2], Dl2[:, 2], &quot;l&quot;, &quot;Dₗ(TE)&quot;; tol = 3e-14)</code></pre><img src="87b86c01.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, Dl1[:, 3], Dl2[:, 3], &quot;l&quot;, &quot;Dₗ(EE)&quot;; tol = 6e-15)</code></pre><img src="c0899294.png" alt="Example block output"/><pre><code class="language-julia hljs">diffpars = [M.c.Ω₀, M.b.Ω₀, M.g.h]
+θ = [pars[par] for par in diffpars]
+modes = [:TT, :TE, :EE]
+
+Δt1 = @elapsed ∂Dl1_∂θ = FiniteDiff.finite_difference_jacobian(θ -&gt; Dl_class(modes, l, merge(pars, Dict(diffpars .=&gt; θ))), θ, Val{:central}; relstep = 1e-3)
+println(&quot;Computed CLASS derivatives in $Δt1 seconds&quot;)
+Δt2 = @elapsed ∂Dl2_∂θ = ForwardDiff.jacobian(θ -&gt; Dl_symboltz(modes, l, Dict(diffpars .=&gt; θ)), θ)
+println(&quot;Computed SymBoltz derivatives in $Δt2 seconds&quot;)
+
+# returned matrices have size (length(l)*length(modes), length(diffpars)); reshape to (length(l), length(modes), length(diffpars))
+∂Dl1_∂θ_3d = reshape(∂Dl1_∂θ, (length(l), length(modes), length(diffpars)))
+∂Dl2_∂θ_3d = reshape(∂Dl2_∂θ, (length(l), length(modes), length(diffpars)))
+
+plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,1,:]), eachcol(∂Dl2_∂θ_3d[:,1,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (TT)&quot; for par in diffpars]; tol = 4e-11)</code></pre><img src="32eaea3c.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,2,:]), eachcol(∂Dl2_∂θ_3d[:,2,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (TE)&quot; for par in diffpars]; tol = 6e-12)</code></pre><img src="b81401a7.png" alt="Example block output"/><pre><code class="language-julia hljs">plot_compare(l, l, eachcol(∂Dl1_∂θ_3d[:,3,:]), eachcol(∂Dl2_∂θ_3d[:,3,:]), &quot;l&quot;, [&quot;∂(Dₗ)/∂($(replace(string(par), &quot;₊&quot; =&gt; &quot;.&quot;))) (EE)&quot; for par in diffpars]; tol = 1e-12)</code></pre><img src="e9a1f6ef.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../observables/">« Observable quantities</a><a class="docs-footer-nextpage" href="../benchmarks/">Performance and benchmarks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 23 September 2025 14:52">Tuesday 23 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

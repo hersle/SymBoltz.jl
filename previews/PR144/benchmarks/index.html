@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Performance and benchmarks · SymBoltz</title><meta name="title" content="Performance and benchmarks · SymBoltz"/><meta property="og:title" content="Performance and benchmarks · SymBoltz"/><meta property="twitter:title" content="Performance and benchmarks · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li><a class="tocitem" href="../models/">Cosmologies (full models)</a></li><li><a class="tocitem" href="../LCDM/">Minimal ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li class="is-active"><a class="tocitem" href>Performance and benchmarks</a><ul class="internal"><li><a class="tocitem" href="#Background:-precision-work-diagram"><span>Background: precision-work diagram</span></a></li><li><a class="tocitem" href="#Perturbations:-parallelization"><span>Perturbations: parallelization</span></a></li><li><a class="tocitem" href="#Perturbations:-precision-work-diagram"><span>Perturbations: precision-work diagram</span></a></li><li><a class="tocitem" href="#Perturbations:-time-per-mode"><span>Perturbations: time per mode</span></a></li><li><a class="tocitem" href="#Perturbations:-timesteps"><span>Perturbations: timesteps</span></a></li><li><a class="tocitem" href="#Perturbations:-Jacobian-method"><span>Perturbations: Jacobian method</span></a></li><li><a class="tocitem" href="#Perturbations:-linear-system-solver"><span>Perturbations: linear system solver</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Performance and benchmarks</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Performance and benchmarks</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/benchmarks.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Performance-and-benchmarks"><a class="docs-heading-anchor" href="#Performance-and-benchmarks">Performance and benchmarks</a><a id="Performance-and-benchmarks-1"></a><a class="docs-heading-anchor-permalink" href="#Performance-and-benchmarks" title="Permalink"></a></h1><p>Model setup:</p><pre><code class="language-julia hljs">using MKL, LinearSolve, PureUMFPACK
+using SymBoltz
+using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqBDF
+using Base.Threads, BenchmarkTools, Plots, BenchmarkPlots, StatsPlots
+
+M = ΛCDM()
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)</code></pre><details class="admonition is-details" id="Hardware-and-package-information-f571b844a214e362"><summary class="admonition-header">Hardware and package information<a class="admonition-anchor" href="#Hardware-and-package-information-f571b844a214e362" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">using Dates, InteractiveUtils, LinearAlgebra, Pkg, LibGit2
+println(&quot;Build time: &quot;, now(UTC), &quot; UTC\n&quot;)
+InteractiveUtils.versioninfo() # show computer information
+println()
+LinearAlgebra.versioninfo() # show BLAS backend and threads
+println()
+println(&quot;SymBoltz commit: &quot;, LibGit2.head(pkgdir(SymBoltz)), &quot;\n&quot;)
+Pkg.status(; mode = Pkg.PKGMODE_MANIFEST) # show all package versions</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Build time: 2026-09-26T11:37:57.025 UTC
+
+Julia Version 1.13.0
+Commit d1c37793dd2 (2026-09-09 19:00 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
+  GC: Built with stock GC
+Threads: 4 default, 1 interactive, 4 GC (on 4 virtual cores)
+Environment:
+  JULIA_DEBUG = Documenter
+
+BLAS: libblastrampoline.so.5 (f2c_capable, cblas_divergence, complex_retstyle)
+  --&gt; /home/runner/.julia/artifacts/27edf95310a71d47422663c3aea849f56efb1360/lib/libmkl_rt.so (ILP64)
+  --&gt; /home/runner/.julia/artifacts/27edf95310a71d47422663c3aea849f56efb1360/lib/libmkl_rt.so (LP64)
+Threading:
+  Threads.threadpoolsize() = 4
+  Threads.maxthreadid() = 8
+  LinearAlgebra.BLAS.get_num_threads() = 2
+Relevant environment variables:
+  [none]
+
+SymBoltz commit: dffab03677606e6aff26bcd8cd75a89d83075a2a
+
+<span class="sgr32"><span class="sgr1">Status</span></span> `~/work/SymBoltz.jl/SymBoltz.jl/docs/Manifest.toml`
+  <span class="sgr90">[47edcb42] </span>ADTypes v1.24.0
+  <span class="sgr90">[14f7f29c] </span>AMD v0.5.4
+  <span class="sgr90">[a4c015fc] </span>ANSIColoredPrinters v0.0.1
+  <span class="sgr90">[621f4979] </span>AbstractFFTs v1.5.0
+  <span class="sgr90">[80f14c24] </span>AbstractMCMC v5.17.0
+  <span class="sgr90">[7a57a42e] </span>AbstractPPL v0.15.5
+  <span class="sgr90">[6e696c72] </span>AbstractPlutoDingetjes v1.4.1
+  <span class="sgr90">[1520ce14] </span>AbstractTrees v0.4.5
+  <span class="sgr90">[7d9f7c33] </span>Accessors v0.1.45
+  <span class="sgr90">[79e6a3ab] </span>Adapt v4.7.1
+  <span class="sgr90">[35492f91] </span>AdaptivePredicates v1.2.0
+  <span class="sgr90">[0bf59076] </span>AdvancedHMC v0.8.7
+  <span class="sgr90">[5b7e9947] </span>AdvancedMH v0.8.10
+  <span class="sgr90">[b5ca4192] </span>AdvancedVI v0.7.0
+  <span class="sgr90">[66dad0bd] </span>AliasTables v1.1.3
+  <span class="sgr90">[27a7e980] </span>Animations v0.4.2
+  <span class="sgr90">[7e558dbc] </span>ArbNumerics v1.6.3
+  <span class="sgr90">[dce04be8] </span>ArgCheck v2.5.0
+  <span class="sgr90">[ec485272] </span>ArnoldiMethod v0.4.0
+  <span class="sgr90">[7d9fca2a] </span>Arpack v0.5.4
+  <span class="sgr90">[4fba245c] </span>ArrayInterface v7.30.2
+  <span class="sgr90">[4c555306] </span>ArrayLayouts v1.13.0
+  <span class="sgr90">[67c07d97] </span>Automa v1.2.0
+  <span class="sgr90">[13072b0f] </span>AxisAlgorithms v1.1.0
+  <span class="sgr90">[39de3d68] </span>AxisArrays v0.4.8
+  <span class="sgr90">[aae01518] </span>BandedMatrices v1.13.0
+  <span class="sgr90">[198e06fe] </span>BangBang v0.4.9
+  <span class="sgr90">[18cc8868] </span>BaseDirs v1.4.0
+  <span class="sgr90">[ab8c0f59] </span>BenchmarkPlots v0.1.0
+  <span class="sgr90">[6e4b80f9] </span>BenchmarkTools v1.8.0
+  <span class="sgr90">[0e736298] </span>Bessels v0.2.8
+  <span class="sgr90">[e2ed5e7c] </span>Bijections v0.2.2
+  <span class="sgr90">[76274a88] </span>Bijectors v0.16.3
+  <span class="sgr90">[b2a6c25c] </span>BinaryHeaps v1.1.0
+  <span class="sgr90">[caf10ac8] </span>BipartiteGraphs v0.1.14
+  <span class="sgr90">[62783981] </span>BitTwiddlingConvenienceFunctions v0.1.6
+  <span class="sgr90">[8e7c35d0] </span>BlockArrays v1.10.0
+  <span class="sgr90">[70df07ce] </span>BracketingNonlinearSolve v1.12.7
+  <span class="sgr90">[fa961155] </span>CEnum v0.5.0
+  <span class="sgr90">[a61081fd] </span>CLASS v0.3.0
+  <span class="sgr90">[2a0fbf3d] </span>CPUSummary v0.2.7
+  <span class="sgr90">[96374032] </span>CRlibm v1.0.2
+  <span class="sgr90">[336ed68f] </span>CSV v1.1.0
+  <span class="sgr90">[159f3aea] </span>Cairo v1.1.1
+  <span class="sgr90">[13f3f980] </span>CairoMakie v0.15.15
+  <span class="sgr90">[49dc2e85] </span>Calculus v0.5.2
+  <span class="sgr90">[d360d2e6] </span>ChainRulesCore v1.26.1
+  <span class="sgr90">[0ca39b1e] </span>Chairmarks v1.3.1
+  <span class="sgr90">[9e997f8a] </span>ChangesOfVariables v0.1.11
+  <span class="sgr90">[ae650224] </span>ChunkSplitters v3.2.0
+  <span class="sgr90">[fb6a15b2] </span>CloseOpenIntervals v0.1.13
+  <span class="sgr90">[aaaa29a8] </span>Clustering v0.15.8
+  <span class="sgr90">[944b1d66] </span>CodecZlib v0.7.9
+  <span class="sgr90">[6b39b394] </span>CodecZstd v0.8.7
+  <span class="sgr90">[a2cac450] </span>ColorBrewer v0.4.2
+  <span class="sgr90">[35d6a980] </span>ColorSchemes v3.31.0
+  <span class="sgr90">[3da002f7] </span>ColorTypes v0.12.3
+  <span class="sgr90">[c3611d14] </span>ColorVectorSpace v0.11.0
+  <span class="sgr90">[5ae59095] </span>Colors v0.13.2
+<span class="sgr33">⌅</span> <span class="sgr90">[861a8166] </span>Combinatorics v1.0.2
+  <span class="sgr90">[38540f10] </span>CommonSolve v0.2.14
+  <span class="sgr90">[bbf7d656] </span>CommonSubexpressions v0.3.1
+  <span class="sgr90">[f70d9fcc] </span>CommonWorldInvalidations v1.2.2
+  <span class="sgr90">[34da2185] </span>Compat v4.18.1
+  <span class="sgr90">[b152e2b5] </span>CompositeTypes v0.1.4
+  <span class="sgr90">[a33af91c] </span>CompositionsBase v0.1.2
+  <span class="sgr90">[95dc2771] </span>ComputePipeline v0.1.8
+  <span class="sgr90">[2569d6c7] </span>ConcreteStructs v0.2.8
+  <span class="sgr90">[88cd18e8] </span>ConsoleProgressMonitor v0.1.2
+  <span class="sgr90">[187b0558] </span>ConstructionBase v1.6.0
+  <span class="sgr90">[d38c429a] </span>Contour v0.6.3
+  <span class="sgr90">[b7a15901] </span>CoreMath v0.1.0
+  <span class="sgr90">[adafc99b] </span>CpuId v0.3.1
+  <span class="sgr90">[a8cc5b0e] </span>Crayons v4.2.0
+  <span class="sgr90">[9a962f9c] </span>DataAPI v1.16.0
+  <span class="sgr90">[a93c6f00] </span>DataFrames v1.8.2
+  <span class="sgr90">[82cc6244] </span>DataInterpolations v10.1.3
+  <span class="sgr90">[48204bd6] </span>DataStrings v1.1.0
+  <span class="sgr90">[864edb3b] </span>DataStructures v0.19.6
+  <span class="sgr90">[e2d170a0] </span>DataValueInterfaces v1.0.0
+  <span class="sgr90">[927a84f5] </span>DelaunayTriangulation v1.6.7
+  <span class="sgr90">[8bb1440f] </span>DelimitedFiles v1.9.1
+  <span class="sgr90">[b429d917] </span>DensityInterface v0.4.0
+  <span class="sgr90">[2b5f629d] </span>DiffEqBase v7.21.2
+  <span class="sgr90">[459566f4] </span>DiffEqCallbacks v4.19.4
+  <span class="sgr90">[163ba53b] </span>DiffResults v1.1.0
+  <span class="sgr90">[b552c78f] </span>DiffRules v1.16.0
+  <span class="sgr90">[a0c0ee7d] </span>DifferentiationInterface v0.7.21
+  <span class="sgr90">[0703355e] </span>DimensionalData v0.30.2
+  <span class="sgr90">[b4f34e82] </span>Distances v0.10.12
+<span class="sgr32">⌃</span> <span class="sgr90">[31c24e10] </span>Distributions v0.25.127
+  <span class="sgr90">[ffbed154] </span>DocStringExtensions v0.9.5
+  <span class="sgr90">[e30172f5] </span>Documenter v1.19.0
+  <span class="sgr90">[5b8099bc] </span>DomainSets v0.8.2
+  <span class="sgr90">[eb426421] </span>DoubleExponentialFormulas v0.1.0
+  <span class="sgr90">[41ac09f5] </span>Durations v1.4.0
+  <span class="sgr90">[366bfd00] </span>DynamicPPL v0.42.14
+  <span class="sgr90">[7c1d4256] </span>DynamicPolynomials v0.6.8
+  <span class="sgr90">[cad2338a] </span>EllipticalSliceSampling v2.0.0
+  <span class="sgr90">[4e289a0a] </span>EnumX v1.0.7
+  <span class="sgr90">[f151be2c] </span>EnzymeCore v0.8.21
+  <span class="sgr90">[429591f6] </span>ExactPredicates v2.2.9
+  <span class="sgr90">[e2ba6199] </span>ExprTools v0.1.11
+  <span class="sgr90">[55351af7] </span>ExproniconLite v0.10.14
+  <span class="sgr90">[411431e0] </span>Extents v0.1.6
+  <span class="sgr90">[c87230d0] </span>FFMPEG v0.4.5
+  <span class="sgr90">[b86e33f2] </span>FFTA v0.3.1
+  <span class="sgr90">[7a1cc6ca] </span>FFTW v1.10.0
+  <span class="sgr90">[7034ab61] </span>FastBroadcast v1.4.0
+  <span class="sgr90">[cf66c380] </span>FastChebInterp v1.3.1
+  <span class="sgr90">[9aa1b823] </span>FastClosures v0.3.2
+  <span class="sgr90">[a4df4552] </span>FastPower v1.5.0
+  <span class="sgr90">[5789e2e9] </span>FileIO v1.20.0
+  <span class="sgr90">[8fc22ac5] </span>FilePaths v0.9.0
+  <span class="sgr90">[48062228] </span>FilePathsBase v0.9.24
+  <span class="sgr90">[1a297f60] </span>FillArrays v1.17.1
+  <span class="sgr90">[64ca27bc] </span>FindFirstFunctions v3.4.0
+  <span class="sgr90">[6a86dc24] </span>FiniteDiff v2.33.0
+<span class="sgr33">⌅</span> <span class="sgr90">[53c48c17] </span>FixedPointNumbers v0.8.6
+  <span class="sgr90">[4a37a8b9] </span>FlexiChains v0.6.40
+  <span class="sgr90">[1fa38f19] </span>Format v1.3.7
+  <span class="sgr90">[f6369f11] </span>ForwardDiff v1.4.6
+  <span class="sgr90">[b38be410] </span>FreeType v4.1.1
+  <span class="sgr90">[663a7486] </span>FreeTypeAbstraction v0.10.8
+  <span class="sgr90">[a85aefff] </span>FunctionMaps v0.1.2
+  <span class="sgr90">[069b7b12] </span>FunctionWrappers v1.1.3
+  <span class="sgr90">[77dc65aa] </span>FunctionWrappersWrappers v1.13.0
+  <span class="sgr90">[d9f16b24] </span>Functors v0.5.3
+  <span class="sgr90">[46192b85] </span>GPUArraysCore v0.2.1
+  <span class="sgr90">[28b8d3ca] </span>GR v0.73.27
+  <span class="sgr90">[a0844989] </span>Gamma v1.2.0
+  <span class="sgr90">[14197337] </span>GenericLinearAlgebra v0.4.1
+  <span class="sgr90">[5c1252a2] </span>GeometryBasics v0.5.13
+  <span class="sgr90">[d7ba0133] </span>Git v1.5.0
+  <span class="sgr90">[a2bd30eb] </span>Graphics v1.1.3
+  <span class="sgr90">[86223c79] </span>Graphs v1.15.0
+  <span class="sgr90">[3955a311] </span>GridLayoutBase v0.11.3
+  <span class="sgr90">[076d061b] </span>HashArrayMappedTries v0.2.0
+  <span class="sgr90">[3e5b6fbb] </span>HostCPUFeatures v0.1.18
+  <span class="sgr90">[34004b35] </span>HypergeometricFunctions v0.3.30
+  <span class="sgr90">[b5f81e59] </span>IOCapture v1.0.0
+  <span class="sgr90">[615f187c] </span>IfElse v0.1.1
+  <span class="sgr90">[2803e5a7] </span>ImageAxes v0.6.12
+  <span class="sgr90">[c817782e] </span>ImageBase v0.1.7
+  <span class="sgr90">[a09fc81d] </span>ImageCore v0.10.5
+  <span class="sgr90">[82e4d734] </span>ImageIO v0.6.10
+  <span class="sgr90">[bc367c6b] </span>ImageMetadata v0.9.10
+  <span class="sgr90">[3263718b] </span>ImplicitDiscreteSolve v2.3.0
+  <span class="sgr90">[9b13fd28] </span>IndirectArrays v1.0.0
+  <span class="sgr90">[d25df0c9] </span>Inflate v0.1.5
+  <span class="sgr90">[22cec73e] </span>InitialValues v0.3.1
+<span class="sgr33">⌅</span> <span class="sgr90">[842dd82b] </span>InlineStrings v1.4.6
+  <span class="sgr90">[18e54dd8] </span>IntegerMathUtils v0.1.4
+  <span class="sgr90">[85a1e053] </span>Interfaces v0.3.2
+  <span class="sgr90">[a98d9a8b] </span>Interpolations v0.16.3
+  <span class="sgr90">[d1acc4aa] </span>IntervalArithmetic v1.0.12
+  <span class="sgr90">[8197267c] </span>IntervalSets v0.7.14
+  <span class="sgr90">[3587e190] </span>InverseFunctions v0.1.17
+  <span class="sgr90">[41ab1584] </span>InvertedIndices v1.3.1
+  <span class="sgr90">[92d709cd] </span>IrrationalConstants v0.2.6
+  <span class="sgr90">[f1662d9f] </span>Isoband v0.1.1
+  <span class="sgr90">[c8e1da08] </span>IterTools v1.10.0
+  <span class="sgr90">[82899510] </span>IteratorInterfaceExtensions v1.0.0
+  <span class="sgr90">[1019f520] </span>JLFzf v0.1.11
+  <span class="sgr90">[692b3bcd] </span>JLLWrappers v1.8.0
+  <span class="sgr90">[682c06a0] </span>JSON v1.9.0
+  <span class="sgr90">[ae98c720] </span>Jieko v0.2.1
+  <span class="sgr90">[b835a17e] </span>JpegTurbo v0.1.6
+  <span class="sgr90">[ccbc3e58] </span>JumpProcesses v9.33.1
+  <span class="sgr90">[5ab0869b] </span>KernelDensity v0.6.12
+  <span class="sgr90">[ba0b0d4f] </span>Krylov v0.10.10
+  <span class="sgr90">[2faa5264] </span>LHLFactorization v2.2.2
+  <span class="sgr90">[b964fa9f] </span>LaTeXStrings v1.4.1
+  <span class="sgr90">[23fbe1c1] </span>Latexify v0.16.12
+  <span class="sgr90">[10f19ff3] </span>LayoutPointers v0.1.17
+  <span class="sgr90">[0e77f7df] </span>LazilyInitializedFields v1.3.0
+  <span class="sgr90">[8cdb02fc] </span>LazyModules v0.3.1
+  <span class="sgr90">[1d6d02ad] </span>LeftChildRightSiblingTrees v0.3.0
+  <span class="sgr90">[6f1fad26] </span>Libtask v0.9.19
+  <span class="sgr90">[87fe0de2] </span>LineSearch v0.1.18
+  <span class="sgr90">[d3d80556] </span>LineSearches v7.8.2
+  <span class="sgr90">[7ed4a6bd] </span>LinearSolve v5.18.1
+  <span class="sgr90">[6fdf6af0] </span>LogDensityProblems v2.2.0
+  <span class="sgr90">[996a588d] </span>LogDensityProblemsAD v1.13.1
+  <span class="sgr90">[2ab3a3ac] </span>LogExpFunctions v1.0.2
+  <span class="sgr90">[e6f89c97] </span>LoggingExtras v1.2.0
+  <span class="sgr90">[bdcacae8] </span>LoopVectorization v0.12.174
+  <span class="sgr90">[be115224] </span>MCMCDiagnosticTools v0.3.19
+  <span class="sgr90">[33e6dc65] </span>MKL v0.9.1
+  <span class="sgr90">[e80e1ace] </span>MLJModelInterface v1.12.1
+  <span class="sgr90">[1914dd2f] </span>MacroTools v0.5.16
+  <span class="sgr90">[ee78f7c6] </span>Makie v0.24.15
+  <span class="sgr90">[d125e4d3] </span>ManualMemory v0.1.8
+  <span class="sgr90">[dbb5928d] </span>MappedArrays v0.4.3
+  <span class="sgr90">[d0879d2d] </span>MarkdownAST v0.1.3
+  <span class="sgr90">[0a4f8689] </span>MathTeXEngine v0.6.9
+  <span class="sgr90">[743831d1] </span>MatterPower v0.5.2
+  <span class="sgr90">[bb5d69b7] </span>MaybeInplace v0.1.8
+  <span class="sgr90">[eff96d63] </span>Measurements v2.14.1
+  <span class="sgr90">[442fdcdd] </span>Measures v0.3.3
+  <span class="sgr90">[e1d29d7a] </span>Missings v1.2.0
+  <span class="sgr90">[dbe65cb8] </span>MistyClosures v2.1.0
+  <span class="sgr90">[961ee093] </span>ModelingToolkit v11.45.1
+  <span class="sgr90">[7771a370] </span>ModelingToolkitBase v1.77.0
+  <span class="sgr90">[6bb917b9] </span>ModelingToolkitTearing v1.20.6
+  <span class="sgr90">[e94cdb99] </span>MosaicViews v0.3.4
+<span class="sgr33">⌅</span> <span class="sgr90">[2e0e35c7] </span>Moshi v0.3.9
+  <span class="sgr90">[46d2c3a1] </span>MuladdMacro v0.2.7
+  <span class="sgr90">[102ac46a] </span>MultivariatePolynomials v0.5.20
+  <span class="sgr90">[6f286f6a] </span>MultivariateStats v0.10.5
+  <span class="sgr90">[d8a4904e] </span>MutableArithmetics v1.8.1
+  <span class="sgr90">[d41bc354] </span>NLSolversBase v8.0.1
+  <span class="sgr90">[77ba4419] </span>NaNMath v1.1.4
+  <span class="sgr90">[b8a86587] </span>NearestNeighbors v0.4.29
+  <span class="sgr90">[f09324ee] </span>Netpbm v1.1.1
+  <span class="sgr90">[8913a72c] </span>NonlinearSolve v4.32.0
+  <span class="sgr90">[be0214bd] </span>NonlinearSolveBase v2.54.0
+  <span class="sgr90">[5959db7a] </span>NonlinearSolveFirstOrder v2.10.0
+  <span class="sgr90">[9a2c21bd] </span>NonlinearSolveQuasiNewton v1.15.3
+  <span class="sgr90">[26075421] </span>NonlinearSolveSpectralMethods v1.8.3
+  <span class="sgr90">[e7bfaba1] </span>NumericalIntegration v0.3.4
+  <span class="sgr90">[510215fc] </span>Observables v0.5.5
+  <span class="sgr90">[6fe1bfb0] </span>OffsetArrays v1.17.0
+  <span class="sgr90">[67456a42] </span>OhMyThreads v0.8.6
+  <span class="sgr90">[52e1d378] </span>OpenEXR v0.3.3
+  <span class="sgr90">[429524aa] </span>Optim v2.3.2
+  <span class="sgr90">[3bd65402] </span>Optimisers v0.4.9
+  <span class="sgr90">[7f7a1694] </span>Optimization v5.9.1
+  <span class="sgr90">[bca83a33] </span>OptimizationBase v5.7.0
+  <span class="sgr90">[36348300] </span>OptimizationOptimJL v0.4.21
+<span class="sgr33">⌅</span> <span class="sgr90">[bac558e1] </span>OrderedCollections v1.8.2
+  <span class="sgr90">[6ad6398a] </span>OrdinaryDiffEqBDF v2.4.11
+  <span class="sgr90">[bbf590c4] </span>OrdinaryDiffEqCore v4.18.0
+  <span class="sgr90">[4302a76b] </span>OrdinaryDiffEqDifferentiation v3.12.3
+  <span class="sgr90">[127b3ac7] </span>OrdinaryDiffEqNonlinearSolve v2.9.8
+  <span class="sgr90">[43230ef6] </span>OrdinaryDiffEqRosenbrock v2.7.4
+  <span class="sgr90">[b4bd8bb3] </span>OrdinaryDiffEqRosenbrockTableaus v2.4.2
+  <span class="sgr90">[2d112036] </span>OrdinaryDiffEqSDIRK v2.9.6
+  <span class="sgr90">[b1df2697] </span>OrdinaryDiffEqTsit5 v2.1.4
+  <span class="sgr90">[90014a1f] </span>PDMats v0.11.41
+  <span class="sgr90">[f57f5aa1] </span>PNGFiles v0.4.5
+  <span class="sgr90">[19eb6ba3] </span>Packing v0.5.1
+  <span class="sgr90">[5432bcbf] </span>PaddedViews v0.5.12
+  <span class="sgr90">[43a3c2be] </span>PairPlots v3.0.8
+  <span class="sgr90">[69de0a69] </span>Parsers v3.0.0
+  <span class="sgr90">[569bd051] </span>PartitionedDistributions v0.1.2
+  <span class="sgr90">[7b2266bf] </span>PeriodicTable v1.2.1
+  <span class="sgr90">[5ad8b20f] </span>PhysicalConstants v0.2.5
+  <span class="sgr90">[eebad327] </span>PkgVersion v0.3.3
+  <span class="sgr90">[ccf2f8ad] </span>PlotThemes v3.3.0
+  <span class="sgr90">[995b91a9] </span>PlotUtils v1.5.0
+  <span class="sgr90">[91a5bcdd] </span>Plots v1.41.7
+  <span class="sgr90">[e409e4f3] </span>PoissonRandom v0.4.13
+  <span class="sgr90">[f517fe37] </span>Polyester v0.7.19
+  <span class="sgr90">[1d0040c9] </span>PolyesterWeave v0.2.2
+  <span class="sgr90">[647866c9] </span>PolygonOps v0.1.2
+  <span class="sgr90">[2dfb63ee] </span>PooledArrays v1.4.3
+  <span class="sgr90">[85a6dd25] </span>PositiveFactorizations v0.2.4
+  <span class="sgr90">[d236fae5] </span>PreallocationTools v1.7.1
+  <span class="sgr90">[aea7be01] </span>PrecompileTools v1.3.4
+  <span class="sgr90">[21216c6a] </span>Preferences v1.6.0
+  <span class="sgr90">[08abe8d2] </span>PrettyTables v3.4.8
+  <span class="sgr90">[27ebfcd6] </span>Primes v0.5.7
+  <span class="sgr90">[33c8b6b6] </span>ProgressLogging v0.1.6
+  <span class="sgr90">[92933f4c] </span>ProgressMeter v1.11.0
+  <span class="sgr90">[43287f4e] </span>PtrArrays v1.4.0
+  <span class="sgr90">[0c0d3e7f] </span>PureKLU v1.6.0
+  <span class="sgr90">[b7e1f0a2] </span>PureUMFPACK v1.1.0
+  <span class="sgr90">[4b34888f] </span>QOI v1.0.2
+  <span class="sgr90">[1fd47b50] </span>QuadGK v2.11.3
+  <span class="sgr90">[74087812] </span>Random123 v1.7.1
+  <span class="sgr90">[e6cf234a] </span>RandomNumbers v1.6.0
+  <span class="sgr90">[b3c3ace0] </span>RangeArrays v0.3.2
+  <span class="sgr90">[c84ed2f1] </span>Ratios v0.4.5
+  <span class="sgr90">[988b38a3] </span>ReadOnlyArrays v0.2.0
+  <span class="sgr90">[795d4caa] </span>ReadOnlyDicts v1.0.1
+  <span class="sgr90">[0d4725de] </span>Readables v0.3.3
+  <span class="sgr90">[3cdcf5f2] </span>RecipesBase v1.3.4
+  <span class="sgr90">[01d81517] </span>RecipesPipeline v0.6.12
+  <span class="sgr90">[731186ca] </span>RecursiveArrayTools v4.5.2
+  <span class="sgr90">[f2c3362d] </span>RecursiveFactorization v0.2.30
+  <span class="sgr90">[189a3867] </span>Reexport v1.2.2
+  <span class="sgr90">[2792f1a3] </span>RegistryInstances v0.1.0
+  <span class="sgr90">[05181044] </span>RelocatableFolders v1.0.1
+  <span class="sgr90">[ae029012] </span>Requires v1.3.1
+  <span class="sgr90">[9fe22ead] </span>RespecializeParams v1.3.0
+  <span class="sgr90">[79098fc4] </span>Rmath v0.9.0
+<span class="sgr33">⌅</span> <span class="sgr90">[f2b01f46] </span>Roots v2.3.0
+  <span class="sgr90">[5eaf0fd0] </span>RoundingEmulator v0.2.1
+  <span class="sgr90">[7e49a35a] </span>RuntimeGeneratedFunctions v0.5.26
+  <span class="sgr90">[9dfe8606] </span>SCCNonlinearSolve v1.15.4
+  <span class="sgr90">[fdea26ae] </span>SIMD v3.7.2
+  <span class="sgr90">[94e857df] </span>SIMDTypes v0.1.0
+  <span class="sgr90">[476501e8] </span>SLEEFPirates v0.6.46
+  <span class="sgr90">[0bca4576] </span>SciMLBase v3.56.0
+  <span class="sgr90">[19f34311] </span>SciMLJacobianOperators v0.1.19
+  <span class="sgr90">[a6db7da4] </span>SciMLLogging v2.1.0
+  <span class="sgr90">[c0aeaf25] </span>SciMLOperators v1.30.1
+  <span class="sgr90">[431bcebd] </span>SciMLPublic v1.3.0
+  <span class="sgr90">[53ae85a6] </span>SciMLStructures v1.10.5
+  <span class="sgr90">[30f210dd] </span>ScientificTypesBase v3.1.0
+  <span class="sgr90">[7e506255] </span>ScopedValues v1.6.2
+  <span class="sgr90">[6c6a2e73] </span>Scratch v1.3.0
+  <span class="sgr90">[91c51154] </span>SentinelArrays v1.4.10
+  <span class="sgr90">[efcf1570] </span>Setfield v1.1.2
+  <span class="sgr90">[65257c39] </span>ShaderAbstractions v0.5.1
+  <span class="sgr90">[992d4aef] </span>Showoff v1.1.1
+  <span class="sgr90">[73760f76] </span>SignedDistanceFields v0.4.1
+  <span class="sgr90">[727e6d20] </span>SimpleNonlinearSolve v2.14.5
+  <span class="sgr90">[699a6c99] </span>SimpleTraits v0.9.6
+  <span class="sgr90">[45858cf5] </span>Sixel v0.1.5
+  <span class="sgr90">[ed01d8cd] </span>Sobol v1.5.0
+  <span class="sgr90">[a2af1166] </span>SortingAlgorithms v1.2.3
+  <span class="sgr90">[bd59d7e1] </span>SparseBandedMatrices v1.4.0
+  <span class="sgr90">[a57abbd0] </span>SparseColumnPivotedQR v2.1.8
+  <span class="sgr90">[9f842d2f] </span>SparseConnectivityTracer v1.2.3
+  <span class="sgr90">[0a514795] </span>SparseMatrixColorings v0.4.28
+  <span class="sgr90">[276daf66] </span>SpecialFunctions v2.9.0
+  <span class="sgr90">[91464d47] </span>StableTasks v0.1.7
+  <span class="sgr90">[cae243ae] </span>StackViews v0.1.2
+  <span class="sgr90">[0c0c59c1] </span>StarAlgebras v0.3.0
+  <span class="sgr90">[64909d44] </span>StateSelection v1.11.1
+  <span class="sgr90">[aedffcd0] </span>Static v1.4.6
+  <span class="sgr90">[0d7ed370] </span>StaticArrayInterface v1.10.0
+  <span class="sgr90">[90137ffa] </span>StaticArrays v1.9.22
+  <span class="sgr90">[1e83bf80] </span>StaticArraysCore v1.4.4
+  <span class="sgr90">[64bff920] </span>StatisticalTraits v3.5.0
+  <span class="sgr90">[10745b16] </span>Statistics v1.11.5
+  <span class="sgr90">[82ae8749] </span>StatsAPI v1.8.0
+  <span class="sgr90">[2913bbd2] </span>StatsBase v0.34.13
+  <span class="sgr90">[4c63d2b9] </span>StatsFuns v2.2.1
+  <span class="sgr90">[f3b207a7] </span>StatsPlots v0.15.8
+  <span class="sgr90">[7792a7ef] </span>StrideArraysCore v0.5.9
+<span class="sgr33">⌅</span> <span class="sgr90">[892a3eda] </span>StringManipulation v0.5.0
+  <span class="sgr90">[09ab397b] </span>StructArrays v0.7.3
+  <span class="sgr90">[ec057cc2] </span>StructUtils v2.9.2
+  <span class="sgr90">[64c5a815] </span>SymBoltz v2.0.0 `~/work/SymBoltz.jl/SymBoltz.jl`
+  <span class="sgr90">[2efcf032] </span>SymbolicIndexingInterface v0.3.55
+  <span class="sgr90">[19f23fe9] </span>SymbolicLimits v1.2.1
+  <span class="sgr90">[d1185830] </span>SymbolicUtils v4.48.0
+  <span class="sgr90">[0c5d862f] </span>Symbolics v7.41.1
+  <span class="sgr90">[ab02a1b2] </span>TableOperations v1.2.0
+  <span class="sgr90">[3783bdb8] </span>TableTraits v1.0.1
+  <span class="sgr90">[bd369af6] </span>Tables v1.14.0
+  <span class="sgr90">[ed4db957] </span>TaskLocalValues v0.1.3
+  <span class="sgr90">[62fd8b95] </span>TensorCore v0.1.1
+  <span class="sgr90">[8ea1fca8] </span>TermInterface v2.0.0
+  <span class="sgr90">[5d786b92] </span>TerminalLoggers v0.1.8
+  <span class="sgr90">[8290d209] </span>ThreadingUtilities v0.5.6
+  <span class="sgr90">[731e570b] </span>TiffImages v0.11.9
+  <span class="sgr90">[a759f4b9] </span>TimerOutputs v1.2.2
+  <span class="sgr90">[3bb67fe8] </span>TranscodingStreams v0.11.3
+  <span class="sgr90">[d5829a12] </span>TriangularSolve v0.2.6
+  <span class="sgr90">[981d1d27] </span>TriplotBase v0.1.0
+  <span class="sgr90">[781d530d] </span>TruncatedStacktraces v1.4.0
+  <span class="sgr90">[fce5fe82] </span>Turing v0.49.0
+  <span class="sgr90">[0dd23c3e] </span>TwoFAST v0.1.6
+  <span class="sgr90">[3a884ed6] </span>UnPack v1.0.2
+  <span class="sgr90">[1cfade01] </span>UnicodeFun v0.4.1
+  <span class="sgr90">[1986cc42] </span>Unitful v1.29.0
+  <span class="sgr90">[6fb2a4bd] </span>UnitfulAngles v0.7.2
+  <span class="sgr90">[6112ee07] </span>UnitfulAstro v1.2.2
+  <span class="sgr90">[41fe7b60] </span>Unzip v0.2.0
+  <span class="sgr90">[3d5dd08c] </span>VectorizationBase v0.21.74
+  <span class="sgr90">[33b4df10] </span>VectorizedRNG v0.2.26
+  <span class="sgr90">[d30d5f5c] </span>WeakCacheSets v0.1.0
+  <span class="sgr90">[e3aaa7dc] </span>WebP v0.1.3
+  <span class="sgr90">[cc8bc4a8] </span>Widgets v0.6.8
+  <span class="sgr90">[efce3f68] </span>WoodburyMatrices v1.1.0
+<span class="sgr33">⌅</span> <span class="sgr90">[68821587] </span>Arpack_jll v3.5.2+0
+  <span class="sgr90">[6e34b625] </span>Bzip2_jll v1.0.9+0
+  <span class="sgr90">[4e9b3aee] </span>CRlibm_jll v1.0.1+0
+  <span class="sgr90">[83423d85] </span>Cairo_jll v1.18.7+0
+  <span class="sgr90">[a38c48d9] </span>CoreMath_jll v0.1.0+0
+  <span class="sgr90">[ee1fde0b] </span>Dbus_jll v1.16.2+0
+<span class="sgr33">⌅</span> <span class="sgr90">[5ae413db] </span>EarCut_jll v2.2.4+0
+  <span class="sgr90">[2702e6a9] </span>EpollShim_jll v0.0.20230411+1
+  <span class="sgr90">[2e619515] </span>Expat_jll v2.8.4+0
+<span class="sgr33">⌅</span> <span class="sgr90">[b22a6f82] </span>FFMPEG_jll v8.1.2+0
+  <span class="sgr90">[f5851436] </span>FFTW_jll v3.3.12+0
+  <span class="sgr90">[e134572f] </span>FLINT_jll v301.600.0+0
+  <span class="sgr90">[a3f928ae] </span>Fontconfig_jll v2.17.1+0
+  <span class="sgr90">[d7e528f0] </span>FreeType2_jll v2.14.3+1
+  <span class="sgr90">[559328eb] </span>FriBidi_jll v1.0.17+0
+  <span class="sgr90">[0656b61e] </span>GLFW_jll v3.5.1+0
+  <span class="sgr90">[d2c73de3] </span>GR_jll v0.73.27+0
+<span class="sgr33">⌅</span> <span class="sgr90">[b0724c58] </span>GettextRuntime_jll v0.22.4+0
+  <span class="sgr90">[61579ee1] </span>Ghostscript_jll v9.55.1+0
+  <span class="sgr90">[59f7168a] </span>Giflib_jll v6.1.3+0
+  <span class="sgr90">[020c3dae] </span>Git_LFS_jll v3.7.1+0
+  <span class="sgr90">[f8c6e375] </span>Git_jll v2.55.0+0
+  <span class="sgr90">[7746bdde] </span>Glib_jll v2.88.3+0
+  <span class="sgr90">[3b182d85] </span>Graphite2_jll v1.3.16+0
+  <span class="sgr90">[2e76f6c2] </span>HarfBuzz_jll v100.14004.0+0
+  <span class="sgr90">[905a6f67] </span>Imath_jll v3.2.2+0
+  <span class="sgr90">[1d5cc7b8] </span>IntelOpenMP_jll v2025.2.0+0
+  <span class="sgr90">[aacddb02] </span>JpegTurbo_jll v3.2.0+1
+  <span class="sgr90">[c1c5ebd0] </span>LAME_jll v3.100.3+0
+  <span class="sgr90">[88015f11] </span>LERC_jll v4.2.0+0
+  <span class="sgr90">[1d63c593] </span>LLVMOpenMP_jll v23.1.1+0
+<span class="sgr33">⌅</span> <span class="sgr90">[e9f186c6] </span>Libffi_jll v3.4.7+0
+  <span class="sgr90">[7e76a0d4] </span>Libglvnd_jll v1.7.1+1
+  <span class="sgr90">[94ce4f54] </span>Libiconv_jll v1.18.0+0
+  <span class="sgr90">[4b2f31a3] </span>Libmount_jll v2.42.0+0
+  <span class="sgr90">[89763e89] </span>Libtiff_jll v4.7.3+0
+  <span class="sgr90">[38a345b3] </span>Libuuid_jll v2.42.0+0
+  <span class="sgr90">[856f044c] </span>MKL_jll v2025.2.0+0
+  <span class="sgr90">[e7412a2a] </span>Ogg_jll v1.3.6+0
+  <span class="sgr90">[656ef2d0] </span>OpenBLAS32_jll v0.3.34+0
+  <span class="sgr90">[6cdc7f73] </span>OpenBLASConsistentFPCSR_jll v0.3.34+0
+  <span class="sgr90">[18a262bb] </span>OpenEXR_jll v3.4.15+0
+  <span class="sgr90">[9bd350c2] </span>OpenSSH_jll v10.5.1+0
+  <span class="sgr90">[efe28fd5] </span>OpenSpecFun_jll v0.5.6+0
+  <span class="sgr90">[91d4177d] </span>Opus_jll v1.6.1+0
+  <span class="sgr90">[36c8627f] </span>Pango_jll v1.58.2+0
+  <span class="sgr90">[30392449] </span>Pixman_jll v0.46.4+0
+  <span class="sgr90">[c0090381] </span>Qt6Base_jll v6.10.2+2
+  <span class="sgr90">[629bc702] </span>Qt6Declarative_jll v6.10.2+2
+  <span class="sgr90">[ce943373] </span>Qt6ShaderTools_jll v6.10.2+1
+  <span class="sgr90">[6de9746b] </span>Qt6Svg_jll v6.10.2+0
+  <span class="sgr90">[e99dba38] </span>Qt6Wayland_jll v6.10.2+1
+  <span class="sgr90">[f50d1b31] </span>Rmath_jll v0.5.2+0
+  <span class="sgr90">[a44049a8] </span>Vulkan_Loader_jll v1.3.243+0
+  <span class="sgr90">[a2964d1f] </span>Wayland_jll v1.24.0+0
+  <span class="sgr90">[ffd25f8a] </span>XZ_jll v5.8.4+0
+  <span class="sgr90">[f67eecfb] </span>Xorg_libICE_jll v1.1.2+0
+  <span class="sgr90">[c834827a] </span>Xorg_libSM_jll v1.2.6+0
+  <span class="sgr90">[4f6342f7] </span>Xorg_libX11_jll v1.8.13+0
+  <span class="sgr90">[0c0b7dd1] </span>Xorg_libXau_jll v1.0.13+0
+  <span class="sgr90">[935fb764] </span>Xorg_libXcursor_jll v1.2.4+0
+  <span class="sgr90">[a3789734] </span>Xorg_libXdmcp_jll v1.1.6+0
+  <span class="sgr90">[1082639a] </span>Xorg_libXext_jll v1.3.8+0
+  <span class="sgr90">[d091e8ba] </span>Xorg_libXfixes_jll v6.0.2+0
+  <span class="sgr90">[a51aa0fd] </span>Xorg_libXi_jll v1.8.4+0
+  <span class="sgr90">[d1454406] </span>Xorg_libXinerama_jll v1.1.7+0
+  <span class="sgr90">[ec84b674] </span>Xorg_libXrandr_jll v1.5.6+0
+  <span class="sgr90">[ea2f1a96] </span>Xorg_libXrender_jll v0.9.12+0
+  <span class="sgr90">[a65dc6b1] </span>Xorg_libpciaccess_jll v0.19.0+0
+  <span class="sgr90">[c7cfdc94] </span>Xorg_libxcb_jll v1.17.1+0
+  <span class="sgr90">[cc61e674] </span>Xorg_libxkbfile_jll v1.2.0+0
+  <span class="sgr90">[e920d4aa] </span>Xorg_xcb_util_cursor_jll v0.1.6+0
+  <span class="sgr90">[12413925] </span>Xorg_xcb_util_image_jll v0.4.1+0
+  <span class="sgr90">[2def613f] </span>Xorg_xcb_util_jll v0.4.1+0
+  <span class="sgr90">[975044d2] </span>Xorg_xcb_util_keysyms_jll v0.4.1+0
+  <span class="sgr90">[0d47668e] </span>Xorg_xcb_util_renderutil_jll v0.3.10+0
+  <span class="sgr90">[c22f9ab0] </span>Xorg_xcb_util_wm_jll v0.4.2+0
+  <span class="sgr90">[35661453] </span>Xorg_xkbcomp_jll v1.4.7+0
+  <span class="sgr90">[33bec58e] </span>Xorg_xkeyboard_config_jll v2.47.0+2
+  <span class="sgr90">[c5fb5394] </span>Xorg_xtrans_jll v1.6.0+0
+  <span class="sgr90">[35ca27e7] </span>eudev_jll v3.2.14+0
+<span class="sgr33">⌅</span> <span class="sgr90">[214eeab7] </span>fzf_jll v0.61.1+0
+  <span class="sgr90">[9a68df92] </span>isoband_jll v0.2.3+0
+  <span class="sgr90">[a4ae2306] </span>libaom_jll v3.15.1+0
+  <span class="sgr90">[0ac62f75] </span>libass_jll v0.17.5+0
+  <span class="sgr90">[1183f4f0] </span>libdecor_jll v0.2.2+0
+  <span class="sgr90">[8e53e030] </span>libdrm_jll v2.4.134+0
+  <span class="sgr90">[2db6ffa8] </span>libevdev_jll v1.13.4+0
+  <span class="sgr90">[f638f0a6] </span>libfdk_aac_jll v2.0.4+0
+  <span class="sgr90">[36db933b] </span>libinput_jll v1.28.1+0
+  <span class="sgr90">[b53b4c65] </span>libpng_jll v1.6.58+0
+  <span class="sgr90">[075b6546] </span>libsixel_jll v1.10.5+0
+  <span class="sgr90">[9a156e7d] </span>libva_jll v2.23.0+0
+  <span class="sgr90">[f27f6e37] </span>libvorbis_jll v1.3.8+0
+  <span class="sgr90">[c5f90fcd] </span>libwebp_jll v1.6.1+0
+  <span class="sgr90">[009596ad] </span>mtdev_jll v1.1.7+0
+  <span class="sgr90">[1317d2d5] </span>oneTBB_jll v2022.3.0+0
+<span class="sgr33">⌅</span> <span class="sgr90">[1270edf5] </span>x264_jll v10164.0.1+0
+  <span class="sgr90">[dfaa095f] </span>x265_jll v4.1.0+0
+  <span class="sgr90">[d8fb68d0] </span>xkbcommon_jll v1.13.0+0
+  <span class="sgr90">[0dad84c5] </span>ArgTools v1.1.2
+  <span class="sgr90">[56f22d72] </span>Artifacts v1.11.0
+  <span class="sgr90">[2a0f44e3] </span>Base64 v1.11.0
+  <span class="sgr90">[8bf52ea8] </span>CRC32c v1.11.0
+  <span class="sgr90">[ade2ca70] </span>Dates v1.11.0
+  <span class="sgr90">[8ba89e20] </span>Distributed v1.11.0
+  <span class="sgr90">[f43a241f] </span>Downloads v1.7.0
+  <span class="sgr90">[7b1f6079] </span>FileWatching v1.11.0
+  <span class="sgr90">[9fa8497b] </span>Future v1.11.0
+  <span class="sgr90">[b77e0a4c] </span>InteractiveUtils v1.11.0
+  <span class="sgr90">[ac6e5ff7] </span>JuliaSyntaxHighlighting v1.12.0
+  <span class="sgr90">[4af54fe1] </span>LazyArtifacts v1.11.0
+  <span class="sgr90">[b27032c2] </span>LibCURL v1.0.0
+  <span class="sgr90">[76f85450] </span>LibGit2 v1.11.0
+  <span class="sgr90">[8f399da3] </span>Libdl v1.11.0
+  <span class="sgr90">[37e2e46d] </span>LinearAlgebra v1.13.0
+  <span class="sgr90">[56ddb016] </span>Logging v1.11.0
+  <span class="sgr90">[d6f4376e] </span>Markdown v1.11.0
+  <span class="sgr90">[a63ad114] </span>Mmap v1.11.0
+  <span class="sgr90">[ca575930] </span>NetworkOptions v1.3.0
+  <span class="sgr90">[44cfe95a] </span>Pkg v1.13.0
+  <span class="sgr90">[de0858da] </span>Printf v1.11.0
+  <span class="sgr90">[9abbd945] </span>Profile v1.11.0
+  <span class="sgr90">[3fa0cd96] </span>REPL v1.11.0
+  <span class="sgr90">[9a3f8284] </span>Random v1.11.0
+  <span class="sgr90">[ea8e919c] </span>SHA v1.0.0
+  <span class="sgr90">[9e88b42a] </span>Serialization v1.11.0
+  <span class="sgr90">[1a1011a3] </span>SharedArrays v1.11.0
+  <span class="sgr90">[6462fe0b] </span>Sockets v1.11.0
+  <span class="sgr90">[2f01184e] </span>SparseArrays v1.13.0
+  <span class="sgr90">[f489334b] </span>StyledStrings v1.11.0
+  <span class="sgr90">[4607b0f0] </span>SuiteSparse
+  <span class="sgr90">[fa267f1f] </span>TOML v1.0.3
+  <span class="sgr90">[a4e569a6] </span>Tar v1.10.0
+  <span class="sgr90">[8dfed614] </span>Test v1.11.0
+  <span class="sgr90">[cf7118a7] </span>UUIDs v1.11.0
+  <span class="sgr90">[4ec0a83e] </span>Unicode v1.11.0
+  <span class="sgr90">[e66e0078] </span>CompilerSupportLibraries_jll v1.5.5+2
+  <span class="sgr90">[781609d7] </span>GMP_jll v6.3.0+2
+  <span class="sgr90">[deac9b47] </span>LibCURL_jll v8.18.0+1
+  <span class="sgr90">[e37daf67] </span>LibGit2_jll v1.9.1+0
+  <span class="sgr90">[29816b5a] </span>LibSSH2_jll v1.11.103+0
+  <span class="sgr90">[3a97d323] </span>MPFR_jll v4.2.2+0
+  <span class="sgr90">[14a3606d] </span>MozillaCACerts_jll v2026.8.13
+  <span class="sgr90">[4536629a] </span>OpenBLAS_jll v0.3.30+0
+  <span class="sgr90">[05823500] </span>OpenLibm_jll v0.8.7+0
+  <span class="sgr90">[458c3c95] </span>OpenSSL_jll v3.5.6+0
+  <span class="sgr90">[efcefdf7] </span>PCRE2_jll v10.46.0+0
+  <span class="sgr90">[bea87d4a] </span>SuiteSparse_jll v7.10.1+0
+  <span class="sgr90">[83775a58] </span>Zlib_jll v1.3.1+2
+  <span class="sgr90">[3161d3a3] </span>Zstd_jll v1.5.7+1
+  <span class="sgr90">[8e850b90] </span>libblastrampoline_jll v5.15.0+0
+  <span class="sgr90">[8e850ede] </span>nghttp2_jll v1.67.1+0
+  <span class="sgr90">[3f19e933] </span>p7zip_jll v17.8.2+0
+<span class="sgr36"><span class="sgr1">Info</span></span> Packages marked with <span class="sgr32">⌃</span> and <span class="sgr33">⌅</span> have new versions available. Those with <span class="sgr32">⌃</span> may be upgradable, but those with <span class="sgr33">⌅</span> are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`</code></pre></div></details><h2 id="Background:-precision-work-diagram"><a class="docs-heading-anchor" href="#Background:-precision-work-diagram">Background: precision-work diagram</a><a id="Background:-precision-work-diagram-1"></a><a class="docs-heading-anchor-permalink" href="#Background:-precision-work-diagram" title="Permalink"></a></h2><p>This plot compares the time to solve the background vs. accuracy of the solution using different ODE solvers and tolerances. Every solution is compared to a reference solution with very small tolerance. The points on each curve correspond to a sequence of tolerances.</p><pre><code class="language-julia hljs">function workprec(prob, algs, tols, refsol; N = 5, norm = x -&gt; norm(x, 2), kwargs...)
+    refu = stack(refsol)
+    results = Pair{String, Vector{Tuple{Float64, Float64}}}[]
+    for alg in algs
+        name = SymBoltz.algname(alg)
+        points = Tuple{Float64, Float64}[]
+        for tol in tols
+            abstol = reltol = tol
+            println(name, &quot;: abstol = &quot;, abstol, &quot;, reltol = &quot;, reltol)
+            sol = solve(prob, alg; abstol = tol, reltol = tol, save_everystep = true, kwargs...)
+            if !SymBoltz.successful_retcode(sol)
+                push!(points, (NaN, NaN))
+                continue
+            end
+            u = stack(sol(refsol.t)) # interpolate to reference times
+            err = norm(u .- refu) / length(u) # divide by number of points
+            verbose = SymBoltz.SciMLLogging.None()
+            t = minimum(_ -&gt; (@elapsed solve(prob, alg; abstol, reltol, verbose, save_everystep = false, kwargs...)), 1:N) # minimum over N sample runs
+            push!(points, (t, err))
+        end
+        push!(results, name =&gt; points)
+    end
+    return results
+end
+
+function plot_workprec(wp; title = &quot;&quot;, kwargs...)
+    p = plot(; xlabel = &quot;time / s&quot;, ylabel = &quot;L₂ error&quot;, xscale = :log10, yscale = :log10, title, legend = :topright, kwargs...)
+    for (i, (label, points)) in enumerate(wp)
+        times = map(first, points)
+        errors = map(last, points)
+        color = i
+        marker = Plots._shape_keys[i]
+        linewidth = 2
+        plot!(p, times, errors; label, color, marker, linewidth)
+    end
+    return p
+end
+
+linsolve = RFLUFactorization()
+refalg = Rodas5P(; linsolve)
+bgsol = solve(prob.bg[1], refalg; abstol = 1e-12, reltol = 1e-12) # reference solution (results are similar compared to Rodas4/4P/5P/FBDF)
+
+tols = 1 ./ 10 .^ (7:11)
+bgalgs = [Alg(; linsolve) for Alg in [Rodas4, Rodas5, Rodas4P, Rodas5P, Rodas6P, FBDF, QNDF]] # FBDF/QNDF unstable for some tolerances
+wp = workprec(prob.bg[1], bgalgs, tols, bgsol)
+plot_workprec(wp; title = &quot;Reference: $(SymBoltz.algname(refalg))&quot;, size = (800, 400), margin = 5*Plots.mm)</code></pre><img src="e9448244.svg" alt="Example block output"/><p>Note that the <code>FBDF</code> and <code>QNDF</code> methods are unstable for several tolerances.</p><h2 id="Perturbations:-parallelization"><a class="docs-heading-anchor" href="#Perturbations:-parallelization">Perturbations: parallelization</a><a id="Perturbations:-parallelization-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-parallelization" title="Permalink"></a></h2><p>SymBoltz parallelizes integration of different perturbation <span>$k$</span>-modes with multithreading by default. Make sure you <a href="https://docs.julialang.org/en/v1/manual/multi-threading/">run Julia with multiple threads</a>. This is a standard technique in Boltzmann solvers, as linear perturbation modes are mathematically independent. It leads to a performance improvement depending on the number of threads available. It <a href="../solve/#Solving-models">can be disabled</a>, for example if your application permits parallelization at a higher level.</p><pre><code class="language-julia hljs">bench = BenchmarkGroup()
+ks = 10 .^ range(-1, 4, length = 50)
+for thread in [true, false]
+    label = thread ? &quot;$(nthreads()) threads&quot; : &quot;1 thread&quot;
+    bench[label] = @benchmarkable $solve($prob, $ks; thread = $thread) samples=5 seconds=30
+end
+results = run(bench; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="e9c2ff0a.svg" alt="Example block output"/><h2 id="Perturbations:-precision-work-diagram"><a class="docs-heading-anchor" href="#Perturbations:-precision-work-diagram">Perturbations: precision-work diagram</a><a id="Perturbations:-precision-work-diagram-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-precision-work-diagram" title="Permalink"></a></h2><p>This plot compares the time to solve a perturbation <span>$k$</span>-mode vs. accuracy of the solution using different ODE solvers and tolerances. Each subplot corresponds to a different <span>$k$</span>-mode. Every solution is compared to a reference solution with very small tolerance. The points on each curve correspond to a sequence of tolerances.</p><pre><code class="language-julia hljs">linsolve = PureKLUFactorization()
+ptalgs = [algtype(; linsolve) for algtype in [TRBDF2, KenCarp4, KenCarp47, KenCarp5, Kvaerno5, Rodas4P, Rodas5P, Rodas6P, QNDF, FBDF]]
+ptprobf = SymBoltz.setuppt(prob.pt, solvebg(prob))
+refalg = Rodas5P(; linsolve)
+tols = 1 ./ 10 .^ (5:9)
+
+function plot_workprec_pert(k; kwargs...)
+    ptprob = ptprobf(k)
+    refsol = solve(ptprob, refalg; abstol = 1e-10, reltol = 1e-10)
+    wp = workprec(ptprob, ptalgs, tols, refsol)
+    return plot_workprec(wp; title = &quot;Reference: $(SymBoltz.algname(refalg)), k = $k H₀/c&quot;, size = (800, 400), margin = 5*Plots.mm, kwargs...)
+end
+
+pk1 = plot_workprec_pert(1e1)</code></pre><img src="a1ae0667.svg" alt="Example block output"/><pre><code class="language-julia hljs">pk2 = plot_workprec_pert(1e2)</code></pre><img src="8aaac07b.svg" alt="Example block output"/><pre><code class="language-julia hljs">pk3 = plot_workprec_pert(1e3)</code></pre><img src="b27cd6aa.svg" alt="Example block output"/><pre><code class="language-julia hljs">pk4 = plot_workprec_pert(1e4)</code></pre><img src="0af145b5.svg" alt="Example block output"/><h2 id="Perturbations:-time-per-mode"><a class="docs-heading-anchor" href="#Perturbations:-time-per-mode">Perturbations: time per mode</a><a id="Perturbations:-time-per-mode-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-time-per-mode" title="Permalink"></a></h2><p>This plot shows the time spent solving individual perturbation <span>$k$</span>-modes using different ODE solvers with fixed tolerance.</p><pre><code class="language-julia hljs">solvemode(k, ptalg) = solve(ptprobf(k); alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+
+ks = 10 .^ range(-2, 4, length = 50)
+times = [[minimum(@elapsed solvemode(k, ptalg) for i in 1:3) for k in ks] for ptalg in ptalgs]
+
+plot(
+    log10.(ks), map(ts -&gt; log10.(ts), times); marker = :auto, markersize = 2,
+    xlabel = &quot;lg(k)&quot;, ylabel = &quot;lg(time / s)&quot;, xticks = range(log10(ks[begin]), log10(ks[end]), step=1),
+    label = permutedims(SymBoltz.algname.(ptalgs)), legend_position = :topleft,
+    size = (800, 400), margin = 5*Plots.mm
+)</code></pre><img src="6b7ee245.svg" alt="Example block output"/><h2 id="Perturbations:-timesteps"><a class="docs-heading-anchor" href="#Perturbations:-timesteps">Perturbations: timesteps</a><a id="Perturbations:-timesteps-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-timesteps" title="Permalink"></a></h2><pre><code class="language-julia hljs">ks = [1e0, 1e1, 1e2, 1e3]
+p = plot(xlabel = &quot;τ&quot;, ylabel = &quot;Δτ&quot;, layout = (2, 2), size = (800, 200*length(ks)), legend_position = :topleft)
+for (i, k) in enumerate(ks)
+    for ptalg in ptalgs
+        ptprob = ptprobf(k)
+        ptsol = solvept(ptprob; alg = ptalg, reltol = 1e-5, abstol = 1e-5)
+        τs = ptsol.t
+        Δτs = diff(τs)
+        τs = ptsol.t[begin:end-1] # remove last time to match size of Δτs
+        plot!(p, τs, Δτs; marker = :auto, markerstrokewidth = 0, markersize = 2, label = SymBoltz.algname(ptalg), title = &quot;k = $k H₀/c&quot;, subplot = i)
+    end
+end
+p</code></pre><img src="525002ab.svg" alt="Example block output"/><h2 id="Perturbations:-Jacobian-method"><a class="docs-heading-anchor" href="#Perturbations:-Jacobian-method">Perturbations: Jacobian method</a><a id="Perturbations:-Jacobian-method-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-Jacobian-method" title="Permalink"></a></h2><p>The Jacobian of the perturbation ODEs can be computed in three ways:</p><ol><li>explicitly from a symbolically generated function,</li><li>numerically using forward-mode dual numbers, or</li><li>numerically using finite differences.</li></ol><p>This plot shows the time to solve several perturbation <span>$k$</span>-modes for each such method. In all cases, the Jacobian is made sparse from the analytical sparsity pattern.</p><pre><code class="language-julia hljs">bench = BenchmarkGroup()
+ks = 10 .^ range(-2, 4, length = 50)
+prob_jac = prob # CosmologyProblem(M, pars)
+prob_nojac = CosmologyProblem(M, pars; bgjac = false, ptjac = false)
+
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(),),)
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(),), save_everystep = false) # generate function for J symbolically
+bench[&quot;symbolic&quot;] = @benchmarkable $solve($prob_jac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
+
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),)
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()), save_everystep = false) # compute J with forward-mode AD
+bench[&quot;forward diff&quot;] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
+
+bgopts = (alg = Rodas5P(linsolve = RFLUFactorization(), autodiff = SymBoltz.AutoForwardDiff()),) # fails with finite diff background J
+ptopts = (alg = Rodas5P(linsolve = PureKLUFactorization(), autodiff = SymBoltz.AutoFiniteDiff()), save_everystep = false) # compute J with finite differences
+bench[&quot;finite diff&quot;] = @benchmarkable $solve($prob_nojac, $ks; bgopts = $bgopts, ptopts = $ptopts) samples=5 seconds=30
+
+results = run(bench; verbose = true)
+plot(results; size = (800, 400))</code></pre><img src="fd9127d3.svg" alt="Example block output"/><h2 id="Perturbations:-linear-system-solver"><a class="docs-heading-anchor" href="#Perturbations:-linear-system-solver">Perturbations: linear system solver</a><a id="Perturbations:-linear-system-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbations:-linear-system-solver" title="Permalink"></a></h2><p>At every time step, the implicit perturbation ODE solver solves a system of (nonlinear) equations with Newton&#39;s method. In turn, Newton&#39;s method involves iteratively solving several linear systems <span>$Ax = b$</span>, where <span>$A$</span> involves the ODE Jacobian matrix <span>$J$</span>. This can be a bottleneck, so it is very important to use a linear solver that does this as fast as possible!</p><p><strong>Note that the optimal linear solver depends on both the model and your hardware.</strong> See <a href="https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/">this tutorial on accelerating linear solves</a>. Also run Julia with the <a href="https://docs.julialang.org/en/v1/manual/performance-tips/#man-backends-linear-algebra">optimal BLAS backend for your platform</a>, such as <a href="https://github.com/JuliaLinearAlgebra/MKL.jl">MKL.jl</a> for Intel or <a href="https://github.com/JuliaLinearAlgebra/AppleAccelerate.jl">AppleAccelerate.jl</a> for Macs, instead of Julia&#39;s default OpenBLAS backend.</p><p>In particular, for large models the ODE Jacobian can have lots of zeros. Here is an example for a model with many perturbation equations.</p><pre><code class="language-julia hljs">lmaxs = [4, 8, 16, 32]
+Ms = [ΛCDM(; lmax) for lmax in lmaxs]
+
+probs_dense = [CosmologyProblem(M, pars; ptjac = true, ptsparse = false) for M in Ms]
+probs_sparse = [CosmologyProblem(M, pars; ptjac = true, ptsparse = true) for M in Ms]
+
+# example of sparse Jacobian
+J = copy(probs_sparse[end].pt.f.jac_prototype)
+J.nzval .= 1
+N = first(size(J))
+heatmap(J; yflip = true, title = &quot;$N×$N Jacobian nonzeros; $(round(SymBoltz.sparsity_fraction(J)*100, digits=1))% sparse; lmax = $(lmaxs[end])&quot;, axis = false, colorbar = false, aspect_ratio = 1, size = (600, 600))</code></pre><img src="a203af6f.svg" alt="Example block output"/><p>Sparse matrix methods are therefore very important to speed up the solution of large perturbation systems. This plot compares the time to solve several perturbation <span>$k$</span>-modes with different dense and sparse linear matrix solvers.</p><pre><code class="language-julia hljs">ks = 10 .^ range(-2, 4, length=75)
+ptopts1 = (alg = Rodas5P(linsolve = LUFactorization()), save_everystep = false)
+ptopts2 = (alg = Rodas5P(linsolve = RFLUFactorization()), save_everystep = false)
+ptopts3 = (alg = Rodas5P(linsolve = PureKLUFactorization()), save_everystep = false)
+ptopts4 = (alg = Rodas5P(linsolve = PureUMFPACKFactorization()), save_everystep = false)
+ts1 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts1) for i in 1:3) for prob in probs_dense]
+ts2 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts2) for i in 1:3) for prob in probs_dense]
+ts3 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts3) for i in 1:3) for prob in probs_sparse]
+ts4 = [minimum(@elapsed solve(prob, ks; ptopts = ptopts4) for i in 1:3) for prob in probs_sparse]
+
+p1 = plot(ylabel = &quot;time / s&quot;, xticks = (lmaxs, &quot;&quot;), ylims = (0.0, ceil(max(maximum(ts1), maximum(ts2), maximum(ts3), maximum(ts4)))))
+marker = :circle
+plot!(p1, lmaxs, ts1; label = &quot;$(SymBoltz.algname(ptopts1.alg)), dense $(nameof(typeof(ptopts1.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts2; label = &quot;$(SymBoltz.algname(ptopts2.alg)), dense $(nameof(typeof(ptopts2.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts3; label = &quot;$(SymBoltz.algname(ptopts3.alg)), sparse $(nameof(typeof(ptopts3.alg.linsolve))), $(length(ks))×k&quot;, marker)
+plot!(p1, lmaxs, ts4; label = &quot;$(SymBoltz.algname(ptopts4.alg)), sparse $(nameof(typeof(ptopts4.alg.linsolve))), $(length(ks))×k&quot;, marker)
+text(prob::CosmologyProblem) = &quot;$(length(prob.pt.u0)) eqs,\n$(round(SymBoltz.sparsity_fraction(prob.pt)*100, digits=1)) %\nsparse&quot;
+annotate!(p1, lmaxs, zeros(length(lmaxs)), [(text(prob), 5, :top) for prob in probs_sparse])
+
+speedups1 = [ts2[i]/ts1[i] for i in eachindex(lmaxs)]
+speedups2 = [ts2[i]/ts2[i] for i in eachindex(lmaxs)]
+speedups3 = [ts2[i]/ts3[i] for i in eachindex(lmaxs)]
+speedups4 = [ts2[i]/ts4[i] for i in eachindex(lmaxs)]
+ymax = Int(ceil(maximum(maximum.([speedups1, speedups2, speedups3, speedups4]))))
+ylims = (0, ymax)
+yticks = 0:1:ymax
+yticks = (collect(yticks), collect(&quot;$y×&quot; for y in yticks))
+p2 = plot(; xlabel = &quot;ℓmax&quot;, ylabel = &quot;speedup&quot;, xticks = lmaxs, yticks, ylims, marker)
+plot!(p2, lmaxs, speedups1; marker, label = nothing)
+plot!(p2, lmaxs, speedups2; marker, label = nothing)
+plot!(p2, lmaxs, speedups3; marker, label = nothing)
+plot!(p2, lmaxs, speedups4; marker, label = nothing)
+
+plot(p1, p2; size = (800, 600), layout = grid(2, 1, heights=(3//4, 1//4)))</code></pre><img src="b44751f1.svg" alt="Example block output"/><p>Except for models with a very small perturbation system, it is a good idea to generate the sparse Jacobian and use the sparse <code>PureKLUFactorization</code> linear solver.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../comparison/">« Comparison to CLASS</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 26 September 2026 12:03">Saturday 26 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
