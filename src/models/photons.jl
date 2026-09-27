@@ -59,9 +59,9 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / τ * G[lmax] + κ̇ * G[lmax]
         ])
         append!(ieqs, [
-            G0 ~ 5//16 * F[2]
-            G[1] ~ -1//16 * k/κ̇ * F[2]
-            G[2] ~ 1//16 * F[2]
+            G0 ~ 5//4 * F[2]
+            G[1] ~ -1//4 * k/κ̇ * F[2]
+            G[2] ~ 1//4 * F[2]
             G[3] ~ -3//(2*3+1) * k/κ̇ * G[2] # -l/(2l+1) * k/κ̇ * G[l-1] → 0 quickly
             [G[l] ~ 0 for l in 4:lmax]...
         ])

@@ -255,6 +255,27 @@ end
     @test all([ptsol.t[begin] == sol[M.τ][begin] && ptsol.t[end] == sol[M.τ][end] for ptsol in sol.pts])
 end
 
+@testset "Initial conditions consistent with different initial times" begin
+    # Consistent ICs are a solution of the equations, so starting at τini1 and evolving to τini2 should give the ICs at τini2
+    prob1 = prob
+    τini1 = prob1.tspan[1]
+    τini2 = 10*τini1 # start later
+    prob2 = CosmologyProblem(M, pars; tspan = (τini2, prob1.tspan[2]))
+    ks = [1e0, 1e1, 1e2, 1e3]
+    sol1 = solve(prob1, ks)
+    sol2 = solve(prob2, ks)
+    reldiff(vars) = abs.(sol2(vars, τini2, ks) ./ sol1(vars, τini2, ks) .- 1) # both evaluated at the latest τini2
+    vars = [
+        M.g.Φ, M.g.Ψ, # metric potentials
+        M.c.δ, M.b.δ, M.γ.δ, M.ν.δ, M.h.δ, # δ (F₀) for every species
+        M.c.θ, M.b.θ, M.γ.θ, M.ν.θ, M.h.θ, # θ (F₁) for every species
+        M.γ.F[2], M.γ.F[3], M.γ.G0, M.γ.G[1], M.γ.G[2], # higher photon multipoles
+        M.ν.F[2], M.ν.F[3], # higher neutrino multipoles
+        M.h.ψ[1,2], M.h.ψ[end,2], # higher massive neutrino multipoles
+    ]
+    @test all(reldiff(vars) .< 5e-2)
+end
+
 @testset "Automatic background/thermodynamics splining" begin
     sol = solve(prob, 1.0) # solve with one perturbation mode to activate splining
     τs = timeseries.(sol, log10(M.g.a), range(-8, 0, length=100)) # TODO a => as syntax

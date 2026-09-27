@@ -196,7 +196,7 @@ eqs = [
     uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
     θh ~ k * uh
     σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
-    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
+    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / 3Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
     [Dτ(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - Dτ(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
     [Dτ(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]) for i in 1:nx]...
@@ -261,9 +261,9 @@ initialization_eqs = [
     Fγ[1] ~ 2/3 * k*τ*Ψ
     Fγ[2] ~ -8/15 * k/Dτ(κ) * Fγ[1]
     [Fγ[l] ~ -l/(2l+1) * k/Dτ(κ) * Fγ[l-1] for l in 3:lγmax]...
-    Gγ0 ~ 5/16 * Fγ[2]
-    Gγ[1] ~ -1/16 * k/Dτ(κ) * Fγ[2]
-    Gγ[2] ~ 1/16 * Fγ[2]
+    Gγ0 ~ 5/4 * Fγ[2]
+    Gγ[1] ~ -1/4 * k/Dτ(κ) * Fγ[2]
+    Gγ[2] ~ 1/4 * Fγ[2]
     [Gγ[l] ~ -l/(2l+1) * k/Dτ(κ) * Gγ[l-1] for l in 3:lγmax]...
 
     # cold dark matter
@@ -274,7 +274,7 @@ initialization_eqs = [
     δν ~ -2 * Ψ
     θν ~ 1/2 * (k^2*τ) * Ψ
     σν ~ 1/15 * (k*τ)^2 * Ψ
-    [Fν[l] ~ l/(2l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
+    [Fν[l] ~ 1/(2l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
 
     # massive neutrinos
     [ψh0[i] ~ -1/4 * (-2Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...

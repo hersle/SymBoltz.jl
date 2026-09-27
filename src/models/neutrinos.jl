@@ -34,7 +34,7 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1//2 * (k^2*τ) * g.Ψ
         σ ~ 1//15 * (k*τ)^2 * g.Ψ
-        F[3] ~ +3//(2*3+1) * k*τ * F[2] # l/(2l+1) * k*τ * F[l-1] → 0 quickly
+        F[3] ~ 1//(2*3+1) * k*τ * F[2] # 1/(2l+1) * k*τ * F[l-1] → 0 quickly
         [F[l] ~ 0 for l in 4:lmax]...
     ]
     description = "Massless neutrinos"
@@ -123,7 +123,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x² ./ E .* ψ[:,2]) / (Iρ + IP/3)
-        cₛ² ~ ∫dx_x²_f₀(x² ./ E .* ψ0) / Iδρ # TODO: numerator ψ[:,0] or ψ[:,2]?
+        cₛ² ~ ∫dx_x²_f₀(x² ./ E .* ψ0) / 3Iδρ # δP/δρ
 
         [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
         [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
