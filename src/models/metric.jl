@@ -10,8 +10,8 @@ function metric(; name = :g, kwargs...)
         H(τ), [description = "Cosmic Hubble function (in units of H₀)"]
         Ψ(τ, k), [description = "Gravitational metric potential in gₜₜ = -a²(1+2Ψ)"]
         Φ(τ, k), [description = "Curvature metric potential in gᵢⱼ = a²(1-2Φ)δᵢⱼ"]
-        Ψ̇(τ, k), [description = "Derivative of Φ wrt. conformal time"]
-        Φ̇(τ, k), [description = "Derivative of Ψ wrt. conformal time"]
+        Ψ̇(τ, k), [description = "Derivative of Ψ wrt. conformal time"]
+        Φ̇(τ, k), [description = "Derivative of Φ wrt. conformal time"]
         z(τ), [description = "Redshift"]
         ż(τ), [description = "Redshift derivative"]
     end
