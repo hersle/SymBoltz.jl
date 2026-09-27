@@ -1,9 +1,9 @@
 """
-    massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
+    massless_neutrinos(g; lmax = 10, interact = false, name = :ν, kwargs...)
 
 Create a particle species for massless neutrinos in the spacetime with metric `g`.
 """
-function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
+function massless_neutrinos(g; lmax = 10, interact = false, name = :ν, kwargs...)
     description = "Massless neutrinos"
     ν = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete
 
@@ -16,13 +16,14 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shear stress"]
+        f(τ, k), [description = "Momentum transfer from other species"]
     end
     pars = @parameters begin
         N, [description = "Number of massless neutrino species"]
     end
     eqs = [
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) + 4/(3k) * f/(ν.ρ+ν.P) # (ρ+P)θ′ = … + f with θ = 3kF₁/4
         [D(F[l]) ~ k/(2*l+1) * (l*F[l-1] - (l+1)*F[l+1]) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax]
         δ ~ F0
@@ -32,6 +33,7 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         σ ~ F[2]/2
         u ~ θ / k
     ]
+    !interact && push!(eqs, f ~ 0)
     ieqs = [
         δ ~ -2 * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic)
         θ ~ 1//2 * (k^2*τ) * g.Ψ

@@ -141,7 +141,7 @@ Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
     description = "Baryonic matter"
-    b = matter(g; adiabatic = false, continuity_pressure = false, θinteract = true, name, description, kwargs...) |> complete
+    b = matter(g; adiabatic = false, interact = true, continuity_pressure = false, name, description, kwargs...) |> complete
 
     pars = @parameters begin
         YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
