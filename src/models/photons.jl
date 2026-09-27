@@ -15,6 +15,7 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
         Θ(τ, k)[1:lmax], [description = "Temperature perturbation multipoles"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
+        δP(τ, k), [description = "Pressure perturbation"]
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shears tress"]
@@ -33,6 +34,7 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℋ
         δ ~ F0
         Δ ~ δ + 3*g.ℋ*(1+γ.w)*θ/k^2
+        δP ~ γ.cₛ² * γ.ρ * δ
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         u ~ θ / k

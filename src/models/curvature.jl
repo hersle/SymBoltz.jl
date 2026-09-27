@@ -13,7 +13,8 @@ function curvature(g; name = :K, kwargs...)
         δ(τ, k),
         θ(τ, k),
         cₛ²(τ),
-        σ(τ, k)
+        σ(τ, k),
+        δP(τ, k)
     end
     pars = @parameters begin
         Ω₀, [description = "Effective reduced background density today"] # dimless K is physical K*c²/H₀²
@@ -26,6 +27,7 @@ function curvature(g; name = :K, kwargs...)
         θ ~ 0
         cₛ² ~ 0
         σ ~ 0
+        δP ~ 0
     ]
     return System(eqs, τ, vars, pars; name, description, kwargs...)
 end

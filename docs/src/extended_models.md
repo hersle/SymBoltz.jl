@@ -56,7 +56,7 @@ D = Differential(τ)
 pars = @parameters w₀ wₐ cₛ² Ω₀
 
 # 2. Create variables
-vars = @variables ρ(τ) P(τ) w(τ) δ(τ, k) θ(τ, k) σ(τ, k)
+vars = @variables ρ(τ) P(τ) w(τ) δ(τ, k) θ(τ, k) σ(τ, k) δP(τ, k)
 
 # 3. Specify equations (~ means equality in ModelingToolkit)
 eqs = [
@@ -66,9 +66,10 @@ eqs = [
     P ~ w * ρ # pressure
 
     # Perturbation equations
-    D(δ) ~ -(1 + w) * (θ - 3*g.Φ) - 3 * g.ℋ * (cₛ² - w) * δ # energy overdensity
+    D(δ) ~ -(1 + w) * (θ - 3*D(g.Φ)) - 3 * g.ℋ * (cₛ² - w) * δ # energy overdensity
     D(θ) ~ -g.ℋ * (1 - 3*w) * θ - D(w) / (1 + w) * θ + cₛ² / (1 + w) * k^2 * δ - k^2 * σ + k^2 * g.Ψ # momentum
     σ ~ 0 # shear stress
+    δP ~ cₛ² * ρ * δ # pressure perturbation
 ]
 
 # 4. Specify initial conditions (for perturbations)
@@ -84,7 +85,7 @@ description = "w₀wₐ (CPL) dynamical dark energy"
 
 Note that the w₀wₐ component only knows about itself (and the metric),
 but is completely unaware of the theory of gravity, other species and other components.
-Its "job" is only to expose the variables like `ρ`, `P`, `δ` and `σ` that source the Einstein equations.
+Its "job" is only to expose the variables like `ρ`, `P`, `δ`, `δP` and `σ` that source the Einstein equations.
 This connection is made when the component is used to create a full cosmological model, as we will do next.
 
 ## 3. Create the extended model

@@ -12,6 +12,7 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         F(τ, k)[1:lmax], [description = "Distribution function multipoles"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
+        δP(τ, k), [description = "Pressure perturbation"]
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shear stress"]
@@ -26,6 +27,7 @@ function massless_neutrinos(g; lmax = 10, name = :ν, kwargs...)
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax]
         δ ~ F0
         Δ ~ δ + 3*g.ℋ*(1+ν.w)*θ/k^2
+        δP ~ ν.cₛ² * ν.ρ * δ
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         u ~ θ / k
@@ -92,7 +94,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         T(τ), [description = "Temperature"]
         y(τ), [description = "Temperature-deuced mass"]
         w(τ), [description = "Equation of state"]
-        cₛ²(τ, k), [description = "Speed of sound squared"]
+        δP(τ, k), [description = "Pressure perturbation"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         σ(τ, k), [description = "Shear stress"]
@@ -126,7 +128,7 @@ function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
         u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
         θ ~ u * k
         σ ~ (2//3) * ∫dx_x²_f₀(x² ./ E .* ψ[:,2]) / (Iρ + IP/3)
-        cₛ² ~ ∫dx_x²_f₀(x² ./ E .* ψ0) / 3Iδρ # δP/δρ
+        δP ~ P * ∫dx_x²_f₀(x² ./ E .* ψ0) / IP
 
         [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
         [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * C * dlnf₀[i] for i in 1:nx]...

@@ -1,9 +1,18 @@
 """
-    species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
+    species_constant_eos(g, w, ẇ = 0, σ = 0; analytical = true, θinteract = false, adiabatic = false, continuity_pressure = true, name = :s, kwargs...)
 
-Create a symbolic component for a particle species with equation of state `w ~ P/ρ` in the spacetime with the metric `g`.
+Create a symbolic component for a particle species with equation of state ``w = P/ρ`` in the spacetime with the metric `g`,
+with the generic species evolution equations in [Ma & Bertschinger](https://arxiv.org/abs/astro-ph/9506072).
+
+# Keyword arguments
+
+- `analytical`: whether the background continuity equation is integrated analytically (requires constant ``w``).
+- `θinteract`: whether the momentum exchange variable is left unspecified, so it can be set elsewhere.
+- `adiabatic`: whether to set ``cₛ² = cₐ²`` and ``δP = cₐ² δρ``; otherwise the caller must specify ``cₛ²`` and ``δP``.
+- `continuity_pressure`: whether the perturbed continuity equation includes the pressure term.
 """
-function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinteract = false, adiabatic = false, name = :s, kwargs...)
+function species_constant_eos(g, w, ẇ = 0, σ = 0; analytical = true, θinteract = false, adiabatic = false, continuity_pressure = true, name = :s, kwargs...)
+    _w, _σ = w, σ # w and σ are redefined as symbolic variables below
     @assert ẇ == 0 && _σ == 0 # TODO: relax (need to include in ICs)
     if analytical
         pars = @parameters Ω₀, [description = "Reduced background density today"]
@@ -16,6 +25,8 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         P(τ), [description = "Background pressure"]
         Ω(τ), [description = "Reduced background density"]
         cₛ²(τ), [description = "Speed of sound squared"]
+        cₐ²(τ), [description = "Adiabatic speed of sound squared"]
+        δP(τ, k), [description = "Pressure perturbation"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
@@ -43,14 +54,15 @@ function species_constant_eos(g, _w, ẇ = 0, _σ = 0; analytical = true, θinte
         w ~ _w
         P ~ w * ρ
 
-        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ # Bertschinger & Ma (30) with Φ -> -Φ; or Baumann (4.4.173) with Φ -> -Φ
-        D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30) with θ = kv
+        cₐ² ~ w - (iszero(ẇ) ? 0 : ẇ/(3*g.ℋ*(1+w))) # Ṗ/ρ̇ (branch avoids 0/0 for w = -1)
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - (continuity_pressure ? 3*g.ℋ*(δP/ρ-w*δ) : 0) # Bertschinger & Ma (30)
+        D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + k^2*δP/((1+w)*ρ) - k^2*σ + k^2*g.Ψ + θinteraction # Bertschinger & Ma (30)
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         u ~ θ / k
         u̇ ~ D(u)
         σ ~ _σ
     ])
-    adiabatic && push!(eqs, cₛ² ~ w)
+    adiabatic && push!(eqs, cₛ² ~ cₐ², δP ~ cₐ²*ρ*δ)
     ieqs = [
         δ ~ -3//2 * (1+w) * g.Ψ # adiabatic: δᵢ/(1+wᵢ) == δⱼ/(1+wⱼ) (https://cmb.wintherscoming.no/theory_initial.php#adiabatic) # TODO: match CLASS with higher-order (for photons)? https://github.com/lesgourg/class_public/blob/22b49c0af22458a1d8fdf0dd85b5f0840202551b/source/perturbations.c#L5631-L5632
         θ ~ 1//2 * (k^2*τ) * g.Ψ # τ ≈ 1/ℋ # TODO: include σ ≠ 0 # solve u′ + ℋ(1-3w)u = w/(1+w)*kδ + kΨ with Ψ=const, IC for δ, Φ=-Ψ, ℋ=H₀√(Ωᵣ₀)/a after converting ′ -> d/da by gathering terms with u′ and u in one derivative using the trick to multiply by exp(X(a)) such that X′(a) will "match" the terms in front of u
@@ -91,7 +103,7 @@ end
     effective_species(g, species; effective_name = "", kwargs...)
 
 Create an effective "read-only" species for several given `species` with metric `g`.
-Additive properties (like ``ρ``, ``P`` and ``δρ``) are summed, and used to express non-additive properties (like ``w`` and ``δ``).
+Additive properties (like ``ρ``, ``P``, ``δρ`` and ``δP``) are summed, and used to express non-additive properties (like ``w`` and ``δ``).
 """
 function effective_species(g, species; effective_name = "", kwargs...)
     scope = ParentScope
@@ -105,6 +117,7 @@ function effective_species(g, species; effective_name = "", kwargs...)
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
+        δP(τ, k), [description = "Pressure perturbation"]
     end
     eqs = [
         ρ ~ scope(sum(s.ρ for s in species))
@@ -113,6 +126,7 @@ function effective_species(g, species; effective_name = "", kwargs...)
         δ ~ scope(sum(s.δ*s.ρ for s in species)) / ρ
         θ ~ scope(sum((1+s.w)*s.ρ*s.θ for s in species)) / (ρ + P)
         Δ ~ scope(sum(s.ρ*s.Δ for s in species)) / ρ
+        δP ~ scope(sum(s.δP for s in species))
     ]
     description = "Effective species for " * join(nameof.(species), '+')
     if !isempty(effective_name)

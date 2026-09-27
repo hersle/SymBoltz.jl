@@ -1385,7 +1385,7 @@ end
         M.Φ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # Einstein eq depends on δρ(F0, δc, δb) and Ψ(Φ, F2)
         M.c.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.c.θ, M.b.δ], # continuity D(δc) = -θc + 3*D(Φ) has same vars as D(Φ), plus θc
         M.c.θ => [M.γ.F[2], M.Φ, M.c.θ], # Euler eq D(θc) ~ -ℋ*θc + k^2*Ψ(Φ, F2)
-        M.b.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ, M.b.θ], # same as D(δc) plus the -3*ℋ*cₛ²*δb pressure term
+        M.b.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ, M.b.θ], # continuity D(δb) = -θb + 3*D(Φ) has same vars as D(Φ), plus θb
         M.b.θ => [M.γ.F[1], M.γ.F[2], M.Φ, M.b.δ, M.b.θ], # same as θc, plus cₛ²*k^2*δb and Thomson drag towards θγ(F1)
         M.γ.F0 => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # D(F0) ~ -k*F1 + 4*D(Φ), with δρ(F0, δc, δb) and Ψ(Φ, F2)
         M.γ.F[1] => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.b.θ], # free streaming to F0 and F2, plus Ψ(Φ, F2) and Thomson drag towards θb
