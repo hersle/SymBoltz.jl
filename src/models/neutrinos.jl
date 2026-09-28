@@ -46,17 +46,17 @@ function massless_neutrinos(g; lmax = 10, interact = false, name = :ν, kwargs..
 end
 
 """
-    momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, dx_du = u -> -100/u^2, x1 = 0.0, x2 = Inf)
+    momentum_quadrature(f, N; x0 = 100, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
 
 Compute ``N`` dimensionless momentum bins ``xᵢ`` and integral weights ``Wᵢ`` for integrating ``∫dx x²f(x)g(x)`` from ``0`` to ``∞``
 against arbitrary weight functions ``g(x)`` with ``N``-point Gaussian quadrature using QuadGK.jl.
 The returned weights `Ws` approximates the integral for arbitrary functions `g(x)` with the sum ``sum(Ws .* g.(xs))``.
 
 The keyword arguments specifies an integral substitution ``x(u)`` with derivative ``\\mathrm{d}x/\\mathrm{d}u`` and inverse ``u(x)`` to apply.
-The default transformation first maps ``x`` on the infinite domain ``(0, ∞)`` to ``x/L`` with ``L = 100``, which is an approximate decay length of the massive neutrino distribution function.
-It then performs a rational transformation of ``x/L`` into ``u`` on the finite domain ``(0, 1)`` to make the numerical integral well-defined.
+The default transformation first maps ``x`` on the infinite domain ``(0, ∞)`` to ``x/x0``, where ``x0`` is a characteristic momentum of ``f``.
+It then performs a rational transformation of ``x/x0`` into ``u`` on the finite domain ``(0, 1)`` to make the numerical integral well-defined.
 """
-function momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, dx_du = u -> -100/u^2, x1 = 0.0, x2 = Inf)
+function momentum_quadrature(f, N; x0 = 100, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
     w(x) = f(x) * x^2 # weight function to integrate against, i.e. want weights for ∫dx*w(x)*g(x) for arbitrary g(x)
     us, Ws = gauss(u -> dx_du(u) * x(u)^2 * f(x(u)), N, u(x1), u(x2)) # get u bins and quadrature weights
     xs = x.(us) # corresponding x values
@@ -64,18 +64,19 @@ function momentum_quadrature(f, N; u = x -> 1/(1+x/100), x = u -> 100*(1-u)/u, d
 end
 
 """
-    massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
+    massive_neutrinos(g; nx = 4, x0 = 100, lmax = 10, name = :h, kwargs...)
 
 Create a particle species for massive neutrinos in the spacetime with metric `g`.
+The momentum integrals use `nx` quadrature points with the momentum scale `x0` (see [`momentum_quadrature`](@ref)).
 """
-function massive_neutrinos(g; nx = 4, lmax = 10, name = :h, kwargs...)
+function massive_neutrinos(g; nx = 4, x0 = 100, lmax = 10, name = :h, kwargs...)
     # compute numerical reduced momenta x = q*c / (kB*T) and Gaussian quadrature weights
     # for approximating integrals ∫dx x² f₀(x) g(x) for any g(x) over the infinite domain (0, ∞),
     # but change variables to transform it into a finite domain (0, 1)
     # (see e.g. https://juliamath.github.io/QuadGK.jl/v2.11/quadgk-examples/#Improper-integrals:-Infinite-limits)
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-    x, W = momentum_quadrature(f₀, nx)
+    x, W = momentum_quadrature(f₀, nx; x0)
     x² = x .^ 2
     ∫dx_x²_f₀(f) = sum(collect(f .* W)) # a function that approximates the weighted integral ∫dx*x^2*f(x)*f₀(x)
     dlnf₀ = dlnf₀_dlnx.(x)
