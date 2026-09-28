@@ -591,12 +591,12 @@ end
 using SpecialFunctions: zeta as ζ
 @testset "Momentum quadrature strategy" begin
     f(x) = 1 / (exp(x) + 1)
-    for N in 1:5
-        xs, Ws = SymBoltz.momentum_quadrature(f, 4)
+    for N in 1:8
+        xs, Ws = SymBoltz.momentum_quadrature(f, N)
         num(n) = sum(Ws .* xs .^ (n-2)) # numerical quadrature of ∫dx x^n/(exp(x)+1) from 0 to ∞
         anal(n) = factorial(n) * (1 - 1/2^n) * ζ(n+1) # <3 analytical expression for ∫dx x^n/(exp(x)+1) from 0 to ∞ (https://math.stackexchange.com/a/4111560)
         for n in 2:8
-            @test isapprox(num(n), anal(n); rtol = 10.0^(-6+n-N))
+            @test isapprox(num(n), anal(n); rtol = max(1e-10, 10.0^(n-2N-2))) # error drops ~100x per extra point
         end
     end
 end
