@@ -765,6 +765,7 @@ end
 @testset "Remove background initial conditions" begin
     @test isempty(SymBoltz.remove_background_initial_conditions!([D(M.g.a) ~ M.g.a/M.τ])) # should remove
     @test !isempty(SymBoltz.remove_background_initial_conditions!([M.g.Ψ ~ 20M.C / (15+4M.fν)])) # should keep
+    @test isempty(SymBoltz.remove_background_initial_conditions!([M.g.a * M.g.ℋ ~ 1])) # should remove (several background variables)
 end
 
 @testset "Split off a closed subsystem" begin

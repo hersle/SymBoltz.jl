@@ -268,8 +268,8 @@ lhs(eq::Equation) = eq.lhs # for equations
 
 function remove_background_initial_conditions!(ics)
     filter!(ics) do ic
-        var = only(basevars(lhs(ic)))
-        return !iscall(var) || length(arguments(var)) != 1 # keep parameters and functions of (τ,k)
+        isbg(var) = iscall(var) && length(arguments(var)) == 1 # function of τ only
+        return !all(isbg, basevars(lhs(ic))) # keep those that also involve parameters or functions of (τ,k)
     end
 end
 
