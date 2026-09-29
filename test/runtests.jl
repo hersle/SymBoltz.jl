@@ -590,14 +590,22 @@ end
 
 using SpecialFunctions: zeta as ζ
 @testset "Momentum quadrature strategy" begin
-    f(x) = 1 / (exp(x) + 1)
-    for N in 1:8
-        xs, Ws = SymBoltz.momentum_quadrature(f, N)
-        num(n) = sum(Ws .* xs .^ (n-2)) # numerical quadrature of ∫dx x^n/(exp(x)+1) from 0 to ∞
-        anal(n) = factorial(n) * (1 - 1/2^n) * ζ(n+1) # <3 analytical expression for ∫dx x^n/(exp(x)+1) from 0 to ∞ (https://math.stackexchange.com/a/4111560)
-        for n in 2:8
-            @test isapprox(num(n), anal(n); rtol = max(1e-10, 10.0^(n-2N-2))) # error drops ~100x per extra point
+    f₀(x) = 1 / (exp(x) + 1)
+    dlnf₀(x) = -x / (1 + exp(-x))
+    for N in 3:8
+        xs, Ws = SymBoltz.momentum_quadrature(f₀, N)
+        Q(g) = sum(Ws .* g.(xs)) # ≈ ∫dx x²f₀(x)g(x)
+        for y in [0.0; 10.0 .^ (-2:4)]
+            E(x) = √(x^2 + y^2)
+            Iρ = Q(x -> -dlnf₀(x) * x * SymBoltz.Gρ(y/x)) # by parts, as in massive_neutrinos
+            IP = Q(x -> -dlnf₀(x) * x * SymBoltz.GP(y/x) / 3)
+            rtol = 3 * 10.0^(1-N) # error drops ~10x per extra point
+            @test isapprox(Iρ, SymBoltz.∫(x -> x^2 * f₀(x) * E(x), 0, Inf); rtol)
+            @test isapprox(IP, SymBoltz.∫(x -> x^2 * f₀(x) * x^2/(3E(x)), 0, Inf); rtol)
+            @test isapprox(3(Iρ + IP), -Q(x -> E(x) * dlnf₀(x)); rtol = 1e-13) # exact consistency with perturbations
         end
+        y = 0.0
+        @test isapprox(Q(x -> -dlnf₀(x) * x * SymBoltz.Gρ(y/x)), 6 * (1 - 1/2^3) * ζ(4); rtol = 3 * 10.0^(1-N)) # relativistic limit
     end
 end
 
