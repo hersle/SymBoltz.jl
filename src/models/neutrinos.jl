@@ -108,6 +108,7 @@ function massive_neutrinos(g; nx = 4, x0 = 12, lmax = 10, name = :h, kwargs...)
     x, W = momentum_quadrature(f₀, nx; x0)
     x² = x .^ 2
     dlnf₀ = dlnf₀_dlnx.(x)
+    W .*= ∫(x -> x^3 * f₀(x), 0, Inf) / (-sum(@. W * dlnf₀ * x) / 4) # rescale weights to make the relativistic density ∫dx x³f₀ = -∫dx x⁴f₀′/4 exact; consistency holds for any weights
     W′ = @. W * dlnf₀ / x # replaces f₀ by f₀′ in the weights, since f₀ dlnf₀/dlnx = xf₀′; integrate background by parts ∫dx f₀v′ = -∫dx f₀′v with v(0) = 0 to get the same f₀′ as the perturbation sources
     ∫dx_x²_f₀(g) = sum(collect(g .* W)) # ≈ ∫dx x²f₀(x)g(x)
     ∫dx_x²_f₀′(g) = sum(collect(g .* W′)) # ≈ ∫dx x²f₀′(x)g(x)
