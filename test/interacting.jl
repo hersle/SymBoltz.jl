@@ -186,16 +186,16 @@ eqs = [
     Th ~ Th0 / a
     yh ~ yh0 * a
     Iρh ~ ∫dx_x²_f₀(Eh)
-    IPh ~ ∫dx_x²_f₀(x² ./ Eh)
-    ρh ~ 2Nh/(2π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
-    Ph ~ 2Nh/(6π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
+    IPh ~ ∫dx_x²_f₀(x² ./ (3Eh))
+    ρh ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
+    Ph ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
     wh ~ Ph / ρh
     Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
     δh ~ Iδρh / Iρh
     Δh ~ δh + 3ℋ*(1+wh)*θh/k^2
-    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
+    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh)
     θh ~ k * uh
-    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
+    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh)
     csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / 3Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
     [Dτ(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - Dτ(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...

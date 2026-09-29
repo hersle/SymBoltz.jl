@@ -118,20 +118,20 @@ function massive_neutrinos(g; nx = 4, x0 = 100, lmax = 10, name = :h, kwargs...)
         y ~ y₀ * g.a
         In ~ ∫dx_x²_f₀(1)
         Iρ ~ ∫dx_x²_f₀(E)
-        IP ~ ∫dx_x²_f₀(x² ./ E)
-        ρ ~ 2N/(2*π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
-        P ~ 2N/(6*π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(6π²ħ³) * ∫dp p⁴ / √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        IP ~ ∫dx_x²_f₀(x² ./ (3E))
+        ρ ~ N/(π^2) * (kB*T)^4 / (ħ*c)^3 * Iρ / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² √((pc)² + (mc²)²) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
+        P ~ N/(π^2) * (kB*T)^4 / (ħ*c)^3 * IP / ((H100*g.h*c)^2/GN) # compute g/(2π²ħ³) * ∫dp p² (pc)² / (3√((pc)² + (mc²)²)) / (exp(pc/(kT)) + 1) with dimensionless x = pc/(kT) and degeneracy factor g = 2
         w ~ P / ρ
         Ω ~ 8*Num(π)/3 * ρ
-        C ~ -(3*Iρ + IP) / ∫dx_x²_f₀(E .* dlnf₀) # = 1 analytically (integrate by parts), but not with quadrature
+        C ~ -3(Iρ + IP) / ∫dx_x²_f₀(E .* dlnf₀) # = 1 analytically (integrate by parts), but not with quadrature
 
         Iδρ ~ ∫dx_x²_f₀(E .* ψ0)
         δ ~ Iδρ / Iρ
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
-        u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP/3)
+        u ~ ∫dx_x²_f₀(x .* ψ[:,1]) / (Iρ + IP)
         θ ~ u * k
-        σ ~ (2//3) * ∫dx_x²_f₀(x² ./ E .* ψ[:,2]) / (Iρ + IP/3)
-        δP ~ P * ∫dx_x²_f₀(x² ./ E .* ψ0) / IP
+        σ ~ (2//3) * ∫dx_x²_f₀(x² ./ E .* ψ[:,2]) / (Iρ + IP)
+        δP ~ P * ∫dx_x²_f₀(x² ./ (3E) .* ψ0) / IP
 
         [E[i] ~ √(x[i]^2 + y^2) for i in 1:nx]...
         [D(ψ0[i]) ~ -k * x[i]/E[i] * ψ[i,1] - D(g.Φ) * C * dlnf₀[i] for i in 1:nx]...
