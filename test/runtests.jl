@@ -82,6 +82,24 @@ end
     @test sol[M.χ] ≈ sol[M.τ][end] .- sol[M.τ]
 end
 
+@testset "Distances" begin
+    sol = solve(prob)
+    zs = [0.5, 1.0, 1100.0]
+    τs = SymBoltz.timeseries(sol, M.g.z, zs)
+    modes = [:χ, :M, :A, :L, :H, :V]
+    Ds = distance(modes, sol, τs)
+    Dχ, DM, DA, DL, DH, DV = eachrow(Ds)
+    @test all(Dχ .≈ sol[M.τ][end] .- τs)
+    @test all(DM .== Dχ) # flat
+    @test all(DL .≈ DM .* (1 .+ zs))
+    @test all(DL .≈ DA .* (1 .+ zs) .^ 2)
+    @test all(DH .≈ 1 ./ sol(M.g.H, τs))
+    @test all(DV .≈ cbrt.(zs .* DM .^ 2 .* DH))
+    @test all(distance(modes, sol, M.g.z => zs) .≈ Ds)
+    @test all(distance(:L, sol, τs) .== DL)
+    @test_throws "Unknown distance mode" distance(:X, sol, τs)
+end
+
 @testset "Sound horizon" begin
     sol = solve(prob)
     τs = sol[M.τ]

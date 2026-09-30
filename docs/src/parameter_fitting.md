@@ -76,14 +76,14 @@ pars = Dict(M.Ωm0 => 0.3, M.Ωk0 => 0.0, M.h => 0.7, M.w0 => -1.0, M.wa => 0.0)
 prob = CosmologyProblem(M, pars; tspan = (0.0, maximum(data.zcmb)), terminate = nothing)
 probf = remake_function(prob, [M.Ωm0, M.Ωk0, M.h, M.w0, M.wa]; build_initializeprob = Val{false})
 
-function dL(p)
+function DL(p)
     Ωm0, Ωk0, h, w0, wa = p
     prob = probf(p)
     sol = solve(prob; bgalg = Tsit5(), bgreltol = 1e-5, bgopts = (maxiters = 1e3, saveat = data.zcmb)) # avoids interpolation: cheaper
     issuccess(sol) || return Float64[]
-    return distance_luminosity(sol[M.χ], sol[M.a], h, Ωk0)
+    return distance(:L, sol, data.zcmb) * SymBoltz.c / (SymBoltz.H100 * h) # from c/H₀ to meters
 end
-μ(p) = 5 * log10.(dL(p) / (10*SymBoltz.pc)) # distance modulus
+μ(p) = 5 * log10.(DL(p) / (10*SymBoltz.pc)) # distance modulus
 
 # Show example predictions
 Mb = -19.3 # absolute supernova brightness (constant since SN-Ia are standard candles)

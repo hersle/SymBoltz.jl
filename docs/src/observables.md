@@ -138,27 +138,23 @@ scatter!((log10(8), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8
 ## Distance measures
 
 ```@docs
-SymBoltz.distance_luminosity
+distance
 ```
 
 ```@example
 using SymBoltz, Plots
-M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
-pars = Dict(
-    M.r.Ω₀ => 5e-5,
-    M.m.Ω₀ => 0.3,
-    M.K.Ω₀ => 0.1,
-    M.r.T₀ => NaN,
-    M.g.h => 0.7
-)
+M = ΛCDM()
+pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 sol = solve(prob)
 
-zs = 0.0:1.0:10.0
-τs = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
-dLs = distance_luminosity(sol(M.χ, τs), sol(M.g.a, τs), sol[M.g.h], sol[M.K.Ω₀]) / SymBoltz.Gpc
-@assert isapprox(dLs[begin], 0.0; atol = 1e-14) || zs[begin] != 0.0 # ensure bug does not reappear # hide
-plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
+τ0 = today(sol)
+τs = range(0.5*τ0, τ0, length = 100) # conformal times back in time
+zs = sol(M.g.z, τs) # corresponding redshifts
+modes = [:χ, :M, :A, :L, :V] # distances from today
+Ds = distance(modes, sol, τs)
+labels = ["Dχ (lookback distance)" "DM (transverse comoving distance)" "DA (angular diameter distance)" "DL (luminosity distance)" "DV (volume-averaged distance)"]
+plot(zs, transpose(Ds); xlabel = "z", ylabel = "D / (c/H₀)", label = labels, xlims = extrema(zs), ylims = (0, 3))
 ```
 
 ## Sound horizon (BAO scale)
