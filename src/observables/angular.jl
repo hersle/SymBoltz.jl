@@ -128,8 +128,9 @@ The Limber approximation
 Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
+Contributions where ``|jₗ(x)|`` is below `jltol` (at small ``x ≪ l``) are skipped.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), thread = true, verbose = false) where {T}
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache; l_limber = typemax(Int), jltol = 1e-20, thread = true, verbose = false) where {T}
     @assert size(Ss, 1) == length(τs) "size(Ss, 1) = $(size(Ss, 1)) and length(τs) = $(length(τs)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert collect(ls) == collect(jl.l) "ls must match the l-values stored in the Bessel cache"
@@ -156,6 +157,10 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     Is = similar(Ss, length(ks), nl)
     il_limber = searchsortedfirst(ls, l_limber) # First il index with l ≥ l_limber (=nl+1 when l_limber = typemax, i.e. no Limber modes)
 
+    # Skip negligible jₗ(x) at small x (avoids wasted work and very slow subnormal arithmetic)
+    ilend = [something(findlast(il -> abs(jl.y[il, ix]) ≥ jltol, 1:il_limber-1), 0) for ix in eachindex(jl.x)] # last il with non-negligible jₗ for each x-node
+    # TODO: `accumulate` with `max` to guarantee that ilend is monotonically increasing/decreasing?
+
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
     # Loop order k → τ → l to get SIMD on the innermost l-loop
@@ -170,7 +175,8 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
         @inbounds for iτ in eachindex(τs)
             kχ = k * χs[iτ]
             Sw = ws[iτ] * Ss[iτ, ik]
-            @inbounds @simd for il in 1:il_limber-1
+            ix = trunc(Int, ForwardDiff.value(kχ) * jl.invdx) + 2 # rightmost interpolation node corresponding to kχ
+            @inbounds @simd for il in 1:ilend[ix]
                 tmp[il] += Sw * jl(il, kχ)
             end
         end
