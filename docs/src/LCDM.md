@@ -17,7 +17,7 @@ It uses the logarithm of the scale factor ``b = \ln a`` as the independent varia
 using SymBoltz
 
 # Constants, some functions and atomic energy levels defined in internal files
-@unpack kB, ħ, c, GN, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s, ΛH2s1s, ΛHe2s1s, AHe2p1s, AHet2p1s, σHe2p1s, σHet2p1s = SymBoltz
+@unpack kB, ħ, c, GN, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s, ΛH2s1s, ΛHe2s1s, AHe2p1s, AHet2p1s, σHe2p1s, σHet2p1s, Gρ, GP = SymBoltz
 lγmax = 10
 lνmax = 10
 lhmax = 10
@@ -33,9 +33,11 @@ KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
 nx = 4 # number of momenta
 f₀(x) = 1 / (exp(x) + 1)
 dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-x, W = SymBoltz.momentum_quadrature(f₀, nx)
+x, W, W′ = SymBoltz.momentum_quadrature(f₀, dlnf₀_dlnx, nx)
 x² = x .^ 2
-∫dx_x²_f₀(f) = sum(collect(f .* W))
+dlnf₀ = dlnf₀_dlnx.(x)
+∫dx_x²_f₀(g) = sum(collect(g .* W)) # ≈ ∫dx x²f₀(x)g(x)
+∫dx_x²_f₀′(g) = sum(collect(g .* W′)) # ≈ ∫dx x²f₀′(x)g(x)
 
 # 1) Independent variable for time evolution
 @independent_variables b # b = ln(a)
@@ -155,7 +157,7 @@ eqs = [
 
     # baryons
     ρb ~ 3/8π * Ωb0 / a^3
-    D(δb) ~ (-θb - 3ℋ*csb2*δb) / ℋ + 3*D(Φ)
+    D(δb) ~ -θb / ℋ + 3*D(Φ)
     D(θb) ~ -θb + (k^2*csb2*δb + k^2*Ψ) / ℋ - 4/3*D(κ)*ργ/ρb*(θγ-θb)
     Δb ~ δb + 3ℋ*θb/k^2
 
@@ -199,21 +201,21 @@ eqs = [
     # massive neutrinos
     Th ~ Th0 / a
     yh ~ yh0 * a
-    Iρh ~ ∫dx_x²_f₀(Eh)
-    IPh ~ ∫dx_x²_f₀(x² ./ Eh)
-    ρh ~ 2Nh/(2π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
-    Ph ~ 2Nh/(6π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
+    Iρh ~ -∫dx_x²_f₀′(@. x² * Gρ(yh / x)) # by parts with v′ = x²E, v = x⁴Gρ(y/x)
+    IPh ~ -∫dx_x²_f₀′(@. x² * GP(yh / x) / 3) # by parts with v′ = x⁴/(3E), v = x⁴GP(y/x)/3
+    ρh ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
+    Ph ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
     wh ~ Ph / ρh
     Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
     δh ~ Iδρh / Iρh
     Δh ~ δh + 3ℋ*(1+wh)*θh/k^2
-    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
+    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh)
     θh ~ k * uh
-    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
-    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
+    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh)
+    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / 3Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
-    [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1]/ℋ - D(Φ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [D(ψh[i,1]) ~ (k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀_dlnx(x[i]))/ℋ for i in 1:nx]...
+    [D(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1]/ℋ - D(Φ) * dlnf₀[i] for i in 1:nx]...
+    [D(ψh[i,1]) ~ (k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀[i])/ℋ for i in 1:nx]...
     [D(ψh[i,l]) ~ k/(2l+1) * x[i]/Eh[i] * (l*ψh[i,l-1] - (l+1) * ψh[i,l+1])/ℋ for i in 1:nx, l in 2:lhmax-1]...
     [D(ψh[i,lhmax]) ~ k/(2lhmax+1) * x[i]/Eh[i] * (lhmax*ψh[i,lhmax-1] - (lhmax+1) * ((2lhmax+1) * Eh[i]/x[i] * ψh[i,lhmax] / (k*τ) - ψh[i,lhmax-1]))/ℋ for i in 1:nx]...
 
@@ -260,9 +262,9 @@ initialization_eqs = [
     Fγ[1] ~ 2/3 * k*τ*Ψ
     Fγ[2] ~ -8/15 * k/Dτ(κ) * Fγ[1]
     [Fγ[l] ~ -l/(2l+1) * k/Dτ(κ) * Fγ[l-1] for l in 3:lγmax]...
-    Gγ0 ~ 5/16 * Fγ[2]
-    Gγ[1] ~ -1/16 * k/Dτ(κ) * Fγ[2]
-    Gγ[2] ~ 1/16 * Fγ[2]
+    Gγ0 ~ 5/4 * Fγ[2]
+    Gγ[1] ~ -1/4 * k/Dτ(κ) * Fγ[2]
+    Gγ[2] ~ 1/4 * Fγ[2]
     [Gγ[l] ~ -l/(2l+1) * k/Dτ(κ) * Gγ[l-1] for l in 3:lγmax]...
 
     # cold dark matter
@@ -273,12 +275,12 @@ initialization_eqs = [
     δν ~ -2 * Ψ
     θν ~ 1/2 * (k^2*τ) * Ψ
     σν ~ 1/15 * (k*τ)^2 * Ψ
-    [Fν[l] ~ l/(2l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
+    [Fν[l] ~ 1/(2l+1) * k*τ * Fν[l-1] for l in 3:lνmax]...
 
     # massive neutrinos
-    [ψh0[i] ~ -1/4 * (-2Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [ψh[i,1] ~ -1/3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
-    [ψh[i,2] ~ -1/2 * (1/15*(k*τ)^2*Ψ) * dlnf₀_dlnx(x[i]) for i in 1:nx]...
+    [ψh0[i] ~ -1/4 * (-2Ψ) * dlnf₀[i] for i in 1:nx]...
+    [ψh[i,1] ~ -1/3 * Eh[i]/x[i] * (1/2*k*τ*Ψ) * dlnf₀[i] for i in 1:nx]...
+    [ψh[i,2] ~ -1/2 * (1/15*(k*τ)^2*Ψ) * dlnf₀[i] for i in 1:nx]...
     [ψh[i,l] ~ 0 for i in 1:nx, l in 3:lhmax]...
 
     # dark energy (w0wa)
@@ -308,7 +310,7 @@ initial_conditions = [
     Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*H0SI^2)
     mh => mh_eV * eV/c^2
     yh0 => mh*c^2 / (kB*Th0)
-    Iρh0 => ∫dx_x²_f₀(@. √(x^2 + yh0^2))
+    Iρh0 => -∫dx_x²_f₀′(@. x² * Gρ(yh0 / x))
     Ωh0 => Nh * 8π/3 * 2/(2π^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H0SI*c)^2/GN)
     fHe => YHe / (mHe/mH*(1-YHe))
     w0 => -1

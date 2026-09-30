@@ -141,7 +141,7 @@ Create a particle species for baryons in the spacetime with metric `g`.
 """
 function baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
     description = "Baryonic matter"
-    b = matter(g; adiabatic = false, θinteract = true, name, description, kwargs...) |> complete
+    b = matter(g; adiabatic = false, interact = true, continuity_pressure = false, name, description, kwargs...) |> complete
 
     pars = @parameters begin
         YHe, [description = "Primordial He abundance or mass fraction ρ(He)/(ρ(H)+ρ(He))"]
@@ -153,7 +153,7 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         I(τ), [description = "Optical depth exponential exp(-κ)"]
         v(τ), [description = "Visibility function"]
         v̇(τ), [description = "Visibility function derivative"]
-        cₛ²(τ), [description = "Thermal speed of sound squared"]
+        cₛ²(τ), [description = "Thermal speed of sound squared (from gas temperature; different from other species)"]
         T(τ), [description = "Baryon temperature"]
         Tγ(τ), [description = "Photon temperature"]
         ΔT(τ) = 0.0, [description = "Baryon-photon temperature difference"] # Tb ≈ Tγ at early times
@@ -173,7 +173,8 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         I ~ exp(-κ)
         v ~ D(exp(-κ)) |> expand_derivatives # visibility function
         v̇ ~ D(v)
-        cₛ² ~ kB/μc² * (T - D(T)/3g.ℋ) # https://arxiv.org/pdf/astro-ph/9506072 eq. (68)
+        cₛ² ~ kB/μc² * (T - D(T)/3g.ℋ) # thermal (adiabatic) speed of sound Ṗ/ρ̇ of the gas from https://arxiv.org/pdf/astro-ph/9506072 eq. 68; different from other species' cₛ²
+        b.δP ~ cₛ² * b.ρ * b.δ # pressure perturbation in Euler equation (not continuity equation) and sourcing the total in gravity (see https://arxiv.org/pdf/astro-ph/9506072 eq. 67) # TODO: consistent thermal w = kB*T/μc² instead (needs time-dependent w and background+thermodynamics coupling)
         μc² ~ mH*c^2 / (1 + (mH/mHe-1)*YHe + Xe*(1-YHe))
 
         DT ~ -2*T*g.ℋ - g.a/g.h * 8/3*σT*aR/H100*Tγ^4 / (me*c) * Xe / (1+fHe+Xe) * ΔT # baryon temperature

@@ -239,20 +239,51 @@ end
     @test all(isapprox.(Fls[:,1] ./ Fls[:,2], map(l -> (ks[1]/ks[2])^l, 0:size(Fls)[1]-1))[1:4])
 
     # Check initial ratio of metric potentials
-    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-4))
+    @test all(isapprox.(sol(M.g.Φ / M.g.Ψ, τini, ks), sol((1+2/5*M.fν), τini); atol = 1e-5))
 
     # Check initial adiabatic perturbations
     species = [M.c, M.b, M.γ, M.ν, M.h]
     y0s = sol([s.δ/(1+s.w) for s in species], τini, ks) # should be equal for all species
     y1s = sol([s.u/M.k for s in species], τini, ks) # should be equal for all species
-    @test isapprox(minimum(y0s), maximum(y0s); rtol = 1e-3)
-    @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-3)
+    @test isapprox(minimum(y0s), maximum(y0s); rtol = 1e-10)
+    @test isapprox(minimum(y1s), maximum(y1s); rtol = 1e-7)
     y2s = sol([s.σ/M.k^2 for s in [M.ν, M.h]], τini, ks) # should be equal for massless and massive neutrinos
-    @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-3)
+    @test isapprox(minimum(y2s), maximum(y2s); rtol = 1e-10)
+    @test all(isapprox.(sol(M.h.δ / M.g.Ψ, τini, ks), -2; rtol = 1e-10)) # relativistic massive neutrinos (momentum quadrature must be normalized)
+
+    # Check the Einstein (Poisson) constraint 4πa² Σᵢρᵢ Δᵢ = -k²Φ on superhorizon scales,
+    # which is sensitive to spurious isocurvature modes from inconsistent (non-adiabatic) initial conditions
+    k = 1e1
+    solk = solve(prob, k)
+    for lga in (-4, -3)
+        τ = timeseries(solk, log10(M.g.a), lga)
+        @test isapprox(solk(4π*M.g.a^2*sum(s.ρ*s.Δ for s in species), τ, k), solk(-M.k^2*M.g.Φ, τ, k); rtol = 1e-3)
+    end
 
     # Perturbations span the same τ as the background
     sol = solve(prob, [1e0, 1e1])
     @test all([ptsol.t[begin] == sol[M.τ][begin] && ptsol.t[end] == sol[M.τ][end] for ptsol in sol.pts])
+end
+
+@testset "Initial conditions consistent with different initial times" begin
+    # Consistent ICs are a solution of the equations, so starting at τini1 and evolving to τini2 should give the ICs at τini2
+    prob1 = prob
+    τini1 = prob1.tspan[1]
+    τini2 = 10*τini1 # start later
+    prob2 = CosmologyProblem(M, pars; tspan = (τini2, prob1.tspan[2]))
+    ks = [1e0, 1e1, 1e2, 1e3]
+    sol1 = solve(prob1, ks)
+    sol2 = solve(prob2, ks)
+    reldiff(vars) = abs.(sol2(vars, τini2, ks) ./ sol1(vars, τini2, ks) .- 1) # both evaluated at the latest τini2
+    vars = [
+        M.g.Φ, M.g.Ψ, # metric potentials
+        M.c.δ, M.b.δ, M.γ.δ, M.ν.δ, M.h.δ, # δ (F₀) for every species
+        M.c.θ, M.b.θ, M.γ.θ, M.ν.θ, M.h.θ, # θ (F₁) for every species
+        M.γ.F[2], M.γ.F[3], M.γ.G0, M.γ.G[1], M.γ.G[2], # higher photon multipoles
+        M.ν.F[2], M.ν.F[3], # higher neutrino multipoles
+        M.h.ψ[1,2], M.h.ψ[end,2], # higher massive neutrino multipoles
+    ]
+    @test all(reldiff(vars) .< 5e-2)
 end
 
 @testset "Automatic background/thermodynamics splining" begin
@@ -559,14 +590,23 @@ end
 
 using SpecialFunctions: zeta as ζ
 @testset "Momentum quadrature strategy" begin
-    f(x) = 1 / (exp(x) + 1)
-    for N in 1:5
-        xs, Ws = SymBoltz.momentum_quadrature(f, 4)
-        num(n) = sum(Ws .* xs .^ (n-2)) # numerical quadrature of ∫dx x^n/(exp(x)+1) from 0 to ∞
-        anal(n) = factorial(n) * (1 - 1/2^n) * ζ(n+1) # <3 analytical expression for ∫dx x^n/(exp(x)+1) from 0 to ∞ (https://math.stackexchange.com/a/4111560)
-        for n in 2:8
-            @test isapprox(num(n), anal(n); rtol = 10.0^(-6+n-N))
+    f₀(x) = 1 / (exp(x) + 1)
+    dlnf₀(x) = -x / (1 + exp(-x))
+    for N in 3:8
+        xs, Ws, Ws′ = SymBoltz.momentum_quadrature(f₀, dlnf₀, N)
+        Q(g) = sum(Ws .* g.(xs)) # ≈ ∫dx x²f₀(x)g(x)
+        Q′(g) = sum(Ws′ .* g.(xs)) # ≈ ∫dx x²f₀′(x)g(x)
+        for y in [0.0; 10.0 .^ (-2:4)]
+            E(x) = √(x^2 + y^2)
+            Iρ = -Q′(x -> x^2 * SymBoltz.Gρ(y/x)) # by parts, as in massive_neutrinos
+            IP = -Q′(x -> x^2 * SymBoltz.GP(y/x) / 3)
+            rtol = 3 * 10.0^(1-N) # error drops ~10x per extra point
+            @test isapprox(Iρ, SymBoltz.∫(x -> x^2 * f₀(x) * E(x), 0, Inf); rtol)
+            @test isapprox(IP, SymBoltz.∫(x -> x^2 * f₀(x) * x^2/(3E(x)), 0, Inf); rtol)
+            @test isapprox(3(Iρ + IP), -Q(x -> E(x) * dlnf₀(x)); rtol = 1e-13) # exact consistency with perturbations
         end
+        y = 0.0
+        @test isapprox(-Q′(x -> x^2 * SymBoltz.Gρ(y/x)), 6 * (1 - 1/2^3) * ζ(4); rtol = 3 * 10.0^(1-N)) # relativistic limit
     end
 end
 
@@ -734,6 +774,7 @@ end
 @testset "Remove background initial conditions" begin
     @test isempty(SymBoltz.remove_background_initial_conditions!([D(M.g.a) ~ M.g.a/M.τ])) # should remove
     @test !isempty(SymBoltz.remove_background_initial_conditions!([M.g.Ψ ~ 20M.C / (15+4M.fν)])) # should keep
+    @test isempty(SymBoltz.remove_background_initial_conditions!([M.g.a * M.g.ℋ ~ 1])) # should remove (several background variables)
 end
 
 @testset "Split off a closed subsystem" begin
@@ -1354,7 +1395,7 @@ end
         M.Φ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # Einstein eq depends on δρ(F0, δc, δb) and Ψ(Φ, F2)
         M.c.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.c.θ, M.b.δ], # continuity D(δc) = -θc + 3*D(Φ) has same vars as D(Φ), plus θc
         M.c.θ => [M.γ.F[2], M.Φ, M.c.θ], # Euler eq D(θc) ~ -ℋ*θc + k^2*Ψ(Φ, F2)
-        M.b.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ, M.b.θ], # same as D(δc) plus the -3*ℋ*cₛ²*δb pressure term
+        M.b.δ => [M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ, M.b.θ], # continuity D(δb) = -θb + 3*D(Φ) has same vars as D(Φ), plus θb
         M.b.θ => [M.γ.F[1], M.γ.F[2], M.Φ, M.b.δ, M.b.θ], # same as θc, plus cₛ²*k^2*δb and Thomson drag towards θγ(F1)
         M.γ.F0 => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.c.δ, M.b.δ], # D(F0) ~ -k*F1 + 4*D(Φ), with δρ(F0, δc, δb) and Ψ(Φ, F2)
         M.γ.F[1] => [M.γ.F[1], M.γ.F[2], M.Φ, M.γ.F0, M.b.θ], # free streaming to F0 and F2, plus Ψ(Φ, F2) and Thomson drag towards θb

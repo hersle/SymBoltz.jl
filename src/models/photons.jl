@@ -6,7 +6,7 @@ Create a particle species for photons in the spacetime with metric `g`.
 function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
     lmax >= 3 || error("Need lmax >= 3")
     description = "Photons"
-    γ = radiation(g; adiabatic = true, name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
+    γ = radiation(g; adiabatic = true, interact = true, name, description, kwargs...) |> background |> complete # prevent namespacing in extension below
 
     vars = @variables begin
         F0(τ, k), [description = "Distribution function monopole"]
@@ -15,11 +15,12 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
         Θ(τ, k)[1:lmax], [description = "Temperature perturbation multipoles"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
+        δP(τ, k), [description = "Pressure perturbation"]
         θ(τ, k), [description = "Velocity divergence"]
         u(τ, k), [description = "Velocity"]
         σ(τ, k), [description = "Shears tress"]
         κ̇(τ), [description = "Optical depth derivative"]
-        θb(τ, k), [description = "Baryon velocity divergence"]
+        f(τ, k), [description = "Momentum transfer from other species"]
         Π(τ, k), [description = "Anisotropic stress perturbation"]
         Π̇(τ, k), [description = "Anisotropic stress perturbation derivative"]
         G0(τ, k), [description = "Polarization component 0"]
@@ -28,11 +29,12 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
     eqs = [
         # Bertschinger & Ma (64) with anₑσₜ -> -κ̇
         D(F0) ~ -k*F[1] + 4*D(g.Φ)
-        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) - 4//3 * κ̇/k * (θb - θ) # D(θ) ~ -κ̇ (θb-θγ)
+        D(F[1]) ~ k/3*(F0-2*F[2]+4*g.Ψ) + 4/(3k) * f/(γ.ρ+γ.P) # (ρ+P)θ′ = … + f with θ = 3kF₁/4
         [D(F[l]) ~ k/(2l+1) * (l*F[l-1] - (l+1)*F[l+1]) + κ̇ * (F[l] - δkron(l,2)*Π/10) for l in 2:lmax-1]...
         D(F[lmax]) ~ k*F[lmax-1] - (lmax+1) / τ * F[lmax] + κ̇ * F[lmax] # τ ≈ 1/ℋ
         δ ~ F0
         Δ ~ δ + 3*g.ℋ*(1+γ.w)*θ/k^2
+        δP ~ γ.cₛ² * γ.ρ * δ
         θ ~ 3*k*F[1]/4
         σ ~ F[2]/2
         u ~ θ / k
@@ -59,9 +61,9 @@ function photons(g; polarization = true, lmax = 10, name = :γ, kwargs...)
             D(G[lmax]) ~ k*G[lmax-1] - (lmax+1) / τ * G[lmax] + κ̇ * G[lmax]
         ])
         append!(ieqs, [
-            G0 ~ 5//16 * F[2]
-            G[1] ~ -1//16 * k/κ̇ * F[2]
-            G[2] ~ 1//16 * F[2]
+            G0 ~ 5//4 * F[2]
+            G[1] ~ -1//4 * k/κ̇ * F[2]
+            G[2] ~ 1//4 * F[2]
             G[3] ~ -3//(2*3+1) * k/κ̇ * G[2] # -l/(2l+1) * k/κ̇ * G[l-1] → 0 quickly
             [G[l] ~ 0 for l in 4:lmax]...
         ])

@@ -10,8 +10,9 @@ function cosmological_constant(g; name = :Λ, analytical = true, kwargs...)
         δ(τ, k), [description = "Overdensity"]
         θ(τ, k), [description = "Velocity divergence"]
         σ(τ, k), [description = "Shear stress"]
+        δP(τ, k), [description = "Pressure perturbation"]
     end
-    eqs = [δ ~ 0, θ ~ 0, σ ~ 0]
+    eqs = [δ ~ 0, θ ~ 0, σ ~ 0, δP ~ 0]
     description = "Cosmological constant"
     return extend(Λ, System(eqs, τ, vars, []; name); description) # manually set perturbations to zero
 end
@@ -33,6 +34,7 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
         w(τ), [description = "Equation of state"]
         ẇ(τ), [description = "Equation of state derivative"]
         cₐ²(τ), [description = "Adiabatic speed of sound squared"]
+        δP(τ, k), [description = "Pressure perturbation"]
         δ(τ, k), [description = "Overdensity (gauge-dependent)"]
         Δ(τ, k), [description = "Overdensity (gauge-independent)"]
         θ(τ, k), [description = "Velocity divergence"]
@@ -53,8 +55,9 @@ function w0wa(g; name = :X, analytical = false, kwargs...)
     append!(eqs, [
         # Following https://arxiv.org/pdf/1002.1311 section II
         cₐ² ~ w - ẇ/(3*g.ℋ*(1+w))
-        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(cₛ²-w)*δ - 9*(g.ℋ/k)^2*(1+w)*(cₛ²-cₐ²)*θ
-        D(θ) ~ -g.ℋ*(1-3*cₛ²)*θ + cₛ²/(1+w)*k^2*δ - k^2*σ + k^2*g.Ψ
+        δP ~ ρ * (cₐ²*δ + (cₛ²-cₐ²)*Δ) # with rest-frame sound speed cₛ² (equivalent to eq. (3))
+        D(δ) ~ -(1+w)*(θ-3*D(g.Φ)) - 3*g.ℋ*(δP/ρ-w*δ) # Bertschinger & Ma (30)
+        D(θ) ~ -g.ℋ*(1-3*w)*θ - ẇ/(1+w)*θ + k^2*δP/((1+w)*ρ) - k^2*σ + k^2*g.Ψ # Bertschinger & Ma (30)
         Δ ~ δ + 3*g.ℋ*(1+w)*θ/k^2
         σ ~ 0
     ])

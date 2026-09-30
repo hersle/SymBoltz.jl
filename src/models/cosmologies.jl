@@ -88,11 +88,11 @@ function ΛCDM(;
         D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
-        G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
+        G.δP ~ sum(s.δP for s in species) # total pressure perturbation
         G.Π ~ sum((1 + s.w) * s.ρ * s.σ for s in species) # TODO: factor 2/3 or 3/2? See e.g. https://arxiv.org/pdf/astro-ph/9506072 bottom of page 10? Check all models.
-        b.θinteraction ~ -b.κ̇ * 4*γ.ρ/(3*b.ρ) * (γ.θ - b.θ) # k^2*b.cₛ²*b.δ already added in baryons() # TODO: define some common interaction type, e.g. momentum transfer # TODO: would love to write something like interaction = thompson_scattering(γ, b)
         γ.κ̇ ~ b.κ̇
-        γ.θb ~ b.θ
+        b.f ~ -b.κ̇ * (γ.ρ+γ.P) * (γ.θ - b.θ) # Thomson scattering momentum transfer from photons to baryons
+        γ.f ~ -b.f # momentum conservation
 
         ST_SW ~ b.v * (γ.δ/4 + g.Ψ + γ.Π/16)
         ST_ISW ~ exp(-b.κ) * (g.Ψ̇ + g.Φ̇)
@@ -149,7 +149,7 @@ function RMΛ(;
         D(χ) ~ -1
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
-        G.δP ~ sum(s.δ * s.ρ * s.cₛ² for s in species) # total pressure perturbation
+        G.δP ~ sum(s.δP for s in species) # total pressure perturbation
         G.Π ~ sum((s.ρ + s.P) * s.σ for s in species)
     ]
     ieqs = [
