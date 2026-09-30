@@ -135,6 +135,23 @@ end
     τs = range(extrema(sol[M.τ])..., length=500)
     is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
     @test sol(is, τs, ks; smart = true) == sol(is, τs, ks; smart = false)
+
+    # solve for the nodes of interpolators and interpolate with their rules
+    ks = 10 .^ range(-1, 3, length=300)
+    τs = range(1.0, 3.0, length=5)
+    is = [M.g.Φ, M.b.δ]
+    Sref = solve(prob, ks)(is, τs, ks) # dense grid
+    for kinterp in [
+        CubicSplineInterpolator(10 .^ range(-1, 3, length=100); f = log),
+        ChebyshevInterpolator(1e-1, 1e3, 60),
+        PiecewiseChebyshevInterpolator((1e-1, 10.0, 1e3), (20, 60)),
+    ]
+        sol = solve(prob, kinterp)
+        @test sol.ks === kinterp
+        @test sol(is, τs, collect(kinterp)) ≈ stack(ptsol -> Array(ptsol(τs; idxs = is)), sol.pts) # exact at nodes
+        @test isapprox(sol(is, τs, ks), Sref; rtol = 1e-2)
+        @test sol(is, τs, ks[100]) ≈ sol(is, τs, ks)[:, :, 100] # single mode
+    end
 end
 
 @testset "Spherical Bessel function" begin

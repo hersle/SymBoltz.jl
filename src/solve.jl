@@ -423,6 +423,9 @@ end
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks`, or only to the background level if `ks` is empty or `nothing`.
+The solution interpolates perturbations between the solved wavenumbers linearly in ``\\ln k`` if `ks` is a vector,
+or with the interpolation rule of `ks` if it is an [`AbstractInterpolator`](@ref) (like a [`ChebyshevInterpolator`](@ref) or [`CubicSplineInterpolator`](@ref)).
+Linear interpolation looks up only two neighboring modes, while other interpolators use all modes.
 
 # Keyword arguments
 
@@ -773,7 +776,7 @@ end
 
 Base.eltype(sol::CosmologySolution) = eltype(sol.bg[end])
 
-function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; smart = true, ktransform = log)
+function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
     if isnothing(sol.ks) || isempty(sol.ks)
         throw(error("No perturbations solved for. Pass ks to solve()."))
     end
@@ -783,7 +786,11 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
+    return interpolate_modes!(out, sol, sol.ks, is, ts, ks; kwargs...)
+end
 
+# Interpolate linearly in ktransform(k) between the two neighboring solved modes (for plain vectors of wavenumbers)
+function interpolate_modes!(out, sol::CosmologySolution, ::AbstractVector, is, ts, ks; smart = true, ktransform = log)
     # Pre-allocate intermediate and output arrays
     v = similar(sol.bg[end], length(is), length(ts))
     v1 = similar(sol.bg[end], length(is), length(ts))
@@ -821,6 +828,17 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
         end
     end
 
+    return out
+end
+
+# Interpolate between all solved modes with the interpolator they were solved for
+function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterpolator, is, ts, ks; thread = true)
+    vs = stack(ptsol -> Array(ptsol(ts; idxs = is)), sol.pts) # (is, ts, sol.ks)
+    @tasks for iit in CartesianIndices((length(is), length(ts)))
+        @set scheduler = thread ? :dynamic : :static
+        ii, it = Tuple(iit)
+        out[ii, it, :] .= interpolate(kinterp, vs[ii, it, :], ks)
+    end
     return out
 end
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
