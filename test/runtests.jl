@@ -82,6 +82,16 @@ end
     @test sol[M.χ] ≈ sol[M.τ][end] .- sol[M.τ]
 end
 
+@testset "Sound horizon" begin
+    sol = solve(prob)
+    τs = sol[M.τ]
+    rs = sound_horizon(sol)
+    @test rs[begin] ≈ τs[begin] / √3
+    @test sound_horizon(sol, τs[end]) ≈ rs[end]
+    cs(τ) = sol(1 / √(3(1+3/4*M.b.ρ/M.γ.ρ)), τ)
+    @test rs[end] ≈ rs[begin] + SymBoltz.quadgk(cs, τs[begin], τs[end]; rtol = 1e-8)[1] rtol = 1e-6
+end
+
 @testset "Accessing derivative variables" begin
     ks = 1e3
     sol = solve(prob, ks)
