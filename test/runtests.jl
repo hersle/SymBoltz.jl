@@ -593,19 +593,20 @@ using SpecialFunctions: zeta as ζ
     f₀(x) = 1 / (exp(x) + 1)
     dlnf₀(x) = -x / (1 + exp(-x))
     for N in 3:8
-        xs, Ws = SymBoltz.momentum_quadrature(f₀, N)
+        xs, Ws, Ws′ = SymBoltz.momentum_quadrature(f₀, dlnf₀, N)
         Q(g) = sum(Ws .* g.(xs)) # ≈ ∫dx x²f₀(x)g(x)
+        Q′(g) = sum(Ws′ .* g.(xs)) # ≈ ∫dx x²f₀′(x)g(x)
         for y in [0.0; 10.0 .^ (-2:4)]
             E(x) = √(x^2 + y^2)
-            Iρ = Q(x -> -dlnf₀(x) * x * SymBoltz.Gρ(y/x)) # by parts, as in massive_neutrinos
-            IP = Q(x -> -dlnf₀(x) * x * SymBoltz.GP(y/x) / 3)
+            Iρ = -Q′(x -> x^2 * SymBoltz.Gρ(y/x)) # by parts, as in massive_neutrinos
+            IP = -Q′(x -> x^2 * SymBoltz.GP(y/x) / 3)
             rtol = 3 * 10.0^(1-N) # error drops ~10x per extra point
             @test isapprox(Iρ, SymBoltz.∫(x -> x^2 * f₀(x) * E(x), 0, Inf); rtol)
             @test isapprox(IP, SymBoltz.∫(x -> x^2 * f₀(x) * x^2/(3E(x)), 0, Inf); rtol)
             @test isapprox(3(Iρ + IP), -Q(x -> E(x) * dlnf₀(x)); rtol = 1e-13) # exact consistency with perturbations
         end
         y = 0.0
-        @test isapprox(Q(x -> -dlnf₀(x) * x * SymBoltz.Gρ(y/x)), 6 * (1 - 1/2^3) * ζ(4); rtol = 3 * 10.0^(1-N)) # relativistic limit
+        @test isapprox(-Q′(x -> x^2 * SymBoltz.Gρ(y/x)), 6 * (1 - 1/2^3) * ζ(4); rtol = 3 * 10.0^(1-N)) # relativistic limit
     end
 end
 

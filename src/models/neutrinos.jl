@@ -46,22 +46,31 @@ function massless_neutrinos(g; lmax = 10, interact = false, name = :ν, kwargs..
 end
 
 """
-    momentum_quadrature(f, N; x0 = 12, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
+    momentum_quadrature(f, dlnf_dlnx, N; normalize = true, x0 = 12, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
 
-Compute ``N`` dimensionless momentum bins ``xᵢ`` and integral weights ``Wᵢ`` for integrating ``∫dx x²f(x)g(x)`` from ``0`` to ``∞``
-against arbitrary weight functions ``g(x)`` with ``N``-point Gaussian quadrature using QuadGK.jl.
-The returned weights `Ws` approximates the integral for arbitrary functions `g(x)` with the sum ``sum(Ws .* g.(xs))``.
+Compute dimensionless momentum points ``xᵢ`` and integral weights ``Wᵢ`` and ``Wᵢ′`` for integrating ``∫dx x²f(x)g(x)`` and ``∫dx x²f′(x)g(x)`` from ``0`` to ``∞``
+for the distribution function ``f(x)`` and its logarithmic derivative ``\\mathrm{d}\\ln f/\\mathrm{d}\\ln x`` against arbitrary functions ``g(x)`` with
+``N``-point Gaussian quadrature using QuadGK.jl. The returned ``(xᵢ, Wᵢ, Wᵢ′)`` approximate the integrals with ``∑ᵢ Wᵢ g(xᵢ)`` and ``∑ᵢ Wᵢ′ g(xᵢ)``.
 
-The keyword arguments specifies an integral substitution ``x(u)`` with derivative ``\\mathrm{d}x/\\mathrm{d}u`` and inverse ``u(x)`` to apply.
-The default transformation first maps ``x`` on the infinite domain ``(0, ∞)`` to ``x/x0``, where ``x0`` is a characteristic momentum of ``f``.
-It then performs a rational transformation of ``x/x0`` into ``u`` on the finite domain ``(0, 1)`` to make the numerical integral well-defined.
-As ``x0 → ∞``, this approaches Gaussian quadrature in ``x`` itself; for the Fermi-Dirac distribution, ``x0 ≈ 12`` is more accurate.
+If `normalize`, ``Wᵢ`` and ``Wᵢ′`` are rescaled by a common factor so that the relativistic density integrated by parts is exact: ``-¼∑ᵢ Wᵢ′ xᵢ² = ∫dx x³f``.
+This removes quadrature error in the relativistic density and pressure for any ``N`` when integrated by parts with ``Wᵢ′`` (but not with ``Wᵢ``).
+
+The other keyword arguments specify an integral substitution ``x(u)`` with derivative ``\\mathrm{d}x/\\mathrm{d}u`` and inverse ``u(x)`` to apply.
+The default transformation first maps ``x`` on the infinite domain ``(0, ∞)`` to ``x/x₀``, where ``x₀`` is a characteristic momentum of ``f``.
+It then performs a rational transformation of ``x/x₀`` into ``u`` on the finite domain ``(0, 1)`` to make the numerical integral well-defined.
+As ``x₀ → ∞``, this approaches Gaussian quadrature in ``x`` itself; for the Fermi-Dirac distribution, ``x₀ ≈ 12`` is more accurate.
 """
-function momentum_quadrature(f, N; x0 = 12, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
-    w(x) = f(x) * x^2 # weight function to integrate against, i.e. want weights for ∫dx*w(x)*g(x) for arbitrary g(x)
+function momentum_quadrature(f, dlnf_dlnx, N; normalize = true, x0 = 12, u = x -> 1/(1+x/x0), x = u -> x0*(1-u)/u, dx_du = u -> -x0/u^2, x1 = 0.0, x2 = Inf)
     us, Ws = gauss(u -> dx_du(u) * x(u)^2 * f(x(u)), N, u(x1), u(x2)) # get u bins and quadrature weights
     xs = x.(us) # corresponding x values
-    return xs, Ws
+    Ws′ = @. Ws * dlnf_dlnx(xs) / xs # replaces f by f′ in the weights, since f dlnf/dlnx = xf′
+    if normalize
+        # make -sum(Ws′ .* xs.^2)/4 (≈ -∫dx x⁴f′/4) = ∫dx x³f
+        scale = ∫(x -> x^3 * f(x), x1, x2) / (-sum(@. Ws′ * xs^2) / 4)
+        Ws .*= scale
+        Ws′ .*= scale
+    end
+    return xs, Ws, Ws′
 end
 
 # Gρ(r) = ∫₀¹ds s²√(s²+r²) and GP(r) = ∫₀¹ds s⁴/√(s²+r²) and their derivatives,
@@ -105,11 +114,9 @@ function massive_neutrinos(g; nx = 4, x0 = 12, lmax = 10, name = :h, kwargs...)
     # (see e.g. https://juliamath.github.io/QuadGK.jl/v2.11/quadgk-examples/#Improper-integrals:-Infinite-limits)
     f₀(x) = 1 / (exp(x) + 1) # not exp(E); distribution function is "frozen in"; see e.g. Dodelson exercise 3.9
     dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-    x, W = momentum_quadrature(f₀, nx; x0)
+    x, W, W′ = momentum_quadrature(f₀, dlnf₀_dlnx, nx; x0) # integrate background by parts ∫dx f₀v′ = -∫dx f₀′v with v(0) = 0 to get the same f₀′ as the perturbation sources
     x² = x .^ 2
     dlnf₀ = dlnf₀_dlnx.(x)
-    W .*= ∫(x -> x^3 * f₀(x), 0, Inf) / (-sum(@. W * dlnf₀ * x) / 4) # rescale weights to make the relativistic density ∫dx x³f₀ = -∫dx x⁴f₀′/4 exact; consistency holds for any weights
-    W′ = @. W * dlnf₀ / x # replaces f₀ by f₀′ in the weights, since f₀ dlnf₀/dlnx = xf₀′; integrate background by parts ∫dx f₀v′ = -∫dx f₀′v with v(0) = 0 to get the same f₀′ as the perturbation sources
     ∫dx_x²_f₀(g) = sum(collect(g .* W)) # ≈ ∫dx x²f₀(x)g(x)
     ∫dx_x²_f₀′(g) = sum(collect(g .* W′)) # ≈ ∫dx x²f₀′(x)g(x)
 

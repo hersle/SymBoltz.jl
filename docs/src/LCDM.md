@@ -33,11 +33,9 @@ KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
 nx = 4 # number of momenta
 f₀(x) = 1 / (exp(x) + 1)
 dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-x, W = SymBoltz.momentum_quadrature(f₀, nx)
+x, W, W′ = SymBoltz.momentum_quadrature(f₀, dlnf₀_dlnx, nx)
 x² = x .^ 2
 dlnf₀ = dlnf₀_dlnx.(x)
-W .*= SymBoltz.∫(x -> x^3 * f₀(x), 0, Inf) / (-sum(@. W * dlnf₀ * x) / 4) # rescale weights to make the relativistic density ∫dx x³f₀ = -∫dx x⁴f₀′/4 exact
-W′ = @. W * dlnf₀ / x # replaces f₀ by f₀′ in the weights, since f₀ dlnf₀/dlnx = xf₀′; integrate background by parts to get the same f₀′ as the perturbation sources
 ∫dx_x²_f₀(g) = sum(collect(g .* W)) # ≈ ∫dx x²f₀(x)g(x)
 ∫dx_x²_f₀′(g) = sum(collect(g .* W′)) # ≈ ∫dx x²f₀′(x)g(x)
 
