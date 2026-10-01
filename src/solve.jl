@@ -827,10 +827,10 @@ function (sol::CosmologySolution)(is, tmap::Pair)
     return sol(is, ts)
 end
 
-function (sol::CosmologySolution)(is, tmap::Pair, ks)
+function (sol::CosmologySolution)(is, tmap::Pair, ks; kwargs...)
     tvar, ts = tmap
     ts = timeseries(sol, tvar, ts)
-    return sol(is, ts, ks)
+    return sol(is, ts, ks; kwargs...)
 end
 
 """
