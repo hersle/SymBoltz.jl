@@ -423,7 +423,7 @@ end
     )
 
 Solve the cosmological problem `prob` up to the perturbative level with wavenumbers `ks`, or only to the background level if `ks` is empty or `nothing`.
-The solution interpolates perturbations between the solved wavenumbers linearly in ``\\ln k`` if `ks` is a vector,
+The solution interpolates perturbations between the solved wavenumbers linearly in ``\\ln k`` if `ks` is a vector (as with `LinearInterpolator(ks; f = log)`),
 or with the interpolation rule of `ks` if it is an [`AbstractInterpolator`](@ref) (like a [`ChebyshevInterpolator`](@ref) or [`CubicSplineInterpolator`](@ref)).
 Linear interpolation looks up only two neighboring modes, while other interpolators use all modes.
 
@@ -786,66 +786,27 @@ function (sol::CosmologySolution)(out::AbstractArray, is::AbstractArray, ts::Abs
     kmin, kmax = extrema(sol.ks)
     minimum(ks) >= kmin || throw("Requested wavenumber k = $(minimum(ks)) is below the minimum solved wavenumber $kmin")
     maximum(ks) <= kmax || throw("Requested wavenumber k = $(maximum(ks)) is above the maximum solved wavenumber $kmax")
-    return interpolate_modes!(out, sol, sol.ks, is, ts, ks; kwargs...)
+    kinterp = sol.ks isa AbstractInterpolator ? sol.ks : LinearInterpolator(sol.ks; f = log) # interpolate linearly in ln(k) between modes solved for a plain vector
+    return interpolate_modes!(out, sol, kinterp, is, ts, ks; kwargs...)
 end
 
-# Interpolate linearly in ktransform(k) between the two neighboring solved modes (for plain vectors of wavenumbers)
-function interpolate_modes!(out, sol::CosmologySolution, ::AbstractVector, is, ts, ks; smart = true, ktransform = log)
-    # Pre-allocate intermediate and output arrays
-    v = similar(sol.bg[end], length(is), length(ts))
-    v1 = similar(sol.bg[end], length(is), length(ts))
-    v2 = similar(sol.bg[end], length(is), length(ts))
-
-    i1_prev, i2_prev = -1, -1 # cache previous looked up solution and reuse it, if possible
-    for ik in eachindex(ks) # TODO: multithreading leads to trouble; what about tmap?
-        k = ks[ik]
-        # Find two wavenumbers to interpolate between
-        i1, i2 = neighboring_modes_indices(sol, k)
-
-        # Evaluate solutions for neighboring wavenumbers,
-        # but reuse those from the previous iteration if we are still between the same neighboring wavenumbers
-        if i1 == i2_prev && smart
-            v1 .= v2 # just set to v2 when incrementing i1 by 1
-            i1_prev = i2_prev
-        elseif i1 != i1_prev || !smart
-            v1 .= stack(sol.pts[i1](ts; idxs=is).u) # stack .u, since broadcasting from the DiffEqArray recomputes its size on every element access # https://docs.sciml.ai/DiffEqDocs/stable/basics/solution/#Interpolations-and-Calculating-Derivatives # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
-            i1_prev = i1
-        end
-        if i2 != i2_prev || !smart
-            v2 .= stack(sol.pts[i2](ts; idxs=is).u)
-            i2_prev = i2
-        end
-        v .= v1
-        if i1 != i2
-            # interpolate between solutions
-            k1 = sol.ks[i1]
-            k2 = sol.ks[i2]
-            w = (ktransform(k) - ktransform(k1)) / (ktransform(k2) - ktransform(k1)) # interpolate between some function of the wavenumbers between ktransform(k) (e.g. k -> k or k -> log(k)) # TODO: cubic spline?
-            @. v += (v2 - v1) * w # add to v1 from above
-        end
-        for ii in eachindex(is)
-            out[ii, :, ik] .= v[ii, :]
-        end
-    end
-
-    return out
-end
-
-# Interpolate between all solved modes with the interpolator they were solved for
+# Interpolate between the solved modes with the interpolator kinterp
 function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterpolator, is, ts, ks; thread = true)
-    vs = similar(out, length(is), length(ts), length(kinterp))
+    W = interpolation_matrix(kinterp, ks; thread)
+    iks = findall(j -> any(!iszero, @view(W[:, j])), axes(W, 2)) # evaluate only modes that contribute (e.g. only neighbors with linear interpolation)
+    vs = similar(out, length(is), length(ts), length(iks))
     getis = getsym(sol.pts[1], is) # build the observed function once before threading, since sol(ts; idxs) looks it up in a cache that is not thread-safe
-    @tasks for ik in eachindex(sol.pts)
+    @tasks for j in eachindex(iks)
         @set scheduler = thread ? :dynamic : :serial
         @local u = similar(sol.pts[1].u[1]) # one state buffer per task
-        pt = sol.pts[ik]
+        pt = sol.pts[iks[j]]
         p = parameter_values(pt)
         for it in eachindex(ts)
             pt(u, ts[it]) # interpolate only the states, in-place
-            vs[:, it, ik] .= getis(SciMLBase.ProblemState(; u, p, t = ts[it]))
+            vs[:, it, j] .= getis(SciMLBase.ProblemState(; u, p, t = ts[it]))
         end
     end
-    reshape(out, :, length(ks)) .= kinterp(reshape(vs, :, length(kinterp)), ks; thread) # all (i, t) at once
+    apply_interpolation_matrix!(reshape(out, :, length(ks)), reshape(vs, :, length(iks)), W[:, iks]) # all (i, t) at once, without a temporary result
     return out
 end
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)

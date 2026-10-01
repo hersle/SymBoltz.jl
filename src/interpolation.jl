@@ -186,17 +186,17 @@ end
 # Whether type E consists only of scalars of type R (e.g. SVector{N, R} or ForwardDiff.Dual{Tag, R})
 isflat(::Type{E}, ::Type{R}) where {E, R} = E === R || (isbitstype(E) && isstructtype(E) && all(T -> isflat(T, R), fieldtypes(E)))
 
-# Interpolate each row of V (values at the nodes along columns) with one matrix multiplication
-function (interp::AbstractInterpolator)(V::AbstractMatrix, x::AbstractVector; thread = true)
-    W = interpolation_matrix(interp, x; thread)
+# Interpolate each row of V (values at the nodes along columns) into out with the interpolation matrix W, i.e. compute out = V * transpose(W)
+function apply_interpolation_matrix!(out::AbstractMatrix, V::AbstractMatrix, W::AbstractMatrix)
     R = eltype(W)
-    V isa Array && isflat(eltype(V), R) || return V * transpose(W)
+    eltype(out) == eltype(V) && isflat(eltype(V), R) || return mul!(out, V, transpose(W))
     # multiply elements as consecutive scalars in one real matrix (much faster than with e.g. SVector or Dual elements)
-    out = similar(V, size(V, 1), length(x))
     flat(A) = reshape(reinterpret(R, A), :, size(A, 2))
     mul!(flat(out), flat(V), transpose(W))
     return out
 end
+apply_interpolation_matrix(V::AbstractMatrix, W::AbstractMatrix) = apply_interpolation_matrix!(similar(V, Base.promote_op(*, eltype(V), eltype(W)), size(V, 1), size(W, 1)), V, W)
+(interp::AbstractInterpolator)(V::AbstractMatrix, x::AbstractVector; thread = true) = apply_interpolation_matrix(V, interpolation_matrix(interp, x; thread)) # one matrix multiplication
 
 interpolate(interp::AbstractInterpolator, vals, x) = interp(vals, x)
 interpolate(xs::AbstractVector, vals, x) = interpolate(CubicSplineInterpolator(xs), vals, x) # use cubic splines when only passing an array

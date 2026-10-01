@@ -134,7 +134,10 @@ end
     ks = range(extrema(ks)..., length=500)
     τs = range(extrema(sol[M.τ])..., length=500)
     is = [M.g.a, M.G.ρ, M.g.Φ, M.g.Ψ]
-    @test sol(is, τs, ks; smart = true) == sol(is, τs, ks; smart = false)
+    @test sol(is, τs, ks) == sol(is, τs, ks; thread = false)
+    k = √(sol.ks[10] * sol.ks[11]) # halfway between two modes in ln(k)
+    @test sol(is, τs, k) ≈ (sol(is, τs, sol.ks[10]) + sol(is, τs, sol.ks[11])) / 2 # linear interpolation in ln(k) by default
+    @test solve(prob, 1.0)(is, τs, 1.0) ≈ solve(prob, [1.0, 2.0])(is, τs, 1.0) # one mode
 
     # solve for the nodes of interpolators and interpolate with their rules
     ks = 10 .^ range(-1, 3, length=300)

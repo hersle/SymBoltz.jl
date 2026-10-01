@@ -333,7 +333,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, sol::CosmologySolution, j
 
     # Interpolate source functions from the solution
     Ss = [S for (S, i) in [(M.k*M.ST, iT), (M.k^2*M.SE, iE), (M.Sψ, iψ)] if i > 0]
-    Ss = sol(Ss, ts, ks) # (source, τ, k)
+    Ss = sol(Ss, ts, ks; thread) # (source, τ, k)
     if iψ > 0
         # apply lensing kernel for a thin last scattering surface at the peak of the visibility function # TODO: use more accurate Hermite interpolation?
         τrec = τbg[argmax(sol[M.b.v])]
