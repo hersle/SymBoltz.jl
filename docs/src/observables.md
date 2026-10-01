@@ -161,7 +161,10 @@ plot(zs, transpose(Ds); xlabel = "z", ylabel = "D / (c/H₀)", label = labels, x
 
 ```@docs
 sound_horizon
+time_drag
 ```
+
+The BAO scale is the sound horizon at the baryon drag epoch:
 
 ```@example
 using SymBoltz, Plots
@@ -169,9 +172,22 @@ M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 sol = solve(prob)
-τs = sol[M.τ]
-rs = sound_horizon(sol)
-plot(τs, rs; xlabel = "τ / H₀⁻¹", ylabel = "rₛ / (c/H₀)")
+
+Mpc = L100 / pars[M.g.h] # (c/H₀) in Mpc
+as = sol[M.g.a]
+rs = sound_horizon(sol) * Mpc
+κd = sol[M.κd]
+τd = time_drag(sol)
+ad = sol(M.g.a, τd)
+zd = sol(M.g.z, τd)
+rd = sound_horizon(sol, τd) * Mpc
+
+p = plot(as, rs; xlabel = "a", ylabel = "rs / Mpc", label = "rs(a)", color = 1, xscale = :log10, xlims = (1e-5, 1), ylims = (0, 1300), legend = (0.12, 0.25))
+scatter!(p, [ad], [rd]; label = "rs(ad) = $(round(rd; digits = 1)) Mpc", color = 1)
+p2 = twinx(p) # right axis
+plot!(p2, as[κd .> 0], κd[κd .> 0]; ylabel = "κd", label = "κd(a)", color = 2, yscale = :log10, ylims = (1e-3, 1e3), xscale = :log10, xlims = (1e-5, 1), legend = (0.12, 0.9))
+hline!(p2, [1]; color = 2, linestyle = :dash, label = nothing)
+scatter!(p2, [ad], [1]; label = "κd(ad) = 1", color = 2)
 ```
 
 ## Source functions

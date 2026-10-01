@@ -62,3 +62,15 @@ It is integrated with the background as the variable `rₛ`.
 """
 sound_horizon(sol::CosmologySolution) = sol[sol.prob.M.rₛ]
 sound_horizon(sol::CosmologySolution, t) = sol(sol.prob.M.rₛ, t)
+
+@doc raw"""
+    time_drag(sol::CosmologySolution)
+
+Get the value of the independent time variable ``t`` at the baryon drag epoch, when the drag optical depth satisfies
+```math
+    κ_d(t) = -∫_t^{t_0} \frac{κ'}{3ρ_b/4ρ_γ} dt' = 1,
+```
+where ``κ`` is the Thomson optical depth and ``κ' = dκ/dt``.
+The sound horizon at the drag epoch ``r_d`` is then `sound_horizon(sol, time_drag(sol))`.
+"""
+time_drag(sol::CosmologySolution) = timeseries(sol, sol.prob.M.κd, 1.0)

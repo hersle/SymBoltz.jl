@@ -110,6 +110,14 @@ end
     @test rs[end] ≈ rs[begin] + SymBoltz.quadgk(cs, τs[begin], τs[end]; rtol = 1e-8)[1] rtol = 1e-6
 end
 
+@testset "Drag epoch" begin
+    sol = solve(prob)
+    τd = time_drag(sol)
+    @test sol(M.κd, τd) ≈ 1
+    @test 1000 < sol(M.g.z, τd) < 1100
+    @test sound_horizon(sol, τd) < sound_horizon(sol)[end]
+end
+
 @testset "Accessing derivative variables" begin
     ks = 1e3
     sol = solve(prob, ks)
