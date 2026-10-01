@@ -837,11 +837,7 @@ function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterp
     for ik in eachindex(sol.pts) # serial, since the modes share an observed function cache that is not thread-safe
         vs[:, :, ik] .= stack(sol.pts[ik](ts; idxs = is).u) # stack .u, since broadcasting from the DiffEqArray recomputes its size on every element access
     end
-    @tasks for iit in CartesianIndices((length(is), length(ts)))
-        @set scheduler = thread ? :dynamic : :static
-        ii, it = Tuple(iit)
-        out[ii, it, :] .= kinterp(view(vs, ii, it, :), ks)
-    end
+    reshape(out, :, length(ks)) .= kinterp(reshape(vs, :, length(kinterp)), ks; thread) # all (i, t) at once
     return out
 end
 function (sol::CosmologySolution)(is::AbstractArray, ts::AbstractArray, ks::AbstractArray; kwargs...)
