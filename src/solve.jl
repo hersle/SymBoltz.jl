@@ -808,11 +808,11 @@ function interpolate_modes!(out, sol::CosmologySolution, ::AbstractVector, is, t
             v1 .= v2 # just set to v2 when incrementing i1 by 1
             i1_prev = i2_prev
         elseif i1 != i1_prev || !smart
-            v1 .= sol.pts[i1](ts; idxs=is) # https://docs.sciml.ai/DiffEqDocs/latest/basics/solution/ # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
+            v1 .= stack(sol.pts[i1](ts; idxs=is).u) # stack .u, since broadcasting from the DiffEqArray recomputes its size on every element access # https://docs.sciml.ai/DiffEqDocs/stable/basics/solution/#Interpolations-and-Calculating-Derivatives # TODO: allocate less or make in-place (https://github.com/SciML/OrdinaryDiffEq.jl/issues/2562)
             i1_prev = i1
         end
         if i2 != i2_prev || !smart
-            v2 .= sol.pts[i2](ts; idxs=is) # TODO: getu or similar for speed? possible while preserving interpolation?
+            v2 .= stack(sol.pts[i2](ts; idxs=is).u)
             i2_prev = i2
         end
         v .= v1
@@ -835,7 +835,7 @@ end
 function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterpolator, is, ts, ks; thread = true)
     vs = similar(out, length(is), length(ts), length(kinterp))
     for ik in eachindex(sol.pts) # serial, since the modes share an observed function cache that is not thread-safe
-        vs[:, :, ik] .= sol.pts[ik](ts; idxs = is)
+        vs[:, :, ik] .= stack(sol.pts[ik](ts; idxs = is).u) # stack .u, since broadcasting from the DiffEqArray recomputes its size on every element access
     end
     @tasks for iit in CartesianIndices((length(is), length(ts)))
         @set scheduler = thread ? :dynamic : :static
