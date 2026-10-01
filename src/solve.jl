@@ -834,8 +834,16 @@ end
 # Interpolate between all solved modes with the interpolator they were solved for
 function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterpolator, is, ts, ks; thread = true)
     vs = similar(out, length(is), length(ts), length(kinterp))
-    for ik in eachindex(sol.pts) # serial, since the modes share an observed function cache that is not thread-safe
-        vs[:, :, ik] .= stack(sol.pts[ik](ts; idxs = is).u) # stack .u, since broadcasting from the DiffEqArray recomputes its size on every element access
+    getis = getsym(sol.pts[1], is) # build the observed function once before threading, since sol(ts; idxs) looks it up in a cache that is not thread-safe
+    @tasks for ik in eachindex(sol.pts)
+        @set scheduler = thread ? :dynamic : :serial
+        @local u = similar(sol.pts[1].u[1]) # one state buffer per task
+        pt = sol.pts[ik]
+        p = parameter_values(pt)
+        for it in eachindex(ts)
+            pt(u, ts[it]) # interpolate only the states, in-place
+            vs[:, it, ik] .= getis(SciMLBase.ProblemState(; u, p, t = ts[it]))
+        end
     end
     reshape(out, :, length(ks)) .= kinterp(reshape(vs, :, length(kinterp)), ks; thread) # all (i, t) at once
     return out
