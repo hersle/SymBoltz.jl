@@ -234,7 +234,7 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
 
     @tasks for il in eachindex(ls)
         # TODO: skip kτ0 ≲ l?
-        @set scheduler = thread ? :dynamic : :static
+        @set scheduler = thread ? :dynamic : :serial
         @local dCl_dks_with0 = zeros(eltype(ΘlAs), length(ks_with0)) # local task workspace (must zero first element)
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
