@@ -394,6 +394,24 @@ function spectrum_cmb(modes::AbstractVector, sol::CosmologySolution, jl::Spheric
     return spectra_fine
 end
 
+"""
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache[, ls::AbstractVector]; ks = kgrid_cmb(modes), solveopts = (), thread = true, verbose = false, kwargs...)
+
+Same, but first solve `prob` with wavenumbers `ks` and keyword arguments `solveopts` passed to [`solve`](@ref).
+Other keyword arguments `kwargs...` are passed to the method that takes a solution.
+To compute several observables, it is more efficient to solve once and pass the solution.
+
+# Examples
+
+```julia
+Dls = spectrum_cmb([:TT, :TE, :EE], prob, jl; normalization = :Dl, solveopts = (ptreltol = 1e-6,))
+```
+"""
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, args...; ks = kgrid_cmb(modes), solveopts = (), thread = true, verbose = false, kwargs...)
+    sol = solve(prob, ks; thread, verbose, solveopts...)
+    return spectrum_cmb(modes, sol, args...; thread, verbose, kwargs...)
+end
+
 function spectrum_cmb(mode::Symbol, args...; kwargs...)
     return spectrum_cmb([mode], args...; kwargs...)[:, begin]
 end

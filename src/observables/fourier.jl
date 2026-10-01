@@ -28,6 +28,10 @@ end
 function spectrum_primordial(k, M::System, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
 end
+function spectrum_primordial(k, prob::CosmologyProblem)
+    M = prob.M
+    return spectrum_primordial(k, prob.bg[end].ps[M.g.h], prob.bg[end].ps[M.I.As], prob.bg[end].ps[M.I.ns])
+end
 
 function total_symbolic_gauge_invariant_overdensities(M::System, mode::Symbol)
     ρtot = 0
@@ -80,8 +84,28 @@ function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::Abstr
 end
 spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k) = spectrum_matter(modes, sol, k, today(sol)) # fallback without time (today)
 spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k, τ::Number) = spectrum_matter(modes, sol, k, [τ])[:, 1, :] # fallback with single time
-spectrum_matter(mode::Symbol, sol::CosmologySolution, args...) = selectdim(spectrum_matter([mode], sol, args...), 1, 1) # fallback with single mode specified
-spectrum_matter(sol::CosmologySolution, args...) = spectrum_matter(:m, sol, args...) # fallback with modes unspecified
+
+"""
+    spectrum_matter([modes,] prob::CosmologyProblem, k[, τ]; ks = k, ptopts = (), kwargs...)
+
+Same, but first solve `prob` with wavenumbers `ks` (by default exactly `k`) and save the perturbations only at `τ` (or today) to reduce memory.
+Other keyword arguments `kwargs...` are passed to [`solve`](@ref).
+
+# Examples
+
+```julia
+ks = 10 .^ range(-3, 2, length=200)
+Ps = spectrum_matter(prob, ks; ptreltol = 1e-6)
+```
+"""
+function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ...; ks = k, ptopts = (), kwargs...)
+    saveopts = isempty(τ) ? (save_everystep = false, save_start = false, save_end = true) : (saveat = [only(τ);],)
+    sol = solve(prob, ks; ptopts = (; saveopts..., ptopts...), kwargs...) # merge, so a caller-supplied ptopts does not drop the saving options
+    return spectrum_matter(modes, sol, k, τ...)
+end
+
+spectrum_matter(mode::Symbol, probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = selectdim(spectrum_matter([mode], probsol, args...; kwargs...), 1, 1) # fallback with single mode specified
+spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with modes unspecified
 
 """
     spectrum_matter_nonlinear(sol::CosmologySolution, k)

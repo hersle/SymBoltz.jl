@@ -705,6 +705,10 @@ end
     # Error with bad input
     @test_throws "outside the l-range" spectrum_cmb(:TT, sol, jl, 1:3000; normalization = :Dl)
     @test_throws "no perturbations" spectrum_cmb(:TT, solve(prob), jl)
+
+    # Problem methods solve with default (same) grid and forward to solution methods
+    @test spectrum_cmb(:TT, prob, jl_cubic, ls; normalization = :Dl) ≈ Dls_cubic
+    @test spectrum_cmb(:TT, prob, jl; ks = kgrid_cmb(:TT), solveopts = (ptreltol = 1e-5,), thread = false) ≈ spectrum_cmb(:TT, sol, jl)
 end
 
 @testset "Toggle threading" begin
@@ -785,6 +789,12 @@ end
     @test size(spectrum_matter(modes, sol, ks)) == (6, 4) # omit τ; should use τ0
     @test size(spectrum_matter(sol, ks, τs)) == (2, 4) # omit modes; should use :m
     @test size(spectrum_matter(sol, ks)) == (4,) # omit modes and τ; should use :m and τ0
+
+    # problem methods solve and forward to solution methods
+    @test spectrum_matter(modes, prob, ks, τs) ≈ spectrum_matter(modes, sol, ks, τs)
+    @test spectrum_matter(prob, ks, 3.0) ≈ spectrum_matter(sol, ks, 3.0)
+    @test spectrum_matter(prob, ks) ≈ spectrum_matter(sol, ks)
+    @test spectrum_matter(:c, prob, ks; ks = [1e-2; ks; 1e3], ptreltol = 1e-6) ≈ spectrum_matter(:c, sol, ks) rtol = 1e-2 # override grid and tolerance
 end
 
 @testset "Matter power spectrum converged to 0.1%" begin
