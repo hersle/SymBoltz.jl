@@ -358,7 +358,8 @@ Now compute the matter power spectrum:
 ```@example LCDM
 modes = [:bc, :m, :h]
 ks = 10 .^ range(-1, 4, length=100)
-Ps = spectrum_matter(modes, prob, ks)
+sol = solve(prob, ks)
+Ps = spectrum_matter(modes, sol, ks)
 plot(log10.(ks), log10.(transpose(Ps)), xlabel = "log10(k / (H₀/c))", ylabel = "log10(P / (H₀/c)⁻³)", ylims = (-10, -6), label = permutedims(string.(modes)))
 ```
 
@@ -367,7 +368,8 @@ Now compute the CMB power spectrum:
 jl = SphericalBesselCache(ChebyshevIntegerInterpolator(2, 2500, 100)) # compute at Chebyshev nodes
 ls = 2:2500 # interpolate to every ℓ
 modes = [:TT, :EE, :TE]
-Dls = spectrum_cmb(modes, prob, jl, ls; normalization = :Dl, linterp_normalization = l -> l*(l+1), ptreltol = 1e-7, ptabstol = 1e-7) # stricter tolerance for low-ℓ accuracy
+sol = solve(prob, kgrid_cmb(modes); ptreltol = 1e-7, ptabstol = 1e-7) # stricter tolerance for low-ℓ accuracy
+Dls = spectrum_cmb(modes, sol, jl, ls; normalization = :Dl, linterp_normalization = l -> l*(l+1))
 plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (3, 1), size = (600, 1000), left_margin=5*Plots.mm)
 plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2)
 plot!(ls, Dls[:,3]*1e12, ylabel = "10¹² D(ℓ)", label = "TE", subplot = 3, color = 3, xlabel = "ℓ")

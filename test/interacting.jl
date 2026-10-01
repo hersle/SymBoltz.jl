@@ -410,6 +410,7 @@ sol = solve(probf1(0.1), ks)
 # CMB power spectrum
 jl = SphericalBesselCache(25:25:2000)
 ls = 25:2000
-Dls = spectrum_cmb([:TT, :TE, :EE], probf1(0.1), jl, ls; normalization = :Dl)
+modes = [:TT, :TE, :EE]
+Dls = spectrum_cmb(modes, solve(probf1(0.1), kgrid_cmb(modes)), jl, ls; normalization = :Dl)
 @test all(isfinite, Dls) && all(>(0), Dls[:, 1]) && all(>(0), Dls[:, 3]) # TT, EE > 0
 @test ls[argmax(Dls[:, 1])] in 200:250 # first acoustic peak at ℓ ≈ 220

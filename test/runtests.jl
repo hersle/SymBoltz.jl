@@ -272,6 +272,23 @@ end
     @test getindex.(Ss, 2) ≈ τs .* transpose(ks)
 end
 
+@testset "Source functions from solution" begin
+    τs = [1.0, 2.0]
+    ks = [1.0, 10.0, 100.0]
+    ks′ = [1.0, 5.0, 50.0, 100.0] # off the solved nodes; S is linear in k, so the interpolators below are exact
+    for (sol, ks) in [
+        (solve(prob, ks), ks), # linear in log(k), exact only at nodes
+        (solve(prob, CubicSplineInterpolator(ks)), ks′),
+        (solve(prob, ChebyshevInterpolator(1.0, 100.0, 3)), ks′),
+    ]
+        @test sol(M.τ + M.k, τs, ks) ≈ τs .+ transpose(ks)
+        Ss = sol([M.τ + M.k, M.τ * M.k], τs, ks)
+        @test size(Ss) == (2, length(τs), length(ks))
+        @test Ss[1, :, :] ≈ τs .+ transpose(ks)
+        @test Ss[2, :, :] ≈ τs .* transpose(ks)
+    end
+end
+
 @testset "Initial conditions" begin
     τini = prob.bg[1].tspan[1]
     ks = [1e2, 1e3]
@@ -427,7 +444,7 @@ end
     function logP(logθ)
         θ = exp.(logθ)
         prob′ = probf(θ)
-        P = spectrum_matter(prob′, k)
+        P = spectrum_matter(solve(prob′, k), k)
         return log.(P)
     end
     logθ = [log(pars[par]) for par in diffpars]
@@ -457,7 +474,7 @@ end
     function logDlTT(logθ)
         θ = exp.(logθ)
         prob′ = probf(θ)
-        DlTT = spectrum_cmb(:TT, prob′, jl; normalization = :Dl)
+        DlTT = spectrum_cmb(:TT, solve(prob′, kgrid_cmb(:TT)), jl; normalization = :Dl)
         return log.(DlTT)
     end
     logθ = [log(pars[par]) for par in diffpars]
@@ -547,7 +564,7 @@ end
     # differentiation
     function Pk(Ωc0)
         newprob = remake_function(prob, M.c.Ω₀)(Ωc0)
-        return spectrum_matter(newprob, ks)
+        return spectrum_matter(solve(newprob, ks), ks)
     end
     isnonzero(x) = isfinite(x) && !iszero(x)
     @test all(isnonzero.(Pk(0.3)))
@@ -667,8 +684,9 @@ end
     # Without l-interpolation
     ls = range(2, 2500; length = 200)
     jl = SphericalBesselCache(ls)
-    DlsTT = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
-    DlsEE = spectrum_cmb(:EE, prob, jl; normalization = :Dl)
+    sol = solve(prob, kgrid_cmb([:TT, :EE]))
+    DlsTT = spectrum_cmb(:TT, sol, jl; normalization = :Dl)
+    DlsEE = spectrum_cmb(:EE, sol, jl; normalization = :Dl)
     @test all(isfinite.(DlsTT))
     @test all(isfinite.(DlsEE))
 
@@ -677,15 +695,16 @@ end
     jl_cubic = SphericalBesselCache(range(2, 2500; length = 60))
     jl_cheb = SphericalBesselCache(ChebyshevInterpolator(2, 2500, 60))
     jl_chebint = SphericalBesselCache(ChebyshevIntegerInterpolator(2, 2500, 60))
-    Dls_cubic = spectrum_cmb(:TT, prob, jl_cubic, ls; normalization = :Dl)
-    Dls_cheb = spectrum_cmb(:TT, prob, jl_cheb, ls; normalization = :Dl)
-    Dls_chebint = spectrum_cmb(:TT, prob, jl_chebint, ls; normalization = :Dl)
+    Dls_cubic = spectrum_cmb(:TT, sol, jl_cubic, ls; normalization = :Dl)
+    Dls_cheb = spectrum_cmb(:TT, sol, jl_cheb, ls; normalization = :Dl)
+    Dls_chebint = spectrum_cmb(:TT, sol, jl_chebint, ls; normalization = :Dl)
     @test isapprox(Dls_cubic, Dls; rtol = 1e-1)
     @test isapprox(Dls_cheb, Dls; rtol = 1e-4)
     @test isapprox(Dls_chebint, Dls; rtol = 1e-4)
 
     # Error with bad input
-    @test_throws "outside the l-range" spectrum_cmb(:TT, prob, jl, 1:3000; normalization = :Dl)
+    @test_throws "outside the l-range" spectrum_cmb(:TT, sol, jl, 1:3000; normalization = :Dl)
+    @test_throws "no perturbations" spectrum_cmb(:TT, solve(prob), jl)
 end
 
 @testset "Toggle threading" begin
@@ -762,20 +781,16 @@ end
     ks = [1e-1, 1e0, 1e1, 1e2]
     τs = [1.5, 3.0]
     sol = solve(prob, ks)
-    @test size(spectrum_matter(modes, prob, ks, τs)) == (6, 2, 4) # general form
-    @test size(spectrum_matter(modes, sol,  ks, τs)) == (6, 2, 4)
-    @test size(spectrum_matter(modes, prob, ks)) == (6, 4) # omit τ; should use τ0
-    @test size(spectrum_matter(modes, sol,  ks)) == (6, 4)
-    @test size(spectrum_matter(prob, ks, τs)) == (2, 4) # omit modes; should use :m
-    @test size(spectrum_matter(sol,  ks, τs)) == (2, 4)
-    @test size(spectrum_matter(prob, ks)) == (4,) # omit modes and τ; should use :m and τ0
-    @test size(spectrum_matter(sol,  ks)) == (4,)
+    @test size(spectrum_matter(modes, sol, ks, τs)) == (6, 2, 4) # general form
+    @test size(spectrum_matter(modes, sol, ks)) == (6, 4) # omit τ; should use τ0
+    @test size(spectrum_matter(sol, ks, τs)) == (2, 4) # omit modes; should use :m
+    @test size(spectrum_matter(sol, ks)) == (4,) # omit modes and τ; should use :m and τ0
 end
 
 @testset "Matter power spectrum converged to 0.1%" begin
     k = 10 .^ range(-1, 4, length=100)
-    @time P0 = spectrum_matter(prob, k; bgalg = SymBoltz.default_bgalg(prob; stiff=true), bgabstol = 1e-10, bgreltol = 1e-10, ptalg = SymBoltz.default_ptalg(prob; accuracy=2), ptabstol = 1e-10, ptreltol = 1e-10)
-    @time P  = spectrum_matter(prob, k)
+    @time P0 = spectrum_matter(solve(prob, k; bgalg = SymBoltz.default_bgalg(prob; stiff=true), bgabstol = 1e-10, bgreltol = 1e-10, ptalg = SymBoltz.default_ptalg(prob; accuracy=2), ptabstol = 1e-10, ptreltol = 1e-10), k)
+    @time P  = spectrum_matter(solve(prob, k), k)
     errs = abs.(P./P0 .- 1)
     @test all(errs .< 1e-3)
 end
@@ -1066,7 +1081,7 @@ end
     Pk_class = readdlm("./class_Pk.dat")
     ks_class, Pks_class = Pk_class[:, 1], Pk_class[:, 2]
     ks = ks_class # solve at same wavenumbers as CLASS
-    Pks = spectrum_matter(prob, ks)
+    Pks = spectrum_matter(solve(prob, ks), ks)
     @test isapprox(Pks, Pks_class; rtol = 1e-3)
 
     # CMB power spectrum
@@ -1074,7 +1089,8 @@ end
     ls_class, DlTTs_class, DlEEs_class, Dlϕϕs_class = Cl_class[:, 1], Cl_class[:, 2], Cl_class[:, 3], Cl_class[:, 4]
     ls = unique(Int.(round.(exp.(range(log(ls_class[begin]), log(ls_class[end]), length=200)))))
     jl = SphericalBesselCache(ls)
-    Dls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl, ls_class; normalization = :Dl)
+    modes = [:TT, :EE, :ψψ]
+    Dls = spectrum_cmb(modes, solve(prob, kgrid_cmb(modes)), jl, ls_class; normalization = :Dl)
     @test isapprox(Dls[:, 1], DlTTs_class; rtol = 2e-3)
     @test isapprox(Dls[:, 2], DlEEs_class; rtol = 2e-3)
     @test isapprox(Dls[ls_class .< 11, 3], Dlϕϕs_class[ls_class .< 11]; rtol = 1e-2) # full line-of-sight integration below l_limber (l = 2 has higher error and breaks isapprox(...; rtol = 2e-3) for all l)
@@ -1103,7 +1119,7 @@ end
     #plot(); for i in eachindex(jl.l) plot!(x -> jl(i, x), xlims = (0, 10), label = "l = $(jl.l[i])") end; plot!()
 
     ls_all = 2:2500
-    Dls = spectrum_cmb(:TT, prob, jl, ls_all; normalization = :Dl)
+    Dls = spectrum_cmb(:TT, solve(prob, kgrid_cmb(:TT)), jl, ls_all; normalization = :Dl)
     @test all(isfinite, Dls)
     #plot(ls_all, Dls; xscale = :log10)
 end
@@ -1494,8 +1510,8 @@ end
     @test solvept(prob.pt, bgsols, ks)[end].u[end] ≈ sol.pts[end].u[end]
 
     # the matter power spectrum works without thermodynamics, but CMB spectra need source functions
-    @test spectrum_matter(prob, ks) ≈ spectrum_matter(sol, ks) ≈ spectrum_primordial(ks, sol) .* sol(M.Δm, 0.0, ks) .^ 2
-    @test_throws Exception spectrum_cmb(:TT, prob, SphericalBesselCache(25:25:100))
+    @test spectrum_matter(sol, ks) ≈ spectrum_primordial(ks, sol) .* sol(M.Δm, 0.0, ks) .^ 2
+    @test_throws Exception spectrum_cmb(:TT, sol, SphericalBesselCache(25:25:100))
 
     # ForwardDiff should differentiate through the backward-perturbation chain
     diffpars = [M.Ωr0, M.Ωm0]

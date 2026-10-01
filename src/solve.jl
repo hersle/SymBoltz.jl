@@ -833,11 +833,14 @@ end
 
 # Interpolate between all solved modes with the interpolator they were solved for
 function interpolate_modes!(out, sol::CosmologySolution, kinterp::AbstractInterpolator, is, ts, ks; thread = true)
-    vs = stack(ptsol -> Array(ptsol(ts; idxs = is)), sol.pts) # (is, ts, sol.ks)
+    vs = similar(out, length(is), length(ts), length(kinterp))
+    for ik in eachindex(sol.pts) # serial, since the modes share an observed function cache that is not thread-safe
+        vs[:, :, ik] .= sol.pts[ik](ts; idxs = is)
+    end
     @tasks for iit in CartesianIndices((length(is), length(ts)))
         @set scheduler = thread ? :dynamic : :static
         ii, it = Tuple(iit)
-        out[ii, it, :] .= interpolate(kinterp, vs[ii, it, :], ks)
+        out[ii, it, :] .= kinterp(view(vs, ii, it, :), ks)
     end
     return out
 end

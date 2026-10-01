@@ -28,10 +28,6 @@ end
 function spectrum_primordial(k, M::System, pars::Dict)
     return spectrum_primordial(k, pars[M.g.h], pars[M.I.As], pars[M.I.ns])
 end
-function spectrum_primordial(k, prob::CosmologyProblem)
-    M = prob.M
-    return spectrum_primordial(k, prob.bg[end].ps[M.g.h], prob.bg[end].ps[M.I.As], prob.bg[end].ps[M.I.ns])
-end
 
 function total_symbolic_gauge_invariant_overdensities(M::System, mode::Symbol)
     ρtot = 0
@@ -49,7 +45,7 @@ function total_symbolic_gauge_invariant_overdensities(M::System, mode::Symbol)
 end
 
 """
-    spectrum_matter([modes,] prob::CosmologyProblem, k[, τ]; kwargs...)
+    spectrum_matter([modes,] sol::CosmologySolution, k[, τ])
 
 Compute the matter power spectrum
 ```math
@@ -59,29 +55,20 @@ of the total gauge-invariant overdensity
 ```math
 Δ = (∑ₛρₛΔₛ) / (∑ₛρₛ)
 ```
-for one or more `modes` at wavenumbers `k` and conformal time(s) `τ` from the problem `prob`.
-The problem is solved for the given ``k``, and the matter power spectrum is saved at the given ``τ``.
+for one or more `modes` at wavenumbers `k` and conformal time(s) `τ` from the solution `sol`.
+The perturbations are interpolated between the wavenumbers that `sol` is solved for, so `k` must lie within them.
 
 - `modes` must be `:c` (CDM), `:b` (baryons), `:h` (massive neutrinos), `:m` (matter; equivalent to ``c+b+h``), a vector thereof, or unspecified to use `:m`.
 - `k` must be a vector of wavenumbers in units of ``H₀/c``.
 - `τ` must be a single or a vector of conformal times, or unspecified to use ``τ = τ₀`` today.
-- `kwargs...` are keyword arguments that are forwarded to `solve(prob, k; kwargs...)`.
-"""
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k, τ::AbstractVector; ptopts = (), kwargs...)
-    ptopts = (saveat = τ, ptopts...) # merge, so a caller-supplied ptopts does not drop the saving options
-    sol = solve(prob, k; ptopts, kwargs...)
-    return spectrum_matter(modes, sol, k, τ)
-end
-function spectrum_matter(modes::AbstractVector, prob::CosmologyProblem, k; ptopts = (), kwargs...)
-    ptopts = (save_everystep = false, save_start = false, save_end = true, ptopts...) # merge, so a caller-supplied ptopts does not drop the saving options
-    sol = solve(prob, k; ptopts, kwargs...)
-    return spectrum_matter(modes, sol, k)
-end
 
-"""
-    spectrum_matter([modes,] sol::CosmologySolution, k[, τ]; kwargs...)
+# Examples
 
-Compute the matter power spectrum in the same way, but interpolate between wavenumbers and times already stored in the solution `sol`.
+```julia
+ks = 10 .^ range(-3, 2, length=200)
+sol = solve(prob, ks)
+Ps = spectrum_matter(sol, ks)
+```
 """
 function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::AbstractVector, τ::AbstractVector)
     M = sol.prob.M
@@ -91,10 +78,10 @@ function spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k::Abstr
     P = P0 .* sol(S, τ, k) .^ 2
     return P
 end
-spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k; kwargs...) = spectrum_matter(modes, sol, k, today(sol); kwargs...) # fallback without time (today)
-spectrum_matter(modes::AbstractVector, probsol, k, τ::Number; kwargs...) = spectrum_matter(modes, probsol, k, [τ])[:, 1, :] # fallback with single time
-spectrum_matter(mode::Symbol, probsol, args...; kwargs...) = selectdim(spectrum_matter([mode], probsol, args...; kwargs...), 1, 1) # fallback with single mode specified
-spectrum_matter(probsol::Union{CosmologyProblem, CosmologySolution}, args...; kwargs...) = spectrum_matter(:m, probsol, args...; kwargs...) # fallback with modes unspecified
+spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k) = spectrum_matter(modes, sol, k, today(sol)) # fallback without time (today)
+spectrum_matter(modes::AbstractVector, sol::CosmologySolution, k, τ::Number) = spectrum_matter(modes, sol, k, [τ])[:, 1, :] # fallback with single time
+spectrum_matter(mode::Symbol, sol::CosmologySolution, args...) = selectdim(spectrum_matter([mode], sol, args...), 1, 1) # fallback with single mode specified
+spectrum_matter(sol::CosmologySolution, args...) = spectrum_matter(:m, sol, args...) # fallback with modes unspecified
 
 """
     spectrum_matter_nonlinear(sol::CosmologySolution, k)
