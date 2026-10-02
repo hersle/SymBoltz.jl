@@ -236,15 +236,13 @@ function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::Barycentric
     return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
 end
 
-function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseChebyshevInterpolator, ks_fine; thread = true)
+function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseInterpolator, ks_fine; thread = true)
     Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
-    @inbounds @tasks for j in eachindex(kinterp.subgrids)
+    js = pieceindex.(Ref(kinterp), ks_fine)
+    @inbounds @tasks for j in eachindex(kinterp.pieces)
         @set scheduler = thread ? :dynamic : :static
-        subgrid = kinterp.subgrids[j]
-        kmin, kmax = extrema(subgrid)
-        in_range = findall(k -> kmin ≤ k ≤ kmax, ks_fine)
-        irange = kinterp.iranges[j]
-        source_kinterp!(@view(Ss_fine[:, in_range]), @view(Ss_coarse[:, irange]), subgrid, ks_fine[in_range]; thread)
+        in_piece = findall(==(j), js)
+        source_kinterp!(@view(Ss_fine[:, in_piece]), @view(Ss_coarse[:, kinterp.iranges[j]]), kinterp.pieces[j], ks_fine[in_piece]; thread)
     end
     return Ss_fine
 end

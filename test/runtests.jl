@@ -1143,6 +1143,18 @@ end
     interp = PiecewiseChebyshevInterpolator((1.0, 10.0, 100.0), (20, 20); f = log) # numerical inverse
     @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol = 1e-10)
 
+    # mixed piece types; shared endpoint is stored once
+    interp = PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 200)))
+    @test length(interp) == 21 + 200 - 1
+    @test allunique(interp.xs)
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-4)
+    @test interp(sin.(interp), 2.0) ≈ sin(2.0) atol = 1e-10
+
+    # non-shared endpoints are all kept
+    interp = PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), ChebyshevInterpolator(6.0, 10.0, 20))
+    @test length(interp) == 42
+    @test_throws ArgumentError PiecewiseInterpolator(ChebyshevInterpolator(0.0, 6.0, 20), ChebyshevInterpolator(5.0, 10.0, 20))
+
     interp = ChebyshevIntegerInterpolator(0, 100, 22)
     @test eltype(interp) <: Integer
     @test issorted(interp.xs)

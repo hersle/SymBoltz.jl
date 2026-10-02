@@ -14,10 +14,10 @@ struct BarycentricInterpolator{T, W, F} <: AbstractInterpolator{T}
     f::F
 end
 
-struct PiecewiseChebyshevInterpolator{T <: Real, G <: Tuple} <: AbstractInterpolator{T}
-    subgrids::G # NTuple of ChebyshevInterpolator in ascending x-order
-    xs::Vector{T} # all unique coarse x-values, in ascending x-order
-    iranges::Vector{UnitRange{Int}} # index range into xs for each subgrid
+struct PiecewiseInterpolator{T, P <: Tuple} <: AbstractInterpolator{T}
+    pieces::P # interpolators in ascending x-order
+    xs::Vector{T} # all unique nodes, in ascending x-order
+    iranges::Vector{UnitRange{Int}} # index range into xs for each piece
 end
 
 function CubicSplineInterpolator(xs; f = identity)
@@ -79,16 +79,16 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
 
-    subgrids = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
-    xs = reduce(vcat, subgrids[j].xs[2:end] for j in 2:N; init = subgrids[begin].xs) # combine unique x-points (boundaries share x points)
-    iranges = Vector{UnitRange{Int}}(undef, N)
-    i = 1
-    for j in 1:N
-        n = length(subgrids[j].xs)
-        iranges[j] = i : i + n - 1 # index range into xs corresponding to subgrid j
-        i += n - 1
-    end
-    return PiecewiseChebyshevInterpolator{eltype(xs), typeof(subgrids)}(subgrids, xs, iranges)
+    pieces = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    return PiecewiseInterpolator(pieces...)
+end
+
+# Combine interpolators on adjacent intervals; a node shared by neighboring pieces is stored (and sampled) only once
+function PiecewiseInterpolator(pieces::AbstractInterpolator...)
+    all(pieces[j][end] ≤ pieces[j+1][begin] for j in 1:length(pieces)-1) || throw(ArgumentError("Pieces must be sorted and non-overlapping"))
+    xs = unique(vcat((piece.xs for piece in pieces)...)) # promotes types; drops duplicate shared endpoints
+    iranges = [searchsortedfirst(xs, piece[begin]):searchsortedlast(xs, piece[end]) for piece in pieces]
+    return PiecewiseInterpolator(pieces, xs, iranges)
 end
 
 Base.eltype(::Type{<:AbstractInterpolator{T}}) where {T} = T # type of x-points
@@ -132,15 +132,26 @@ interpolant(interp::BarycentricInterpolator, vals) = y -> barycentric(interp.ys,
 
 (interp::AbstractInterpolator)(vals::AbstractVector, x) = interpolant(interp, vals).(interp.f.(x))
 
-function (interp::PiecewiseChebyshevInterpolator)(vals::AbstractVector, x::Number)
-    j = something(findfirst(subgrid -> x ≤ maximum(subgrid), interp.subgrids), lastindex(interp.subgrids)) # subgrid containing x
-    return interp.subgrids[j](@view(vals[interp.iranges[j]]), x)
+# Index of the piece containing x (the left one at shared endpoints)
+pieceindex(interp::PiecewiseInterpolator, x) = something(findfirst(piece -> x ≤ maximum(piece), interp.pieces), lastindex(interp.pieces))
+
+function (interp::PiecewiseInterpolator)(vals::AbstractVector, x::Number)
+    j = pieceindex(interp, x)
+    return interp.pieces[j](@view(vals[interp.iranges[j]]), x)
 end
-(interp::PiecewiseChebyshevInterpolator)(vals::AbstractVector, xs::AbstractArray) = interp.(Ref(vals), xs)
+function (interp::PiecewiseInterpolator)(vals::AbstractVector, xs::AbstractArray)
+    out = similar(vals, size(xs))
+    js = pieceindex.(Ref(interp), xs)
+    for j in eachindex(interp.pieces)
+        in_piece = js .== j
+        out[in_piece] .= interp.pieces[j](@view(vals[interp.iranges[j]]), xs[in_piece]) # evaluate each piece once on all its points
+    end
+    return out
+end
 
 interpolate(interp::AbstractInterpolator, vals, x) = interp(vals, x)
 interpolate(xs::AbstractVector, vals, x) = interpolate(CubicSplineInterpolator(xs), vals, x) # use cubic splines when only passing an array
 
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::BarycentricInterpolator) = print(io, "Barycentric polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
-Base.show(io::IO, interp::PiecewiseChebyshevInterpolator) = print(io, "Piecewise Chebyshev polynomial interpolator: type = $(eltype(interp)), domain = $(join(extrema.(interp.subgrids), " + ")), order = $(join(order.(interp.subgrids), " + "))")
+Base.show(io::IO, interp::PiecewiseInterpolator) = print(io, "Piecewise interpolator: type = $(eltype(interp)), domain = $(join(extrema.(interp.pieces), " + ")), order = $(join(order.(interp.pieces), " + "))")
