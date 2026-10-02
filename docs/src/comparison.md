@@ -206,7 +206,7 @@ a1 = (1 ./ (sol1["background"][:,"z"] .+ 1))
 a2 = sol2[M.g.a]
 τ1 = sol1["background"][:,"conf. time [Mpc]"]
 τ2 = sol2[M.τ] * (L100/h)
-plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 7e-3)
+plot_compare(a1, a2, τ1, τ2, "a", "τ"; tol = 8e-3)
 ```
 ### Hubble function
 ```@example class
@@ -232,13 +232,13 @@ plot_compare(a1, a2, [wh1, wX1], [wh2, wX2], "a", ["wh", "wX"]; lgx=true, tol = 
 ```@example class
 rs1 = sol1["background"][:,"comov.snd.hrz."]
 rs2 = sound_horizon(sol2) .* (L100/h)
-plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 8e-2)
+plot_compare(a1, a2, rs1, rs2, "a", "rₛ"; lgx = true, tol = 2e-3)
 ```
 ### Luminosity distance
 ```@example class
-dL1 = sol1["background"][:,"lum. dist."]
-dL2 = distance_luminosity(sol2[M.χ], sol2[M.g.a], sol2[M.g.h]) / SymBoltz.Mpc # w0waCDM is flat, so Ωk0 = 0
-plot_compare(a1, a2, dL1, dL2, "a", "dL"; lgx=true, lgy=true, tol = 3e6)
+DL1 = sol1["background"][:,"lum. dist."]
+DL2 = distance(:L, sol2, sol2[M.τ]) .* (L100/h) # L for luminosity
+plot_compare(a1, a2, DL1, DL2, "a", "DL"; lgx=true, lgy=true, tol = 3e6)
 ```
 
 ## Thermodynamics

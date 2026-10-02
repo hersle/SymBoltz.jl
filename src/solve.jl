@@ -9,7 +9,6 @@ import OhMyThreads: TaskLocalValue
 import SymbolicIndexingInterface
 import SymbolicIndexingInterface: getsym, setsym_oop, parameter_values, variable_index, parameter_index
 using RecursiveFactorization # makes RFLUFactorization() available as linear solver: https://docs.sciml.ai/LinearSolve/stable/tutorials/accelerating_choices/
-import NumericalIntegration: cumul_integrate
 using SparseArrays
 import NonlinearSolve.BracketingNonlinearSolve: AbstractBracketingAlgorithm
 
@@ -715,12 +714,6 @@ function issuccess(sol::CosmologySolution)
     ptok = isnothing(sol.pts) || all(successful_retcode, sol.pts)
     return bgok && ptok
 end
-
-function integrate(xs, ys; integrator = Trapezoidal())
-    return NumericalIntegration.integrate(xs, ys, integrator)
-end
-integrate_cumulative(sol::CosmologySolution, x, y) = cumul_integrate(sol[x], sol[y])
-integrate_cumulative(sol::CosmologySolution, y) = integrate_cumulative(sol, sol.prob.M.τ, y)
 
 # TODO: don't select time points as 2nd/3rd index, since these points will vary
 const SymbolicIndex = Union{Num, AbstractArray{Num}}

@@ -56,6 +56,8 @@ function ΛCDM(;
     end
     vars = @variables begin
         χ(τ) = 0.0, [backwards = true, description = "Conformal lookback time from today (0 today, so integrate it backwards)"]
+        rₛ(τ), [description = "Photon-baryon sound horizon"]
+        κd(τ) = 0.0, [backwards = true, description = "Baryon drag optical depth (0 today, so integrate it backwards)"]
         fν(τ), [description = "Neutrino-to-radiation density fraction"]
         ST(τ, k), [description = "Temperature source function"]
         ST_SW(τ, k), [description = "Sachs-Wolfe contribution to ST"]
@@ -72,6 +74,7 @@ function ΛCDM(;
     ieqs = [
         g.Ψ ~ 20C / (15 + 4fν) # Φ found from solving initialization system
         D(g.a) ~ g.a / τ # ℋ ≈ 1 / τ
+        rₛ ~ τ / √3 # early-time solution with cₛ → 1/√3 as ρb/ργ → 0
     ]
     have(ν) && have(γ) && push!(bindings,
         ν.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
@@ -86,6 +89,8 @@ function ΛCDM(;
         b.Tγ ~ γ.T
         fν ~ sum(have(s) ? s.ρ : 0 for s in [ν, h]) / r.ρ
         D(χ) ~ -1
+        D(rₛ) ~ 1 / √(3(1 + 3/4*b.ρ/γ.ρ))
+        D(κd) ~ b.κ̇ / (3/4*b.ρ/γ.ρ) # Thomson drag on baryons, weighted by photon-to-baryon inertia
 
         G.δρ ~ sum(s.δ * s.ρ for s in species) # total energy density perturbation
         G.δP ~ sum(s.δP for s in species) # total pressure perturbation

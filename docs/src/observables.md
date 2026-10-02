@@ -138,33 +138,7 @@ scatter!((log10(8), log10(σ8)), series_annotation = text("  σ₈ = $(round(σ8
 ## Distance measures
 
 ```@docs
-SymBoltz.distance_luminosity
-```
-
-```@example
-using SymBoltz, Plots
-M = RMΛ(K = SymBoltz.curvature(SymBoltz.metric()))
-pars = Dict(
-    M.r.Ω₀ => 5e-5,
-    M.m.Ω₀ => 0.3,
-    M.K.Ω₀ => 0.1,
-    M.r.T₀ => NaN,
-    M.g.h => 0.7
-)
-prob = CosmologyProblem(M, pars)
-sol = solve(prob)
-
-zs = 0.0:1.0:10.0
-τs = SymBoltz.timeseries(sol, M.g.z, zs) # times at given redshifts
-dLs = distance_luminosity(sol(M.χ, τs), sol(M.g.a, τs), sol[M.g.h], sol[M.K.Ω₀]) / SymBoltz.Gpc
-@assert isapprox(dLs[begin], 0.0; atol = 1e-14) || zs[begin] != 0.0 # ensure bug does not reappear # hide
-plot(zs, dLs; marker=:dot, xlabel="z", ylabel="dL / Gpc", label=nothing)
-```
-
-## Sound horizon (BAO scale)
-
-```@docs
-sound_horizon
+distance
 ```
 
 ```@example
@@ -173,9 +147,47 @@ M = ΛCDM()
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
 sol = solve(prob)
-τs = sol[M.τ]
-rs = sound_horizon(sol)
-plot(τs, rs; xlabel = "τ / H₀⁻¹", ylabel = "rₛ / (c/H₀)")
+
+τ0 = today(sol)
+τs = range(0.5*τ0, τ0, length = 100) # conformal times back in time
+zs = sol(M.g.z, τs) # corresponding redshifts
+modes = [:χ, :M, :A, :L, :V] # distances from today
+Ds = distance(modes, sol, τs)
+labels = ["Dχ (lookback distance)" "DM (transverse comoving distance)" "DA (angular diameter distance)" "DL (luminosity distance)" "DV (volume-averaged distance)"]
+plot(zs, transpose(Ds); xlabel = "z", ylabel = "D / (c/H₀)", label = labels, xlims = extrema(zs), ylims = (0, 3))
+```
+
+## Sound horizon (BAO scale)
+
+```@docs
+sound_horizon
+time_drag
+```
+
+The BAO scale is the sound horizon at the baryon drag epoch:
+
+```@example
+using SymBoltz, Plots
+M = ΛCDM()
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+sol = solve(prob)
+
+Mpc = L100 / pars[M.g.h] # (c/H₀) in Mpc
+as = sol[M.g.a]
+rs = sound_horizon(sol) * Mpc
+κd = sol[M.κd]
+τd = time_drag(sol)
+ad = sol(M.g.a, τd)
+zd = sol(M.g.z, τd)
+rd = sound_horizon(sol, τd) * Mpc
+
+p = plot(as, rs; xlabel = "a", ylabel = "rs / Mpc", label = "rs(a)", color = 1, xscale = :log10, xlims = (1e-5, 1), ylims = (0, 1300), legend = (0.12, 0.25))
+scatter!(p, [ad], [rd]; label = "rs(ad) = $(round(rd; digits = 1)) Mpc", color = 1)
+p2 = twinx(p) # right axis
+plot!(p2, as[κd .> 0], κd[κd .> 0]; ylabel = "κd", label = "κd(a)", color = 2, yscale = :log10, ylims = (1e-3, 1e3), xscale = :log10, xlims = (1e-5, 1), legend = (0.12, 0.9))
+hline!(p2, [1]; color = 2, linestyle = :dash, label = nothing)
+scatter!(p2, [ad], [1]; label = "κd(ad) = 1", color = 2)
 ```
 
 ## Source functions

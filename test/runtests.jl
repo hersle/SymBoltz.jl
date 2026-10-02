@@ -82,6 +82,42 @@ end
     @test sol[M.χ] ≈ sol[M.τ][end] .- sol[M.τ]
 end
 
+@testset "Distances" begin
+    sol = solve(prob)
+    zs = [0.5, 1.0, 1100.0]
+    τs = SymBoltz.timeseries(sol, M.g.z, zs)
+    modes = [:χ, :M, :A, :L, :H, :V]
+    Ds = distance(modes, sol, τs)
+    Dχ, DM, DA, DL, DH, DV = eachrow(Ds)
+    @test all(Dχ .≈ sol[M.τ][end] .- τs)
+    @test all(DM .== Dχ) # flat
+    @test all(DL .≈ DM .* (1 .+ zs))
+    @test all(DL .≈ DA .* (1 .+ zs) .^ 2)
+    @test all(DH .≈ 1 ./ sol(M.g.H, τs))
+    @test all(DV .≈ cbrt.(zs .* DM .^ 2 .* DH))
+    @test all(distance(modes, sol, M.g.z => zs) .≈ Ds)
+    @test all(distance(:L, sol, τs) .== DL)
+    @test_throws "Unknown distance mode" distance(:X, sol, τs)
+end
+
+@testset "Sound horizon" begin
+    sol = solve(prob)
+    τs = sol[M.τ]
+    rs = sound_horizon(sol)
+    @test rs[begin] ≈ τs[begin] / √3
+    @test sound_horizon(sol, τs[end]) ≈ rs[end]
+    cs(τ) = sol(1 / √(3(1+3/4*M.b.ρ/M.γ.ρ)), τ)
+    @test rs[end] ≈ rs[begin] + SymBoltz.quadgk(cs, τs[begin], τs[end]; rtol = 1e-8)[1] rtol = 1e-6
+end
+
+@testset "Drag epoch" begin
+    sol = solve(prob)
+    τd = time_drag(sol)
+    @test sol(M.κd, τd) ≈ 1
+    @test 1000 < sol(M.g.z, τd) < 1100
+    @test sound_horizon(sol, τd) < sound_horizon(sol)[end]
+end
+
 @testset "Accessing derivative variables" begin
     ks = 1e3
     sol = solve(prob, ks)
