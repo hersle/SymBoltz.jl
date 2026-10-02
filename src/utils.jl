@@ -428,7 +428,7 @@ function loggrid(a, b; kw...)
     return x
 end
 cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
-chebgrid(a, b; order) = reverse(chebpoints(order, a, b))
+chebgrid(a, b; order) = [a + (b - a) * (1 - cospi(j / order)) / 2 for j in 0:order] # Chebyshev points of the 2nd kind, ascending
 function joingrids!(grid, grids...)
     for g in grids
         append!(grid, g[2:end])

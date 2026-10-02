@@ -49,7 +49,7 @@ end
 
 function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
-    ys = reverse!(chebpoints(order, f(xmin), f(xmax))) # ascending
+    ys = chebgrid(f(xmin), f(xmax); order)
     xs = inverse_nodes(ys, xmin, xmax, f, f⁻¹)
     ws = eltype(ys)[(-1)^j for j in 0:order]
     ws[begin] /= 2
@@ -60,7 +60,7 @@ end
 function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     order ≥ 1 || throw(ArgumentError("Order must be ≥ 1, got $order"))
-    xs = round.(Int, reverse!(chebpoints(order, xmin, xmax))) # round each Chebyshev point to its nearest integer
+    xs = round.(Int, chebgrid(xmin, xmax; order)) # round each Chebyshev point to its nearest integer
     allunique(xs) || throw(ArgumentError(
         "Integer-rounded Chebyshev nodes on ($xmin, $xmax) of order $order collide. Reduce the order or widen the interval."
     ))

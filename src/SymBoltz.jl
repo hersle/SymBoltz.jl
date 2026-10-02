@@ -11,7 +11,6 @@ using OhMyThreads
 using Base.Threads
 using Setfield
 using StaticArrays
-using FastChebInterp
 
 # TODO: generate gravity equations
 # TODO: modified gravity: coupled quintessence; DGP, parametrized framework, EFT of LSS, ...
