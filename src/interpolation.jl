@@ -18,6 +18,7 @@ struct BarycentricInterpolator{T, W, F} <: AbstractInterpolator{T}
     ys::Vector{T} # points in interpolation domain: y = f(x)
     ws::Vector{W} # Barycentric interpolation weights
     f::F
+    domain::Tuple{T, T} # (xmin, xmax); may extend beyond the outer nodes
 end
 
 struct PiecewiseInterpolator{T, P <: Tuple} <: AbstractInterpolator{T}
@@ -46,9 +47,10 @@ function inverse_nodes(ys, xmin, xmax, f, f⁻¹)
     if isnothing(f⁻¹)
         f⁻¹ = f == identity ? identity : y -> solve(IntervalNonlinearProblem((x, _) -> f(x) - y, (xmin, xmax))).u # invert numerically
     end
+    f⁻¹(f(xmin)) ≈ xmin && f⁻¹(f(xmax)) ≈ xmax || throw(ArgumentError("f(x) and f⁻¹(x) are not inverses"))
     xs = f⁻¹.(ys)
-    xs[begin] ≈ xmin && xs[end] ≈ xmax || throw(ArgumentError("f(x) and f⁻¹(x) are not inverses"))
-    xs[begin], xs[end] = xmin, xmax # prevent floating point bounds errors from f⁻¹(f(k))
+    ys[begin] == f(xmin) && (xs[begin] = xmin) # prevent floating point bounds errors from f⁻¹(f(x)) at nodes on the endpoints
+    ys[end] == f(xmax) && (xs[end] = xmax)
     return xs
 end
 
@@ -57,30 +59,35 @@ function EquispacedInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothin
     ys = collect(lingrid(f(xmin), f(xmax); length = order + 1))
     xs = inverse_nodes(ys, xmin, xmax, f, f⁻¹)
     ws = eltype(ys)[(-1)^j * binomial(order, j) for j in 0:order]
-    return BarycentricInterpolator(xs, ys, ws, f)
+    return BarycentricInterpolator(xs, ys, ws, f, eltype(xs).((xmin, xmax)))
 end
 
-function ChebyshevInterpolator(xmin, xmax, order; f = identity, f⁻¹ = nothing)
+# Chebyshev nodes of the 1st kind (endpoints = false) or 2nd kind (endpoints = true)
+function ChebyshevInterpolator(xmin, xmax, order; endpoints = true, f = identity, f⁻¹ = nothing)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
-    ys = chebgrid(f(xmin), f(xmax); order)
+    ys = chebgrid(f(xmin), f(xmax); order, endpoints)
     xs = inverse_nodes(ys, xmin, xmax, f, f⁻¹)
-    ws = eltype(ys)[(-1)^j for j in 0:order]
-    ws[begin] /= 2
-    ws[end] /= 2
-    return BarycentricInterpolator(xs, ys, ws, f)
+    if endpoints # nodes of 2nd kind
+        ws = eltype(ys)[(-1)^j for j in 0:order]
+        ws[begin] /= 2
+        ws[end] /= 2
+    else # nodes of 1st kind
+        ws = eltype(ys)[(-1)^j * sinpi((2j + 1) / (2order + 2)) for j in 0:order]
+    end
+    return BarycentricInterpolator(xs, ys, ws, f, eltype(xs).((xmin, xmax)))
 end
 
-function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer)
+function ChebyshevIntegerInterpolator(xmin, xmax, order::Integer; endpoints = true)
     xmax > xmin || throw(ArgumentError("Interval $((xmin, xmax)) is not sorted"))
     order ≥ 1 || throw(ArgumentError("Order must be ≥ 1, got $order"))
-    xs = round.(Int, chebgrid(xmin, xmax; order)) # round each Chebyshev point to its nearest integer
+    xs = round.(Int, chebgrid(xmin, xmax; order, endpoints)) # round each Chebyshev point to its nearest integer
     allunique(xs) || throw(ArgumentError(
         "Integer-rounded Chebyshev nodes on ($xmin, $xmax) of order $order collide. Reduce the order or widen the interval."
     ))
-    return BarycentricInterpolator(xs, xs, baryweights(xs), identity)
+    return BarycentricInterpolator(xs, xs, baryweights(xs), identity, Int.((xmin, xmax)))
 end
 
-function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = nothing)
+function PiecewiseChebyshevInterpolator(xbreaks, orders; endpoints = true, f = identity, f⁻¹ = nothing)
     N = length(orders) # number of piecewise subgrids
     length(xbreaks) == N + 1 || throw(ArgumentError("Need $(N+1) x-breaks for $N intervals, got $(length(xbreaks))"))
     if !(f isa Tuple)
@@ -92,24 +99,26 @@ function PiecewiseChebyshevInterpolator(xbreaks, orders; f = identity, f⁻¹ = 
     length(f)  == N || throw(ArgumentError("Need $N f, got $(length(f))"))
     length(f⁻¹) == N || throw(ArgumentError("Need $N f⁻¹, got $(length(f⁻¹))"))
 
-    pieces = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; f = f[j], f⁻¹ = f⁻¹[j]), N)
+    pieces = ntuple(j -> ChebyshevInterpolator(xbreaks[j], xbreaks[j+1], orders[j]; endpoints, f = f[j], f⁻¹ = f⁻¹[j]), N)
     return PiecewiseInterpolator(pieces...)
 end
 
 # Combine interpolators on adjacent intervals; a node shared by neighboring pieces is stored (and sampled) only once
 function PiecewiseInterpolator(pieces::AbstractInterpolator...)
-    all(pieces[j][end] ≤ pieces[j+1][begin] for j in 1:length(pieces)-1) || throw(ArgumentError("Pieces must be sorted and non-overlapping"))
+    all(maximum(pieces[j]) ≤ minimum(pieces[j+1]) for j in 1:length(pieces)-1) || throw(ArgumentError("Pieces must be sorted and non-overlapping"))
     xs = unique(vcat((piece.xs for piece in pieces)...)) # promotes types; drops duplicate shared endpoints
     iranges = [searchsortedfirst(xs, piece[begin]):searchsortedlast(xs, piece[end]) for piece in pieces]
     return PiecewiseInterpolator(pieces, xs, iranges)
 end
 
 Base.eltype(::Type{<:AbstractInterpolator{T}}) where {T} = T # type of x-points
-Base.extrema(interp::AbstractInterpolator) = (minimum(interp), maximum(interp))
+Base.extrema(interp::AbstractInterpolator) = (interp[begin], interp[end]) # domain spans the nodes by default
+Base.extrema(interp::BarycentricInterpolator) = interp.domain
+Base.extrema(interp::PiecewiseInterpolator) = (minimum(first(interp.pieces)), maximum(last(interp.pieces)))
+Base.minimum(interp::AbstractInterpolator) = extrema(interp)[1]
+Base.maximum(interp::AbstractInterpolator) = extrema(interp)[2]
 Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
 Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
-Base.minimum(interp::AbstractInterpolator) = interp[begin]
-Base.maximum(interp::AbstractInterpolator) = interp[end]
 Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
 Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
 Base.length(interp::AbstractInterpolator) = length(interp.xs)

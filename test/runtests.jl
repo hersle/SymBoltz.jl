@@ -1135,9 +1135,16 @@ end
     @test isapprox(interp.ws, SymBoltz.baryweights(interp.xs); atol = 1e-12)
     @test interp(sin.(interp), 3.0) ≈ sin(3.0) atol = 1e-10 # scalar evaluation
 
+    # 1st kind Chebyshev nodes lie strictly inside the domain
+    interp = ChebyshevInterpolator(x[begin], x[end], 20; endpoints = false)
+    @test extrema(interp) == (x[begin], x[end])
+    @test interp[begin] > x[begin] && interp[end] < x[end]
+    @test interp.ws ./ interp.ws[begin] ≈ SymBoltz.baryweights(interp.xs) ./ SymBoltz.baryweights(interp.xs)[begin]
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-10)
+
     # transformed interpolation in y = log(x), evaluated in x
     xlog = exp.(range(0.0, log(100.0), length = 1000))
-    for (interp, atol) in ((ChebyshevInterpolator(1.0, 100.0, 30; f = log, f⁻¹ = exp), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log), 1e-10), (CubicSplineInterpolator(exp.(range(0.0, log(100.0), length = 30)); f = log), 1e-2))
+    for (interp, atol) in ((ChebyshevInterpolator(1.0, 100.0, 30; f = log, f⁻¹ = exp), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log, endpoints = false), 1e-10), (CubicSplineInterpolator(exp.(range(0.0, log(100.0), length = 30)); f = log), 1e-2))
         @test all(extrema(interp) .≈ (1.0, 100.0))
         @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol)
     end
@@ -1169,6 +1176,18 @@ end
     interp = PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), ChebyshevInterpolator(6.0, 10.0, 20))
     @test length(interp) == 42
     @test_throws ArgumentError PiecewiseInterpolator(ChebyshevInterpolator(0.0, 6.0, 20), ChebyshevInterpolator(5.0, 10.0, 20))
+
+    # 1st kind piecewise: no shared nodes, but pieces still cover the whole domain
+    interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20); endpoints = false)
+    @test length(interp) == 11 + 21
+    @test extrema(interp) == (0.0, 10.0)
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-4)
+    @test interp(sin.(interp), 4.99) ≈ sin(4.99) atol = 1e-4 # between the last node of piece 1 and the breakpoint
+
+    interp = ChebyshevIntegerInterpolator(0, 100, 22; endpoints = false)
+    @test all(isinteger, interp.xs) && allunique(interp.xs)
+    @test extrema(interp) == (0, 100)
+    @test isapprox(interp(sin.(π/30 .* interp), 0:100), sin.(π/30 .* (0:100)); atol = 1e-8)
 
     interp = ChebyshevIntegerInterpolator(0, 100, 22)
     @test eltype(interp) <: Integer
