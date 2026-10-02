@@ -149,6 +149,35 @@ function (interp::PiecewiseInterpolator)(vals::AbstractVector, xs::AbstractArray
     return out
 end
 
+# Interpolation is linear in vals, so interp(vals, x) == W * vals; column j of W interpolates the j-th unit vector
+function interpolation_matrix(interp::AbstractInterpolator, x::AbstractVector; thread = true)
+    T = float(promote_type(eltype(interp), eltype(x)))
+    W = Matrix{T}(undef, length(x), length(interp))
+    @tasks for j in axes(W, 2)
+        @set scheduler = thread ? :dynamic : :serial
+        @local e = zeros(T, length(interp)) # one unit vector per task
+        e[j] = 1
+        W[:, j] .= interp(e, x)
+        e[j] = 0
+    end
+    return W
+end
+
+# Whether type E consists only of scalars of type R (e.g. SVector{N, R} or ForwardDiff.Dual{Tag, R})
+isflat(::Type{E}, ::Type{R}) where {E, R} = E === R || (isbitstype(E) && isstructtype(E) && all(T -> isflat(T, R), fieldtypes(E)))
+
+# Interpolate each row of V (values at the nodes along columns) with one matrix multiplication
+function (interp::AbstractInterpolator)(V::AbstractMatrix, x::AbstractVector; thread = true)
+    W = interpolation_matrix(interp, x; thread)
+    R = eltype(W)
+    V isa Array && isflat(eltype(V), R) || return V * transpose(W)
+    # multiply elements as consecutive scalars in one real matrix (much faster than with e.g. SVector or Dual elements)
+    out = similar(V, size(V, 1), length(x))
+    flat(A) = reshape(reinterpret(R, A), :, size(A, 2))
+    mul!(flat(out), flat(V), transpose(W))
+    return out
+end
+
 interpolate(interp::AbstractInterpolator, vals, x) = interp(vals, x)
 interpolate(xs::AbstractVector, vals, x) = interpolate(CubicSplineInterpolator(xs), vals, x) # use cubic splines when only passing an array
 

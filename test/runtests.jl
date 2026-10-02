@@ -1165,6 +1165,18 @@ end
     y′ = interp(sin.(π/30 .* interp), x′)
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
+
+    # matrix of values interpolates each row; scalar and SVector rows agree with vector interpolation
+    x′ = range(0.0, 10.0; length = 100)
+    for interp in (ChebyshevInterpolator(0.0, 10.0, 30), CubicSplineInterpolator(range(0.0, 10.0, length = 50)), PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 50))))
+        V = [sin(a * x) for a in (1.0, 2.0), x in interp]
+        @test interp(V, x′) ≈ stack(interp(V[i, :], x′) for i in axes(V, 1); dims = 1)
+        Vs = [SVector(sin(x), cos(x)) for _ in 1:3, x in interp]
+        @test interp(Vs, x′) isa Matrix{SVector{2, Float64}}
+        @test interp(Vs, x′) ≈ stack(interp(Vs[i, :], x′) for i in axes(Vs, 1); dims = 1)
+        Vd = [SVector(ForwardDiff.Dual(sin(x), cos(x), x)) for _ in 1:3, x in interp] # dual numbers (with automatic differentiation)
+        @test reinterpret(Float64, interp(Vd, x′)) ≈ reinterpret(Float64, stack(interp(Vd[i, :], x′) for i in axes(Vd, 1); dims = 1)) # compare values and partials
+    end
 end
 
 @testset "Model with logarithmic scale factor as independent variable" begin

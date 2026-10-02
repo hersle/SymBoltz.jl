@@ -1,5 +1,5 @@
 import Base: nameof
-import LinearAlgebra: issuccess, BLAS
+import LinearAlgebra: issuccess, BLAS, mul!
 import CommonSolve: solve
 import SciMLBase: remake, successful_retcode
 import SciMLLogging

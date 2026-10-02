@@ -153,28 +153,6 @@ function correlation_function(sol::CosmologySolution; N = 2048, spline = true)
     return xicalc(P, 0, 0; N, kmin, kmax, r0=rmin)
 end
 
-"""
-    source_kinterp!(out::AbstractMatrix, Ss_coarse::AbstractMatrix, kinterp::AbstractInterpolator, ks_fine; thread = true)
-
-Interpolate values `Ss_coarse` of source functions ``S(τ,k)`` from the coarse wavenumbers of `kinterp` to the fine wavenumbers `ks_fine`.
-Conformal times are unchanged.
-"""
-function source_kinterp!(out::AbstractMatrix, Ss_coarse::AbstractMatrix, kinterp::AbstractInterpolator, ks_fine; thread = true)
-    size(Ss_coarse, 1) == size(out, 1) || error("out has first dimension with length $(size(out, 1)), but Ss_coarse has $(size(Ss_coarse, 1))")
-    size(Ss_coarse, 2) == length(kinterp) || error("Length of coarse k-grid does not match source array")
-    ys_fine = kinterp.f.(ks_fine) # transform once for all rows
-    @inbounds @tasks for i in 1:size(Ss_coarse, 1)
-        @set scheduler = thread ? :dynamic : :static
-        out[i, :] .= interpolant(kinterp, @view(Ss_coarse[i, :])).(ys_fine)
-    end
-    return out
-end
-function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::AbstractInterpolator, ks_fine; kwargs...)
-    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
-    source_kinterp!(Ss_fine, Ss_coarse, kinterp, ks_fine; kwargs...)
-    return Ss_fine
-end
-
 function source_eltype(Ss, T)
     if Ss isa StaticVector
         SVector{length(Ss), T}
@@ -224,25 +202,6 @@ function source_grid(prob::CosmologyProblem, Ss, τs, ks; bgalg = default_bgalg(
 end
 
 function source_grid(prob::CosmologyProblem, Ss, τs, ks, kinterp::AbstractInterpolator, args...; thread = true, kwargs...)
-    Ss = source_grid(prob, Ss, τs, kinterp.xs, args...; thread, kwargs...) # solve perturbation on coarse k-grid
-    Ss = source_kinterp(Ss, kinterp, ks; thread) # interpolate to requested fine k-grid
-    return Ss
-end
-
-# Special dispatch for returning a vector of interpolation objects (for testing; assumes Chebyshev nodes)
-function source_grid_interp(prob::CosmologyProblem, S, τs, kinterp::BarycentricInterpolator, args...; kwargs...)
-    Ss = source_grid(prob, S, τs, kinterp.xs, args...; kwargs...)
-    ymin, ymax = kinterp.ys[end], kinterp.ys[begin]
-    return [chebinterp(Ss[i, :], ymin, ymax) for i in eachindex(τs)]
-end
-
-function source_kinterp(Ss_coarse::AbstractMatrix, kinterp::PiecewiseInterpolator, ks_fine; thread = true)
-    Ss_fine = similar(Ss_coarse, size(Ss_coarse, 1), length(ks_fine))
-    js = pieceindex.(Ref(kinterp), ks_fine)
-    @inbounds @tasks for j in eachindex(kinterp.pieces)
-        @set scheduler = thread ? :dynamic : :static
-        in_piece = findall(==(j), js)
-        source_kinterp!(@view(Ss_fine[:, in_piece]), @view(Ss_coarse[:, kinterp.iranges[j]]), kinterp.pieces[j], ks_fine[in_piece]; thread)
-    end
-    return Ss_fine
+    Ss = source_grid(prob, Ss, τs, kinterp.xs, args...; thread, kwargs...) # solve perturbations on the nodes of kinterp
+    return kinterp(Ss, ks; thread) # interpolate to ks
 end
