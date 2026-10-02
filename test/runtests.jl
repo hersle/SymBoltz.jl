@@ -1112,6 +1112,21 @@ end
     @test eltype(CubicSplineInterpolator(1:10; f = log).ys) <: AbstractFloat # integer x, float y
 
     x = range(0.0, 10.0; length=20)
+    interp = LinearInterpolator(x)
+    @test eltype(interp) == eltype(x)
+    @test issorted(interp)
+    @test interp(2 .* x .+ 1, x′) ≈ 2 .* x′ .+ 1 # exact for linear functions
+    @test interp(sin.(x), x) ≈ sin.(x) # passes through nodes
+    @test maximum(abs, interp(sin.(x), x′) .- sin.(x′)) < (x[2] - x[1])^2 / 8 # linear interpolation error bound
+    @test interp(sin.(x), x′[500]) == interp(sin.(x), x′)[500] # scalar and vector evaluation agree
+    interp = LinearInterpolator(exp.(x); f = log) # linear in log(x)
+    @test interp(x, exp.(x′)) ≈ x′
+    interp = LinearInterpolator([1.0]) # constant with one node
+    @test interp([2.0], 1.0) == 2.0
+    @test interp([2.0], [1.0, 1.0]) == [2.0, 2.0]
+    @test interp([2.0 3.0]', [1.0, 1.0]) == [2.0 2.0; 3.0 3.0]
+
+    x = range(0.0, 10.0; length=20)
     interp = ChebyshevInterpolator(x[begin], x[end], 20)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
@@ -1168,7 +1183,7 @@ end
 
     # matrix of values interpolates each row; scalar and SVector rows agree with vector interpolation
     x′ = range(0.0, 10.0; length = 100)
-    for interp in (ChebyshevInterpolator(0.0, 10.0, 30), CubicSplineInterpolator(range(0.0, 10.0, length = 50)), PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 50))))
+    for interp in (ChebyshevInterpolator(0.0, 10.0, 30), LinearInterpolator(range(0.0, 10.0, length = 50)), CubicSplineInterpolator(range(0.0, 10.0, length = 50)), PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 50))))
         V = [sin(a * x) for a in (1.0, 2.0), x in interp]
         @test interp(V, x′) ≈ stack(interp(V[i, :], x′) for i in axes(V, 1); dims = 1)
         Vs = [SVector(sin(x), cos(x)) for _ in 1:3, x in interp]

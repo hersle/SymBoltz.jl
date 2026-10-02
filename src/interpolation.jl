@@ -7,6 +7,12 @@ struct CubicSplineInterpolator{T, Y, F} <: AbstractInterpolator{T}
     f::F
 end
 
+struct LinearInterpolator{T, Y, F} <: AbstractInterpolator{T}
+    xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
+    ys::Vector{Y} # points in interpolation domain: y = f(x)
+    f::F
+end
+
 struct BarycentricInterpolator{T, W, F} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
     ys::Vector{T} # points in interpolation domain: y = f(x)
@@ -25,6 +31,13 @@ function CubicSplineInterpolator(xs; f = identity)
     xs = collect(xs) # to array
     ys = f.(xs)
     return CubicSplineInterpolator(xs, ys, f)
+end
+
+function LinearInterpolator(xs; f = identity)
+    issorted(xs) || throw(ArgumentError("Input points must be sorted in ascending order"))
+    xs = collect(xs) # to array
+    ys = f.(xs)
+    return LinearInterpolator(xs, ys, f)
 end
 
 # Map nodes ys in the interpolation domain [f(xmin), f(xmax)] back to the input domain [xmin, xmax]
@@ -128,6 +141,7 @@ end
 
 # Interpolating function of y = f(x) through values vals at the nodes
 interpolant(interp::CubicSplineInterpolator, vals) = CubicSpline(vals, interp.ys)
+interpolant(interp::LinearInterpolator, vals) = length(vals) == 1 ? Returns(vals[begin]) : LinearInterpolation(vals, interp.ys) # constant with one node
 interpolant(interp::BarycentricInterpolator, vals) = y -> barycentric(interp.ys, interp.ws, vals, y)
 
 (interp::AbstractInterpolator)(vals::AbstractVector, x) = interpolant(interp, vals).(interp.f.(x))
@@ -182,5 +196,6 @@ interpolate(interp::AbstractInterpolator, vals, x) = interp(vals, x)
 interpolate(xs::AbstractVector, vals, x) = interpolate(CubicSplineInterpolator(xs), vals, x) # use cubic splines when only passing an array
 
 Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
+Base.show(io::IO, interp::LinearInterpolator) = print(io, "Linear interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::BarycentricInterpolator) = print(io, "Barycentric polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::PiecewiseInterpolator) = print(io, "Piecewise interpolator: type = $(eltype(interp)), domain = $(join(extrema.(interp.pieces), " + ")), order = $(join(order.(interp.pieces), " + "))")
