@@ -56,7 +56,7 @@ export parameters_Planck18
 export H100, k100, L100
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, source_grid_interp, source_grid_chebyshev, sound_horizon, time_drag, distance, distance_luminosity, SphericalBesselCache
 export timeseries, today, isforwards, isbackwards
-export AbstractInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
+export AbstractInterpolator, BarycentricInterpolator, EquispacedInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
 export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
 

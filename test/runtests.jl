@@ -1097,7 +1097,7 @@ end
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
     x′ = range(x[begin], x[end]; length = 1000)
-    y′ = interpolate(interp, sin.(x), x′)
+    y′ = interp(sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
     @test isapprox(y′, sin.(x′); atol = 1e-1)
 
@@ -1106,25 +1106,42 @@ end
     interp = CubicSplineInterpolator(x)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(x), x′)
+    y′ = interp(sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
     @test isapprox(y′, sin.(x′); atol = 1e-0)
+    @test eltype(CubicSplineInterpolator(1:10; f = log).ys) <: AbstractFloat # integer x, float y
 
     x = range(0.0, 10.0; length=20)
     interp = ChebyshevInterpolator(x[begin], x[end], 20)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(interp), x′)
+    y′ = interp(sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
     @test isapprox(interp.ws, SymBoltz.baryweights(interp.xs); atol = 1e-12)
+    @test interp(sin.(interp), 3.0) ≈ sin(3.0) atol = 1e-10 # scalar evaluation
+
+    # transformed interpolation in y = log(x), evaluated in x
+    xlog = exp.(range(0.0, log(100.0), length = 1000))
+    for (interp, atol) in ((ChebyshevInterpolator(1.0, 100.0, 30; f = log, f⁻¹ = exp), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log), 1e-10), (CubicSplineInterpolator(exp.(range(0.0, log(100.0), length = 30)); f = log), 1e-2))
+        @test all(extrema(interp) .≈ (1.0, 100.0))
+        @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol)
+    end
+
+    interp = EquispacedInterpolator(0.0, 1.0, 8)
+    @test interp.xs ≈ range(0.0, 1.0, length = 9)
+    @test isapprox(interp(exp.(interp), 0.3), exp(0.3); atol = 1e-6)
 
     xbreak = (0.0, 5.0, 10.0)
     interp = PiecewiseChebyshevInterpolator(xbreak, (10, 20))
     @test eltype(interp) == eltype(xbreak)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(interp), x′)
+    y′ = interp(sin.(interp), x′)
     @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
     @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
+    @test interp(sin.(interp), 7.0) ≈ sin(7.0) atol = 1e-12 # scalar evaluation
+
+    interp = PiecewiseChebyshevInterpolator((1.0, 10.0, 100.0), (20, 20); f = log) # numerical inverse
+    @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol = 1e-10)
 
     interp = ChebyshevIntegerInterpolator(0, 100, 22)
     @test eltype(interp) <: Integer
@@ -1133,7 +1150,7 @@ end
     @test allunique(interp.xs)
     @test extrema(interp) == (0, 100)
     x′ = range(interp[begin], interp[end]; length = 1000)
-    y′ = interpolate(interp, sin.(π/30 .* interp), x′)
+    y′ = interp(sin.(π/30 .* interp), x′)
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
 end
