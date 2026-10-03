@@ -1097,7 +1097,7 @@ end
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
     x′ = range(x[begin], x[end]; length = 1000)
-    y′ = interpolate(interp, sin.(x), x′)
+    y′ = interp(sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
     @test isapprox(y′, sin.(x′); atol = 1e-1)
 
@@ -1106,25 +1106,88 @@ end
     interp = CubicSplineInterpolator(x)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(x), x′)
+    y′ = interp(sin.(x), x′)
     @test all(interpolate(x, sin.(x), x′) .== y′) # should fall exactly back to cubic spline interpolation
     @test isapprox(y′, sin.(x′); atol = 1e-0)
+    @test eltype(CubicSplineInterpolator(1:10; f = log).ys) <: AbstractFloat # integer x, float y
+
+    x = range(0.0, 10.0; length=20)
+    interp = LinearInterpolator(x)
+    @test eltype(interp) == eltype(x)
+    @test issorted(interp)
+    @test interp(2 .* x .+ 1, x′) ≈ 2 .* x′ .+ 1 # exact for linear functions
+    @test interp(sin.(x), x) ≈ sin.(x) # passes through nodes
+    @test maximum(abs, interp(sin.(x), x′) .- sin.(x′)) < (x[2] - x[1])^2 / 8 # linear interpolation error bound
+    @test interp(sin.(x), x′[500]) == interp(sin.(x), x′)[500] # scalar and vector evaluation agree
+    interp = LinearInterpolator(exp.(x); f = log) # linear in log(x)
+    @test interp(x, exp.(x′)) ≈ x′
+    interp = LinearInterpolator([1.0]) # constant with one node
+    @test interp([2.0], 1.0) == 2.0
+    @test interp([2.0], [1.0, 1.0]) == [2.0, 2.0]
+    @test interp([2.0 3.0]', [1.0, 1.0]) == [2.0 2.0; 3.0 3.0]
 
     x = range(0.0, 10.0; length=20)
     interp = ChebyshevInterpolator(x[begin], x[end], 20)
     @test eltype(interp) == eltype(x)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(interp), x′)
+    y′ = interp(sin.(interp), x′)
     @test isapprox(y′, sin.(x′); atol = 1e-10) # more accurate than cubic splines
     @test isapprox(interp.ws, SymBoltz.baryweights(interp.xs); atol = 1e-12)
+    @test interp(sin.(interp), 3.0) ≈ sin(3.0) atol = 1e-10 # scalar evaluation
+
+    # 1st kind Chebyshev nodes lie strictly inside the domain
+    interp = ChebyshevInterpolator(x[begin], x[end], 20; endpoints = false)
+    @test extrema(interp) == (x[begin], x[end])
+    @test interp[begin] > x[begin] && interp[end] < x[end]
+    @test interp.ws ./ interp.ws[begin] ≈ SymBoltz.baryweights(interp.xs) ./ SymBoltz.baryweights(interp.xs)[begin]
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-10)
+
+    # transformed interpolation in y = log(x), evaluated in x
+    xlog = exp.(range(0.0, log(100.0), length = 1000))
+    for (interp, atol) in ((ChebyshevInterpolator(1.0, 100.0, 30; f = log, f⁻¹ = exp), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log), 1e-10), (ChebyshevInterpolator(1.0, 100.0, 30; f = log, endpoints = false), 1e-10), (CubicSplineInterpolator(exp.(range(0.0, log(100.0), length = 30)); f = log), 1e-2))
+        @test all(extrema(interp) .≈ (1.0, 100.0))
+        @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol)
+    end
+
+    interp = EquispacedInterpolator(0.0, 1.0, 8)
+    @test interp.xs ≈ range(0.0, 1.0, length = 9)
+    @test isapprox(interp(exp.(interp), 0.3), exp(0.3); atol = 1e-6)
 
     xbreak = (0.0, 5.0, 10.0)
     interp = PiecewiseChebyshevInterpolator(xbreak, (10, 20))
     @test eltype(interp) == eltype(xbreak)
     @test issorted(interp)
-    y′ = interpolate(interp, sin.(interp), x′)
+    y′ = interp(sin.(interp), x′)
     @test isapprox(y′[x′ .≤ 5.0], sin.(x′[x′ .≤ 5.0]); atol = 1e-4) # lower order, less accurate
     @test isapprox(y′[x′ .≥ 5.0], sin.(x′[x′ .≥ 5.0]); atol = 1e-12) # higher order, more accurate
+    @test interp(sin.(interp), 7.0) ≈ sin(7.0) atol = 1e-12 # scalar evaluation
+
+    interp = PiecewiseChebyshevInterpolator((1.0, 10.0, 100.0), (20, 20); f = log) # numerical inverse
+    @test isapprox(interp(sin.(log.(interp)), xlog), sin.(log.(xlog)); atol = 1e-10)
+
+    # mixed piece types; shared endpoint is stored once
+    interp = PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 200)))
+    @test length(interp) == 21 + 200 - 1
+    @test allunique(interp.xs)
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-4)
+    @test interp(sin.(interp), 2.0) ≈ sin(2.0) atol = 1e-10
+
+    # non-shared endpoints are all kept
+    interp = PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), ChebyshevInterpolator(6.0, 10.0, 20))
+    @test length(interp) == 42
+    @test_throws ArgumentError PiecewiseInterpolator(ChebyshevInterpolator(0.0, 6.0, 20), ChebyshevInterpolator(5.0, 10.0, 20))
+
+    # 1st kind piecewise: no shared nodes, but pieces still cover the whole domain
+    interp = PiecewiseChebyshevInterpolator((0.0, 5.0, 10.0), (10, 20); endpoints = false)
+    @test length(interp) == 11 + 21
+    @test extrema(interp) == (0.0, 10.0)
+    @test isapprox(interp(sin.(interp), x′), sin.(x′); atol = 1e-4)
+    @test interp(sin.(interp), 4.99) ≈ sin(4.99) atol = 1e-4 # between the last node of piece 1 and the breakpoint
+
+    interp = ChebyshevIntegerInterpolator(0, 100, 22; endpoints = false)
+    @test all(isinteger, interp.xs) && allunique(interp.xs)
+    @test extrema(interp) == (0, 100)
+    @test isapprox(interp(sin.(π/30 .* interp), 0:100), sin.(π/30 .* (0:100)); atol = 1e-8)
 
     interp = ChebyshevIntegerInterpolator(0, 100, 22)
     @test eltype(interp) <: Integer
@@ -1133,9 +1196,21 @@ end
     @test allunique(interp.xs)
     @test extrema(interp) == (0, 100)
     x′ = range(interp[begin], interp[end]; length = 1000)
-    y′ = interpolate(interp, sin.(π/30 .* interp), x′)
+    y′ = interp(sin.(π/30 .* interp), x′)
     @test isapprox(y′, sin.(π/30 .* x′); atol = 1e-10)
     @test_throws "collide" ChebyshevIntegerInterpolator(0, 100, 23)
+
+    # matrix of values interpolates each row; scalar and SVector rows agree with vector interpolation
+    x′ = range(0.0, 10.0; length = 100)
+    for interp in (ChebyshevInterpolator(0.0, 10.0, 30), LinearInterpolator(range(0.0, 10.0, length = 50)), CubicSplineInterpolator(range(0.0, 10.0, length = 50)), PiecewiseInterpolator(ChebyshevInterpolator(0.0, 5.0, 20), CubicSplineInterpolator(range(5.0, 10.0, length = 50))))
+        V = [sin(a * x) for a in (1.0, 2.0), x in interp]
+        @test interp(V, x′) ≈ stack(interp(V[i, :], x′) for i in axes(V, 1); dims = 1)
+        Vs = [SVector(sin(x), cos(x)) for _ in 1:3, x in interp]
+        @test interp(Vs, x′) isa Matrix{SVector{2, Float64}}
+        @test interp(Vs, x′) ≈ stack(interp(Vs[i, :], x′) for i in axes(Vs, 1); dims = 1)
+        Vd = [SVector(ForwardDiff.Dual(sin(x), cos(x), x)) for _ in 1:3, x in interp] # dual numbers (with automatic differentiation)
+        @test reinterpret(Float64, interp(Vd, x′)) ≈ reinterpret(Float64, stack(interp(Vd[i, :], x′) for i in axes(Vd, 1); dims = 1)) # compare values and partials
+    end
 end
 
 @testset "Model with logarithmic scale factor as independent variable" begin
