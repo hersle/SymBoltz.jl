@@ -19,7 +19,7 @@ pars = [M.γ.T₀, M.c.Ω₀, M.b.Ω₀, M.ν.N, M.g.h, M.b.YHe, M.h.m_eV, M.I.l
 prob0 = CosmologyProblem(M, Dict(pars .=> NaN))
 
 probf = remake_function(prob0, pars)
-P(k, θ) = spectrum_matter(probf(θ), k)
+P(k, θ) = spectrum_matter(solve(probf(θ), k), k)
 ```
 It is now easy to evaluate the power spectrum:
 ```@example ad

@@ -74,6 +74,7 @@ plot(
 
 ```@docs
 SymBoltz.spectrum_cmb
+SymBoltz.kgrid_cmb
 ```
 
 #### Example
@@ -87,7 +88,8 @@ prob = CosmologyProblem(M, pars)
 ls = 25:25:3000 # 25, 50, ..., 3000
 jl = SphericalBesselCache(ls)
 modes = [:TT, :EE, :TE, :ψψ, :ψT, :ψE]
-Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
+sol = solve(prob, kgrid_cmb(modes))
+Dls = spectrum_cmb(modes, sol, jl; normalization = :Dl)
 
 plot(ls, log10.(abs.(Dls)); xlabel = "l", ylabel = "lg(Dₗ)", label = permutedims(String.(modes)))
 ```
@@ -192,6 +194,9 @@ scatter!(p2, [ad], [1]; label = "κd(ad) = 1", color = 2)
 
 ## Source functions
 
+Source functions ``S(τ,k)`` on a grid are evaluated by interpolating the solution like `sol(S, τs, ks)`.
+Alternatively, [`source_grid`](@ref) saves only the source functions at the requested times while solving, which uses much less memory.
+
 ```@docs
 source_grid
 ```
@@ -201,11 +206,11 @@ using SymBoltz, Plots, DataInterpolations
 M = ΛCDM(h = nothing, ν = nothing)
 pars = parameters_Planck18(M)
 prob = CosmologyProblem(M, pars)
-sol = solve(prob)
+sol = solve(prob, ChebyshevInterpolator(1.0, 1000.0, 60)) # interpolate between modes with Chebyshev polynomials
 
 τs = sol[M.τ] # conformal times in background solution
-ks = exp.(range(log(1.0), log(2000.0), length = 50)) # logarithmic k-grid
-Ss = source_grid(prob, M.ST, τs, ks)
+ks = 10 .^ range(0.0, 3.0, length = 50) # logarithmic k-grid
+Ss = sol(M.ST, τs, ks)
 iτ = argmax(sol[M.b.v]) # index of decoupling time
 iτs = iτ-75:iτ+75 # indices around decoupling
 p1 = surface(ks, τs[iτs], Ss[iτs, :]; camera = (45, 25), xlabel = "k", ylabel = "τ", zlabel = "S", colorbar = false)
@@ -213,7 +218,7 @@ p1 = surface(ks, τs[iτs], Ss[iτs, :]; camera = (45, 25), xlabel = "k", ylabel
 lgas = -6.0:0.2:0.0
 τs = LinearInterpolation(sol[M.τ], sol[log10(M.g.a)])(lgas) # τ at given lg(a)
 ks = 5.0:5.0:100.0
-Ss = source_grid(prob, M.g.Ψ, τs, ks)
+Ss = sol(M.g.Ψ, τs, ks)
 p2 = wireframe(ks, lgas, Ss; camera = (75, 20), xlabel = "k", ylabel = "lg(a)", zlabel = "Φ")
 
 plot(p1, p2)

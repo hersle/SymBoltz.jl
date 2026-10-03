@@ -1,5 +1,5 @@
-# Interpolators sample a function at nodes x, and interpolates in a transformed coordinate y = f(x)
-abstract type AbstractInterpolator{T} end
+# Interpolators are vectors of nodes x that sample a function, and interpolate in a transformed coordinate y = f(x)
+abstract type AbstractInterpolator{T} <: AbstractVector{T} end
 
 struct CubicSplineInterpolator{T, Y, F} <: AbstractInterpolator{T}
     xs::Vector{T} # points in input domain: x = f⁻¹(y) (e.g. wavenumbers k)
@@ -111,17 +111,14 @@ function PiecewiseInterpolator(pieces::AbstractInterpolator...)
     return PiecewiseInterpolator(pieces, xs, iranges)
 end
 
-Base.eltype(::Type{<:AbstractInterpolator{T}}) where {T} = T # type of x-points
+Base.size(interp::AbstractInterpolator) = size(interp.xs)
+Base.IndexStyle(::Type{<:AbstractInterpolator}) = IndexLinear()
+Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
 Base.extrema(interp::AbstractInterpolator) = (interp[begin], interp[end]) # domain spans the nodes by default
 Base.extrema(interp::BarycentricInterpolator) = interp.domain
 Base.extrema(interp::PiecewiseInterpolator) = (minimum(first(interp.pieces)), maximum(last(interp.pieces)))
 Base.minimum(interp::AbstractInterpolator) = extrema(interp)[1]
 Base.maximum(interp::AbstractInterpolator) = extrema(interp)[2]
-Base.firstindex(interp::AbstractInterpolator) = firstindex(interp.xs)
-Base.lastindex(interp::AbstractInterpolator) = lastindex(interp.xs)
-Base.getindex(interp::AbstractInterpolator, i::Int) = interp.xs[i]
-Base.iterate(interp::AbstractInterpolator, args...; kwargs...) = iterate(interp.xs, args...; kwargs...)
-Base.length(interp::AbstractInterpolator) = length(interp.xs)
 order(interp::AbstractInterpolator) = length(interp) - 1
 
 # Compute Barycentric interpolation weights wᵢ = 1 / ∏_{j≠i}(xᵢ - xⱼ) for arbitrary points
@@ -189,17 +186,17 @@ end
 # Whether type E consists only of scalars of type R (e.g. SVector{N, R} or ForwardDiff.Dual{Tag, R})
 isflat(::Type{E}, ::Type{R}) where {E, R} = E === R || (isbitstype(E) && isstructtype(E) && all(T -> isflat(T, R), fieldtypes(E)))
 
-# Interpolate each row of V (values at the nodes along columns) with one matrix multiplication
-function (interp::AbstractInterpolator)(V::AbstractMatrix, x::AbstractVector; thread = true)
-    W = interpolation_matrix(interp, x; thread)
+# Interpolate each row of V (values at the nodes along columns) into out with the interpolation matrix W, i.e. compute out = V * transpose(W)
+function apply_interpolation_matrix!(out::AbstractMatrix, V::AbstractMatrix, W::AbstractMatrix)
     R = eltype(W)
-    V isa Array && isflat(eltype(V), R) || return V * transpose(W)
+    eltype(out) == eltype(V) && isflat(eltype(V), R) || return mul!(out, V, transpose(W))
     # multiply elements as consecutive scalars in one real matrix (much faster than with e.g. SVector or Dual elements)
-    out = similar(V, size(V, 1), length(x))
     flat(A) = reshape(reinterpret(R, A), :, size(A, 2))
     mul!(flat(out), flat(V), transpose(W))
     return out
 end
+apply_interpolation_matrix(V::AbstractMatrix, W::AbstractMatrix) = apply_interpolation_matrix!(similar(V, Base.promote_op(*, eltype(V), eltype(W)), size(V, 1), size(W, 1)), V, W)
+(interp::AbstractInterpolator)(V::AbstractMatrix, x::AbstractVector; thread = true) = apply_interpolation_matrix(V, interpolation_matrix(interp, x; thread)) # one matrix multiplication
 
 interpolate(interp::AbstractInterpolator, vals, x) = interp(vals, x)
 interpolate(xs::AbstractVector, vals, x) = interpolate(CubicSplineInterpolator(xs), vals, x) # use cubic splines when only passing an array
@@ -208,3 +205,4 @@ Base.show(io::IO, interp::CubicSplineInterpolator) = print(io, "Cubic spline int
 Base.show(io::IO, interp::LinearInterpolator) = print(io, "Linear interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::BarycentricInterpolator) = print(io, "Barycentric polynomial interpolator: type = $(eltype(interp)), domain = $(extrema(interp)), order = $(order(interp))")
 Base.show(io::IO, interp::PiecewiseInterpolator) = print(io, "Piecewise interpolator: type = $(eltype(interp)), domain = $(join(extrema.(interp.pieces), " + ")), order = $(join(order.(interp.pieces), " + "))")
+Base.show(io::IO, ::MIME"text/plain", interp::AbstractInterpolator) = show(io, interp) # instead of printing all nodes like a vector

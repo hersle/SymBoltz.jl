@@ -30,7 +30,7 @@ Since $Cₗ$ is an expensive but smooth function of $l$, we make one function fo
 probf = remake_function(prob0, pars_varying)
 jl = SphericalBesselCache(40:20:1000)
 ls = 40:1:1000
-Cl(θ) = spectrum_cmb(:TT, probf(θ), jl, ls)
+Cl(θ) = spectrum_cmb(:TT, solve(probf(θ), kgrid_cmb(:TT)), jl, ls)
 ```
 We can now compute $Cₗ$ and the cosmic variance uncertainties
 ```math

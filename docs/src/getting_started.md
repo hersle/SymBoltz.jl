@@ -90,11 +90,13 @@ We can also calculate the matter power spectrum:
 Ps = spectrum_matter(sol, ks)
 plot(log10.(ks), log10.(Ps); xlabel = "lg(k / (H₀/c))", ylabel = "lg(P / (c/H₀)³)", label = nothing)
 ```
-Similarly, we can calculate the angular CMB (TT) power spectrum:
+Similarly, we can calculate the angular CMB (TT) power spectrum.
+It needs perturbations for more wavenumbers, so we solve again with a default wavenumber grid for it:
 ```@example getting_started
+sol = solve(prob, kgrid_cmb(:TT))
 ls = 10:10:1000
 jl = SphericalBesselCache(ls)
-Dls = spectrum_cmb(:TT, prob, jl; normalization = :Dl)
+Dls = spectrum_cmb(:TT, sol, jl; normalization = :Dl)
 plot(ls, Dls; xlabel = "l", ylabel = "l (l+1) Cₗ / 2π", label = nothing)
 ```
 
