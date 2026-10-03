@@ -207,7 +207,6 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
     return Is
 end
 
-# TODO: integrate splines instead of trapz! https://discourse.julialang.org/t/how-to-speed-up-the-numerical-integration-with-interpolation/96223/5
 @doc raw"""
     spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::AbstractVector, ls::AbstractVector, ks::AbstractVector, ws::AbstractVector; normalization = :Cl, thread = true)
 
@@ -227,11 +226,11 @@ function spectrum_cmb(ΘlAs::AbstractMatrix, ΘlBs::AbstractMatrix, P0s::Abstrac
     @tasks for il in eachindex(ls)
         # TODO: skip kτ0 ≲ l?
         @set scheduler = thread ? :dynamic : :static
-        @local dCl_dks = zeros(eltype(ΘlAs), length(ks)) # local task workspace (must zero first element)
+        @local dCl_dks = zeros(eltype(ΘlAs), length(ks)) # local task workspace
         ΘlA = @view ΘlAs[:, il]
         ΘlB = @view ΘlBs[:, il]
         dCl_dks .= 2/π .* ks .^ 2 .* P0s .* ΘlA .* ΘlB
-        Cls[il] = sum(ws[ik] * dCl_dks[ik] for ik in eachindex(ws)) # integrate over k (_with0 adds one additional point at (0,0))
+        Cls[il] = sum(ws[ik] * dCl_dks[ik] for ik in eachindex(ws)) # integrate over k
     end
 
     return normalize_spectrum_cmb(normalization, ls, Cls)
@@ -241,7 +240,7 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = ClenshawCurtisQuadrature(8192), l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -252,7 +251,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 
 - `τquad`: Quadrature rule for the line-of-sight integral over ``τ``; its nodes are mapped linearly to ``[τᵢ, τ₀]`` (also if the independent variable is not ``τ``).
 - `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to the nodes of `kquad`.
-- `kquad`: Quadrature rule for the integral over ``k`` that projects to ``ℓ``-space; its nodes are mapped linearly to the ``k``-range of `kinterp`.
+- `kquad`: Quadrature rule for the integral over ``k`` that projects to ``ℓ``-space; its nodes are mapped linearly to the ``k``-range of `kinterp`. Its nodes are also the ``k``-modes for line-of-sight integration.
 - `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
 - `bgalg`/`ptalg`, `bgreltol`/`ptreltol`, `bgabstol`/`ptabstol`: ODE algorithms and tolerances for the background/perturbation stages.
 - `bgopts`/`ptopts`: extra options for the background/perturbation ODE solves.
@@ -271,7 +270,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = ClenshawCurtisQuadrature(8192), l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -284,6 +283,9 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         else
             kinterp = ChebyshevInterpolator(1e-2, 2e3, 60) # lower kmax for T/E-only; sample uniform acoustic oscillations in linear k
         end
+    end
+    if isnothing(kquad)
+        kquad = ClenshawCurtisQuadrature(iψ > 0 ? 8192 : 4096) # more points over the wider k-range for lensing
     end
 
     ls = collect(jl.l)
@@ -312,10 +314,10 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
             Ss[iτ, ik] = Base.setindex(Ss[iτ, ik], Ss[iτ, ik][iψ] * Ws[iτ], iψ)
         end
     end
-    Ss[end, :] .= Ref(zero(eltype(Ss))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
+    τs[end] == τ0 && (Ss[end, :] .= Ref(zero(eltype(Ss)))) # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
 
     # Integrate all sources simultaneously without Limber approximation
-    Θls = los_integrate(Ss, ls, τs, ks_fine, jl, τws; verbose, thread, kwargs...)
+    Θls = los_integrate(Ss, ls, τs, ks_fine, jl, τws; τ0, verbose, thread, kwargs...)
     Θls = stack(Θls) # to 3D array
     if iT > 0
         Θls[iT, :, :] ./= ks_fine
@@ -324,7 +326,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) ./ (ks_fine .^ 2)
     end
     if iψ > 0 && l_limber ≤ ls[end]
-        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl, τws; l_limber, verbose, thread, kwargs...) # overwrite with Limber result
+        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl, τws; τ0, l_limber, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
