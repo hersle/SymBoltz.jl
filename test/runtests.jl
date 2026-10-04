@@ -583,6 +583,17 @@ end
     end
 end
 
+@testset "HyRec2 recombination" begin
+    M = ΛCDM(K = nothing; recombination = :hyrec)
+    sol = solve(CosmologyProblem(M, pars; pt = false))
+    @test issuccess(sol)
+    ref = readdlm(joinpath(@__DIR__, "hyrec_xe.dat"); comments = true)
+    zs, xes, Tms = ref[:, 1], ref[:, 2], ref[:, 3]
+    τs = timeseries(sol, M.g.z, zs)
+    @test all(isapprox.(sol(M.b.rec.Xe, τs), xes; rtol = 5e-4)) # differences ~2e-4 are from different H mass in nH
+    @test all(isapprox.(sol(M.b.T, τs), Tms; rtol = 5e-4)) # HyRec2 switches Tm from steady state to ODE around z ≈ 770
+end
+
 using QuasiMonteCarlo
 function stability(M::System, ks, vary::Dict, nsamples; verbose = false, error = false, kwargs...)
     prob0 = CosmologyProblem(M, Dict(keys(vary) .=> NaN))
@@ -622,6 +633,9 @@ ks = [1e0, 1e1, 1e2, 1e3]
 
     M3 = ΛCDM(K = nothing, reionization = false; lmax)
     @test stability(M3, ks, vary, 100; error = true) == 1.0
+
+    M4 = ΛCDM(K = nothing, recombination = :hyrec; lmax)
+    @test stability(M4, ks, vary, 100; error = true) == 1.0
 end
 
 using SpecialFunctions: zeta as ζ

@@ -83,6 +83,10 @@ function ΛCDM(;
     have(h) && have(γ) && push!(bindings,
         h.T₀ => (4/11)^(1/3) * γ.T₀, # note: CLASS uses fudged 0.71611 ≠ (4/11)^(1/3)
     )
+    have(b) && have(b, :rec) && hasproperty(b.rec, :ωcb) && push!(bindings, # HyRec2's SWIFT correction depends on the cosmology
+        b.rec.ωcb => sum(s.Ω₀ for s in filter(have, [b, c])) * g.h^2,
+        b.rec.Neff => sum((s.N for s in filter(have, [ν, h])); init = 0),
+    )
     eqs = [
         G.ρ ~ sum(s.ρ for s in species)
         G.P ~ sum(s.P for s in species)
