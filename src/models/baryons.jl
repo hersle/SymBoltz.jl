@@ -242,7 +242,7 @@ function recombination_hyrec(g, YHe, fHe; kwargs...)
         β2p ~ (α2p - Dα2p) * SAHA * Tr^(3/2) * exp(-EI/4Tr) / 3
         R2p2s ~ exp(hyrec_lnR(log(Tr)))
         Δ ~ hyrec_Δ(1, Tγ) + (ωcb - 0.14175)*q3 * hyrec_Δ(2, Tγ) + (ωH - 0.02242*(1-0.246738546372))*q3 * hyrec_Δ(3, Tγ) + (Neff - 3.046) * hyrec_Δ(4, Tγ)
-        RLyax1s ~ LYA * H / n / (1 + Δ)
+        RLyax1s ~ LYA * H / n / ((1 + Δ + reg(1 + Δ; ϵ = 0.02)) / 2) # keep 1+Δ > 0 (SWIFT's linear parameter expansion can make it negative far from fiducial)
         Γ2s ~ β2s + 3*R2p2s + L2s1s
         Γ2px1s ~ (β2p + R2p2s) * x1sreg + RLyax1s
         C2s ~ (L2s1s + 3*R2p2s*RLyax1s/Γ2px1s) / (Γ2s - 3*R2p2s^2*x1sreg/Γ2px1s)
