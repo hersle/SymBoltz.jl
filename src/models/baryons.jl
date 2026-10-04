@@ -292,12 +292,12 @@ function reionization_tanh(g, z, Δz, n, Xemax; kwargs...)
 end
 
 """
-    baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
+    baryons(g; recombination = :hyrec, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
 
 Create a particle species for baryons in the spacetime with metric `g`.
-The `recombination` model is `:recfast` (or `true`; with options `Hswitch` and `Heswitch`), `:hyrec` or `false` (none).
+The `recombination` model is `:hyrec` (or `true`), `:recfast` (with options `Hswitch` and `Heswitch`) or `false` (none).
 """
-function baryons(g; recombination = true, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
+function baryons(g; recombination = :hyrec, reionization = true, Hswitch = 1, Heswitch = 6, name = :b, kwargs...)
     description = "Baryonic matter"
     b = matter(g; adiabatic = false, interact = true, continuity_pressure = false, name, description, kwargs...) |> complete
 
@@ -345,13 +345,13 @@ function baryons(g; recombination = true, reionization = true, Hswitch = 1, Hesw
         ne ~ Xe * nH # TODO: redefine Xe = ne/nb ≠ ne/nH?
     ]
 
-    if recombination == true || recombination == :recfast
-        @named rec = recombination_recfast(g, ParentScope(YHe), ParentScope(fHe); Hswitch, Heswitch)
-        push!(eqs, rec.nH ~ nH, rec.nHe ~ nHe, rec.ne ~ ne, rec.T ~ T)
-        push!(comps, rec)
-    elseif recombination == :hyrec
+    if recombination == true || recombination == :hyrec
         @named rec = recombination_hyrec(g, ParentScope(YHe), ParentScope(fHe))
         push!(eqs, rec.nH ~ nH, rec.nHe ~ nHe, rec.ne ~ ne, rec.T ~ T, rec.Tγ ~ Tγ)
+        push!(comps, rec)
+    elseif recombination == :recfast
+        @named rec = recombination_recfast(g, ParentScope(YHe), ParentScope(fHe); Hswitch, Heswitch)
+        push!(eqs, rec.nH ~ nH, rec.nHe ~ nHe, rec.ne ~ ne, rec.T ~ T)
         push!(comps, rec)
     elseif recombination != false
         error("Unknown recombination model $recombination")

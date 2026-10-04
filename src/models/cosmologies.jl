@@ -1,7 +1,7 @@
 """
     ΛCDM(;
         lmax = 10,
-        recombination = true,
+        recombination = :hyrec,
         reionization = true,
         Hswitch = 1,
         Heswitch = 6,
@@ -26,7 +26,7 @@ Create a ΛCDM model.
 """
 function ΛCDM(;
     lmax = 10,
-    recombination = true,
+    recombination = :hyrec,
     reionization = true,
     Hswitch = 1,
     Heswitch = 6,
