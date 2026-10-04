@@ -113,28 +113,34 @@ function recombination_recfast(g, YHe, fHe; reionization = true, Hswitch = 1, He
 end
 
 # HyRec2 rate tables (https://github.com/nanoomlee/HYREC-2), interpolated with cubic B-splines
-# Extrapolate flatly above Tr = 0.4 eV (H is in Saha equilibrium for any rates) and linearly below Tr = 0.004 eV (z ≲ 16)
+# Extrapolate flatly outside the tables, like HyRec2 (Saha equilibrium above Tr = 0.4 eV; xe ≈ frozen below Tr = 0.004 eV or Tm/Tr = 0.1)
 const hyrec_dir = joinpath(@__DIR__, "..", "..", "data", "hyrec")
 hyrec_read(file) = parse.(Float64, split(read(joinpath(hyrec_dir, file), String)))
-hyrec_spline(y, extrap, x...) = Interpolations.extrapolate(Interpolations.scale(Interpolations.interpolate(y, Interpolations.BSpline(Interpolations.Cubic(Interpolations.Line(Interpolations.OnGrid())))), x...), extrap)
+hyrec_spline(y, x...) = Interpolations.scale(Interpolations.interpolate(y, Interpolations.BSpline(Interpolations.Cubic(Interpolations.Line(Interpolations.OnGrid())))), x...)
 const hyrec_lnTr = range(log(0.004), log(0.4), length = 100) # ln(Tr/eV)
 const hyrec_TmTr = range(0.1, 1.0, length = 40) # Tm/Tr
 const hyrec_lnα_tables = let α = reshape(hyrec_read("Alpha_inf.dat"), 4, 40, 100) # α2s, α2p (Tm<Tr), α2s, α2p (Tm>Tr) × Tm/Tr × Tr
-    [hyrec_spline(log.(α[i,:,:]'), ((Interpolations.Line(), Interpolations.Flat()), Interpolations.Line()), hyrec_lnTr, hyrec_TmTr) for i in 1:2]
+    [hyrec_spline(log.(α[i,:,:]'), hyrec_lnTr, hyrec_TmTr) for i in 1:2]
 end
-const hyrec_lnR_table = hyrec_spline(log.(hyrec_read("R_inf.dat")), ((Interpolations.Line(), Interpolations.Flat()),), hyrec_lnTr)
-const hyrec_Δ_tables = let Δ = reshape(hyrec_read("fit_swift.dat"), 5, :) # Tr/K, Δ(fid), ∂Δ/∂ωcb, ∂Δ/∂ωH, ∂Δ/∂Neff
-    [hyrec_spline(Δ[i,:], Interpolations.Flat(), range(Δ[1,1], Δ[1,end], length = size(Δ, 2))) for i in 2:5]
-end
+const hyrec_lnR_table = hyrec_spline(log.(hyrec_read("R_inf.dat")), hyrec_lnTr)
+const hyrec_Δ_data = reshape(hyrec_read("fit_swift.dat"), 5, :) # Tr/K, Δ(fid), ∂Δ/∂ωcb, ∂Δ/∂ωH, ∂Δ/∂Neff
+const hyrec_Δ_Tr = range(hyrec_Δ_data[1,1], hyrec_Δ_data[1,end], length = size(hyrec_Δ_data, 2)) # Tr/K
+const hyrec_Δ_tables = [hyrec_spline(hyrec_Δ_data[i,:], hyrec_Δ_Tr) for i in 2:5]
 
+# Clamp x to the grid r (flat extrapolation).
+# Clamp on the value, as Interpolations' bounds checks reject ForwardDiff duals on the boundary (Dual(1, 1) <= 1 is false).
+hyrec_value(x) = x isa ForwardDiff.Dual ? hyrec_value(ForwardDiff.value(x)) : x
+hyrec_clamp(x, r) = hyrec_value(x) <= first(r) ? zero(x) + first(r) : hyrec_value(x) >= last(r) ? zero(x) + last(r) : x
+
+# The functions below return NaN for NaN input (which can not be clamped).
 # ln(αᵢ/(cm³/s)) for i = 1 (2s) and 2 (2p) as function of ln(Tr/eV) and Tm/Tr.
-hyrec_lnα(i, lnTr, TmTr) = hyrec_lnα_tables[i](lnTr, TmTr)
-hyrec_lnα_grad(i, j, lnTr, TmTr) = j == 1 ? ForwardDiff.derivative(x -> hyrec_lnα(i, x, TmTr), lnTr) : ForwardDiff.derivative(x -> hyrec_lnα(i, lnTr, x), TmTr) # Interpolations.gradient fails with mixed extrapolation
+hyrec_lnα(i, lnTr, TmTr) = isnan(lnTr) || isnan(TmTr) ? NaN * (lnTr + TmTr) : hyrec_lnα_tables[i](hyrec_clamp(lnTr, hyrec_lnTr), hyrec_clamp(TmTr, hyrec_TmTr))
+hyrec_lnα_grad(i, j, lnTr, TmTr) = j == 1 ? ForwardDiff.derivative(x -> hyrec_lnα(i, x, TmTr), lnTr) : ForwardDiff.derivative(x -> hyrec_lnα(i, lnTr, x), TmTr)
 # ln(R2p2s/(1/s)) as function of ln(Tr/eV).
-hyrec_lnR(lnTr) = hyrec_lnR_table(lnTr)
+hyrec_lnR(lnTr) = isnan(lnTr) ? NaN * lnTr : hyrec_lnR_table(hyrec_clamp(lnTr, hyrec_lnTr))
 hyrec_lnR_grad(lnTr) = ForwardDiff.derivative(hyrec_lnR, lnTr)
 # SWIFT correction function (i = 1) and its derivatives wrt. ωcb, ωH, Neff (i = 2, 3, 4) as function of Tr/K.
-hyrec_Δ(i, Tr) = hyrec_Δ_tables[i](Tr)
+hyrec_Δ(i, Tr) = isnan(Tr) ? NaN * Tr : hyrec_Δ_tables[i](hyrec_clamp(Tr, hyrec_Δ_Tr))
 hyrec_Δ_grad(i, Tr) = ForwardDiff.derivative(x -> hyrec_Δ(i, x), Tr)
 @register_symbolic hyrec_lnα(i, lnTr, TmTr)
 @register_symbolic hyrec_lnα_grad(i, j, lnTr, TmTr)
