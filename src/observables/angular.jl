@@ -115,36 +115,33 @@ end
 # TODO: use u = k*χ as integration variable, so oscillations of Bessel functions are the same for every k?
 # TODO: define and document symbolic dispatch!
 """
-    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, ws::AbstractVector; τ0 = τs[end], l_limber = typemax(Int), thread = true, verbose = false) where {T}
+    los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, χs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, ws::AbstractVector; l_limber = typemax(Int), thread = true, verbose = false) where {T}
 
 For the given `ls` and `ks`, compute the line-of-sight integrals
 ```math
-Iₗ(k) = ∫dτ S(τ,k) jₗ(k(τ₀-τ))
+Iₗ(k) = ∫dχ S(χ,k) jₗ(kχ)
 ```
-over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`, using the quadrature weights `ws` for the times `τs`.
-The time today ``τ₀`` defaults to the last time, but must be given for quadrature rules without an endpoint node there.
-The element `Ss[i,j]` holds the source function value ``S(τᵢ, kⱼ)``.
+over the source function values `Ss` against the spherical Bessel functions ``jₗ(x)`` cached in `jl`, using the quadrature weights `ws` for the descending conformal distances ``χ = τ₀ - τ``.
+The element `Ss[i,j]` holds the source function value ``S(χᵢ, kⱼ)``.
 The Limber approximation
 ```math
-Iₗ ≈ √(π/(2l+1)) S(τ₀-(l+1/2)/k, k)
+Iₗ ≈ √(π/(2l+1)) S((l+1/2)/k, k)
 ```
 is used for `l ≥ l_limber`.
 Contributions where ``|jₗ(x)|`` is below `jltol` (at small ``x ≪ l``) are skipped.
 """
-function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, ws::AbstractVector; τ0 = τs[end], l_limber = typemax(Int), jltol = 1e-20, thread = true, verbose = false) where {T}
-    @assert size(Ss, 1) == length(τs) == length(ws) "size(Ss, 1) = $(size(Ss, 1)), length(τs) = $(length(τs)) and length(ws) = $(length(ws)) differ"
+function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, χs::AbstractVector, ks::AbstractVector, jl::SphericalBesselCache, ws::AbstractVector; l_limber = typemax(Int), jltol = 1e-20, thread = true, verbose = false) where {T}
+    @assert size(Ss, 1) == length(χs) == length(ws) "size(Ss, 1) = $(size(Ss, 1)), length(χs) = $(length(χs)) and length(ws) = $(length(ws)) differ"
     @assert size(Ss, 2) == length(ks) "size(Ss, 2) = $(size(Ss, 2)) and length(ks) = $(length(ks)) differ"
     @assert collect(ls) == collect(jl.l) "ls must match the l-values stored in the Bessel cache"
     @assert jl.x[begin] ≤ 0 "jl.x[begin] < 0"
-    @assert jl.x[end] ≥ ks[end]*τs[end] "jl.x[end] < kmax*τmax"
-    @assert issorted(τs) "τs must be sorted in ascending order"
+    @assert jl.x[end] ≥ ks[end]*χs[begin] "jl.x[end] < kmax*χmax"
+    @assert issorted(χs; rev = true) "χs must be sorted in descending order"
     @assert issorted(ks) "ks must be sorted in ascending order"
     @assert issorted(ls) "ls must be sorted in ascending order" # necessary for Limber indexing logic
     error_if_nonfinite(Ss)
 
-    τs = collect(τs) # force array to avoid floating point errors with ranges in following χs due to (e.g. tiny negative χ)
-    χs = τ0 .- τs
-    nτ = length(τs)
+    nχ = length(χs)
 
     nl = length(ls)
     Is = similar(Ss, length(ks), nl)
@@ -156,7 +153,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
 
     verbose && l_limber < typemax(Int) && println("Using Limber approximation for l ≥ $l_limber")
 
-    # Loop order k → τ → l to get SIMD on the innermost l-loop
+    # Loop order k → χ → l to get SIMD on the innermost l-loop
     @fastmath @inbounds @tasks for ik in eachindex(ks)
         @set scheduler = thread ? :dynamic : :serial
         @local tmp = zeros(T, nl) # l-contiguous storage for integrals (to help SIMD over l)
@@ -165,9 +162,9 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
 
         # Full line-of-sight integrals for l < l_limber
         fill!(tmp, zero(T))
-        @inbounds for iτ in eachindex(τs)
-            kχ = k * χs[iτ]
-            Sw = ws[iτ] * Ss[iτ, ik]
+        @inbounds for iχ in eachindex(χs)
+            kχ = k * χs[iχ]
+            Sw = ws[iχ] * Ss[iχ, ik]
             ix = trunc(Int, ForwardDiff.value(kχ) * jl.invdx) + 2 # rightmost interpolation node corresponding to kχ
             @inbounds @simd for il in 1:ilend[ix]
                 tmp[il] += Sw * jl(il, kχ)
@@ -179,7 +176,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
             l = ls[il]
             χ = (l + 1/2) / k
             if χ ≤ χs[1] # otherwise source is zero before recombination
-                i₋ = searchsortedfirst(τs, τ0 - χ)
+                i₋ = searchsortedfirst(χs, χ; rev = true)
                 χ₋ = χs[i₋]
                 S₋ = Ss[i₋, ik]
                 if i₋ == 1
@@ -189,7 +186,7 @@ function los_integrate(Ss::AbstractMatrix{T}, ls::AbstractVector, τs::AbstractV
                     χ₊ = χs[i₊]
                     S₊ = Ss[i₊, ik]
                     Δχ = χ₊ - χ₋
-                    S′₋ = i₋ ≤ nτ-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
+                    S′₋ = i₋ ≤ nχ-1 ? (Ss[i₋+1, ik] - S₊) / (χs[i₋+1] - χ₊) : (S₊ - S₋) / Δχ
                     S′₊ = i₊ ≥ 2    ? (S₋ - Ss[i₋-2, ik]) / (χ₋ - χs[i₋-2]) : (S₊ - S₋) / Δχ
                     t = (χ - χ₋) / Δχ
                     t² = t*t
@@ -304,6 +301,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     ts = LinearInterpolation(tbg, τbg; extrapolation = ExtrapolationType.Extension)(nodes(τquad, τi, τ0)) # map τ-nodes to the independent variable (e.g. τ or ln(a)); extrapolate to avoid out-of-bounds errors from rounding at the boundaries
     ts = clamp.(ts, tmin, tmax) # avoid rounding errors at boundaries if rescaling pushes times outside the background timespan
     τs = sol(prob.M.τ, ts) # conformal times at the sampled points for line-of-sight integration
+    χs = τ0 .- τs # conformal distances (descending)
     τws = weights(τquad, τi, τ0)
 
     # Integrate perturbations to calculate source function on coarse k-grid
@@ -318,12 +316,12 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
             Ss[iτ, ik] = Base.setindex(Ss[iτ, ik], Ss[iτ, ik][iψ] * Ws[iτ], iψ)
         end
     end
-    if τs[end] == τ0 # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
+    if χs[end] == 0 # remove any Inf/NaN at last time χ=0; weighted by jₗ(0)=0 anyway
         Ss[end, :] .= Ref(zero(eltype(Ss)))
     end
 
     # Integrate all sources simultaneously without Limber approximation
-    Θls = los_integrate(Ss, ls, τs, ks_fine, jl, τws; τ0, verbose, thread, kwargs...)
+    Θls = los_integrate(Ss, ls, χs, ks_fine, jl, τws; verbose, thread, kwargs...)
     Θls = stack(Θls) # to 3D array
     if iT > 0
         Θls[iT, :, :] ./= ks_fine
@@ -332,7 +330,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
         Θls[iE, :, :] .*= transpose(@. √((ls+2)*(ls+1)*(ls+0)*(ls-1))) ./ (ks_fine .^ 2)
     end
     if iψ > 0 && l_limber ≤ ls[end]
-        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, τs, ks_fine, jl, τws; τ0, l_limber, verbose, thread, kwargs...) # overwrite with Limber result
+        Θls[iψ, :, :] .= los_integrate(getindex.(Ss, iψ), ls, χs, ks_fine, jl, τws; l_limber, verbose, thread, kwargs...) # overwrite with Limber result
     end
 
     P0s = spectrum_primordial(ks_fine, sol) # more accurate
