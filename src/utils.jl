@@ -427,6 +427,12 @@ function loggrid(a, b; kw...)
     x[end] = b # avoid floating point bounds errors due to x ≈ (exp(log(x)))
     return x
 end
+function asinhgrid(a, b, s; kw...)
+    x = s .* sinh.(grid(asinh(a/s), asinh(b/s); kw...)) # linear for |x| ≪ s, logarithmic for |x| ≫ s
+    x[begin] = a # avoid floating point bounds errors
+    x[end] = b # avoid floating point bounds errors
+    return x
+end
 cosgrid(a, b; step = nothing, length = nothing) = a .+ (b-a) .* (1 .- cospi.(lingrid(0.0, 0.5; step = isnothing(step) ? nothing : step/π, length)))
 chebgrid(a, b; order, endpoints = true) = [a + (b - a) * (1 - cospi(endpoints ? j / order : (2j + 1) / (2order + 2))) / 2 for j in 0:order] # ascending Chebyshev points of the 2nd kind (with endpoints) or 1st kind (without)
 function joingrids!(grid, grids...)
