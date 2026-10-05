@@ -1,5 +1,5 @@
 # TODO: avoid this; make recombination work naturally with Unitful units?
-using PhysicalConstants, Unitful, UnitfulAstro, PeriodicTable
+using PhysicalConstants, Unitful, UnitfulAstro
 const c  = PhysicalConstants.CODATA2018.c_0 / u"m/s"
 const h  = PhysicalConstants.CODATA2018.h / u"J*s"
 const ħ  = PhysicalConstants.CODATA2018.ħ / u"J*s"
@@ -24,8 +24,8 @@ const k100 = 1 / L100
 const eV = 1u"eV/J" |> NoUnits
 
 const me = PhysicalConstants.CODATA2018.m_e / u"kg"
-const mH = elements[:H].atomic_mass / u"kg" |> NoUnits
-const mHe = elements[:He].atomic_mass / u"kg" |> NoUnits
+const mH = 1.673575e-27 # mean primordial H atom mass (kg) for D/H = 2.527e-5 (as in CLASS and CAMB)
+const mHe = 6.646479073e-27 # ⁴He atom mass (kg)
 
 # Hydrogen singlet transitions
 const λH∞1s   =  91.17534e-9; const fH∞1s  = c/λH∞1s;  const EH∞1s  = h*fH∞1s # ∞ - 1s (read: wavelength Hydrogen ∞ to 1s)

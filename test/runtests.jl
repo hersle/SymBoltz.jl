@@ -570,9 +570,9 @@ end
 end
 
 @testset "Stability of different RECFAST models" begin
-    M1 = ΛCDM(K = nothing; Hswitch = 0)
-    M2 = ΛCDM(K = nothing; Heswitch = 0)
-    M3 = ΛCDM(K = nothing; reionization = false)
+    M1 = ΛCDM(K = nothing, recombination = :recfast; Hswitch = 0)
+    M2 = ΛCDM(K = nothing, recombination = :recfast; Heswitch = 0)
+    M3 = ΛCDM(K = nothing, recombination = :recfast; reionization = false)
     for M in [M1, M2, M3]
         prob = CosmologyProblem(M, pars)
         sol = solve(prob)
@@ -581,6 +581,17 @@ end
         @test all(sol[M.b.rec.XHe⁺] .≤ 1 + 1e-5)
         @test all(sol[M.b.rec.XHe⁺⁺/M.b.fHe] .≤ 1 + 1e-5)
     end
+end
+
+@testset "HyRec2 recombination" begin
+    M = ΛCDM(K = nothing)
+    sol = solve(CosmologyProblem(M, pars; pt = false))
+    @test issuccess(sol)
+    ref = readdlm(joinpath(@__DIR__, "hyrec_xe.dat"); comments = true)
+    zs, xes, Tms = ref[:, 1], ref[:, 2], ref[:, 3]
+    τs = timeseries(sol, M.g.z, zs)
+    @test all(isapprox.(sol(M.b.rec.Xe, τs), xes; rtol = 5e-4)) # differences ~2e-4 are from different H mass in nH
+    @test all(isapprox.(sol(M.b.T, τs), Tms; rtol = 5e-4)) # HyRec2 switches Tm from steady state to ODE around z ≈ 770
 end
 
 using QuasiMonteCarlo
@@ -614,14 +625,17 @@ ks = [1e0, 1e1, 1e2, 1e3]
 @testset "Stability of problems throughout parameter space with Latin hypercube sampling" begin
     @test stability(M, ks, vary, 100; error = true) == 1.0 # 100%
 
-    M1 = ΛCDM(K = nothing, Hswitch = 0; lmax)
+    M1 = ΛCDM(K = nothing, recombination = :recfast; lmax)
     @test stability(M1, ks, vary, 100; error = true) == 1.0
 
-    M2 = ΛCDM(K = nothing, Heswitch = 0; lmax)
+    M2 = ΛCDM(K = nothing, recombination = :recfast, Hswitch = 0; lmax)
     @test stability(M2, ks, vary, 100; error = true) == 1.0
 
-    M3 = ΛCDM(K = nothing, reionization = false; lmax)
+    M3 = ΛCDM(K = nothing, recombination = :recfast, Heswitch = 0; lmax)
     @test stability(M3, ks, vary, 100; error = true) == 1.0
+
+    M4 = ΛCDM(K = nothing, reionization = false; lmax)
+    @test stability(M4, ks, vary, 100; error = true) == 1.0
 end
 
 using SpecialFunctions: zeta as ζ
@@ -1003,9 +1017,7 @@ end
             "l_max_pol_g" => lmax,
             "Omega_b" => pars[M.b.Ω₀],
             "YHe" => pars[M.b.YHe],
-            "recombination" => "recfast",
-            "recfast_Hswitch" => 1,
-            "recfast_Heswitch" => 6,
+            "recombination" => "HyRec",
             "reio_parametrization" => "reio_camb",
             "Omega_cdm" => pars[M.c.Ω₀],
             "N_ur" => pars[M.ν.N],
@@ -1050,7 +1062,7 @@ end
     ks_class, Pks_class = Pk_class[:, 1], Pk_class[:, 2]
     ks = ks_class # solve at same wavenumbers as CLASS
     Pks = spectrum_matter(prob, ks)
-    @test isapprox(Pks, Pks_class; rtol = 1e-3)
+    @test isapprox(Pks, Pks_class; rtol = 2e-4)
 
     # CMB power spectrum
     Cl_class = readdlm("./class_Cl.dat")
@@ -1058,7 +1070,7 @@ end
     ls = unique(Int.(round.(exp.(range(log(ls_class[begin]), log(ls_class[end]), length=200)))))
     jl = SphericalBesselCache(ls)
     Dls = spectrum_cmb([:TT, :EE, :ψψ], prob, jl, ls_class; normalization = :Dl)
-    @test isapprox(Dls[:, 1], DlTTs_class; rtol = 2e-3)
+    @test isapprox(Dls[:, 1], DlTTs_class; rtol = 1e-3)
     @test isapprox(Dls[:, 2], DlEEs_class; rtol = 2e-3)
     @test isapprox(Dls[ls_class .< 11, 3], Dlϕϕs_class[ls_class .< 11]; rtol = 1e-2) # full line-of-sight integration below l_limber (l = 2 has higher error and breaks isapprox(...; rtol = 2e-3) for all l)
     @test isapprox(Dls[ls_class .≥ 11, 3], Dlϕϕs_class[ls_class .≥ 11]; rtol = 1e-3) # Limber approximation enabled
