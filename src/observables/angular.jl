@@ -237,7 +237,29 @@ fk_tanh(k, k0=2000.0) = tanh(k/k0)
 fk⁻¹_tanh(k, k0=2000.0) = k0*atanh(k)
 
 """
-    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+    default_τquad(τi, τrec, τ0; N = 600, A = 20, w = τrec/3)
+
+Create a trapezoidal quadrature rule with `N` nodes for (line-of-sight) integration over ``τ ∈ [τᵢ, τ₀]``, mapped to ``[-1, 1]``.
+The nodes have density ``d(τ) = 1 + A \\mathrm{sech}^2((τ-τ_\\mathrm{rec})/w)``: a uniform base plus a bump of height `A` and width `w` around recombination at `τrec`.
+It applies the trapezoidal rule in the cumulative density ``u(τ) = ∫d(τ) dτ`` sampled uniformly,
+after the change of variables ``∫f(τ) dτ = ∫f(τ(u))/d(τ) du``.
+"""
+function default_τquad(τi, τrec, τ0; N = 600, A = 20, w = τrec/3)
+    d(τ) = 1 + A * sech((τ-τrec)/w)^2
+    u(τ) = τ + A * w * tanh((τ-τrec)/w)
+    τf = range(τi, τ0, length = 10_000)
+    us = range(u(τi), u(τ0), length = N)
+    τs = CubicHermiteSpline(1 ./ d.(τf), collect(τf), u.(τf))(us) # invert u(τ) with exact derivative dτ/du = 1/d
+    τs[begin], τs[end] = τi, τ0
+    ws = step(us) ./ d.(τs)
+    ws[begin] /= 2
+    ws[end] /= 2
+    x = clamp.(2 .* (τs .- τi) ./ (τ0 - τi) .- 1, -1, 1)
+    return Quadrature(x, 2 .* ws ./ sum(ws); name = :Recombination)
+end
+
+"""
+    spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = nothing, kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
 The requested `modes` are specified as a vector of symbols in the form `:AB`, where `A` and `B` are `T` (temperature), `E` (E-mode polarization) or `ψ` (lensing).
@@ -246,7 +268,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 
 # Precision parameters
 
-- `τquad`: Quadrature rule for the line-of-sight integral over ``τ``; its nodes are mapped linearly to ``[τᵢ, τ₀]``.
+- `τquad`: Quadrature rule for the line-of-sight integral over ``τ``; its nodes are mapped linearly to ``[τᵢ, τ₀]``. Defaults to [`default_τquad`](@ref).
 - `kquad`: Quadrature rule for line-of-sight integration and the integral over ``k``; its nodes are mapped linearly to the ``k``-range of `kinterp`.
 - `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to the nodes of `kquad`.
 - `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
@@ -267,7 +289,7 @@ modes = [:TT, :TE, :ψψ, :ψT]
 Dls = spectrum_cmb(modes, prob, jl; normalization = :Dl)
 ```
 """
-function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = TrapezoidalQuadrature(cosgrid(0.0, 1.0; length=1200)), kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
+function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = nothing, kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
     # Define 1-2-3 indices corresponding for present modes
     iT = 'T' in join(modes) ? 1 : 0
     iE = 'E' in join(modes) ? iT + 1 : 0
@@ -285,6 +307,11 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     sol = solve(prob; bgalg, bgreltol, bgabstol, bgopts, verbose)
     τbg = sol[prob.M.τ] # conformal times at background time points (also if τ is not the independent variable)
     τi, τ0 = τbg[begin], τbg[end]
+    v = hasproperty(prob.M, :v) ? prob.M.v : prob.M.b.v # visibility function in unstructured or structured models
+    τrec = τbg[argmax(sol[v])] # recombination at peak of the visibility function
+    if isnothing(τquad)
+        τquad = default_τquad(ForwardDiff.value.((τi, τrec, τ0))...) # shape of quadrature rule is parameter-independent
+    end
 
     kmin, kmax = extrema(kinterp)
     if isnothing(kquad)
@@ -310,7 +337,6 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
     Ss = source_grid(prob, Ss, ts, ks_fine, kinterp, sol.bg; ptalg, ptreltol, ptabstol, ptopts, verbose, thread)
     if iψ > 0
         # apply lensing kernel for a thin last scattering surface at the peak of the visibility function # TODO: use more accurate Hermite interpolation?
-        τrec = τbg[argmax(sol[prob.M.b.v])]
         Ws = [τ ≥ τrec ? (τ-τrec)/(τ0-τrec)/(τ0-τ) : zero(τ) for τ in τs]
         for iτ in eachindex(τs), ik in eachindex(ks_fine)
             Ss[iτ, ik] = Base.setindex(Ss[iτ, ik], Ss[iτ, ik][iψ] * Ws[iτ], iψ)
