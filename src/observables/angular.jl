@@ -259,6 +259,18 @@ function default_τquad(τi, τrec, τ0; N = 600, A = 20, w = τrec/3)
 end
 
 """
+    default_kquad(kmin, kmax, τ0; Δk = π/2τ0, k0 = 1e3)
+
+Create a trapezoidal quadrature rule for integration over ``k ∈ [k_\\mathrm{min}, k_\\mathrm{max}]``.
+The nodes are uniform with spacing `Δk` for ``k ≲ k₀`` and logarithmic for ``k ≳ k₀``.
+The default `Δk` gives about 2 nodes per period ``π/τ₀`` of integrands ``∝ jₗ(kτ₀)²``.
+"""
+function default_kquad(kmin, kmax, τ0; Δk = π/2τ0, k0 = 1e3)
+    kgrid = asinhgrid(kmin, kmax, k0; step = Δk/k0) # uniform spacing Δk for k ≲ k0; logarithmic spacing for k ≳ k0
+    return TrapezoidalQuadrature(kgrid)
+end
+
+"""
     spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, jl::SphericalBesselCache; normalization = :Cl, kinterp = nothing, τquad = nothing, kquad = nothing, l_limber = 11, bgalg = default_bgalg(prob), bgreltol = 1e-7, bgabstol = 1e-7, bgopts = (), ptalg = default_ptalg(prob), ptreltol = 1e-5, ptabstol = 1e-5, ptopts = (), thread = true, verbose = false, kwargs...)
 
 Compute angular CMB power spectra ``Cₗᴬᴮ`` at angular wavenumbers `ls` from the cosmological problem `prob`.
@@ -269,7 +281,7 @@ Returns a matrix of ``Cₗ`` if `normalization` is `:Cl`, or ``Dₗ = l(l+1)/2π
 # Precision parameters
 
 - `τquad`: Quadrature rule for the line-of-sight integral over ``τ``; its nodes are mapped linearly to ``[τᵢ, τ₀]``. Defaults to [`default_τquad`](@ref).
-- `kquad`: Quadrature rule for line-of-sight integration and the integral over ``k``; its nodes are mapped linearly to the ``k``-range of `kinterp`.
+- `kquad`: Quadrature rule for line-of-sight integration and the integral over ``k``; its nodes are mapped linearly to the ``k``-range of `kinterp`. Defaults to [`default_kquad`](@ref).
 - `kinterp`: Interpolator that decides which ``k``-modes the perturbation ODEs will be solved explicitly for, and then interpolated in-between to the nodes of `kquad`.
 - `l_limber`: Use Limber approximation for lensing line-of-sight integrals with equal or greater ``ℓ``.
 - `bgalg`/`ptalg`, `bgreltol`/`ptreltol`, `bgabstol`/`ptabstol`: ODE algorithms and tolerances for the background/perturbation stages.
@@ -315,10 +327,7 @@ function spectrum_cmb(modes::AbstractVector{<:Symbol}, prob::CosmologyProblem, j
 
     kmin, kmax = extrema(kinterp)
     if isnothing(kquad)
-        s = 1e3 # uniform k-spacing for k ≲ s where T/E oscillate uniformly, but logarithmic after damping in the lensing tail k ≳ s
-        Δk = 0.5 * π / ForwardDiff.value(τ0) # ≈ 2 points per period π/χ of the integrand ∝ jₗ(kχ)²; drop derivatives because k-limits are parameter-independent
-        kgrid = asinhgrid(kmin, kmax, s; step = Δk/s) # uniform spacing Δk for k ≲ s; logarithmic spacing for k ≳ s
-        kquad = TrapezoidalQuadrature(kgrid)
+        kquad = default_kquad(kmin, kmax, ForwardDiff.value(τ0)) # shape of quadrature rule is parameter-independent
     end
     ks_fine = nodes(kquad, kmin, kmax) # for k-quadrature after LOS integration
     kws = weights(kquad, kmin, kmax)
