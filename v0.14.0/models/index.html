@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Cosmologies (full models) · SymBoltz</title><meta name="title" content="Cosmologies (full models) · SymBoltz"/><meta property="og:title" content="Cosmologies (full models) · SymBoltz"/><meta property="twitter:title" content="Cosmologies (full models) · SymBoltz"/><meta name="description" content="Documentation for SymBoltz."/><meta property="og:description" content="Documentation for SymBoltz."/><meta property="twitter:description" content="Documentation for SymBoltz."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.webp" alt="SymBoltz logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">SymBoltz</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting started</a></li><li><a class="tocitem" href="../automatic_differentiation/">Using automatic differentiation</a></li><li><a class="tocitem" href="../extended_models/">Extending models</a></li><li><a class="tocitem" href="../parameter_fitting/">Fitting parameters</a></li><li><a class="tocitem" href="../forecasting/">Fisher forecasting</a></li></ul></li><li><span class="tocitem">Building models</span><ul><li><a class="tocitem" href="../components/">Components (submodels)</a></li><li class="is-active"><a class="tocitem" href>Cosmologies (full models)</a><ul class="internal"><li><a class="tocitem" href="#Free-radiation,-matter-and-cosmological-constant-(RMΛ)"><span>Free radiation, matter and cosmological constant (RMΛ)</span></a></li><li><a class="tocitem" href="#Standard-ΛCDM"><span>Standard ΛCDM</span></a></li><li><a class="tocitem" href="#wwₐCDM-(CPL-parametrization)"><span>w₀wₐCDM (CPL parametrization)</span></a></li><li><a class="tocitem" href="#Brans-Dicke-ΛCDM"><span>Brans-Dicke ΛCDM</span></a></li><li><a class="tocitem" href="#Brans-Dicke-RMΛ"><span>Brans-Dicke RMΛ</span></a></li><li><a class="tocitem" href="#Quintessence-CDM"><span>Quintessence-CDM</span></a></li></ul></li><li><a class="tocitem" href="../unstructured/">Unstructured ΛCDM model</a></li></ul></li><li><a class="tocitem" href="../solve/">Solving models</a></li><li><a class="tocitem" href="../plot/">Plotting and visualization</a></li><li><a class="tocitem" href="../observables/">Observable quantities</a></li><li><a class="tocitem" href="../comparison/">Comparison to CLASS</a></li><li><a class="tocitem" href="../benchmarks/">Performance and benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Building models</a></li><li class="is-active"><a href>Cosmologies (full models)</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Cosmologies (full models)</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hersle/SymBoltz.jl/blob/main/docs/src/models.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Cosmologies-(full-models)"><a class="docs-heading-anchor" href="#Cosmologies-(full-models)">Cosmologies (full models)</a><a id="Cosmologies-(full-models)-1"></a><a class="docs-heading-anchor-permalink" href="#Cosmologies-(full-models)" title="Permalink"></a></h1><h2 id="Free-radiation,-matter-and-cosmological-constant-(RMΛ)"><a class="docs-heading-anchor" href="#Free-radiation,-matter-and-cosmological-constant-(RMΛ)">Free radiation, matter and cosmological constant (RMΛ)</a><a id="Free-radiation,-matter-and-cosmological-constant-(RMΛ)-1"></a><a class="docs-heading-anchor-permalink" href="#Free-radiation,-matter-and-cosmological-constant-(RMΛ)" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.RMΛ"><a class="docstring-binding" href="#SymBoltz.RMΛ"><code>SymBoltz.RMΛ</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">RMΛ(;
+    acceleration = false,
+    adiabatic = true,
+    g = metric(),
+    r = radiation(g; adiabatic),
+    m = matter(g; adiabatic),
+    Λ = cosmological_constant(g; adiabatic),
+    K = nothing,
+    G = general_relativity(g; acceleration),
+    I = harrison_zeldovich(g; name = :I),
+    name = :RMΛ, kwargs...
+)</code></pre><p>Create a simple model with pure non-interacting radiation, matter and cosmological constant.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/e148a73d1c123225ccf56db38b913d073e8e60d6/src/models/cosmologies.jl#L122-L137">source</a></section></details></article><pre><code class="language-julia hljs">using SymBoltz, Unitful, UnitfulAstro, Plots
+M = RMΛ()
+pars = Dict(M.r.Ω₀ =&gt; 5e-5, M.m.Ω₀ =&gt; 0.3, M.g.h =&gt; 1.0, M.r.T₀ =&gt; NaN) # TODO: don&#39;t pass h and T₀ to avoid infinite loop
+prob = CosmologyProblem(M, pars)
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+sol = solve(prob, ks)
+p1 = plot(sol, log10(M.g.a), [M.r.ρ, M.m.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+p2 = plot(sol, log10(M.g.a), M.g.Φ, ks)
+plot(p1, p2, layout = (2, 1), size = (600, 600))</code></pre><img src="b3345cce.svg" alt="Example block output"/><h2 id="Standard-ΛCDM"><a class="docs-heading-anchor" href="#Standard-ΛCDM">Standard ΛCDM</a><a id="Standard-ΛCDM-1"></a><a class="docs-heading-anchor-permalink" href="#Standard-ΛCDM" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.ΛCDM"><a class="docstring-binding" href="#SymBoltz.ΛCDM"><code>SymBoltz.ΛCDM</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">ΛCDM(;
+    lmax = 6,
+    recombination = true,
+    reionization = true,
+    Hswitch = 1,
+    Heswitch = 6,
+    acceleration = false,
+    g = metric(),
+    G = general_relativity(g; acceleration),
+    γ = photons(g; lmax),
+    ν = massless_neutrinos(g; lmax),
+    h = massive_neutrinos(g; lmax),
+    c = cold_dark_matter(g; name = :c),
+    b = baryons(g; recombination, reionization, Hswitch, Heswitch, name = :b),
+    K = nothing,
+    Λ = cosmological_constant(g),
+    I = harrison_zeldovich(g; name = :I),
+    matter_species = [:c, :b, :h],
+    radiation_species = [:γ, :ν, :h],
+    name = :ΛCDM,
+    kwargs...
+)</code></pre><p>Create a ΛCDM model.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/e148a73d1c123225ccf56db38b913d073e8e60d6/src/models/cosmologies.jl#L1-L26">source</a></section></details></article><pre><code class="language-julia hljs">using SymBoltz, Plots, Unitful, UnitfulAstro
+M = ΛCDM()
+pars = parameters_Planck18(M)
+prob = CosmologyProblem(M, pars)
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+sol = solve(prob, ks)
+p1 = plot(sol, log10(M.g.a), [M.γ.ρ, M.ν.ρ, M.h.ρ, M.b.ρ, M.c.ρ, M.Λ.ρ, M.G.ρ] ./ M.G.ρ)
+p2 = plot(sol, log10(M.g.a), M.g.Φ, ks)
+plot(p1, p2, layout = (2, 1), size = (600, 600))</code></pre><img src="c35e726e.svg" alt="Example block output"/><h2 id="wwₐCDM-(CPL-parametrization)"><a class="docs-heading-anchor" href="#wwₐCDM-(CPL-parametrization)">w₀wₐCDM (CPL parametrization)</a><a id="wwₐCDM-(CPL-parametrization)-1"></a><a class="docs-heading-anchor-permalink" href="#wwₐCDM-(CPL-parametrization)" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.w0waCDM"><a class="docstring-binding" href="#SymBoltz.w0waCDM"><code>SymBoltz.w0waCDM</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">w0waCDM(; name = :w0waCDM, kwargs...)</code></pre><p>Create a ΛCDM model, but with w₀wₐ-parametrized dark energy instead of the cosmological constant.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/e148a73d1c123225ccf56db38b913d073e8e60d6/src/models/cosmologies.jl#L215-L219">source</a></section></details></article><pre><code class="language-julia hljs">using SymBoltz, Plots, Unitful, UnitfulAstro
+M = w0waCDM()
+pars = merge(parameters_Planck18(M), Dict(
+    M.X.w0 =&gt; -0.9,
+    M.X.wa =&gt; 0.2,
+    M.X.cₛ² =&gt; 1.0
+))
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+prob = CosmologyProblem(M, pars)
+sol = solve(prob, ks)
+p1 = plot(sol, log10(M.g.a), M.X.w)
+p2 = plot(sol, log10(M.g.a), M.X.δ, ks)
+plot(p1, p2, layout = (2, 1), size = (600, 600))</code></pre><img src="18000d5a.svg" alt="Example block output"/><h2 id="Brans-Dicke-ΛCDM"><a class="docs-heading-anchor" href="#Brans-Dicke-ΛCDM">Brans-Dicke ΛCDM</a><a id="Brans-Dicke-ΛCDM-1"></a><a class="docs-heading-anchor-permalink" href="#Brans-Dicke-ΛCDM" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.BDΛCDM"><a class="docstring-binding" href="#SymBoltz.BDΛCDM"><code>SymBoltz.BDΛCDM</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">BDΛCDM(; name = :BDΛCDM, kwargs...)</code></pre><p>Create a ΛCDM model, but with the Brans-Dicke theory of gravity instead of General Relativity.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/e148a73d1c123225ccf56db38b913d073e8e60d6/src/models/cosmologies.jl#L193-L197">source</a></section></details></article><p>Solve background such that <code>H = G = 1</code> today, and plot scalar field and Hubble function:</p><pre><code class="language-julia hljs">using SymBoltz, Unitful, UnitfulAstro, Plots
+M = BDΛCDM()
+D = Differential(M.τ)
+ks = [1e-3, 1e-2, 1e-1, 1e-0] / u&quot;Mpc&quot;
+pars = merge(parameters_Planck18(M), Dict(M.G.ω =&gt; 100.0, D(M.G.ϕ) =&gt; 0.0)) # unspecified: M.Λ.Ω₀, M.G.ϕ
+prob = CosmologyProblem(M, pars, Dict(M.G.ϕ =&gt; 0.95, M.Λ.Ω₀ =&gt; 0.5), [M.g.ℋ ~ 1, M.G.G ~ 1])
+sol = solve(prob, ks; verbose = true)
+p1 = plot(sol, log10(M.g.a), [M.g.ℋ, M.G.G], ylims = (0.8, 1.2))
+p2 = plot(sol, log10(M.g.a), M.G.δϕ, ks)
+plot(p1, p2, layout = (2, 1), size = (600, 600))</code></pre><img src="9f472ed7.svg" alt="Example block output"/><h2 id="Brans-Dicke-RMΛ"><a class="docs-heading-anchor" href="#Brans-Dicke-RMΛ">Brans-Dicke RMΛ</a><a id="Brans-Dicke-RMΛ-1"></a><a class="docs-heading-anchor-permalink" href="#Brans-Dicke-RMΛ" title="Permalink"></a></h2><pre><code class="language-julia hljs">using SymBoltz, Unitful, UnitfulAstro, Plots
+M = SymBoltz.BDRMΛ()
+D = Differential(M.τ)
+pars = Dict(M.r.Ω₀ =&gt; 5e-5, M.m.Ω₀ =&gt; 0.3, M.g.h =&gt; 1.0, M.r.T₀ =&gt; 0.0, M.G.ω =&gt; 10.0, D(M.G.ϕ) =&gt; 0.0) # unspecified: M.Λ.Ω₀, M.G.ϕ
+prob = CosmologyProblem(M, pars, Dict(M.G.ϕ =&gt; 0.8, M.Λ.Ω₀ =&gt; 0.8), [M.g.ℋ ~ 1, M.G.G ~ 1])
+k = 1e-0 / u&quot;Mpc&quot;
+sol = solve(prob, k; verbose = true)
+p1 = plot(sol, log10(M.g.a), M.G.G)
+p2 = plot(sol, log10(M.g.a), M.G.δϕ, k)
+plot(p1, p2, layout = (2, 1))</code></pre><img src="6a98b08e.svg" alt="Example block output"/><h2 id="Quintessence-CDM"><a class="docs-heading-anchor" href="#Quintessence-CDM">Quintessence-CDM</a><a id="Quintessence-CDM-1"></a><a class="docs-heading-anchor-permalink" href="#Quintessence-CDM" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="SymBoltz.QCDM"><a class="docstring-binding" href="#SymBoltz.QCDM"><code>SymBoltz.QCDM</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">QCDM(v; name = :QCDM, kwargs...)</code></pre><p>Create a ΛCDM model, but with the quintessence scalar field in the potential <code>v</code> as dark energy instead of the cosmological constant.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hersle/SymBoltz.jl/blob/e148a73d1c123225ccf56db38b913d073e8e60d6/src/models/cosmologies.jl#L178-L182">source</a></section></details></article><pre><code class="language-julia hljs">using SymBoltz, Plots
+@parameters V0 N
+V = ϕ -&gt; V0 * ϕ^N
+M = QCDM(V, I = nothing)
+D = Differential(M.τ)
+pars = merge(parameters_Planck18(M), Dict(M.Q.ϕ =&gt; 1, D(M.Q.ϕ) =&gt; 1.0, M.Q.V0 =&gt; 1e-2, M.Q.N =&gt; 2))
+prob = CosmologyProblem(M, pars)
+sol = solve(prob) # TODO: shoot so M.g.ℋ ~ 1 today
+plot(sol, M.Q.ϕ, M.Q.V, line_z = log10(M.g.a)) # plot V(ϕ(τ))</code></pre><img src="85e2334b.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../components/">« Components (submodels)</a><a class="docs-footer-nextpage" href="../unstructured/">Unstructured ΛCDM model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Thursday 4 December 2025 21:26">Thursday 4 December 2025</span>. Using Julia version 1.12.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
