@@ -41,6 +41,7 @@ include("models/curvature.jl")
 include("models/inflation.jl")
 include("models/cosmologies.jl")
 include("solve.jl")
+include("quadrature.jl")
 include("observables/distances.jl")
 include("observables/fourier.jl")
 include("observables/angular.jl")
@@ -56,8 +57,9 @@ export H100, k100, L100
 export spectrum_primordial, spectrum_matter, spectrum_matter_nonlinear, spectrum_cmb, correlation_function, variance_matter, stddev_matter, los_integrate, source_grid, sound_horizon, time_drag, distance, distance_luminosity, SphericalBesselCache
 export timeseries, today, isforwards, isbackwards
 export AbstractInterpolator, BarycentricInterpolator, EquispacedInterpolator, LinearInterpolator, CubicSplineInterpolator, ChebyshevInterpolator, ChebyshevIntegerInterpolator, PiecewiseInterpolator, PiecewiseChebyshevInterpolator, order, interpolate
-export lingrid, loggrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
+export lingrid, loggrid, asinhgrid, cosgrid, chebgrid, joingrids!, kτ0grid_default
 export plot_interactive
+export Quadrature, TrapezoidalQuadrature, SimpsonQuadrature, ClenshawCurtisQuadrature, GaussQuadrature, GaussKronrodQuadrature, nodes, weights, integrate
 
 using PrecompileTools: @compile_workload
 @compile_workload begin
