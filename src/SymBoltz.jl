@@ -3,6 +3,7 @@ module SymBoltz
 using Reexport
 @reexport using ModelingToolkit # re-export commonly used ModelingToolkit functions
 using Symbolics, SymbolicUtils
+import Interpolations
 using OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK, OrdinaryDiffEqTsit5
 using OrdinaryDiffEqNonlinearSolve: NLNewton
 using NonlinearSolve
