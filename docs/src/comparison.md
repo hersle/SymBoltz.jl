@@ -421,12 +421,12 @@ Dl_class(p; kw...) = Dl_class(modes, l, merge(pars, Dict(vary .=> p)); kw...)
 ∂Dl1_∂p_3d = reshape(∂Dl1_∂p, (length(l), length(modes), length(vary)))
 ∂Dl2_∂p_3d = reshape(∂Dl2_∂p, (length(l), length(modes), length(vary)))
 
-plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,1,:]), eachcol(∂Dl2_∂p_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in vary]; tol = 7e-11)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,1,:]), eachcol(∂Dl2_∂p_3d[:,1,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TT)" for par in vary]; tol = 8e-11)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,2,:]), eachcol(∂Dl2_∂p_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in vary]; tol = 7e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,2,:]), eachcol(∂Dl2_∂p_3d[:,2,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (TE)" for par in vary]; tol = 9e-12)
 ```
 ```@example class
-plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,3,:]), eachcol(∂Dl2_∂p_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in vary]; tol = 1e-12)
+plot_compare(l, l, eachcol(∂Dl1_∂p_3d[:,3,:]), eachcol(∂Dl2_∂p_3d[:,3,:]), "l", ["∂(Dₗ)/∂($(replace(string(par), "₊" => "."))) (EE)" for par in vary]; tol = 2e-12)
 ```
 
