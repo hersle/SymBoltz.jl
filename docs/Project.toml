@@ -9,6 +9,7 @@ DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+FFTA = "b86e33f2-c0db-4aa1-a6e0-ab43e668529e"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -38,6 +39,9 @@ UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
 [sources]
 SymBoltz = {path = ".."}
+
+[compat]
+FFTA = "0.3.0 - 0.3.1, 0.3.3" # TODO: remove FFTA from deps and compat when https://github.com/JuliaMath/FFTA.jl/issues/146 is fixed
 
 [preferences.LinearSolve]
 LoadMKL_JLL = true

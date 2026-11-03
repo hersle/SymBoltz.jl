@@ -20,12 +20,13 @@ makedocs(
             "automatic_differentiation.md",
             "extended_models.md",
             "parameter_fitting.md",
-            "forecasting.md"
+            "forecasting.md",
         ],
         "Building models" => [
             "components.md",
             "models.md",
-            "LCDM.md"
+            "LCDM.md",
+            "interacting.md",
         ],
         "solve.md",
         "plot.md",
