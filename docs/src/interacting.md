@@ -376,3 +376,20 @@ p = Dict(
 tspan = (log(1e-8), 0.0) # t = ln(a) from a = 1e-8 to today
 prob = CosmologyProblem(M, p; tspan)
 ```
+
+Matter power spectrum:
+```@example interacting
+using Plots
+ks = 10 .^ range(-1, 4, length=100)
+Ps = spectrum_matter(prob, ks)
+plot(ks, Ps, xscale = :log10, yscale = :log10, xlabel = "k / (H₀/c)", ylabel = "P / (H₀/c)⁻³", label = nothing)
+```
+
+CMB power spectra:
+```@example interacting
+jl = SphericalBesselCache(ChebyshevIntegerInterpolator(2, 2500, 100)) # compute at Chebyshev l-nodes
+ls = 2:2500 # interpolate to every l
+Dls = spectrum_cmb([:TT, :EE], prob, jl, ls; normalization = :Dl, linterp_normalization = l -> l*(l+1))
+plot(ls, Dls[:,1]*1e12, ylabel = "10¹² D(ℓ)", label = "TT", subplot = 1, color = 1, layout = (2, 1), size = (600, 700), left_margin=5*Plots.mm)
+plot!(ls, Dls[:,2]*1e12, ylabel = "10¹² D(ℓ)", label = "EE", subplot = 2, color = 2, xlabel = "ℓ")
+```
