@@ -12,7 +12,7 @@ Dt = Differential(t) # t-derivative operator
 
 function interacting_model(; Qbc = 0, QbΛ = 0, QcΛ = 0, δQbc = 0, δQbΛ = 0, δQcΛ = 0, fQbc = 0, fQbΛ = 0, fQcΛ = 0, name = :QΛCDM)
 # Constants, some functions and atomic energy levels defined in internal files
-@unpack kB, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s = SymBoltz
+@unpack kB, ħ, c, GN, H100, eV, me, mH, mHe, σT, aR, δkron, smoothifelse, λH2s1s, EH2s1s, EH∞2s, EHe2s1s, λHe2p1s, fHe2p1s, EHe2p2s, EHe∞2s, EHe⁺∞1s, EHet∞2s, λHet2p1s, fHet2p1s, EHet2s1s, EHet2p2s, Gρ, GP = SymBoltz
 lγmax = 10
 lνmax = 10
 lhmax = 10
@@ -30,10 +30,11 @@ KHfitfactorfunc(a, A, z, w) = A*exp(-((log(a)+z)/w)^2)
 nx = 4 # number of momenta
 f₀(x) = 1 / (exp(x) + 1)
 dlnf₀_dlnx(x) = -x / (1 + exp(-x))
-x, W = SymBoltz.momentum_quadrature(f₀, nx)
+x, W, W′ = SymBoltz.momentum_quadrature(f₀, dlnf₀_dlnx, nx)
 x² = x .^ 2
 dlnf₀ = dlnf₀_dlnx.(x)
 ∫dx_x²_f₀(g) = sum(collect(g .* W)) # ≈ ∫dx x²f₀(x)g(x)
+∫dx_x²_f₀′(g) = sum(collect(g .* W′)) # ≈ ∫dx x²f₀′(x)g(x)
 
 # 1) Parameters (add your own)
 pars = @parameters begin
@@ -192,18 +193,18 @@ eqs = [
     # massive neutrinos
     Th ~ Th0 / a
     yh ~ yh0 * a
-    Iρh ~ ∫dx_x²_f₀(Eh)
-    IPh ~ ∫dx_x²_f₀(x² ./ Eh)
-    ρh ~ 2Nh/(2π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
-    Ph ~ 2Nh/(6π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
+    Iρh ~ -∫dx_x²_f₀′(@. x² * Gρ(yh / x)) # by parts with v′ = x²E, v = x⁴Gρ(y/x)
+    IPh ~ -∫dx_x²_f₀′(@. x² * GP(yh / x) / 3) # by parts with v′ = x⁴/(3E), v = x⁴GP(y/x)/3
+    ρh ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * Iρh / ((H0SI*c)^2/GN)
+    Ph ~ Nh/(π^2) * (kB*Th)^4/(ħ*c)^3 * IPh / ((H0SI*c)^2/GN)
     wh ~ Ph / ρh
     Iδρh ~ ∫dx_x²_f₀(Eh .* ψh0)
     δh ~ Iδρh / Iρh
     Δh ~ δh + 3ℋ*(1+wh)*θh/k^2
-    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh/3)
+    uh ~ ∫dx_x²_f₀(x .* ψh[:,1]) / (Iρh + IPh)
     θh ~ k * uh
-    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh/3)
-    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / Iδρh
+    σh ~ 2/3 * ∫dx_x²_f₀(x² ./ Eh .* ψh[:,2]) / (Iρh + IPh)
+    csh2 ~ ∫dx_x²_f₀(x² ./ Eh .* ψh0) / 3Iδρh
     [Eh[i] ~ √(x[i]^2 + yh^2) for i in 1:nx]...
     [Dτ(ψh0[i]) ~ -k * x[i]/Eh[i] * ψh[i,1] - Dτ(Φ) * dlnf₀[i] for i in 1:nx]...
     [Dτ(ψh[i,1]) ~ k/3 * x[i]/Eh[i] * (ψh0[i] - 2ψh[i,2]) - k/3 * Eh[i]/x[i] * Ψ * dlnf₀[i] for i in 1:nx]...
@@ -322,7 +323,7 @@ initial_conditions = [
     Ωγ0 => π^2/15 * (kB*Tγ0)^4 / (ħ^3*c^5) * 8π*GN / (3*H0SI^2)
     mh => mh_eV * eV/c^2
     yh0 => mh*c^2 / (kB*Th0)
-    Iρh0 => ∫dx_x²_f₀(@. √(x² + yh0^2))
+    Iρh0 => -∫dx_x²_f₀′(@. x² * Gρ(yh0 / x))
     Ωh0 => Nh * 8π/3 * 2/(2π^2) * (kB*Th0)^4 / (ħ*c)^3 * Iρh0 / ((H0SI*c)^2/GN)
     fHe => YHe / (mHe/mH*(1-YHe))
     cΛs2 => 1
