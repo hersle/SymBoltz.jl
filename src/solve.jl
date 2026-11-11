@@ -428,6 +428,7 @@ Solve the cosmological problem `prob` up to the perturbative level with wavenumb
 
 - `bgalg`/`ptalg`/`shootalg`: OrdinaryDiffEq and NonlinearSolve algorithms passed to the `solve()` of the background/perturbation/shooting problems.
 - `bgreltol`/`bgabstol`/`ptreltol`/`ptabstol`/`shootabstol`: Absolute/relative tolerances passed to the `solve()` of the background/perturbation/shooting problems.
+  `ptreltol`/`ptabstol` can also be functions of the wavenumber `k`.
 - `bgopts`/`ptopts`/`shootopts`: Extra keyword arguments passed to the `solve()` of the background/perturbation/shooting problems, overriding the options above.
 - `thread`: Whether multithreading is used to parallelize integration over independent perturbation ``k``-modes.
 - `verbose`: Whether to print progress information while solving.
@@ -652,6 +653,7 @@ end
 
 Solve the perturbation cosmology problem `ptprob` with wavenumbers `ks` on top of the solutions `bgsols` of all background stages (see [`solvebg`](@ref)).
 If `thread` and Julia is running with multiple threads, the solution of independent wavenumbers is parallellized.
+The tolerances `reltol` and `abstol` can be numbers or functions of the wavenumber `k`.
 The return value is a vector with one `ODESolution` per wavenumber, or its mapping through `output_func` if a custom transformation is passed.
 """
 function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, output_func = (sol, i) -> sol, callback = (i -> nothing), thread = true, verbose = false, kwargs...)
@@ -679,9 +681,12 @@ function solvept(ptprob::ODEProblem, bgsols::Tuple, ks::AbstractArray; alg = def
         return output_func(sol, i)
     end
 
-    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobf(ks[i]), alg; verbose = verbosity(verbose), reltol, abstol, callback = callback(i), kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
+    ptsols = fetch.(@spawnif output_func_warn(solve(ptprobf(ks[i]), alg; verbose = verbosity(verbose), reltol = tolerance(reltol, ks[i]), abstol = tolerance(abstol, ks[i]), callback = callback(i), kwargs...), i) thread for i in eachindex(ks)) # wait for all tasks to finish and get the returned solutions
     return ptsols
 end
+tolerance(tol, k) = tol
+tolerance(tol::Function, k) = tol(k)
+
 """
     solvept(ptprob::ODEProblem; alg = default_ptalg(ptprob), reltol = 1e-5, abstol = 1e-5, kwargs...)
 
