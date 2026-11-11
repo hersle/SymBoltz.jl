@@ -676,6 +676,17 @@ end
     @test only(unique(fetch.(map(i -> SymBoltz.@spawnif(threadid(), false), 1:10)))) == 1
 end
 
+@testset "Wavenumber-dependent perturbation tolerances" begin
+    ks = [10.0, 100.0]
+    tol(k) = k == ks[1] ? 1e-3 : 1e-5
+    sol = solve(prob, ks; ptreltol = tol, ptabstol = tol)
+    sol1 = solve(prob, ks; ptreltol = 1e-3, ptabstol = 1e-3)
+    sol2 = solve(prob, ks; ptreltol = 1e-5, ptabstol = 1e-5)
+    @test length(sol.pts[1].t) == length(sol1.pts[1].t)
+    @test length(sol.pts[2].t) == length(sol2.pts[2].t)
+    @test length(sol.pts[1].t) < length(sol.pts[2].t)
+end
+
 @testset "Sparse Jacobian" begin
     # sparse background should work for ΛCDM, but since it is a small system the dense version should be a bit faster
     prob_sparse_bg = CosmologyProblem(M, pars; pt = false, bgjac = true, bgsparse = true)
